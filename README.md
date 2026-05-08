@@ -1,0 +1,1 @@
+# RimWorld-Auto-AI-Translation-Core
