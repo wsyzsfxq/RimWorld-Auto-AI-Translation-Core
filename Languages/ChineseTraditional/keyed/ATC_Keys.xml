@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<LanguageData>
+    <!-- 介面與設定 -->
+    <ATC_ModTitle>🖥️ 全自動補位翻譯 V4.4</ATC_ModTitle>
+    <ATC_TargetLang>目標語系</ATC_TargetLang>
+    <ATC_Lang_Traditional>繁體中文</ATC_Lang_Traditional>
+    <ATC_Lang_Simplified>簡體中文</ATC_Lang_Simplified>
+    <ATC_Lang_Japanese>日本語</ATC_Lang_Japanese>
+    <ATC_Lang_Korean>한국어</ATC_Lang_Korean>
+    <ATC_CurrentProvider>當前 AI 供應商</ATC_CurrentProvider>
+    <ATC_ApiKey>API 密鑰 (API Key)</ATC_ApiKey>
+    <ATC_CustomBaseUrl>自訂 API 網址 (Base URL)</ATC_CustomBaseUrl>
+    <ATC_OnlyScanActive>僅掃描已啟用的模組</ATC_OnlyScanActive>
+    
+    <!-- 按鈕與提示 -->
+    <ATC_TestConnection>測試 AI 連線</ATC_TestConnection>
+    <ATC_Msg_EmptyKey>Key 都沒填怎麼測啦！</ATC_Msg_EmptyKey>
+    <ATC_TestingPulse>測試脈衝發送中...</ATC_TestingPulse>
+    <ATC_FetchModels>獲取模型清單</ATC_FetchModels>
+    <ATC_Fetching>通訊中...</ATC_Fetching>
+    <ATC_SelectModel>選擇模型</ATC_SelectModel>
+    <ATC_PlzFetchModel>請先點擊獲取模型清單</ATC_PlzFetchModel>
+    <ATC_StartTranslation>開始執行自動補位計畫</ATC_StartTranslation>
+    
+    <!-- 任務與面板 -->
+    <ATC_CurrentTask>當前任務</ATC_CurrentTask>
+    <ATC_Idle>空閒中</ATC_Idle>
+    <ATC_TaskDone>產線完工！</ATC_TaskDone>
+    <ATC_LogPanelTitle>--- 📡 產線即時監控日誌 ---</ATC_LogPanelTitle>
+
+    <!-- 🔌 測試連線日誌 -->
+    <ATC_Log_TestPulse>🔌 [Test] 發送微量脈衝，測試 [{0}] 連線狀態...</ATC_Log_TestPulse>
+    <ATC_Log_TestSuccess>✅ [Test] 測試成功！AI 核心反應良好。</ATC_Log_TestSuccess>
+    <ATC_Log_TestFail>❌ [Test] 測試失敗！請檢查網路或 API 設置。</ATC_Log_TestFail>
+
+    <!-- 🚀 產線掃描日誌 -->
+    <ATC_Log_Init>🌐 [Init] 正在讀取所有模組，建立全域翻譯共用池...</ATC_Log_Init>
+    <ATC_Log_InitDone>✅ [Init] 完成！共收集到 {0} 條 Def 翻譯。</ATC_Log_InitDone>
+    <ATC_Log_StartScan>🚀 Auto Translation Core 啟動！目標模組數: {0}</ATC_Log_StartScan>
+    <ATC_Log_ScanMod>\n📦 [Start] 掃描模組: {0}</ATC_Log_ScanMod>
+    <ATC_Log_SkipMod>   ⏩ [Skip] 無 Languages 也無 Defs，純代碼模組。</ATC_Log_SkipMod>
+    <ATC_Log_KeyedScan>   🔍 [Keyed] 正在掃描...</ATC_Log_KeyedScan>
+    <ATC_Log_DefScan>   🔍 [DefInjected] 啟動深層掃描與全域比對...</ATC_Log_DefScan>
+    <ATC_Log_TaskDone>\n🎉 [Finish] 全域補位任務完美收工！</ATC_Log_TaskDone>
+    <ATC_Log_TaskError>❌ [Error] 產線意外中斷: {0}</ATC_Log_TaskError>
+    <ATC_Log_Clean>🧹 [Clean] 產線停機，記憶體已釋放。</ATC_Log_Clean>
+    
+    <!-- ⚙️ 焊接狀態日誌 -->
+    <ATC_Log_FoundMissing>   ⚙️ [{0}] 發現 {1} 條缺失！呼叫 AI 焊接中...</ATC_Log_FoundMissing>
+    <ATC_Log_AIFinish>   ✅ [{0}] AI 翻譯焊接完成！</ATC_Log_AIFinish>
+    <ATC_Log_AIFail>   ❌ [{0}] AI 翻譯焊接失敗。</ATC_Log_AIFail>
+    <ATC_Log_NoMissing>   ✨ [{0}] 零件齊全，無須焊接。</ATC_Log_NoMissing>
+</LanguageData>

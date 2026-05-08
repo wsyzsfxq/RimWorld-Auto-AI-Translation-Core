@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<LanguageData>
+    <!-- 介面與設定 -->
+    <ATC_ModTitle>🖥️ 자동 번역 코어 V4.4</ATC_ModTitle>
+    <ATC_TargetLang>대상 언어</ATC_TargetLang>
+    <ATC_Lang_Traditional>번체 중국어 (繁體中文)</ATC_Lang_Traditional>
+    <ATC_Lang_Simplified>간체 중국어 (简体中文)</ATC_Lang_Simplified>
+    <ATC_Lang_Japanese>일본어 (日本語)</ATC_Lang_Japanese>
+    <ATC_Lang_Korean>한국어</ATC_Lang_Korean>
+    <ATC_CurrentProvider>현재 AI 제공자</ATC_CurrentProvider>
+    <ATC_ApiKey>API 키 (API Key)</ATC_ApiKey>
+    <ATC_CustomBaseUrl>사용자 정의 API 주소 (Base URL)</ATC_CustomBaseUrl>
+    <ATC_OnlyScanActive>활성화된 모드만 스캔</ATC_OnlyScanActive>
+    
+    <!-- 按鈕與提示 -->
+    <ATC_TestConnection>AI 연결 테스트</ATC_TestConnection>
+    <ATC_Msg_EmptyKey>오류: API 키를 입력해주세요!</ATC_Msg_EmptyKey>
+    <ATC_TestingPulse>테스트 신호 전송 중...</ATC_TestingPulse>
+    <ATC_FetchModels>모델 목록 가져오기</ATC_FetchModels>
+    <ATC_Fetching>통신 중...</ATC_Fetching>
+    <ATC_SelectModel>모델 선택</ATC_SelectModel>
+    <ATC_PlzFetchModel>먼저 모델 목록을 가져와 주세요</ATC_PlzFetchModel>
+    <ATC_StartTranslation>자동 번역 작업 시작</ATC_StartTranslation>
+    
+    <!-- 任務與面板 -->
+    <ATC_CurrentTask>현재 작업</ATC_CurrentTask>
+    <ATC_Idle>대기 중</ATC_Idle>
+    <ATC_TaskDone>번역 완료!</ATC_TaskDone>
+    <ATC_LogPanelTitle>--- 📡 실시간 모니터링 로그 ---</ATC_LogPanelTitle>
+
+    <!-- 🔌 測試連線日誌 -->
+    <ATC_Log_TestPulse>🔌 [Test] [{0}] 연결 테스트 신호 전송 중...</ATC_Log_TestPulse>
+    <ATC_Log_TestSuccess>✅ [Test] 테스트 성공! AI 코어가 정상적으로 응답합니다.</ATC_Log_TestSuccess>
+    <ATC_Log_TestFail>❌ [Test] 테스트 실패! 네트워크 또는 API 설정을 확인하세요.</ATC_Log_TestFail>
+
+    <!-- 🚀 產線掃描日誌 -->
+    <ATC_Log_Init>🌐 [Init] 모든 모드를 읽고 글로벌 번역 풀을 구축 중...</ATC_Log_Init>
+    <ATC_Log_InitDone>✅ [Init] 완료! {0}개의 Def 번역을 수집했습니다.</ATC_Log_InitDone>
+    <ATC_Log_StartScan>🚀 Auto Translation Core 시작! 대상 모드 수: {0}</ATC_Log_StartScan>
+    <ATC_Log_ScanMod>\n📦 [Start] 모드 스캔 중: {0}</ATC_Log_ScanMod>
+    <ATC_Log_SkipMod>   ⏩ [Skip] Languages 또는 Defs가 없습니다. 코드 전용 모드입니다.</ATC_Log_SkipMod>
+    <ATC_Log_KeyedScan>   🔍 [Keyed] 스캔 중...</ATC_Log_KeyedScan>
+    <ATC_Log_DefScan>   🔍 [DefInjected] 정밀 스캔 및 글로벌 대조 시작...</ATC_Log_DefScan>
+    <ATC_Log_TaskDone>\n🎉 [Finish] 모든 번역 작업이 완벽하게 종료되었습니다!</ATC_Log_TaskDone>
+    <ATC_Log_TaskError>❌ [Error] 작업이 예기치 않게 중단되었습니다: {0}</ATC_Log_TaskError>
+    <ATC_Log_Clean>🧹 [Clean] 프로세스 정지. 메모리가 해제되었습니다.</ATC_Log_Clean>
+    
+    <!-- ⚙️ 焊接狀態日誌 -->
+    <ATC_Log_FoundMissing>   ⚙️ [{0}] {1}개의 누락된 텍스트 발견! AI 번역 요청 중...</ATC_Log_FoundMissing>
+    <ATC_Log_AIFinish>   ✅ [{0}] AI 번역 완료!</ATC_Log_AIFinish>
+    <ATC_Log_AIFail>   ❌ [{0}] AI 번역에 실패했습니다.</ATC_Log_AIFail>
+    <ATC_Log_NoMissing>   ✨ [{0}] 모든 번역이 완료되었습니다. 누락 없음.</ATC_Log_NoMissing>
+</LanguageData>
