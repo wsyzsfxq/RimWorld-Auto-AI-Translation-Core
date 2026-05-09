@@ -18,9 +18,7 @@ namespace AutoTranslator_Core
         public TargetLanguage TargetLang = TargetLanguage.Traditional;
         public string SelectedModel = "";
         public string ApiKey = "";
-
         public string CustomBaseUrl = "";
-
         public bool OnlyScanActiveMods = true;
 
         public List<string> FetchedModels = new List<string>();
@@ -28,24 +26,70 @@ namespace AutoTranslator_Core
         public bool IsTesting = false;
 
         public float CurrentProgress = 0f;
-        // 🌟 咪咪修復 2：先不要在這裡 Translate，等 UI 畫面的時候再處理！
         public string CurrentTaskName = "";
 
+        // 🌟 雙螢幕儀表板：分別管理正常日誌與異常報告
         public static Vector2 logScrollPos = Vector2.zero;
         public static List<string> RuntimeLogs = new List<string>();
+
+        public static Vector2 errorScrollPos = Vector2.zero;
+        public static List<string> ErrorLogs = new List<string>();
+
         public static readonly object logLock = new object();
 
+        public static float ReloadTimer = -1f;
+        public static bool IsReloadingRequested = false;
+
+        // 🌟 修復 1：提前攔截防呆 (87 咪咪謝罪版)
+        public static void RequestReload(float seconds)
+        {
+            // 🛑 防呆機制：在跳出倒數視窗「前」就先檢查！
+            bool isPackActive = ModLister.GetActiveModWithIdentifier("AITranslation.Pack", false) != null;
+
+            if (!isPackActive)
+            {
+                // 沒啟用就直接彈出警告，絕對不倒數！
+                AddLog("⚠️ " + "ATC_FirstTime_Notice".Translate());
+                Find.WindowStack.Add(new Dialog_MessageBox("ATC_FirstTime_Dialog".Translate().ToString()));
+                return;
+            }
+
+            // 有啟用才給他倒數！
+            AddLog($"⚠️ [System] 觸發語言熱重載，將於 {seconds:F0} 秒後執行。");
+            Find.WindowStack.Add(new AutoReloadCountdownWindow(seconds));
+        }
         public static void AddLog(string msg)
         {
             string line = $"[{DateTime.Now:HH:mm:ss}] {msg}";
-
             lock (logLock)
             {
                 RuntimeLogs.Add(line);
                 if (RuntimeLogs.Count > 500) RuntimeLogs.RemoveAt(0);
                 logScrollPos.y = 99999f;
             }
+            WriteLogToFile(line);
+        }
 
+        // 🌟 新增：專門印在右邊視窗的錯誤日誌
+        // 🌟 修復 2：過濾重複的異常日誌
+        public static void AddErrorLog(string msg)
+        {
+            lock (logLock)
+            {
+                // 🛑 防洗頻機制：如果錯誤清單裡面已經有這句話了，就直接跳過不印！
+                if (ErrorLogs.Any(x => x.Contains(msg))) return;
+
+                string line = $"[{DateTime.Now:HH:mm:ss}] {msg}";
+                ErrorLogs.Add(line);
+                if (ErrorLogs.Count > 100) ErrorLogs.RemoveAt(0);
+                errorScrollPos.y = 99999f;
+
+                // 寫入實體檔案
+                WriteLogToFile("[ERROR] " + line);
+            }
+        }
+        private static void WriteLogToFile(string line)
+        {
             try
             {
                 string path = Path.Combine(AutoTranslatorScanner.GetLocalPackPath(), "AutoTranslation_Log.txt");
@@ -60,13 +104,15 @@ namespace AutoTranslator_Core
             lock (logLock)
             {
                 RuntimeLogs.Clear();
+                ErrorLogs.Clear();
                 logScrollPos = Vector2.zero;
+                errorScrollPos = Vector2.zero;
             }
             try
             {
                 string path = Path.Combine(AutoTranslatorScanner.GetLocalPackPath(), "AutoTranslation_Log.txt");
                 Directory.CreateDirectory(Path.GetDirectoryName(path));
-                File.WriteAllText(path, $"=== Auto Translation Core V4.4.2 Log [{DateTime.Now:yyyy-MM-dd HH:mm:ss}] ===\n\n");
+                File.WriteAllText(path, $"=== Auto Translation Core V4.5 Ultimate [{DateTime.Now:yyyy-MM-dd HH:mm:ss}] ===\n\n");
             }
             catch { }
         }
@@ -91,6 +137,7 @@ namespace AutoTranslator_Core
         public AutoTranslatorMod(ModContentPack content) : base(content)
         {
             Settings = GetSettings<AutoTranslatorSettings>();
+            AutoTranslatorScanner.EnsurePackInitialized();
         }
 
         private string GetLangLabel(TargetLanguage lang)
@@ -109,12 +156,19 @@ namespace AutoTranslator_Core
         {
             Listing_Standard l = new Listing_Standard();
             l.Begin(inRect);
-
-            // 🌟 咪咪修復 1：刪掉這裡手動印的標題，讓 RimWorld 自動幫我們印一次就好！才不會出現兩行！
             l.Gap(5f);
 
+            Rect topBarRect = l.GetRect(30f);
+            if (Widgets.ButtonText(new Rect(topBarRect.x + topBarRect.width - 250f, topBarRect.y, 250f, topBarRect.height), "ATC_Tutorial_Btn".Translate()))
+            {
+                Find.WindowStack.Add(new TutorialWindow());
+            }
+            l.Gap(10f);
+
             Rect row1 = l.GetRect(30f);
-            if (Widgets.ButtonText(new Rect(row1.x, row1.y, row1.width / 2 - 5f, row1.height), "ATC_TargetLang".Translate() + ": " + GetLangLabel(Settings.TargetLang)))
+            Rect langRect = new Rect(row1.x, row1.y, row1.width / 2 - 5f, row1.height);
+            if (Mouse.IsOver(langRect)) TooltipHandler.TipRegion(langRect, "【目標語言】\n設定 AI 要將外語模組翻譯成什麼語言。");
+            if (Widgets.ButtonText(langRect, "ATC_TargetLang".Translate() + ": " + GetLangLabel(Settings.TargetLang)))
             {
                 List<FloatMenuOption> options = new List<FloatMenuOption>();
                 foreach (TargetLanguage lang in Enum.GetValues(typeof(TargetLanguage)))
@@ -123,7 +177,10 @@ namespace AutoTranslator_Core
                 }
                 Find.WindowStack.Add(new FloatMenu(options));
             }
-            if (Widgets.ButtonText(new Rect(row1.x + row1.width / 2 + 5f, row1.y, row1.width / 2 - 5f, row1.height), "ATC_CurrentProvider".Translate() + ": " + Settings.CurrentProvider))
+
+            Rect providerRect = new Rect(row1.x + row1.width / 2 + 5f, row1.y, row1.width / 2 - 5f, row1.height);
+            if (Mouse.IsOver(providerRect)) TooltipHandler.TipRegion(providerRect, "【AI 服務商】\n選擇你要使用的 AI 模型供應商。強烈推薦使用 Google (Gemini) 或 OpenAI。");
+            if (Widgets.ButtonText(providerRect, "ATC_CurrentProvider".Translate() + ": " + Settings.CurrentProvider))
             {
                 List<FloatMenuOption> options = new List<FloatMenuOption>();
                 foreach (TranslatorProvider p in Enum.GetValues(typeof(TranslatorProvider)))
@@ -138,19 +195,22 @@ namespace AutoTranslator_Core
             }
             l.Gap(5f);
 
-            l.Label("ATC_ApiKey".Translate() + ":");
+            Rect keyLabelRect = l.GetRect(24f);
+            Widgets.Label(keyLabelRect, "ATC_ApiKey".Translate() + ":");
             Settings.ApiKey = l.TextEntry(Settings.ApiKey);
             l.Gap(5f);
 
             if (Settings.CurrentProvider != TranslatorProvider.Google)
             {
-                l.Label("ATC_CustomBaseUrl".Translate() + " (預設請留空 / Default: Empty):");
+                Rect urlLabelRect = l.GetRect(24f);
+                Widgets.Label(urlLabelRect, "ATC_CustomBaseUrl".Translate() + " (預設請留空 / Default: Empty):");
                 Settings.CustomBaseUrl = l.TextEntry(Settings.CustomBaseUrl);
                 l.Gap(5f);
             }
 
             Rect row3 = l.GetRect(30f);
-            Widgets.CheckboxLabeled(new Rect(row3.x, row3.y, row3.width * 0.5f, row3.height), "ATC_OnlyScanActive".Translate(), ref Settings.OnlyScanActiveMods);
+            Rect activeScanRect = new Rect(row3.x, row3.y, row3.width * 0.5f, row3.height);
+            Widgets.CheckboxLabeled(activeScanRect, "ATC_OnlyScanActive".Translate(), ref Settings.OnlyScanActiveMods);
 
             Rect testRect = new Rect(row3.x + row3.width * 0.55f, row3.y, row3.width * 0.45f, row3.height);
             if (!Settings.IsTesting && Widgets.ButtonText(testRect, "🔌 " + "ATC_TestConnection".Translate()))
@@ -162,13 +222,11 @@ namespace AutoTranslator_Core
                 else
                 {
                     Settings.IsTesting = true;
-                    string modelToTest = string.IsNullOrEmpty(Settings.SelectedModel) || Settings.SelectedModel.Contains("請") ? "Auto/Custom" : Settings.SelectedModel;
-                    AutoTranslatorSettings.AddLog("ATC_Log_TestPulse".Translate(modelToTest));
-
+                    AutoTranslatorSettings.AddLog("ATC_Log_TestPulse".Translate());
                     Task.Run(async () => {
                         bool ok = await AutoTranslatorAPI.TestConnectionAsync();
                         if (ok) AutoTranslatorSettings.AddLog("ATC_Log_TestSuccess".Translate());
-                        else AutoTranslatorSettings.AddLog("ATC_Log_TestFail".Translate());
+                        else AutoTranslatorSettings.AddErrorLog("ATC_Log_TestFail".Translate());
                         Settings.IsTesting = false;
                     });
                 }
@@ -194,11 +252,11 @@ namespace AutoTranslator_Core
                     {
                         Settings.FetchedModels = models;
                         Settings.SelectedModel = models[0];
+                        AutoTranslatorSettings.AddLog("✅ [System] 獲取模型清單成功！");
                     }
                     else
                     {
-                        // 🌟 若失敗，至少重置狀態，讓玩家可以重按
-                        AutoTranslatorSettings.AddLog("❌ [System] 獲取清單失敗 (Fetch failed)，請檢查日誌與 API 設定。");
+                        AutoTranslatorSettings.AddErrorLog("❌ [System] 獲取清單失敗，請檢查金鑰。");
                     }
                     Settings.IsFetchingModels = false;
                 });
@@ -217,8 +275,16 @@ namespace AutoTranslator_Core
             }
             l.Gap(15f);
 
+            Rect actionRow = l.GetRect(30f);
+            Rect reloadRect = new Rect(actionRow.x, actionRow.y, actionRow.width * 0.3f, actionRow.height);
+            if (Widgets.ButtonText(reloadRect, "🔄 " + "ATC_ManualReload".Translate()))
+            {
+                ExecuteHotReload();
+            }
+
+            Rect startRect = new Rect(actionRow.x + actionRow.width * 0.35f, actionRow.y, actionRow.width * 0.65f, actionRow.height);
             GUI.color = new Color(0.6f, 0.9f, 0.6f);
-            if (l.ButtonText("🚀 " + "ATC_StartTranslation".Translate()))
+            if (Widgets.ButtonText(startRect, "🚀 " + "ATC_StartTranslation".Translate()))
             {
                 AutoTranslatorSettings.ClearLog();
                 AutoTranslatorScanner.StartFullScan();
@@ -226,7 +292,6 @@ namespace AutoTranslator_Core
             GUI.color = Color.white;
             l.Gap(10f);
 
-            // 🌟 咪咪修復 2：在這裡動態判斷，如果字串是空的，才叫出空閒中的本地化翻譯！
             string displayTask = string.IsNullOrEmpty(Settings.CurrentTaskName) ? "ATC_Idle".Translate().ToString() : Settings.CurrentTaskName;
             l.Label("ATC_CurrentTask".Translate() + $": {displayTask}");
 
@@ -238,58 +303,226 @@ namespace AutoTranslator_Core
             Text.Anchor = oldAnchor;
             l.Gap(10f);
 
-            l.Label("ATC_LogPanelTitle".Translate());
-
+            // 🌟 V4.5 雙螢幕儀表板標題
+            Rect headerRect = l.GetRect(24f);
+            float leftWidth = headerRect.width * 0.6f;
+            float rightWidth = headerRect.width * 0.4f - 10f;
+            Widgets.Label(new Rect(headerRect.x, headerRect.y, leftWidth, headerRect.height), "ATC_LogPanelTitle".Translate());
+            Widgets.Label(new Rect(headerRect.x + leftWidth + 10f, headerRect.y, rightWidth, headerRect.height), "ATC_ErrorLogTitle".Translate());
             float remainHeight = inRect.height - l.CurHeight;
             if (remainHeight > 50f)
             {
-                Rect logRect = l.GetRect(remainHeight);
-                Widgets.DrawBoxSolid(logRect, new Color(0.05f, 0.05f, 0.05f, 1f));
-                Widgets.DrawBox(logRect, 1);
+                Rect logArea = l.GetRect(remainHeight);
+                Rect leftRect = new Rect(logArea.x, logArea.y, leftWidth, logArea.height);
+                Rect rightRect = new Rect(logArea.x + leftWidth + 10f, logArea.y, rightWidth, logArea.height);
 
-                List<string> displayLogs;
-                lock (AutoTranslatorSettings.logLock) { displayLogs = AutoTranslatorSettings.RuntimeLogs.ToList(); }
+                // --- 繪製左側：正常產線監控 ---
+                Widgets.DrawBoxSolid(leftRect, new Color(0.05f, 0.05f, 0.05f, 1f));
+                Widgets.DrawBox(leftRect, 1);
+                DrawLogView(leftRect, AutoTranslatorSettings.RuntimeLogs, ref AutoTranslatorSettings.logScrollPos, false);
 
-                Text.Font = GameFont.Tiny;
-
-                float totalHeight = 0f;
-                List<float> heights = new List<float>();
-                foreach (string log in displayLogs)
-                {
-                    float h = Text.CalcHeight(log, logRect.width - 20f);
-                    heights.Add(h);
-                    totalHeight += h;
-                }
-
-                float contentHeight = Mathf.Max(totalHeight, logRect.height);
-                Rect viewRect = new Rect(0, 0, logRect.width - 20f, contentHeight);
-
-                Widgets.BeginScrollView(logRect, ref AutoTranslatorSettings.logScrollPos, viewRect);
-                float currentY = 0;
-
-                for (int i = 0; i < displayLogs.Count; i++)
-                {
-                    string log = displayLogs[i];
-                    float h = heights[i];
-                    Rect lineRect = new Rect(5f, currentY, viewRect.width, h);
-
-                    if (log.Contains("❌")) GUI.color = new Color(1f, 0.4f, 0.4f);
-                    else if (log.Contains("✅") || log.Contains("✨") || log.Contains("🎉")) GUI.color = new Color(0.4f, 1f, 0.4f);
-                    else if (log.Contains("⚙️") || log.Contains("🔌") || log.Contains("🔄")) GUI.color = new Color(1f, 0.8f, 0.4f);
-                    else if (log.Contains("📦") || log.Contains("🌐") || log.Contains("🚀")) GUI.color = new Color(0.4f, 0.8f, 1f);
-                    else GUI.color = new Color(0.8f, 0.8f, 0.8f);
-
-                    Widgets.Label(lineRect, log);
-                    currentY += h;
-                }
-
-                GUI.color = Color.white;
-                Text.Font = GameFont.Small;
-                Widgets.EndScrollView();
+                // --- 繪製右側：異常爛檔報告 ---
+                Widgets.DrawBoxSolid(rightRect, new Color(0.1f, 0.0f, 0.0f, 1f)); // 紅底色
+                Widgets.DrawBox(rightRect, 1);
+                DrawLogView(rightRect, AutoTranslatorSettings.ErrorLogs, ref AutoTranslatorSettings.errorScrollPos, true);
             }
             l.End();
         }
 
+        // 🌟 獨立抽出來的滾動視窗繪製器，給左右兩邊共用
+        private void DrawLogView(Rect rect, List<string> logs, ref Vector2 scrollPos, bool isErrorBox)
+        {
+            List<string> displayLogs;
+            lock (AutoTranslatorSettings.logLock) { displayLogs = logs.ToList(); }
+
+            Text.Font = GameFont.Tiny;
+            float totalHeight = 0f;
+            List<float> heights = new List<float>();
+            foreach (string log in displayLogs)
+            {
+                float h = Text.CalcHeight(log, rect.width - 20f);
+                heights.Add(h);
+                totalHeight += h;
+            }
+
+            float contentHeight = Mathf.Max(totalHeight, rect.height);
+            Rect viewRect = new Rect(0, 0, rect.width - 20f, contentHeight);
+
+            Widgets.BeginScrollView(rect, ref scrollPos, viewRect);
+            float currentY = 0;
+
+            for (int i = 0; i < displayLogs.Count; i++)
+            {
+                string log = displayLogs[i];
+                float h = heights[i];
+                Rect lineRect = new Rect(5f, currentY, viewRect.width, h);
+
+                if (isErrorBox || log.Contains("❌") || log.Contains("⚠️")) GUI.color = new Color(1f, 0.4f, 0.4f);
+                else if (log.Contains("✅") || log.Contains("✨") || log.Contains("🎉")) GUI.color = new Color(0.4f, 1f, 0.4f);
+                else if (log.Contains("⚙️") || log.Contains("🔌") || log.Contains("🔄")) GUI.color = new Color(1f, 0.8f, 0.4f);
+                else if (log.Contains("📦") || log.Contains("🌐") || log.Contains("🚀")) GUI.color = new Color(0.4f, 0.8f, 1f);
+                else GUI.color = new Color(0.8f, 0.8f, 0.8f);
+
+                Widgets.Label(lineRect, log);
+                currentY += h;
+            }
+
+            GUI.color = Color.white;
+            Text.Font = GameFont.Small;
+            Widgets.EndScrollView();
+        }
+
+        public static void ExecuteHotReload()
+        {
+            bool isPackActive = ModLister.GetActiveModWithIdentifier("AITranslation.Pack", false) != null;
+
+            if (!isPackActive)
+            {
+                AutoTranslatorSettings.AddLog("⚠️ " + "ATC_FirstTime_Notice".Translate());
+                Find.WindowStack.Add(new Dialog_MessageBox("ATC_FirstTime_Dialog".Translate().ToString()));
+                return;
+            }
+
+            AutoTranslatorSettings.AddLog("🚀 [System] " + "ATC_ReloadingLog".Translate());
+
+            LongEventHandler.QueueLongEvent(() =>
+            {
+                LanguageDatabase.activeLanguage.LoadData();
+                AutoTranslatorSettings.AddLog("✅ [System] " + "ATC_ReloadDoneLog".Translate());
+            }, "ATC_ReloadingMessage".Translate(), true, null);
+        }
+
         public override string SettingsCategory() => "ATC_ModTitle".Translate();
+    }
+
+    public class AutoReloadCountdownWindow : Window
+    {
+        private float timer;
+        public override Vector2 InitialSize => new Vector2(700f, 90f);
+        protected override float Margin => 10f;
+
+        public AutoReloadCountdownWindow(float seconds)
+        {
+            this.timer = seconds;
+            this.preventCameraMotion = false;
+            this.doCloseX = false;
+            this.doCloseButton = false;
+            this.closeOnClickedOutside = false;
+            this.closeOnCancel = false;
+            this.forcePause = false;
+            this.drawShadow = true;
+            this.layer = WindowLayer.Super;
+        }
+
+        public override void DoWindowContents(Rect inRect)
+        {
+            timer -= Time.deltaTime;
+
+            Text.Font = GameFont.Medium;
+            Text.Anchor = TextAnchor.MiddleCenter;
+            GUI.color = new Color(1f, 0.3f, 0.3f);
+
+            string msg = "ATC_ReloadingCountdown".Translate() + $" {timer:F0} " + "ATC_Seconds".Translate();
+            Widgets.Label(inRect, "⚠️ " + msg);
+
+            GUI.color = Color.white;
+            Text.Anchor = TextAnchor.UpperLeft;
+            Text.Font = GameFont.Small;
+
+            if (timer <= 0)
+            {
+                this.Close();
+                AutoTranslatorMod.ExecuteHotReload();
+            }
+        }
+
+        protected override void SetInitialSizeAndPosition()
+        {
+            base.SetInitialSizeAndPosition();
+            this.windowRect.x = (UI.screenWidth - this.InitialSize.x) / 2f;
+            this.windowRect.y = 50f;
+        }
+    }
+
+    // 教學視窗
+    public class TutorialWindow : Window
+    {
+        private Vector2 scrollPos = Vector2.zero;
+        public override Vector2 InitialSize => new Vector2(750f, 700f);
+
+        public TutorialWindow()
+        {
+            this.doCloseButton = true;
+            this.doCloseX = true;
+            this.forcePause = true;
+            this.absorbInputAroundWindow = true;
+        }
+
+        public override void DoWindowContents(Rect inRect)
+        {
+            Text.Font = GameFont.Medium;
+            Widgets.Label(new Rect(0, 0, inRect.width, 40f), "📖 " + "ATC_Tutorial_Title".Translate());
+            Text.Font = GameFont.Small;
+
+            Widgets.DrawLineHorizontal(0, 35f, inRect.width);
+
+            Rect outRect = new Rect(0, 45f, inRect.width, inRect.height - 100f);
+            Rect viewRect = new Rect(0, 0, inRect.width - 20f, 1200f);
+
+            Widgets.BeginScrollView(outRect, ref scrollPos, viewRect);
+            Listing_Standard l = new Listing_Standard();
+            l.Begin(viewRect);
+
+            Text.Font = GameFont.Medium;
+            l.Label("🚀 " + "ATC_Tutorial_StepsTitle".Translate());
+            Text.Font = GameFont.Small;
+            l.Gap(5f);
+            l.Label("1. " + "ATC_Tutorial_Step1".Translate());
+            l.Label("2. " + "ATC_Tutorial_Step2".Translate());
+            l.Label("3. " + "ATC_Tutorial_Step3".Translate());
+            l.Label("4. " + "ATC_Tutorial_Step4".Translate());
+            l.Gap(5f);
+            GUI.color = new Color(1f, 0.8f, 0.4f);
+            l.Label("5. " + "ATC_Tutorial_Step5".Translate());
+            GUI.color = Color.white;
+            l.Gap(15f);
+
+            Text.Font = GameFont.Medium;
+            l.Label("💡 " + "ATC_Tutorial_FAQTitle".Translate());
+            Text.Font = GameFont.Small;
+            l.Gap(5f);
+
+            GUI.color = new Color(0.4f, 0.8f, 1f);
+            l.Label("Q: " + "ATC_FAQ_Q1".Translate());
+            GUI.color = Color.white;
+            l.Label("A: " + "ATC_FAQ_A1".Translate());
+            l.GapLine();
+
+            GUI.color = new Color(0.4f, 0.8f, 1f);
+            l.Label("Q: " + "ATC_FAQ_Q2".Translate());
+            GUI.color = Color.white;
+            l.Label("A: " + "ATC_FAQ_A2".Translate());
+            l.GapLine();
+
+            GUI.color = new Color(0.4f, 0.8f, 1f);
+            l.Label("Q: " + "ATC_FAQ_Q3".Translate());
+            GUI.color = Color.white;
+            l.Label("A: " + "ATC_FAQ_A3".Translate());
+            l.GapLine();
+
+            GUI.color = new Color(0.4f, 0.8f, 1f);
+            l.Label("Q: " + "ATC_FAQ_Q4".Translate());
+            GUI.color = Color.white;
+            l.Label("A: " + "ATC_FAQ_A4".Translate());
+            l.GapLine();
+
+            GUI.color = new Color(0.4f, 0.8f, 1f);
+            l.Label("Q: " + "ATC_FAQ_Q5".Translate());
+            GUI.color = Color.white;
+            l.Label("A: " + "ATC_FAQ_A5".Translate());
+
+            l.End();
+            Widgets.EndScrollView();
+        }
     }
 }

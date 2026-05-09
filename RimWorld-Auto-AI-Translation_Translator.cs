@@ -14,6 +14,12 @@ namespace AutoTranslator_Core
     {
         private static readonly HttpClient client = new HttpClient();
 
+        // 🌟 V4.5 新增：靜態建構函式，初始化設定 5 分鐘超時防禦！
+        static AutoTranslatorAPI()
+        {
+            client.Timeout = TimeSpan.FromMinutes(5); // 大幅度放寬超時限制，防止批次翻譯崩潰
+        }
+
         public static string CleanInput(string input)
         {
             if (string.IsNullOrEmpty(input)) return "";
@@ -34,7 +40,7 @@ namespace AutoTranslator_Core
                     break;
                 case TargetLanguage.Simplified:
                     targetLanguageName = "大陸簡體中文 (Simplified Chinese, zh-CN)";
-                    languageSpecificRules = "1. 術語轉換：若原文為另一種語系或包含標記，必須強制進行術語轉換（如：品質->質量、訊息->信息、啟動->激活、程式->程序、資料->數據、設定->設置、選單->菜單、螢幕->屏幕、雷射->激光）。\n";
+                    languageSpecificRules = "1. 術語轉換：若原文為另一種語系或包含標記，必須強制進行術語轉換（如：品質->質量、訊息->信息、啟動->激活、程式->程序、資料->數據、設定->設置、選單->菜單、屏幕->螢幕、激光->雷射）。\n";
                     break;
                 case TargetLanguage.Japanese:
                     targetLanguageName = "日本語 (Japanese)";
@@ -70,15 +76,14 @@ namespace AutoTranslator_Core
                 return custom;
             }
 
-            // 🌟 咪咪大補丸：把所有供應商的預設網址都補齊，不留死角！
             switch (p)
             {
                 case TranslatorProvider.DeepSeek: return "https://" + "api.deepseek.com/v1";
                 case TranslatorProvider.Grok: return "https://" + "api.x.ai/v1";
                 case TranslatorProvider.OpenRouter: return "https://" + "openrouter.ai/api/v1";
-                case TranslatorProvider.GLM: return "https://" + "open.bigmodel.cn/api/paas/v4"; // 智譜 AI 官方
-                case TranslatorProvider.Alibaba: return "https://" + "dashscope.aliyuncs.com/compatible-mode/v1"; // 阿里通義官方
-                default: return "https://" + "api.openai.com/v1"; // OpenAI 與 Custom_OpenAI 的兜底
+                case TranslatorProvider.GLM: return "https://" + "open.bigmodel.cn/api/paas/v4";
+                case TranslatorProvider.Alibaba: return "https://" + "dashscope.aliyuncs.com/compatible-mode/v1";
+                default: return "https://" + "api.openai.com/v1";
             }
 
         }
@@ -235,6 +240,12 @@ namespace AutoTranslator_Core
                 }
 
                 return ParseResponse(await res.Content.ReadAsStringAsync(), s.CurrentProvider, texts.Count);
+            }
+            catch (TaskCanceledException)
+            {
+                // 🌟 攔截超時錯誤，只發出警告不噴紅字報錯！
+                Log.Warning("[AutoTranslationCore] 翻譯通訊超時 (Timeout)！API 伺服器無回應，可能是請求被取消或網路擁塞。");
+                return null;
             }
             catch (Exception e)
             {

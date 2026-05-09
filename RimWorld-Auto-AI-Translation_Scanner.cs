@@ -26,7 +26,6 @@ namespace AutoTranslator_Core
             return Path.Combine(rimWorldRoot, "Mods/!Translation_AI_Pack");
         }
 
-        // 🧠 新增：自動取得對應 RimWorld 的資料夾名稱
         public static string GetFolderNameByLanguage(TargetLanguage lang)
         {
             switch (lang)
@@ -39,14 +38,13 @@ namespace AutoTranslator_Core
             }
         }
 
-        // 🧠 新增：取得備用字典資料夾 (只有中文需要互相借用)
         public static string GetSecondaryFolderNameByLanguage(TargetLanguage lang)
         {
             switch (lang)
             {
                 case TargetLanguage.Traditional: return "ChineseSimplified";
                 case TargetLanguage.Simplified: return "ChineseTraditional";
-                default: return null; // 日文韓文不使用備用中文池
+                default: return null;
             }
         }
 
@@ -141,9 +139,15 @@ namespace AutoTranslator_Core
                     }
                 }
 
-                settings.CurrentTaskName = "ATC_TaskDone".Translate(); // "產線完工！"
+                settings.CurrentTaskName = "ATC_TaskDone".Translate();
                 settings.CurrentProgress = 1f;
                 AutoTranslatorSettings.AddLog("ATC_Log_TaskDone".Translate());
+
+                // 🌟 V4.5 新增：完成任務後，排程 10 秒後自動熱重載
+                AutoTranslatorSettings.AddLog("🎉 [Success] 所有翻譯已寫入 !Translation_AI_Pack！");
+                AutoTranslatorSettings.AddLog("✨ [System] 正在啟動自動熱重載，請稍候...");
+                AutoTranslatorSettings.RequestReload(10f);
+
             }
             catch (Exception e)
             {
@@ -184,7 +188,6 @@ namespace AutoTranslator_Core
                 var pKeyed = LoadXmlFilesToDict(Path.Combine(langRoot, targetFolder, "Keyed"));
                 foreach (var kv in pKeyed) GlobalPrimaryKeyedDict[kv.Key] = kv.Value;
 
-                // 若有備用池（繁簡轉換）才讀取
                 if (!string.IsNullOrEmpty(otherFolder))
                 {
                     var sKeyed = LoadXmlFilesToDict(Path.Combine(langRoot, otherFolder, "Keyed"));
@@ -277,45 +280,65 @@ namespace AutoTranslator_Core
 
             foreach (string file in Directory.GetFiles(englishPath, "*.xml", SearchOption.AllDirectories))
             {
-                string modIdClean = mod.PackageId.Replace(".", "_");
-                string targetFileName = $"{modIdClean}_{Path.GetFileName(file)}";
-                string targetFile = Path.Combine(packKeyedDir, targetFileName);
-
-                var packDict = LoadXmlFileToDict(targetFile);
-
-                XmlDocument doc = new XmlDocument(); doc.Load(file);
-                Dictionary<string, string> finalData = new Dictionary<string, string>();
-                List<string> keysToAI = new List<string>();
-                List<string> valuesToAI = new List<string>();
-
-                if (doc.DocumentElement == null) continue;
-
-                foreach (XmlNode node in doc.DocumentElement.ChildNodes)
+                // 🌟 咪咪特製防護罩：把讀取與翻譯邏輯包起來，遇到爛 XML 就不會全線崩潰了！
+                try
                 {
-                    if (node.NodeType != XmlNodeType.Element || string.IsNullOrEmpty(node.InnerText)) continue;
-                    string key = node.Name;
+                    string modIdClean = mod.PackageId.Replace(".", "_");
+                    string targetFileName = $"{modIdClean}_{Path.GetFileName(file)}";
+                    string targetFile = Path.Combine(packKeyedDir, targetFileName);
 
-                    if (packDict.TryGetValue(key, out string packVal)) finalData[key] = packVal;
-                    else if (GlobalPrimaryKeyedDict.TryGetValue(key, out string pVal)) finalData[key] = pVal;
-                    else if (GlobalSecondaryKeyedDict.TryGetValue(key, out string sVal) && !string.IsNullOrEmpty(secondaryTag))
-                    { keysToAI.Add(key); valuesToAI.Add($"{secondaryTag} {sVal}"); }
-                    else { keysToAI.Add(key); valuesToAI.Add(node.InnerText); }
-                }
+                    var packDict = LoadXmlFileToDict(targetFile);
 
-                if (keysToAI.Count > 0)
-                {
-                    AutoTranslatorSettings.AddLog("ATC_Log_FoundMissing".Translate("Keyed", keysToAI.Count));
-                    var res = await SafeTranslateBatch(valuesToAI);
-                    if (res != null)
+                    XmlDocument doc = new XmlDocument();
+                    doc.Load(file); // 👈 有了 try 包著，遇到爛檔也不怕炸開！
+
+                    Dictionary<string, string> finalData = new Dictionary<string, string>();
+                    List<string> keysToAI = new List<string>();
+                    List<string> valuesToAI = new List<string>();
+
+                    if (doc.DocumentElement == null) continue;
+
+                    foreach (XmlNode node in doc.DocumentElement.ChildNodes)
                     {
-                        for (int i = 0; i < keysToAI.Count; i++) finalData[keysToAI[i]] = res[i];
-                        AutoTranslatorSettings.AddLog("ATC_Log_AIFinish".Translate("Keyed"));
-                    }
-                    else AutoTranslatorSettings.AddLog("ATC_Log_AIFail".Translate("Keyed"));
-                }
-                else AutoTranslatorSettings.AddLog("ATC_Log_NoMissing".Translate(Path.GetFileName(file)));
+                        if (node.NodeType != XmlNodeType.Element || string.IsNullOrEmpty(node.InnerText)) continue;
+                        string key = node.Name;
 
-                if (finalData.Count > 0) SaveXml(targetFile, finalData);
+                        if (packDict.TryGetValue(key, out string packVal)) finalData[key] = packVal;
+                        else if (GlobalPrimaryKeyedDict.TryGetValue(key, out string pVal)) finalData[key] = pVal;
+                        else if (GlobalSecondaryKeyedDict.TryGetValue(key, out string sVal) && !string.IsNullOrEmpty(secondaryTag))
+                        { keysToAI.Add(key); valuesToAI.Add($"{secondaryTag} {sVal}"); }
+                        else { keysToAI.Add(key); valuesToAI.Add(node.InnerText); }
+                    }
+
+                    if (keysToAI.Count > 0)
+                    {
+                        AutoTranslatorSettings.AddLog("ATC_Log_FoundMissing".Translate("Keyed", keysToAI.Count));
+                        var res = await SafeTranslateBatch(valuesToAI);
+                        if (res != null)
+                        {
+                            for (int i = 0; i < keysToAI.Count; i++) finalData[keysToAI[i]] = res[i];
+                            AutoTranslatorSettings.AddLog("ATC_Log_AIFinish".Translate("Keyed"));
+                        }
+                        else AutoTranslatorSettings.AddLog("ATC_Log_AIFail".Translate("Keyed"));
+                    }
+                    else AutoTranslatorSettings.AddLog("ATC_Log_NoMissing".Translate(Path.GetFileName(file)));
+
+                    if (finalData.Count > 0) SaveXml(targetFile, finalData);
+                }
+                catch (XmlException xmlEx)
+                {
+                    // 🌟 把 Path.GetFileName 換成我們的 GetShortPath
+                    AutoTranslatorSettings.AddErrorLog($"⚠️ [{mod.Name}] 格式錯誤: {GetShortPath(file)}");
+                    Log.Warning($"[AutoTranslationCore] XML 解析錯誤 ({mod.Name}): {xmlEx.Message}");
+                    continue;
+                }
+                catch (Exception ex)
+                {
+                    // 🌟 把 Path.GetFileName 換成我們的 GetShortPath
+                    AutoTranslatorSettings.AddErrorLog($"⚠️ [{mod.Name}] 未知異常: {GetShortPath(file)}");
+                    Log.Warning($"[AutoTranslationCore] 檔案處理異常 ({mod.Name}): {ex.Message}");
+                    continue;
+                }
             }
         }
 
@@ -461,10 +484,14 @@ namespace AutoTranslator_Core
                 if (d.DocumentElement == null) return dict;
                 foreach (XmlNode n in d.DocumentElement.ChildNodes) if (n.NodeType == XmlNodeType.Element) dict[n.Name] = n.InnerText;
             }
-            catch { }
+            catch (Exception ex)
+            {
+                // 🌟 把 Path.GetFileName 換成我們的 GetShortPath
+                AutoTranslatorSettings.AddErrorLog($"⚠️ [檔案損壞] 略過無法解析的檔案: {GetShortPath(filePath)}");
+                Log.Warning($"[AutoTranslationCore] XML 解析錯誤 ({Path.GetFileName(filePath)}): {ex.Message}");
+            }
             return dict;
         }
-
         private static void SaveXml(string path, Dictionary<string, string> data)
         {
             Directory.CreateDirectory(Path.GetDirectoryName(path));
@@ -474,5 +501,16 @@ namespace AutoTranslator_Core
             foreach (var p in data) { XmlElement n = d.CreateElement(p.Key); n.InnerText = p.Value; r.AppendChild(n); }
             d.AppendChild(r); d.Save(path);
         }
+
+        // 🌟 咪咪特製：只擷取 294100 或 Mods 之後的實用路徑
+        private static string GetShortPath(string fullPath)
+        {
+            if (string.IsNullOrEmpty(fullPath)) return "";
+            string normalized = fullPath.Replace('\\', '/'); // 統一斜線方向
+            int idx = normalized.IndexOf("294100/");
+            if (idx == -1) idx = normalized.IndexOf("Mods/");
+            return idx != -1 ? normalized.Substring(idx) : Path.GetFileName(fullPath);
+        }
+
     }
 }
