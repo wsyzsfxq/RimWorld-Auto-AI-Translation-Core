@@ -1,107 +1,145 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <LanguageData>
-    <!-- UI & Settings -->
-    <ATC_ModTitle>🖥️ Auto Translation Core V4.5</ATC_ModTitle>
-    <ATC_TargetLang>Target Language</ATC_TargetLang>
-    <ATC_Lang_Traditional>Traditional Chinese</ATC_Lang_Traditional>
-    <ATC_Lang_Simplified>Simplified Chinese</ATC_Lang_Simplified>
-    <ATC_Lang_Japanese>Japanese</ATC_Lang_Japanese>
-    <ATC_Lang_Korean>Korean</ATC_Lang_Korean>
-    <ATC_CurrentProvider>Current AI Provider</ATC_CurrentProvider>
-    <ATC_ApiKey>API Key</ATC_ApiKey>
-    <ATC_CustomBaseUrl>Custom Base URL</ATC_CustomBaseUrl>
-    <ATC_OnlyScanActive>Only scan active mods</ATC_OnlyScanActive>
-    
-    <!-- Buttons & Tooltips -->
-    <ATC_TestConnection>Test AI Connection</ATC_TestConnection>
-    <ATC_Msg_EmptyKey>How can I test without an API Key?!</ATC_Msg_EmptyKey>
-    <ATC_TestingPulse>Sending test pulse...</ATC_TestingPulse>
-    <ATC_FetchModels>Fetch Model List</ATC_FetchModels>
-    <ATC_Fetching>Communicating...</ATC_Fetching>
-    <ATC_SelectModel>Select Model</ATC_SelectModel>
-    <ATC_PlzFetchModel>Please fetch model list first</ATC_PlzFetchModel>
-    <ATC_StartTranslation>Start Auto-Patching Project</ATC_StartTranslation>
-    
-    <!-- Tasks & Panels -->
-    <ATC_CurrentTask>Current Task</ATC_CurrentTask>
-    <ATC_Idle>Idle</ATC_Idle>
-    <ATC_TaskDone>Production line finished!</ATC_TaskDone>
-    <ATC_LogPanelTitle>--- 📡 Real-time Production Log ---</ATC_LogPanelTitle>
 
-    <!-- 🔌 Test Connection Logs -->
-    <ATC_Log_TestPulse>🔌 [Test] Sending micro-pulse to test [{0}] connection...</ATC_Log_TestPulse>
-    <ATC_Log_TestSuccess>✅ [Test] Success! AI Core response is good.</ATC_Log_TestSuccess>
-    <ATC_Log_TestFail>❌ [Test] Failed! Please check network or API settings.</ATC_Log_TestFail>
-
-    <!-- 🚀 Scanning Logs -->
-    <ATC_Log_Init>🌐 [Init] Reading all mods, building global translation shared pool...</ATC_Log_Init>
-    <ATC_Log_InitDone>✅ [Init] Done! Collected {0} Def translations.</ATC_Log_InitDone>
-    <ATC_Log_StartScan>🚀 Auto Translation Core activated! Target mods: {0}</ATC_Log_StartScan>
-    <ATC_Log_ScanMod>\n📦 [Start] Scanning mod: {0}</ATC_Log_ScanMod>
-    <ATC_Log_SkipMod>   ⏩ [Skip] No Languages or Defs, pure code mod.</ATC_Log_SkipMod>
-    <ATC_Log_KeyedScan>   🔍 [Keyed] Scanning...</ATC_Log_KeyedScan>
-    <ATC_Log_DefScan>   🔍 [DefInjected] Starting deep scan &amp; global comparison...</ATC_Log_DefScan>
-    <ATC_Log_TaskDone>\n🎉 [Finish] Global gap-filling task completed perfectly!</ATC_Log_TaskDone>
-    <ATC_Log_TaskError>❌ [Error] Production line unexpectedly interrupted: {0}</ATC_Log_TaskError>
-    <ATC_Log_Clean>🧹 [Clean] Production line halted, memory released.</ATC_Log_Clean>
-    
-    <!-- ⚙️ Welding Logs -->
-    <ATC_Log_FoundMissing>   ⚙️ [{0}] Found {1} missing strings! Calling AI for welding...</ATC_Log_FoundMissing>
-    <ATC_Log_AIFinish>   ✅ [{0}] AI translation welding complete!</ATC_Log_AIFinish>
-    <ATC_Log_AIFail>   ❌ [{0}] AI translation welding failed.</ATC_Log_AIFail>
-    <ATC_Log_NoMissing>   ✨ [{0}] All parts present, no welding needed.</ATC_Log_NoMissing>
-
-    <ATC_FirstTime_Notice>[First Time] Generated translation pack not enabled, auto hot-reload cancelled.</ATC_FirstTime_Notice>
-    <ATC_FirstTime_Dialog>【First Time Use Notice】\n\nThe system detected this is your first time running translation!\nThe translation pack has been generated locally but is not yet enabled.\n\nPlease go to RimWorld's "Mod List", find the mod named "! AutoTranslation AI Pack", [Enable] it and drag it to the [Very Bottom] of the load order, then restart the game.\n\nNext time you translate new mods, the system will trigger language hot-reload directly without restarting!</ATC_FirstTime_Dialog>
-    <ATC_ReloadingLog>Executing language hot-reload... The screen may flash, please wait.</ATC_ReloadingLog>
-    <ATC_ReloadDoneLog>Hot-reload complete! Latest translations are now fully active.</ATC_ReloadDoneLog>
-
-    <ATC_Tutorial_Title>Auto Translation Core Ultimate Guide</ATC_Tutorial_Title>
-    <ATC_Tutorial_StepsTitle>Quick Start in 5 Steps:</ATC_Tutorial_StepsTitle>
-    <ATC_Tutorial_Step1>Select [AI Provider]. We recommend Google (Gemini) for free quotas; DeepSeek is highly recommended for mainland users!</ATC_Tutorial_Step1>
-    <ATC_Tutorial_Step2>Get an [API Key] from the official site and paste it. If using official API, leave Base URL empty!</ATC_Tutorial_Step2>
-    <ATC_Tutorial_Step3>Click [🔍 Fetch Model List], then select a model from the dropdown on the right.</ATC_Tutorial_Step3>
-    <ATC_Tutorial_Step4>Click the green [🚀 Start Auto Translation] button, then go grab a coffee! Or return to the game and keep playing!</ATC_Tutorial_Step4>
-    <ATC_Tutorial_Step5>【Must Read for First Use】 After your first translation, a local mod named `! AutoTranslation AI Pack` will be generated. You MUST enable it in the mod list, place it at the very bottom, and restart the game.</ATC_Tutorial_Step5>
-
-    <!-- V4.5 UI Buttons & Status Labels -->
-    <ATC_ManualReload>Manual Reload Translation</ATC_ManualReload>
-    <ATC_Tutorial_Btn>Tutorial &amp; FAQ</ATC_Tutorial_Btn>
-    <ATC_Tutorial_FAQTitle>Frequently Asked Questions (FAQ):</ATC_Tutorial_FAQTitle>
-    <ATC_FAQ_Q1>Why does fetching the model list keep failing (HTTP 401 / 403)?</ATC_FAQ_Q1>
-    <ATC_FAQ_A1>Usually, your API Key is incorrect, or you copied extra spaces. Also, check if your account quota is depleted.</ATC_FAQ_A1>
-    <ATC_FAQ_Q2>Why am I getting an HTTP 404 error?</ATC_FAQ_Q2>
-    <ATC_FAQ_A2>If you are using the official API, ensure [Custom Base URL] is completely blank! Only use URLs if you are using a third-party proxy.</ATC_FAQ_A2>
-    <ATC_FAQ_Q3>What if the translation gets stuck halfway or loses connection?</ATC_FAQ_Q3>
-    <ATC_FAQ_A3>This happens during network jitter or when the AI server is busy. The mod has built-in "Auto-Retry &amp; 5-Min Timeout Protection". If it completely freezes, just restart the game and hit translate again (already translated content will not consume API quota again).</ATC_FAQ_A3>
-    <ATC_FAQ_Q4>Do I need to restart the game after translating?</ATC_FAQ_Q4>
-    <ATC_FAQ_A4>If it's your "First Time", you must enable the generated `! AutoTranslation AI Pack` and restart. But if the pack is [Already Enabled], the system triggers a "Language Hot-Reload", taking effect in 10 seconds without a restart!</ATC_FAQ_A4>
-    <ATC_FAQ_Q5>Where are the translated files saved? Can I share them?</ATC_FAQ_Q5>
-    <ATC_FAQ_A5>They are in your RimWorld/Mods/!Translation_AI_Pack folder! Note that the auto-generated pack is [For Personal Local Use Only] to complete your experience. Please do not pack and share or upload it to Steam Workshop!</ATC_FAQ_A5> 
-    <!-- Global Countdown Popup -->
-    <ATC_ReloadingCountdown>Translation complete! Reloading game language in</ATC_ReloadingCountdown>
-    <ATC_Seconds>seconds...</ATC_Seconds>
-    <ATC_ErrorLogTitle>⚠️ Abnormal File Detection Report</ATC_ErrorLogTitle>
+  <!-- ==================== Interface & Language Settings ==================== -->
+  <ATC_ModTitle>🖥️ Auto AI Translation Core V4.6</ATC_ModTitle>
+  <ATC_TargetLang>Target Language</ATC_TargetLang>
   
-    <ATC_Lang_Russian>Russian</ATC_Lang_Russian>
-    <ATC_Lang_Ukrainian>Ukrainian</ATC_Lang_Ukrainian>
+  <ATC_Lang_Traditional>Traditional Chinese</ATC_Lang_Traditional>
+  <ATC_Lang_Simplified>Simplified Chinese</ATC_Lang_Simplified>
+  <ATC_Lang_Japanese>Japanese</ATC_Lang_Japanese>
+  <ATC_Lang_Korean>Korean</ATC_Lang_Korean>
+  <ATC_Lang_Russian>Russian</ATC_Lang_Russian>
+  <ATC_Lang_Ukrainian>Ukrainian</ATC_Lang_Ukrainian>
+  <ATC_Lang_English>English</ATC_Lang_English>
 
-  <!-- Tooltips & Default Texts -->
-    <ATC_Tooltip_TargetLang>[Target Language]\nSet the language you want the AI to translate foreign mods into.</ATC_Tooltip_TargetLang>
-    <ATC_Tooltip_Provider>[AI Provider]\nSelect the AI model provider. Google (Gemini) or OpenAI are highly recommended.</ATC_Tooltip_Provider>
-    <ATC_DefaultEmpty>Default: Empty</ATC_DefaultEmpty>
+  <ATC_CurrentProvider>AI Provider</ATC_CurrentProvider>
+  <ATC_ApiKey>API Key</ATC_ApiKey>
+  <ATC_CustomBaseUrl>Custom Base URL</ATC_CustomBaseUrl>
+  <ATC_DefaultEmpty>Leave empty for default</ATC_DefaultEmpty>
+  <ATC_OnlyScanActive>Only Scan Active Mods</ATC_OnlyScanActive>
 
-  <!-- Production Log (Left) -->
-    <ATC_Log_HotReloadTrigger>[System] Triggering language hot-reload in {0} seconds.</ATC_Log_HotReloadTrigger>
-    <ATC_Log_FetchModelsSuccess>[System] Model list fetched successfully!</ATC_Log_FetchModelsSuccess>
-    <ATC_Log_FetchModelsFail>[System] Failed to fetch list. Please check your API Key.</ATC_Log_FetchModelsFail>
-    <ATC_Log_AllTranslationWritten>[Success] All translations written to !Translation_AI_Pack!</ATC_Log_AllTranslationWritten>
-    <ATC_Log_StartingHotReload>[System] Starting auto hot-reload, please wait...</ATC_Log_StartingHotReload>
-    <ATC_Log_NetworkRetry>[System] Network jitter or AI server busy, auto-retry mechanism triggered...</ATC_Log_NetworkRetry>
+  <!-- ==================== Tooltips ==================== -->
+  <ATC_Tooltip_TargetLang>【Target Language】\nSet which language the AI should translate the mods into.</ATC_Tooltip_TargetLang>
+  <ATC_Tooltip_Provider>【AI Provider】\nSelect your AI model provider. Google (Gemini) or OpenAI are highly recommended.</ATC_Tooltip_Provider>
 
-  <!-- Error Report (Right) -->
-    <ATC_LogError_Format>[{0}] Formatting error: {1}</ATC_LogError_Format>
-    <ATC_LogError_Unknown>[{0}] Unknown exception: {1}</ATC_LogError_Unknown>
-    <ATC_LogError_FileCorrupted>[Corrupted] Skipping unparseable file: {0}</ATC_LogError_FileCorrupted>
-    <ATC_LogError_ApiConn>[API] Connection error: {0}</ATC_LogError_ApiConn>
+  <!-- ==================== Button Text ==================== -->
+  <ATC_TestConnection>Test AI Connection</ATC_TestConnection>
+  <ATC_TestingPulse>Sending test pulse...</ATC_TestingPulse>
+  
+  <ATC_FetchModels>Fetch Model List</ATC_FetchModels>
+  <ATC_Fetching>Connecting...</ATC_Fetching>
+  <ATC_SelectModel>Select Model</ATC_SelectModel>
+  <ATC_PlzFetchModel>Please fetch the model list first</ATC_PlzFetchModel>
+
+  <ATC_TranslateSingleMod>Translate Specific Mod</ATC_TranslateSingleMod>
+  <ATC_StartTranslation>Start Auto Translation</ATC_StartTranslation>
+  <ATC_StopTranslation>Emergency Stop</ATC_StopTranslation>
+  <ATC_ManualReload>Manual Hot-Reload</ATC_ManualReload>
+
+  <ATC_Tutorial_Btn>Tutorial &amp; FAQ</ATC_Tutorial_Btn>
+  <ATC_UpdateLog_Btn>Update Log</ATC_UpdateLog_Btn>
+
+  <!-- ==================== Tasks & Status Panel ==================== -->
+  <ATC_CurrentTask>Current Task</ATC_CurrentTask>
+  <ATC_Idle>Idle</ATC_Idle>
+  <ATC_TaskDone>All Tasks Complete!</ATC_TaskDone>
+  
+  <ATC_LogPanelTitle>--- 📡 Real-time Monitoring Log ---</ATC_LogPanelTitle>
+  <ATC_ErrorLogTitle>⚠️ Anomalous File Report</ATC_ErrorLogTitle>
+
+  <!-- ==================== Normal Logs (Left) ==================== -->
+  <ATC_Msg_EmptyKey>Can't test without a Key, silly!</ATC_Msg_EmptyKey>
+  <ATC_Log_TestPulse>🔌 [Test] Sending pulse to check [{0}] connection...</ATC_Log_TestPulse>
+  <ATC_Log_TestSuccess>✅ [Test] Success! The AI core is responding perfectly.</ATC_Log_TestSuccess>
+  <ATC_Log_TestFail>❌ [Test] Failed! Please check your network or API settings.</ATC_Log_TestFail>
+
+  <ATC_Log_Init>🌐 [Init] Reading mods and building global translation cache...</ATC_Log_Init>
+  <ATC_Log_InitDone>✅ [Init] Done! Collected {0} Def translation strings.</ATC_Log_InitDone>
+  
+  <ATC_Log_StartScan>🚀 Auto Translation Core engaged! Target mods: {0}</ATC_Log_StartScan>
+  <ATC_Log_ScanMod>\n📦 [Start] Scanning: {0}</ATC_Log_ScanMod>
+  <ATC_Log_SkipMod>   ⏩ [Skip] No Languages or Defs found. Pure code mod.</ATC_Log_SkipMod>
+  <ATC_Log_KeyedScan>   🔍 [Keyed] Scanning...</ATC_Log_KeyedScan>
+  <ATC_Log_DefScan>   🔍 [DefInjected] Deep scanning and global matching engaged...</ATC_Log_DefScan>
+  
+  <ATC_Log_FoundMissing>   ⚙️ [{0}] Found {1} missing strings! AI is welding them now...</ATC_Log_FoundMissing>
+  <ATC_Log_AIFinish>   ✅ [{0}] AI welding complete!</ATC_Log_AIFinish>
+  <ATC_Log_AIFail>   ❌ [{0}] AI welding failed.</ATC_Log_AIFail>
+  <ATC_Log_NoMissing>   ✨ [{0}] All parts present. No welding needed.</ATC_Log_NoMissing>
+
+  <ATC_Log_TaskDone>\n🎉 [Finish] Translation mission accomplished!</ATC_Log_TaskDone>
+  <ATC_Log_TaskError>❌ [Error] Production line interrupted: {0}</ATC_Log_TaskError>
+  <ATC_Log_Clean>🧹 [Clean] Shutdown complete. Memory released.</ATC_Log_Clean>
+  <ATC_CancelRequested>Stop command received. Applying emergency brakes...</ATC_CancelRequested>
+
+  <ATC_Log_FetchModelsSuccess>[System] Model list fetched successfully!</ATC_Log_FetchModelsSuccess>
+  <ATC_Log_FetchModelsFail>[System] Failed to fetch list. Check your API key.</ATC_Log_FetchModelsFail>
+  <ATC_Log_AllTranslationWritten>[Success] All translations written to !Translation_AI_Pack!</ATC_Log_AllTranslationWritten>
+  <ATC_Log_NetworkRetry>[System] Network instability or AI server busy. Auto-retry triggered...</ATC_Log_NetworkRetry>
+
+  <!-- ==================== Error Reports (Right) ==================== -->
+  <ATC_LogError_Format>[{0}] Format error: {1}</ATC_LogError_Format>
+  <ATC_LogError_Unknown>[{0}] Unknown error: {1}</ATC_LogError_Unknown>
+  <ATC_LogError_FileCorrupted>[Corrupted] Skipping unparseable file: {0}</ATC_LogError_FileCorrupted>
+  <ATC_LogError_ApiConn>[API] Connection error: {0}</ATC_LogError_ApiConn>
+
+  <!-- ==================== Hot-Reload & Countdown ==================== -->
+  <ATC_FirstTime_Notice>[First Use] Translation pack not enabled. Auto-reload cancelled.</ATC_FirstTime_Notice>
+  <ATC_FirstTime_Dialog>【First Use Tip】\n\nIt looks like this is your first time translating!\nThe translation pack has been generated locally but isn't active yet.\n\nPlease go to RimWorld's "Mod List", find "! AutoTranslation AI Pack", 【Enable】 it, and drag it to the 【Bottom】 of your load order. Then restart the game.\n\nAfter that, when you translate new mods, the changes will apply instantly without needing a restart!</ATC_FirstTime_Dialog>
+  
+  <ATC_Log_HotReloadTrigger>[System] Triggering language hot-reload in {0} seconds.</ATC_Log_HotReloadTrigger>
+  <ATC_Log_StartingHotReload>[System] Starting auto hot-reload. Please wait...</ATC_Log_StartingHotReload>
+  
+  <ATC_ReloadingCountdown>Translation complete! </ATC_ReloadingCountdown>
+  <ATC_Seconds> seconds until language reload...</ATC_Seconds>
+  <ATC_ReloadingMessage>Reloading language data...</ATC_ReloadingMessage>
+  <ATC_ReloadingLog>Hot-reload in progress... The screen may flicker or freeze momentarily.</ATC_ReloadDoneLog>
+  <ATC_ReloadDoneLog>Hot-reload complete! Latest translations are now active.</ATC_ReloadDoneLog>
+
+  <!-- ==================== Long Text (Tutorial) ==================== -->
+  <ATC_Tutorial_FullText>【Quick Start in 5 Steps】
+1. Select your 【Target Language】 (V4.6 now supports reverse translation into English, Ukrainian, and Russian!) and 【AI Provider】. Google (Gemini) is recommended for its free tier.
+2. Enter your 【API Key】. If using official APIs, leave the Base URL empty!
+3. Click 【🔍 Fetch Model List】 and select a model from the dropdown.
+4. Click the green 【🚀 Start Auto Translation】 to scan all mods, or use 【🎯 Translate Specific Mod】 for a surgical strike. You can use 【🛑 Emergency Stop】 at any time.
+5. 【Crucial for First Use】 After the first run, a mod named `! AutoTranslation AI Pack` will be created. You MUST 【Enable】 it in your mod list and place it at the very bottom. Restart the game once.
+
+【FAQ】
+Q: Fetching model list fails (HTTP 401 / 403).
+A: Your API key is likely incorrect or has extra spaces. Also, check your account balance.
+
+Q: HTTP 404 error occurs.
+A: If using official APIs, ensure the 【Custom Base URL】 is completely empty!
+
+Q: I see "Timeout" or "Network Instability" warnings in the log.
+A: The AI server might be taking a nap! The mod has a robust auto-retry mechanism. If translations are still finishing, just let it be!
+
+Q: It's been stuck for over 5 minutes.
+A: Press 【🛑 Emergency Stop】, restart the game, and try again. Already translated content is saved and won't consume your API quota again.
+
+Q: Do I need to restart the game after translating?
+A: Only the "First Time". After that, if the translation pack is enabled, the "Hot-Reload" feature will apply changes in about 10 seconds.
+
+Q: Where are the files located?
+A: In your RimWorld/Mods/!Translation_AI_Pack folder. This pack is for 【Personal Use Only】. Please do not redistribute or upload it to the Steam Workshop.</ATC_Tutorial_FullText>
+
+  <ATC_UpdateLog_FullText>--- V4.6 Ultimate Update ---
+• Added 【English, Ukrainian, Russian】 reverse translation support! Localize your mods for the world.
+• Implemented 【🎯 Specific Mod Translation】 engine for surgical localized scanning.
+• Implemented 【🛑 Emergency Stop System】 to safely interrupt production while saving progress.
+• X-Ray probe upgraded to 【Level 3 Recursive Deep-Dive】 to find hidden text in any folder structure.
+• Completely rebuilt UI backend with dynamic window heights.
+
+--- V4.5 Update ---
+• Added 【Anomalous File Report】 dual-monitor dashboard.
+• Implemented 【Corruption Shield】 to auto-detect and skip damaged XML files.
+• Added first-run guidance and anti-fail popups.
+• Implemented 10-second seamless hot-reload countdown.
+
+--- V4.3 Update ---
+• First implementation of the 【Auto Translation Production Line】.
+• Built-in 【Global Translation Memory Cache】 to save API costs.
+• Custom Base URL support for local AI models (LM Studio, Ollama, etc.).</ATC_UpdateLog_FullText>
+
 </LanguageData>

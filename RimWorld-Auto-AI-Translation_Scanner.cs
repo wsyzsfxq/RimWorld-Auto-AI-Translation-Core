@@ -26,7 +26,6 @@ namespace AutoTranslator_Core
             return Path.Combine(rimWorldRoot, "Mods/!Translation_AI_Pack");
         }
 
-        // 🌟 咪咪特製：幫大哥補上俄語和烏克蘭語的資料夾對應！
         public static string GetFolderNameByLanguage(TargetLanguage lang)
         {
             switch (lang)
@@ -37,6 +36,7 @@ namespace AutoTranslator_Core
                 case TargetLanguage.Korean: return "Korean";
                 case TargetLanguage.Russian: return "Russian";
                 case TargetLanguage.Ukrainian: return "Ukrainian";
+                case TargetLanguage.English: return "English"; // 🌟 V4.6 新增英文
                 default: return "English";
             }
         }
@@ -86,10 +86,87 @@ namespace AutoTranslator_Core
             }
         }
 
+        // 🌟 V4.6 新增：單獨翻譯模組引擎
+        public static async void StartSingleScan(ModMetaData targetMod)
+        {
+            try
+            {
+                AutoTranslatorSettings.IsRunning = true;
+                EnsurePackInitialized();
+                var settings = AutoTranslatorMod.Settings;
+
+                settings.CurrentProgress = 0f;
+                settings.CurrentTaskName = $"Translating: {targetMod.Name}";
+
+                AutoTranslatorSettings.AddLog($"🎯 [System] 開始單獨翻譯模組: {targetMod.Name}");
+
+                // 單一模組也稍微建一下全域池（拿所有啟用的模組來建，確保能參考）
+                var activeMods = ModLister.AllInstalledMods.Where(m => m.Active && !OfficialModules.Contains(m.PackageId.ToLower())).ToList();
+                BuildGlobalTranslationDatabase(activeMods);
+
+                if (AutoTranslatorSettings.IsCancellationRequested) return;
+
+                string langRoot = GetEffectiveLangPath(targetMod) ?? "";
+                string defsRoot = GetEffectiveDefsPath(targetMod) ?? "";
+
+                bool hasLang = !string.IsNullOrEmpty(langRoot);
+                bool hasDefs = !string.IsNullOrEmpty(defsRoot);
+
+                if (!hasLang && !hasDefs)
+                {
+                    AutoTranslatorSettings.AddLog("ATC_Log_SkipMod".Translate());
+                }
+                else
+                {
+                    if (hasLang)
+                    {
+                        string englishKeyed = Path.Combine(langRoot, "English/Keyed");
+                        if (Directory.Exists(englishKeyed))
+                        {
+                            AutoTranslatorSettings.AddLog("ATC_Log_KeyedScan".Translate());
+                            await ProcessModKeyed(targetMod, englishKeyed);
+                        }
+                    }
+
+                    if (AutoTranslatorSettings.IsCancellationRequested) return;
+
+                    if (hasDefs || hasLang)
+                    {
+                        AutoTranslatorSettings.AddLog("ATC_Log_DefScan".Translate());
+                        await ProcessModDefInjected(targetMod, langRoot, defsRoot);
+                    }
+                }
+
+                if (!AutoTranslatorSettings.IsCancellationRequested)
+                {
+                    settings.CurrentTaskName = "ATC_TaskDone".Translate();
+                    settings.CurrentProgress = 1f;
+                    AutoTranslatorSettings.AddLog("🎉 單獨翻譯任務完美收工！");
+                    AutoTranslatorSettings.RequestReload(5f); // 單一模組翻得快，5秒就夠了
+                }
+            }
+            catch (Exception e)
+            {
+                AutoTranslatorSettings.AddLog("ATC_Log_TaskError".Translate(e.Message));
+                Log.Error($"[AutoTranslationCore] 單一產線意外中斷: {e.Message}");
+            }
+            finally
+            {
+                ClearGlobalTranslationDatabase();
+                AutoTranslatorSettings.IsRunning = false;
+                if (AutoTranslatorSettings.IsCancellationRequested)
+                {
+                    AutoTranslatorSettings.AddLog("🛑 [System] 產線已安全中斷。");
+                    AutoTranslatorMod.Settings.CurrentTaskName = "已中斷";
+                }
+            }
+        }
+
         public static async void StartFullScan()
         {
             try
             {
+                AutoTranslatorSettings.IsRunning = true;
                 EnsurePackInitialized();
                 var settings = AutoTranslatorMod.Settings;
                 var mods = ModLister.AllInstalledMods.Where(m =>
@@ -107,6 +184,9 @@ namespace AutoTranslator_Core
 
                 foreach (var mod in mods)
                 {
+                    // 🌟 V4.6 緊急煞車檢查
+                    if (AutoTranslatorSettings.IsCancellationRequested) break;
+
                     current++;
                     settings.CurrentProgress = (float)current / total;
                     settings.CurrentTaskName = $"Translating: {mod.Name}";
@@ -135,6 +215,8 @@ namespace AutoTranslator_Core
                         }
                     }
 
+                    if (AutoTranslatorSettings.IsCancellationRequested) break;
+
                     if (hasDefs || hasLang)
                     {
                         AutoTranslatorSettings.AddLog("ATC_Log_DefScan".Translate());
@@ -142,15 +224,16 @@ namespace AutoTranslator_Core
                     }
                 }
 
-                settings.CurrentTaskName = "ATC_TaskDone".Translate();
-                settings.CurrentProgress = 1f;
-                AutoTranslatorSettings.AddLog("ATC_Log_TaskDone".Translate());
+                if (!AutoTranslatorSettings.IsCancellationRequested)
+                {
+                    settings.CurrentTaskName = "ATC_TaskDone".Translate();
+                    settings.CurrentProgress = 1f;
+                    AutoTranslatorSettings.AddLog("ATC_Log_TaskDone".Translate());
 
-                // 🌟 V4.5 新增：完成任務後，排程 10 秒後自動熱重載 (已在地化)
-                AutoTranslatorSettings.AddLog("🎉 " + "ATC_Log_AllTranslationWritten".Translate());
-                AutoTranslatorSettings.AddLog("✨ " + "ATC_Log_StartingHotReload".Translate());
-                AutoTranslatorSettings.RequestReload(10f);
-
+                    AutoTranslatorSettings.AddLog("🎉 " + "ATC_Log_AllTranslationWritten".Translate());
+                    AutoTranslatorSettings.AddLog("✨ " + "ATC_Log_StartingHotReload".Translate());
+                    AutoTranslatorSettings.RequestReload(10f);
+                }
             }
             catch (Exception e)
             {
@@ -160,6 +243,12 @@ namespace AutoTranslator_Core
             finally
             {
                 ClearGlobalTranslationDatabase();
+                AutoTranslatorSettings.IsRunning = false;
+                if (AutoTranslatorSettings.IsCancellationRequested)
+                {
+                    AutoTranslatorSettings.AddLog("🛑 [System] 產線已安全中斷，已翻譯的內容已保留。");
+                    AutoTranslatorMod.Settings.CurrentTaskName = "已中斷";
+                }
             }
         }
 
@@ -185,6 +274,8 @@ namespace AutoTranslator_Core
 
             foreach (var mod in mods)
             {
+                if (AutoTranslatorSettings.IsCancellationRequested) return;
+
                 string langRoot = GetEffectiveLangPath(mod);
                 if (string.IsNullOrEmpty(langRoot)) continue;
 
@@ -223,15 +314,97 @@ namespace AutoTranslator_Core
             AutoTranslatorSettings.AddLog("ATC_Log_InitDone".Translate(GlobalPrimaryDefDict.Count));
         }
 
+        private static readonly HashSet<string> ExactTextTags = new HashSet<string>(StringComparer.OrdinalIgnoreCase) {
+            "label", "description", "jobString", "reportString", "text", "labelShort", "customLabel", "descriptionShort",
+            "pawnLabel", "gerund", "verb", "deathMessage", "inspectString", "baseInspectString", "helpText",
+            "letterLabel", "letterText", "message", "messageSuccess", "messageFailed", "rejectInputMessage",
+            "skillLabel", "endMessage", "beginLetterLabel", "beginLetter", "recoveryMessage", "destroyedLabel",
+            "pawnSingular", "pawnPlural", "leaderTitle", "adjective", "royalFavorLabel", "arrivalText", "arrivalTextEnemy",
+            "logRulesInitiator", "logRulesRecipient", "useLabel", "ingestCommandString", "ingestReportString",
+            "meatLabel", "corpseLabel", "discoverLetterTitle", "discoverLetterText", "letterLabelEnemy", "letterTextEnemy",
+            "commandLabel", "commandDescription", "formatString", "outfitName", "labelNoun", "labelNounPretty"
+        };
+
+        private static bool IsTranslationTarget(string tagName)
+        {
+            if (ExactTextTags.Contains(tagName)) return true;
+            string lower = tagName.ToLower();
+
+            if (lower.EndsWith("defname") || lower.EndsWith("class") || lower == "defname") return false;
+
+            return lower.EndsWith("label") || lower.EndsWith("description") ||
+                   lower.EndsWith("string") || lower.EndsWith("text") ||
+                   lower.EndsWith("message") || lower.EndsWith("name") ||
+                   lower.EndsWith("desc");
+        }
+
+        private static void TraverseDefNode(XmlNode node, string currentPath, string defType, Dictionary<string, Dictionary<string, string>> result)
+        {
+            int liIndex = 0;
+            foreach (XmlNode child in node.ChildNodes)
+            {
+                if (child.NodeType != XmlNodeType.Element) continue;
+                if (child.Name == "defName") continue;
+
+                string childPath = currentPath;
+                bool isListItem = child.Name == "li";
+
+                if (isListItem)
+                {
+                    childPath = $"{currentPath}.{liIndex}";
+                    liIndex++;
+                }
+                else
+                {
+                    childPath = $"{currentPath}.{child.Name}";
+                }
+
+                bool isPureText = false;
+                if (child.ChildNodes.Count == 1)
+                {
+                    var cType = child.ChildNodes[0].NodeType;
+                    if (cType == XmlNodeType.Text || cType == XmlNodeType.CDATA)
+                    {
+                        isPureText = true;
+                    }
+                }
+
+                if (isPureText)
+                {
+                    string text = child.InnerText.Trim();
+
+                    if (!string.IsNullOrWhiteSpace(text) && text.Length > 1 && !text.Contains(".xml") && !text.StartsWith("Tex/") && !text.StartsWith("UI/"))
+                    {
+                        bool shouldTranslate = IsTranslationTarget(child.Name);
+
+                        if (isListItem && node.Name != null && (IsTranslationTarget(node.Name) || node.Name.ToLower().Contains("rule")))
+                        {
+                            shouldTranslate = true;
+                        }
+
+                        if (shouldTranslate)
+                        {
+                            if (!result.ContainsKey(defType)) result[defType] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                            result[defType][childPath] = text;
+                        }
+                    }
+                }
+                else if (child.HasChildNodes)
+                {
+                    TraverseDefNode(child, childPath, defType, result);
+                }
+            }
+        }
+
         private static Dictionary<string, Dictionary<string, string>> ExtractEnglishFromRawDefs(string defsRoot)
         {
             var result = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
             if (!Directory.Exists(defsRoot)) return result;
 
-            string[] targetFields = { "label", "description", "jobString", "reportString", "text", "labelShort", "customLabel", "descriptionShort" };
-
             foreach (var file in Directory.GetFiles(defsRoot, "*.xml", SearchOption.AllDirectories))
             {
+                if (AutoTranslatorSettings.IsCancellationRequested) return result;
+
                 try
                 {
                     XmlDocument doc = new XmlDocument();
@@ -255,15 +428,7 @@ namespace AutoTranslator_Core
 
                         if (string.IsNullOrEmpty(defName)) continue;
 
-                        foreach (XmlNode child in defNode.ChildNodes)
-                        {
-                            if (child.NodeType != XmlNodeType.Element) continue;
-                            if (targetFields.Contains(child.Name) && !string.IsNullOrEmpty(child.InnerText))
-                            {
-                                if (!result.ContainsKey(defType)) result[defType] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-                                result[defType][$"{defName}.{child.Name}"] = child.InnerText;
-                            }
-                        }
+                        TraverseDefNode(defNode, defName, defType, result);
                     }
                 }
                 catch { /* 遇到損壞的 XML 自動略過 */ }
@@ -283,7 +448,8 @@ namespace AutoTranslator_Core
 
             foreach (string file in Directory.GetFiles(englishPath, "*.xml", SearchOption.AllDirectories))
             {
-                // 🌟 咪咪特製防護罩：把讀取與翻譯邏輯包起來，遇到爛 XML 就不會全線崩潰了！
+                if (AutoTranslatorSettings.IsCancellationRequested) return;
+
                 try
                 {
                     string modIdClean = mod.PackageId.Replace(".", "_");
@@ -293,7 +459,7 @@ namespace AutoTranslator_Core
                     var packDict = LoadXmlFileToDict(targetFile);
 
                     XmlDocument doc = new XmlDocument();
-                    doc.Load(file); // 👈 有了 try 包著，遇到爛檔也不怕炸開！
+                    doc.Load(file);
 
                     Dictionary<string, string> finalData = new Dictionary<string, string>();
                     List<string> keysToAI = new List<string>();
@@ -330,14 +496,12 @@ namespace AutoTranslator_Core
                 }
                 catch (XmlException xmlEx)
                 {
-                    // 已在地化
                     AutoTranslatorSettings.AddErrorLog("⚠️ " + "ATC_LogError_Format".Translate(mod.Name, GetShortPath(file)));
                     Log.Warning($"[AutoTranslationCore] XML 解析錯誤 ({mod.Name}): {xmlEx.Message}");
                     continue;
                 }
                 catch (Exception ex)
                 {
-                    // 已在地化
                     AutoTranslatorSettings.AddErrorLog("⚠️ " + "ATC_LogError_Unknown".Translate(mod.Name, GetShortPath(file)));
                     Log.Warning($"[AutoTranslationCore] 檔案處理異常 ({mod.Name}): {ex.Message}");
                     continue;
@@ -393,13 +557,18 @@ namespace AutoTranslator_Core
             {
                 AddToAllDefs(Path.Combine(langRoot, "English", "DefInjected"));
                 AddToAllDefs(Path.Combine(langRoot, targetFolder, "DefInjected"));
-                AddToAllDefs(Path.Combine(langRoot, otherFolder, "DefInjected"));
+                if (!string.IsNullOrEmpty(otherFolder))
+                {
+                    AddToAllDefs(Path.Combine(langRoot, otherFolder, "DefInjected"));
+                }
             }
 
             if (allKnownDefs.Count == 0) return;
 
             foreach (var defGroup in allKnownDefs)
             {
+                if (AutoTranslatorSettings.IsCancellationRequested) return;
+
                 string defType = defGroup.Key;
                 var currentDict = defGroup.Value;
                 if (currentDict.Count == 0) continue;
@@ -423,13 +592,16 @@ namespace AutoTranslator_Core
                     else if (GlobalPrimaryDefDict.TryGetValue(globalKey, out string pVal) || GlobalPrimaryDefDict.TryGetValue(globalKeyGen, out pVal)) finalData[key] = pVal;
                     else if ((GlobalSecondaryDefDict.TryGetValue(globalKey, out string sVal) || GlobalSecondaryDefDict.TryGetValue(globalKeyGen, out sVal)) && !string.IsNullOrEmpty(secondaryTag))
                     { keysToAI.Add(key); valuesToAI.Add($"{secondaryTag} {sVal}"); }
-                    else if (!string.IsNullOrEmpty(engVal) && !ContainsChinese(engVal)) { keysToAI.Add(key); valuesToAI.Add(engVal); }
+                    else if (!string.IsNullOrEmpty(engVal)) { keysToAI.Add(key); valuesToAI.Add(engVal); }
                 }
 
                 if (keysToAI.Count > 0)
                 {
                     AutoTranslatorSettings.AddLog("ATC_Log_FoundMissing".Translate(defType, keysToAI.Count));
                     var res = await SafeTranslateBatch(valuesToAI);
+
+                    if (AutoTranslatorSettings.IsCancellationRequested) return;
+
                     if (res != null)
                     {
                         for (int i = 0; i < keysToAI.Count; i++) finalData[keysToAI[i]] = res[i];
@@ -443,15 +615,12 @@ namespace AutoTranslator_Core
             }
         }
 
-        private static bool ContainsChinese(string text)
-        {
-            return text.Any(c => c >= 0x4E00 && c <= 0x9FA5);
-        }
-
         private static async Task<List<string>> SafeTranslateBatch(List<string> texts)
         {
             for (int r = 0; r < 3; r++)
             {
+                if (AutoTranslatorSettings.IsCancellationRequested) return null;
+
                 var res = await AutoTranslatorAPI.TranslateBatchAsync(texts);
                 if (res != null && res.Count == texts.Count) return res;
                 await Task.Delay(1000);
@@ -459,6 +628,8 @@ namespace AutoTranslator_Core
             var list = new List<string>();
             foreach (var t in texts)
             {
+                if (AutoTranslatorSettings.IsCancellationRequested) return null;
+
                 var single = await AutoTranslatorAPI.TranslateBatchAsync(new List<string> { t });
                 list.Add((single != null && single.Count > 0) ? single[0] : t);
             }
@@ -489,7 +660,6 @@ namespace AutoTranslator_Core
             }
             catch (Exception ex)
             {
-                // 已在地化
                 AutoTranslatorSettings.AddErrorLog("⚠️ " + "ATC_LogError_FileCorrupted".Translate(GetShortPath(filePath)));
                 Log.Warning($"[AutoTranslationCore] XML 解析錯誤 ({Path.GetFileName(filePath)}): {ex.Message}");
             }
@@ -508,11 +678,10 @@ namespace AutoTranslator_Core
         private static string GetShortPath(string fullPath)
         {
             if (string.IsNullOrEmpty(fullPath)) return "";
-            string normalized = fullPath.Replace('\\', '/'); // 統一斜線方向
+            string normalized = fullPath.Replace('\\', '/');
             int idx = normalized.IndexOf("294100/");
             if (idx == -1) idx = normalized.IndexOf("Mods/");
             return idx != -1 ? normalized.Substring(idx) : Path.GetFileName(fullPath);
         }
-
     }
 }
