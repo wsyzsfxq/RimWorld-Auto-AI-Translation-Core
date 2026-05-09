@@ -75,6 +75,79 @@ namespace AutoTranslator_Core
             return null;
         }
 
+        // 🌟 咪咪特製：無痛搬家系統 (把舊的嵌套結構壓平，保護玩家的錢包！)
+        public static void MigrateOldTranslations()
+        {
+            try
+            {
+                string packPath = GetLocalPackPath();
+                string langsPath = Path.Combine(packPath, "Languages");
+                if (!Directory.Exists(langsPath)) return;
+
+                foreach (var langDir in Directory.GetDirectories(langsPath))
+                {
+                    string defInjectedDir = Path.Combine(langDir, "DefInjected");
+                    if (!Directory.Exists(defInjectedDir)) continue;
+
+                    // 掃描可能是舊架構的 PackageId 資料夾
+                    foreach (var maybePackageDir in Directory.GetDirectories(defInjectedDir))
+                    {
+                        string packageName = Path.GetFileName(maybePackageDir);
+                        bool isOldPackageStructure = false;
+
+                        // 舊架構特徵：底下還有 DefType 目錄，裡面包著 AutoTranslated_Defs.xml
+                        foreach (var defTypeDir in Directory.GetDirectories(maybePackageDir))
+                        {
+                            string defType = Path.GetFileName(defTypeDir);
+                            string oldFile = Path.Combine(defTypeDir, "AutoTranslated_Defs.xml");
+
+                            if (File.Exists(oldFile))
+                            {
+                                isOldPackageStructure = true;
+                                string newTargetDir = Path.Combine(defInjectedDir, defType);
+                                Directory.CreateDirectory(newTargetDir);
+
+                                string cleanPackageName = packageName.Replace(".", "_");
+                                string newFile = Path.Combine(newTargetDir, $"{cleanPackageName}_AutoTranslated.xml");
+
+                                // 搬家：合併或直接搬移
+                                if (File.Exists(newFile))
+                                {
+                                    var oldDict = LoadXmlFileToDict(oldFile);
+                                    var newDict = LoadXmlFileToDict(newFile);
+                                    foreach (var kv in oldDict) newDict[kv.Key] = kv.Value;
+                                    SaveXml(newFile, newDict);
+                                    File.Delete(oldFile);
+                                }
+                                else
+                                {
+                                    File.Move(oldFile, newFile);
+                                }
+                                AutoTranslatorSettings.AddLog($"📦 [系統搬家] 已將 {packageName} 的 {defType} 無痛轉移至新架構！");
+                            }
+                        }
+
+                        // 如果舊的資料夾空了，就把它砍了，乾淨俐落！
+                        if (isOldPackageStructure)
+                        {
+                            try
+                            {
+                                if (Directory.GetFiles(maybePackageDir, "*", SearchOption.AllDirectories).Length == 0)
+                                {
+                                    Directory.Delete(maybePackageDir, true);
+                                }
+                            }
+                            catch { }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning($"[AutoTranslationCore] 無感搬家系統發生錯誤: {ex.Message}");
+            }
+        }
+
         public static void EnsurePackInitialized()
         {
             string packPath = GetLocalPackPath();
@@ -84,9 +157,12 @@ namespace AutoTranslator_Core
                 Directory.CreateDirectory(Path.GetDirectoryName(aboutPath));
                 File.WriteAllText(aboutPath, "<?xml version=\"1.0\" encoding=\"utf-8\"?><ModMetaData><name>! AutoTranslation AI Pack</name><author>Auto Translator Core</author><packageId>AITranslation.Pack</packageId><supportedVersions><li>1.6</li></supportedVersions></ModMetaData>");
             }
+
+            // 🌟 啟動時順便幫大哥執行一次無痛搬家
+            MigrateOldTranslations();
         }
 
-        // 🌟 V4.6 新增：單獨翻譯模組引擎
+        // 🌟 V4.6 單獨翻譯模組引擎
         public static async void StartSingleScan(ModMetaData targetMod)
         {
             try
@@ -100,7 +176,6 @@ namespace AutoTranslator_Core
 
                 AutoTranslatorSettings.AddLog($"🎯 [System] 開始單獨翻譯模組: {targetMod.Name}");
 
-                // 單一模組也稍微建一下全域池（拿所有啟用的模組來建，確保能參考）
                 var activeMods = ModLister.AllInstalledMods.Where(m => m.Active && !OfficialModules.Contains(m.PackageId.ToLower())).ToList();
                 BuildGlobalTranslationDatabase(activeMods);
 
@@ -142,7 +217,7 @@ namespace AutoTranslator_Core
                     settings.CurrentTaskName = "ATC_TaskDone".Translate();
                     settings.CurrentProgress = 1f;
                     AutoTranslatorSettings.AddLog("🎉 單獨翻譯任務完美收工！");
-                    AutoTranslatorSettings.RequestReload(5f); // 單一模組翻得快，5秒就夠了
+                    AutoTranslatorSettings.RequestReload(5f);
                 }
             }
             catch (Exception e)
@@ -184,7 +259,6 @@ namespace AutoTranslator_Core
 
                 foreach (var mod in mods)
                 {
-                    // 🌟 V4.6 緊急煞車檢查
                     if (AutoTranslatorSettings.IsCancellationRequested) break;
 
                     current++;
@@ -519,7 +593,8 @@ namespace AutoTranslator_Core
             if (settings.TargetLang == TargetLanguage.Traditional) secondaryTag = "[來自簡中]";
             else if (settings.TargetLang == TargetLanguage.Simplified) secondaryTag = "[來自繁中]";
 
-            string packDefBaseDir = Path.Combine(GetLocalPackPath(), "Languages", targetFolder, "DefInjected", mod.PackageId);
+            // 🌟 咪咪修正了這裡：不再加上 mod.PackageId 子目錄！直接壓平！
+            string packDefBaseDir = Path.Combine(GetLocalPackPath(), "Languages", targetFolder, "DefInjected");
 
             Dictionary<string, Dictionary<string, string>> allKnownDefs = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
 
@@ -573,7 +648,9 @@ namespace AutoTranslator_Core
                 var currentDict = defGroup.Value;
                 if (currentDict.Count == 0) continue;
 
-                string targetFile = Path.Combine(packDefBaseDir, defType, "AutoTranslated_Defs.xml");
+                // 🌟 咪咪修正了這裡：改為 [PackageId]_AutoTranslated.xml 格式
+                string cleanPackageId = mod.PackageId.Replace(".", "_");
+                string targetFile = Path.Combine(packDefBaseDir, defType, $"{cleanPackageId}_AutoTranslated.xml");
                 var packDict = LoadXmlFileToDict(targetFile);
 
                 Dictionary<string, string> finalData = new Dictionary<string, string>();
