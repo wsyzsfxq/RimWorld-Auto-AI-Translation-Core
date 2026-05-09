@@ -9,7 +9,8 @@ using System.IO;
 
 namespace AutoTranslator_Core
 {
-    public enum TargetLanguage { Traditional, Simplified, Japanese, Korean }
+    // 🌟 V4.5.5 新增：支援俄語與烏克蘭語
+    public enum TargetLanguage { Traditional, Simplified, Japanese, Korean, Russian, Ukrainian }
     public enum TranslatorProvider { Google, OpenAI, DeepSeek, Grok, GLM, Alibaba, OpenRouter, Custom_OpenAI }
 
     public class AutoTranslatorSettings : ModSettings
@@ -40,7 +41,6 @@ namespace AutoTranslator_Core
         public static float ReloadTimer = -1f;
         public static bool IsReloadingRequested = false;
 
-        // 🌟 修復 1：提前攔截防呆 (87 咪咪謝罪版)
         public static void RequestReload(float seconds)
         {
             // 🛑 防呆機制：在跳出倒數視窗「前」就先檢查！
@@ -54,10 +54,11 @@ namespace AutoTranslator_Core
                 return;
             }
 
-            // 有啟用才給他倒數！
-            AddLog($"⚠️ [System] 觸發語言熱重載，將於 {seconds:F0} 秒後執行。");
+            // 有啟用才給他倒數！改用本地化
+            AddLog("⚠️ " + "ATC_Log_HotReloadTrigger".Translate(seconds.ToString("F0")));
             Find.WindowStack.Add(new AutoReloadCountdownWindow(seconds));
         }
+
         public static void AddLog(string msg)
         {
             string line = $"[{DateTime.Now:HH:mm:ss}] {msg}";
@@ -70,8 +71,6 @@ namespace AutoTranslator_Core
             WriteLogToFile(line);
         }
 
-        // 🌟 新增：專門印在右邊視窗的錯誤日誌
-        // 🌟 修復 2：過濾重複的異常日誌
         public static void AddErrorLog(string msg)
         {
             lock (logLock)
@@ -88,6 +87,7 @@ namespace AutoTranslator_Core
                 WriteLogToFile("[ERROR] " + line);
             }
         }
+
         private static void WriteLogToFile(string line)
         {
             try
@@ -148,6 +148,8 @@ namespace AutoTranslator_Core
                 case TargetLanguage.Simplified: return "ATC_Lang_Simplified".Translate();
                 case TargetLanguage.Japanese: return "ATC_Lang_Japanese".Translate();
                 case TargetLanguage.Korean: return "ATC_Lang_Korean".Translate();
+                case TargetLanguage.Russian: return "ATC_Lang_Russian".Translate();
+                case TargetLanguage.Ukrainian: return "ATC_Lang_Ukrainian".Translate();
                 default: return lang.ToString();
             }
         }
@@ -167,7 +169,8 @@ namespace AutoTranslator_Core
 
             Rect row1 = l.GetRect(30f);
             Rect langRect = new Rect(row1.x, row1.y, row1.width / 2 - 5f, row1.height);
-            if (Mouse.IsOver(langRect)) TooltipHandler.TipRegion(langRect, "【目標語言】\n設定 AI 要將外語模組翻譯成什麼語言。");
+            // 替換為本地化
+            if (Mouse.IsOver(langRect)) TooltipHandler.TipRegion(langRect, "ATC_Tooltip_TargetLang".Translate());
             if (Widgets.ButtonText(langRect, "ATC_TargetLang".Translate() + ": " + GetLangLabel(Settings.TargetLang)))
             {
                 List<FloatMenuOption> options = new List<FloatMenuOption>();
@@ -179,7 +182,8 @@ namespace AutoTranslator_Core
             }
 
             Rect providerRect = new Rect(row1.x + row1.width / 2 + 5f, row1.y, row1.width / 2 - 5f, row1.height);
-            if (Mouse.IsOver(providerRect)) TooltipHandler.TipRegion(providerRect, "【AI 服務商】\n選擇你要使用的 AI 模型供應商。強烈推薦使用 Google (Gemini) 或 OpenAI。");
+            // 替換為本地化
+            if (Mouse.IsOver(providerRect)) TooltipHandler.TipRegion(providerRect, "ATC_Tooltip_Provider".Translate());
             if (Widgets.ButtonText(providerRect, "ATC_CurrentProvider".Translate() + ": " + Settings.CurrentProvider))
             {
                 List<FloatMenuOption> options = new List<FloatMenuOption>();
@@ -203,7 +207,8 @@ namespace AutoTranslator_Core
             if (Settings.CurrentProvider != TranslatorProvider.Google)
             {
                 Rect urlLabelRect = l.GetRect(24f);
-                Widgets.Label(urlLabelRect, "ATC_CustomBaseUrl".Translate() + " (預設請留空 / Default: Empty):");
+                // 替換為本地化
+                Widgets.Label(urlLabelRect, "ATC_CustomBaseUrl".Translate() + " (" + "ATC_DefaultEmpty".Translate() + "):");
                 Settings.CustomBaseUrl = l.TextEntry(Settings.CustomBaseUrl);
                 l.Gap(5f);
             }
@@ -252,11 +257,11 @@ namespace AutoTranslator_Core
                     {
                         Settings.FetchedModels = models;
                         Settings.SelectedModel = models[0];
-                        AutoTranslatorSettings.AddLog("✅ [System] 獲取模型清單成功！");
+                        AutoTranslatorSettings.AddLog("✅ " + "ATC_Log_FetchModelsSuccess".Translate());
                     }
                     else
                     {
-                        AutoTranslatorSettings.AddErrorLog("❌ [System] 獲取清單失敗，請檢查金鑰。");
+                        AutoTranslatorSettings.AddErrorLog("❌ " + "ATC_Log_FetchModelsFail".Translate());
                     }
                     Settings.IsFetchingModels = false;
                 });
@@ -383,12 +388,12 @@ namespace AutoTranslator_Core
                 return;
             }
 
-            AutoTranslatorSettings.AddLog("🚀 [System] " + "ATC_ReloadingLog".Translate());
+            AutoTranslatorSettings.AddLog("🚀 " + "ATC_ReloadingLog".Translate());
 
             LongEventHandler.QueueLongEvent(() =>
             {
                 LanguageDatabase.activeLanguage.LoadData();
-                AutoTranslatorSettings.AddLog("✅ [System] " + "ATC_ReloadDoneLog".Translate());
+                AutoTranslatorSettings.AddLog("✅ " + "ATC_ReloadDoneLog".Translate());
             }, "ATC_ReloadingMessage".Translate(), true, null);
         }
 

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <LanguageData>
-    <!-- 介面與設定 -->
-    <ATC_ModTitle>🖥️ 全自动补位翻译 V4.4</ATC_ModTitle>
+    <!-- 界面与设置 -->
+    <ATC_ModTitle>🖥️ 全自动补位翻译 V4.5</ATC_ModTitle>
     <ATC_TargetLang>目标语系</ATC_TargetLang>
     <ATC_Lang_Traditional>繁体中文</ATC_Lang_Traditional>
     <ATC_Lang_Simplified>简体中文</ATC_Lang_Simplified>
@@ -9,12 +9,12 @@
     <ATC_Lang_Korean>한국어</ATC_Lang_Korean>
     <ATC_CurrentProvider>当前 AI 供应商</ATC_CurrentProvider>
     <ATC_ApiKey>API 密钥 (API Key)</ATC_ApiKey>
-    <ATC_CustomBaseUrl>自定义 API 地址 (Base URL)</ATC_CustomBaseUrl>
+    <ATC_CustomBaseUrl>自定义 API 链接 (Base URL)</ATC_CustomBaseUrl>
     <ATC_OnlyScanActive>仅扫描已启用的模组</ATC_OnlyScanActive>
     
-    <!-- 按鈕與提示 -->
-    <ATC_TestConnection>测试 AI 连线</ATC_TestConnection>
-    <ATC_Msg_EmptyKey>大佬！Key 都没填怎么测啦！</ATC_Msg_EmptyKey>
+    <!-- 按钮与提示 -->
+    <ATC_TestConnection>测试 AI 连接</ATC_TestConnection>
+    <ATC_Msg_EmptyKey>Key 都没填怎么测啦！</ATC_Msg_EmptyKey>
     <ATC_TestingPulse>测试脉冲发送中...</ATC_TestingPulse>
     <ATC_FetchModels>获取模型列表</ATC_FetchModels>
     <ATC_Fetching>通讯中...</ATC_Fetching>
@@ -22,32 +22,85 @@
     <ATC_PlzFetchModel>请先点击获取模型列表</ATC_PlzFetchModel>
     <ATC_StartTranslation>开始执行自动补位计划</ATC_StartTranslation>
     
-    <!-- 任務與面板 -->
+    <!-- 任务与面板 -->
     <ATC_CurrentTask>当前任务</ATC_CurrentTask>
     <ATC_Idle>空闲中</ATC_Idle>
     <ATC_TaskDone>产线完工！</ATC_TaskDone>
     <ATC_LogPanelTitle>--- 📡 产线实时监控日志 ---</ATC_LogPanelTitle>
 
-    <!-- 🔌 測試連線日誌 -->
-    <ATC_Log_TestPulse>🔌 [Test] 发送微量脉冲，测试 [{0}] 连线状态...</ATC_Log_TestPulse>
+    <!-- 🔌 测试连接日志 -->
+    <ATC_Log_TestPulse>🔌 [Test] 发送微量脉冲，测试 [{0}] 连接状态...</ATC_Log_TestPulse>
     <ATC_Log_TestSuccess>✅ [Test] 测试成功！AI 核心反应良好。</ATC_Log_TestSuccess>
     <ATC_Log_TestFail>❌ [Test] 测试失败！请检查网络或 API 设置。</ATC_Log_TestFail>
 
-    <!-- 🚀 產線掃描日誌 -->
-    <ATC_Log_Init>🌐 [Init] 正在读取所有模组，建立全局翻译共享池...</ATC_Log_Init>
+    <!-- 🚀 产线扫描日志 -->
+    <ATC_Log_Init>🌐 [Init] 正在读取所有模组，建立全局翻译共用池...</ATC_Log_Init>
     <ATC_Log_InitDone>✅ [Init] 完成！共收集到 {0} 条 Def 翻译。</ATC_Log_InitDone>
     <ATC_Log_StartScan>🚀 Auto Translation Core 启动！目标模组数: {0}</ATC_Log_StartScan>
     <ATC_Log_ScanMod>\n📦 [Start] 扫描模组: {0}</ATC_Log_ScanMod>
     <ATC_Log_SkipMod>   ⏩ [Skip] 无 Languages 也无 Defs，纯代码模组。</ATC_Log_SkipMod>
     <ATC_Log_KeyedScan>   🔍 [Keyed] 正在扫描...</ATC_Log_KeyedScan>
-    <ATC_Log_DefScan>   🔍 [DefInjected] 启动深层扫描与全局比对...</ATC_Log_DefScan>
+    <ATC_Log_DefScan>   🔍 [DefInjected] 启动深度扫描与全局比对...</ATC_Log_DefScan>
     <ATC_Log_TaskDone>\n🎉 [Finish] 全局补位任务完美收工！</ATC_Log_TaskDone>
     <ATC_Log_TaskError>❌ [Error] 产线意外中断: {0}</ATC_Log_TaskError>
     <ATC_Log_Clean>🧹 [Clean] 产线停机，内存已释放。</ATC_Log_Clean>
     
-    <!-- ⚙️ 焊接狀態日誌 -->
+    <!-- ⚙️ 焊接状态日志 -->
     <ATC_Log_FoundMissing>   ⚙️ [{0}] 发现 {1} 条缺失！呼叫 AI 焊接中...</ATC_Log_FoundMissing>
     <ATC_Log_AIFinish>   ✅ [{0}] AI 翻译焊接完成！</ATC_Log_AIFinish>
     <ATC_Log_AIFail>   ❌ [{0}] AI 翻译焊接失败。</ATC_Log_AIFail>
     <ATC_Log_NoMissing>   ✨ [{0}] 零件齐全，无须焊接。</ATC_Log_NoMissing>
+
+    <ATC_FirstTime_Notice>[初次使用] 侦测到生成的翻译包未启用，已取消自动热重载。</ATC_FirstTime_Notice>
+    <ATC_FirstTime_Dialog>【初次使用提示】\n\n系统侦测到您是第一次执行翻译！\n目前翻译包已经在您的本地生成，但尚未启用。\n\n请前往 RimWorld 的「模组列表」，找到名为「! AutoTranslation AI Pack」的模组，将它【勾选启用】并拖曳到排序的【最下方】，然后重启游戏。\n\n之后若安装新模组再进行翻译，系统就会直接进入语言热重载，无须再重启游戏咯！</ATC_FirstTime_Dialog>
+    <ATC_ReloadingLog>执行语言热重载中... 画面可能会闪烁，请稍候。</ATC_ReloadingLog>
+    <ATC_ReloadDoneLog>热重载完成！最新翻译已全面生效。</ATC_ReloadDoneLog>
+
+    <ATC_Tutorial_Title>Auto Translation Core 终极使用指南</ATC_Tutorial_Title>
+    <ATC_Tutorial_StepsTitle>快速上手 5 步骤：</ATC_Tutorial_StepsTitle>
+    <ATC_Tutorial_Step1>选择【AI 供应商】。台湾玩家推荐免费额度的 Google (Gemini)；大陆地区玩家强烈推荐使用 DeepSeek！</ATC_Tutorial_Step1>
+    <ATC_Tutorial_Step2>去官网申请一组【API 密钥】并贴上。如果是官方 API 不用填写 Base URL！</ATC_Tutorial_Step2>
+    <ATC_Tutorial_Step3>点击【🔍 获取可用模型列表】，成功后在右侧下拉菜单选择模型。</ATC_Tutorial_Step3>
+    <ATC_Tutorial_Step4>点击绿色的【🚀 开始执行自动翻译】按钮，然后去泡杯咖啡！或是回到游戏继续游玩！</ATC_Tutorial_Step4>
+    <ATC_Tutorial_Step5>【初次使用必看】第一次执行翻译后，系统会生成一个名为 `! AutoTranslation AI Pack` 的本地模组。请务必前往模组列表将它【勾选启用】并放到最下方，然后重启游戏。</ATC_Tutorial_Step5>
+
+  <!-- V4.5 UI 按钮与状态标签 -->
+    <ATC_ManualReload>手动重载翻译</ATC_ManualReload>
+    <ATC_Tutorial_Btn>使用教程与 FAQ</ATC_Tutorial_Btn>
+    <ATC_Tutorial_FAQTitle>常见问题与 FAQ：</ATC_Tutorial_FAQTitle>
+    <ATC_FAQ_Q1>为什么点击获取模型列表一直失败 (HTTP 401 / 403)？</ATC_FAQ_Q1>
+    <ATC_FAQ_A1>通常是因为你的 API 密钥填错了，或是复制到多余的空格。另外请确认你的账号额度是否用尽。</ATC_FAQ_A1>
+    <ATC_FAQ_Q2>为什么出现 HTTP 404 错误？</ATC_FAQ_Q2>
+    <ATC_FAQ_A2>如果你使用官方 API，请确保【自定义 Base URL】是「完全空白」的状态！只有使用第三方中转站才需要填写网址。</ATC_FAQ_A2>
+    <ATC_FAQ_Q3>翻译跑到一半卡住不动，或者出现通讯异常怎么办？</ATC_FAQ_Q3>
+    <ATC_FAQ_A3>网络波动或 AI 服务器忙碌时会发生。模组已实装「自动重试与 5 分钟超时保护」。若真的卡死，请直接重开游戏再按一次翻译即可（已翻过的内容不会重复消耗 API）。</ATC_FAQ_A3>
+    <ATC_FAQ_Q4>翻译完毕后，我需要重开游戏吗？</ATC_FAQ_Q4>
+    <ATC_FAQ_A4>如果是「第一次」使用，你必须去模组列表启用生成的 `! AutoTranslation AI Pack` 并重启游戏。但如果该翻译包【已经在启用状态】，系统会触发「语言热重载」，10 秒后最新翻译会直接生效，无须重启游戏！</ATC_FAQ_A4>
+    <ATC_FAQ_Q5>翻译好的文件放在哪里？可以分享给别人吗？</ATC_FAQ_Q5>
+    <ATC_FAQ_A5>存放在你的 RimWorld/Mods/!Translation_AI_Pack 里面！请注意，自动生成的翻译包【仅供个人本地使用】，让您享受最完整的 RimWorld 体验，请勿打包分享或上传至 Steam 创意工坊喔！</ATC_FAQ_A5> 
+  
+  <!-- 全局倒数弹窗专用 -->
+    <ATC_ReloadingCountdown>翻译已完成！将在</ATC_ReloadingCountdown>
+    <ATC_Seconds>秒后重新载入游戏语言...</ATC_Seconds>
+    <ATC_ErrorLogTitle>⚠️ 异常文件检测报告</ATC_ErrorLogTitle>
+  
+    <ATC_Lang_Russian>俄语</ATC_Lang_Russian>
+    <ATC_Lang_Ukrainian>乌克兰语</ATC_Lang_Ukrainian>
+
+    <ATC_Tooltip_TargetLang>【目标语言】\n设置 AI 要将外语模组翻译成什么语言。</ATC_Tooltip_TargetLang>
+    <ATC_Tooltip_Provider>【AI 服务商】\n选择你要使用的 AI 模型供应商。强烈推荐使用 Google (Gemini) 或 OpenAI。</ATC_Tooltip_Provider>
+    <ATC_DefaultEmpty>默认请留空</ATC_DefaultEmpty>
+
+    <ATC_Log_HotReloadTrigger>[System] 触发语言热重载，将于 {0} 秒后执行。</ATC_Log_HotReloadTrigger>
+    <ATC_Log_FetchModelsSuccess>[System] 获取模型清单成功！</ATC_Log_FetchModelsSuccess>
+    <ATC_Log_FetchModelsFail>[System] 获取清单失败，请检查密钥。</ATC_Log_FetchModelsFail>
+    <ATC_Log_AllTranslationWritten>[Success] 所有翻译已写入 !Translation_AI_Pack！</ATC_Log_AllTranslationWritten>
+    <ATC_Log_StartingHotReload>[System] 正在启动自动热重载，请稍候...</ATC_Log_StartingHotReload>
+    <ATC_Log_NetworkRetry>[System] 网络波动或 AI 服务器忙碌，系统已触发自动重试机制...</ATC_Log_NetworkRetry>
+
+    <ATC_LogError_Format>[{0}] 格式错误: {1}</ATC_LogError_Format>
+    <ATC_LogError_Unknown>[{0}] 未知异常: {1}</ATC_LogError_Unknown>
+    <ATC_LogError_FileCorrupted>[文件损坏] 略过无法解析的文件: {0}</ATC_LogError_FileCorrupted>
+    <ATC_LogError_ApiConn>[API] 通讯异常: {0}</ATC_LogError_ApiConn>
+
 </LanguageData>

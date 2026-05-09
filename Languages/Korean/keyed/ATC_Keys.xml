@@ -1,53 +1,105 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <LanguageData>
-    <!-- 介面與設定 -->
-    <ATC_ModTitle>🖥️ 자동 번역 코어 V4.4</ATC_ModTitle>
-    <ATC_TargetLang>대상 언어</ATC_TargetLang>
-    <ATC_Lang_Traditional>번체 중국어 (繁體中文)</ATC_Lang_Traditional>
-    <ATC_Lang_Simplified>간체 중국어 (简体中文)</ATC_Lang_Simplified>
-    <ATC_Lang_Japanese>일본어 (日本語)</ATC_Lang_Japanese>
+    <!-- 인터페이스 및 설정 (介面與設定) -->
+    <ATC_ModTitle>🖥️ 전자동 AI 번역 V4.5</ATC_ModTitle>
+    <ATC_TargetLang>타겟 언어</ATC_TargetLang>
+    <ATC_Lang_Traditional>繁體中文</ATC_Lang_Traditional>
+    <ATC_Lang_Simplified>簡體中文</ATC_Lang_Simplified>
+    <ATC_Lang_Japanese>日本語</ATC_Lang_Japanese>
     <ATC_Lang_Korean>한국어</ATC_Lang_Korean>
     <ATC_CurrentProvider>현재 AI 제공자</ATC_CurrentProvider>
     <ATC_ApiKey>API 키 (API Key)</ATC_ApiKey>
-    <ATC_CustomBaseUrl>사용자 정의 API 주소 (Base URL)</ATC_CustomBaseUrl>
+    <ATC_CustomBaseUrl>커스텀 API 주소 (Base URL)</ATC_CustomBaseUrl>
     <ATC_OnlyScanActive>활성화된 모드만 스캔</ATC_OnlyScanActive>
     
-    <!-- 按鈕與提示 -->
+    <!-- 버튼 및 알림 (按鈕與提示) -->
     <ATC_TestConnection>AI 연결 테스트</ATC_TestConnection>
-    <ATC_Msg_EmptyKey>오류: API 키를 입력해주세요!</ATC_Msg_EmptyKey>
-    <ATC_TestingPulse>테스트 신호 전송 중...</ATC_TestingPulse>
+    <ATC_Msg_EmptyKey>Key를 입력하지 않았는데 어떻게 테스트하나요!</ATC_Msg_EmptyKey>
+    <ATC_TestingPulse>테스트 펄스 전송 중...</ATC_TestingPulse>
     <ATC_FetchModels>모델 목록 가져오기</ATC_FetchModels>
     <ATC_Fetching>통신 중...</ATC_Fetching>
     <ATC_SelectModel>모델 선택</ATC_SelectModel>
-    <ATC_PlzFetchModel>먼저 모델 목록을 가져와 주세요</ATC_PlzFetchModel>
+    <ATC_PlzFetchModel>먼저 모델 목록 가져오기를 클릭하세요</ATC_PlzFetchModel>
     <ATC_StartTranslation>자동 번역 작업 시작</ATC_StartTranslation>
     
-    <!-- 任務與面板 -->
+    <!-- 작업 및 패널 (任務與面板) -->
     <ATC_CurrentTask>현재 작업</ATC_CurrentTask>
     <ATC_Idle>대기 중</ATC_Idle>
-    <ATC_TaskDone>번역 완료!</ATC_TaskDone>
-    <ATC_LogPanelTitle>--- 📡 실시간 모니터링 로그 ---</ATC_LogPanelTitle>
+    <ATC_TaskDone>작업 완료!</ATC_TaskDone>
+    <ATC_LogPanelTitle>--- 📡 실시간 작업 모니터링 로그 ---</ATC_LogPanelTitle>
 
-    <!-- 🔌 測試連線日誌 -->
-    <ATC_Log_TestPulse>🔌 [Test] [{0}] 연결 테스트 신호 전송 중...</ATC_Log_TestPulse>
-    <ATC_Log_TestSuccess>✅ [Test] 테스트 성공! AI 코어가 정상적으로 응답합니다.</ATC_Log_TestSuccess>
-    <ATC_Log_TestFail>❌ [Test] 테스트 실패! 네트워크 또는 API 설정을 확인하세요.</ATC_Log_TestFail>
+    <!-- 🔌 연결 테스트 로그 -->
+    <ATC_Log_TestPulse>🔌 [Test] 미세 펄스 전송, [{0}] 연결 상태 테스트 중...</ATC_Log_TestPulse>
+    <ATC_Log_TestSuccess>✅ [Test] 테스트 성공! AI 코어 반응 양호.</ATC_Log_TestSuccess>
+    <ATC_Log_TestFail>❌ [Test] 테스트 실패! 네트워크나 API 설정을 확인하세요.</ATC_Log_TestFail>
 
-    <!-- 🚀 產線掃描日誌 -->
-    <ATC_Log_Init>🌐 [Init] 모든 모드를 읽고 글로벌 번역 풀을 구축 중...</ATC_Log_Init>
-    <ATC_Log_InitDone>✅ [Init] 완료! {0}개의 Def 번역을 수집했습니다.</ATC_Log_InitDone>
+    <!-- 🚀 스캔 로그 -->
+    <ATC_Log_Init>🌐 [Init] 모든 모드 읽는 중, 글로벌 번역 풀 구축 중...</ATC_Log_Init>
+    <ATC_Log_InitDone>✅ [Init] 완료! 총 {0}개의 Def 번역 수집됨.</ATC_Log_InitDone>
     <ATC_Log_StartScan>🚀 Auto Translation Core 시작! 대상 모드 수: {0}</ATC_Log_StartScan>
-    <ATC_Log_ScanMod>\n📦 [Start] 모드 스캔 중: {0}</ATC_Log_ScanMod>
-    <ATC_Log_SkipMod>   ⏩ [Skip] Languages 또는 Defs가 없습니다. 코드 전용 모드입니다.</ATC_Log_SkipMod>
+    <ATC_Log_ScanMod>\n📦 [Start] 모드 스캔: {0}</ATC_Log_ScanMod>
+    <ATC_Log_SkipMod>   ⏩ [Skip] Languages도 Defs도 없는 순수 코드 모드입니다.</ATC_Log_SkipMod>
     <ATC_Log_KeyedScan>   🔍 [Keyed] 스캔 중...</ATC_Log_KeyedScan>
-    <ATC_Log_DefScan>   🔍 [DefInjected] 정밀 스캔 및 글로벌 대조 시작...</ATC_Log_DefScan>
-    <ATC_Log_TaskDone>\n🎉 [Finish] 모든 번역 작업이 완벽하게 종료되었습니다!</ATC_Log_TaskDone>
-    <ATC_Log_TaskError>❌ [Error] 작업이 예기치 않게 중단되었습니다: {0}</ATC_Log_TaskError>
-    <ATC_Log_Clean>🧹 [Clean] 프로세스 정지. 메모리가 해제되었습니다.</ATC_Log_Clean>
+    <ATC_Log_DefScan>   🔍 [DefInjected] 딥 스캔 및 글로벌 대조 시작...</ATC_Log_DefScan>
+    <ATC_Log_TaskDone>\n🎉 [Finish] 글로벌 번역 작업 완벽하게 완료!</ATC_Log_TaskDone>
+    <ATC_Log_TaskError>❌ [Error] 작업 예기치 않게 중단됨: {0}</ATC_Log_TaskError>
+    <ATC_Log_Clean>🧹 [Clean] 작업 중지, 메모리 확보됨.</ATC_Log_Clean>
     
-    <!-- ⚙️ 焊接狀態日誌 -->
-    <ATC_Log_FoundMissing>   ⚙️ [{0}] {1}개의 누락된 텍스트 발견! AI 번역 요청 중...</ATC_Log_FoundMissing>
+    <!-- ⚙️ 번역 상태 로그 -->
+    <ATC_Log_FoundMissing>   ⚙️ [{0}] {1}개의 누락 발견! AI 번역 요청 중...</ATC_Log_FoundMissing>
     <ATC_Log_AIFinish>   ✅ [{0}] AI 번역 완료!</ATC_Log_AIFinish>
-    <ATC_Log_AIFail>   ❌ [{0}] AI 번역에 실패했습니다.</ATC_Log_AIFail>
-    <ATC_Log_NoMissing>   ✨ [{0}] 모든 번역이 완료되었습니다. 누락 없음.</ATC_Log_NoMissing>
+    <ATC_Log_AIFail>   ❌ [{0}] AI 번역 실패.</ATC_Log_AIFail>
+    <ATC_Log_NoMissing>   ✨ [{0}] 부품 완비, 번역 불필요.</ATC_Log_NoMissing>
+
+  <ATC_FirstTime_Notice>[최초 실행] 생성된 번역 팩이 활성화되지 않은 것이 감지되어 자동 핫 리로드가 취소되었습니다.</ATC_FirstTime_Notice>
+  <ATC_FirstTime_Dialog>【최초 실행 안내】\n\n최초 번역 실행이 감지되었습니다!\n현재 로컬에 번역 팩이 생성되었으나 아직 활성화되지 않았습니다.\n\nRimWorld의 '모드 목록'으로 이동하여 '! AutoTranslation AI Pack'이라는 모드를 찾은 후 【체크하여 활성화】하고 정렬 순서를 【맨 아래】로 드래그한 다음 게임을 재시작하세요.\n\n이후 새 모드를 설치하고 번역을 진행하면 게임을 재시작할 필요 없이 자동으로 언어 핫 리로드가 진행됩니다!</ATC_FirstTime_Dialog>
+  <ATC_ReloadingLog>언어 핫 리로드 실행 중... 화면이 깜빡일 수 있으니 잠시 기다려주세요.</ATC_ReloadingLog>
+  <ATC_ReloadDoneLog>핫 리로드 완료! 최신 번역이 전면 적용되었습니다.</ATC_ReloadDoneLog>
+
+  <ATC_Tutorial_Title>Auto Translation Core 궁극의 사용 가이드</ATC_Tutorial_Title>
+  <ATC_Tutorial_StepsTitle>빠른 시작 5단계:</ATC_Tutorial_StepsTitle>
+  <ATC_Tutorial_Step1>【AI 제공자】를 선택합니다. 무료 한도가 있는 Google (Gemini)을 추천합니다!</ATC_Tutorial_Step1>
+  <ATC_Tutorial_Step2>공식 웹사이트에서 【API 키】를 발급받아 붙여넣으세요. 공식 API의 경우 Base URL은 비워두세요!</ATC_Tutorial_Step2>
+  <ATC_Tutorial_Step3>【🔍 모델 목록 가져오기】를 클릭하고 성공하면 우측 드롭다운에서 모델을 선택합니다.</ATC_Tutorial_Step3>
+  <ATC_Tutorial_Step4>녹색의 【🚀 자동 번역 작업 시작】 버튼을 누르고 커피 한 잔 하세요! 아니면 게임으로 돌아가 계속 플레이하셔도 됩니다!</ATC_Tutorial_Step4>
+  <ATC_Tutorial_Step5>【최초 사용 시 필독】 처음 번역을 실행하면 `! AutoTranslation AI Pack`이라는 로컬 모드가 생성됩니다. 반드시 모드 목록에서 【체크하여 활성화】하고 맨 아래로 내린 뒤 게임을 재시작하세요.</ATC_Tutorial_Step5>
+
+  <!-- V4.5 UI 버튼 및 상태 (V4.5 UI 按鈕與狀態標籤) -->
+  <ATC_ManualReload>수동 번역 리로드</ATC_ManualReload>
+  <ATC_Tutorial_Btn>📖 사용 튜토리얼 및 FAQ</ATC_Tutorial_Btn>
+  <ATC_Tutorial_FAQTitle>자주 묻는 질문(FAQ):</ATC_Tutorial_FAQTitle>
+  <ATC_FAQ_Q1>왜 모델 목록 가져오기를 클릭하면 계속 실패하나요 (HTTP 401 / 403)?</ATC_FAQ_Q1>
+  <ATC_FAQ_A1>보통 API 키를 잘못 입력했거나 불필요한 공백이 복사되었기 때문입니다. 계정 한도를 모두 소진했는지도 확인해 보세요.</ATC_FAQ_A1>
+  <ATC_FAQ_Q2>왜 HTTP 404 에러가 발생하나요?</ATC_FAQ_Q2>
+  <ATC_FAQ_A2>공식 API를 사용하는 경우 【커스텀 API 주소 (Base URL)】가 '완전히 비어 있는' 상태인지 확인하세요! 타사 중계 서버를 사용할 때만 주소를 입력해야 합니다.</ATC_FAQ_A2>
+  <ATC_FAQ_Q3>번역이 중간에 멈추거나 통신 오류가 발생하면 어떻게 하나요?</ATC_FAQ_Q3>
+  <ATC_FAQ_A3>네트워크 변동이나 AI 서버가 혼잡할 때 발생할 수 있습니다. 모드에는 '자동 재시도 및 5분 시간 초과 보호'가 구현되어 있습니다. 완전히 멈춘 경우 게임을 재시작하고 번역 버튼을 다시 누르세요 (이미 번역된 내용은 API를 소모하지 않습니다).</ATC_FAQ_A3>
+  <ATC_FAQ_Q4>번역 완료 후 게임을 재시작해야 하나요?</ATC_FAQ_Q4>
+  <ATC_FAQ_A4>'최초' 사용인 경우 생성된 `! AutoTranslation AI Pack`을 모드 목록에서 활성화하고 재시작해야 합니다. 하지만 번역 팩이 【이미 활성화된 상태】라면 '언어 핫 리로드'가 트리거되어 10초 후 게임 재시작 없이 최신 번역이 바로 적용됩니다!</ATC_FAQ_A4>
+  <ATC_FAQ_Q5>번역된 파일은 어디에 저장되나요? 다른 사람과 공유할 수 있나요?</ATC_FAQ_Q5>
+  <ATC_FAQ_A5>RimWorld/Mods/!Translation_AI_Pack 폴더에 저장됩니다! 자동 생성된 번역 팩은 완벽한 플레이 경험을 위한 【개인 로컬 사용 전용】입니다. 패키징하여 공유하거나 Steam 창작마당에 업로드하지 마세요!</ATC_FAQ_A5> 
+  
+  <!-- 카운트다운 (全域倒數彈窗專用) -->
+  <ATC_ReloadingCountdown>번역 완료! 게임 언어 다시 불러오기까지</ATC_ReloadingCountdown>
+  <ATC_Seconds>초...</ATC_Seconds>
+  <ATC_ErrorLogTitle>⚠️ 손상된 파일 검출 보고서</ATC_ErrorLogTitle>
+  
+  <ATC_Lang_Russian>러시아어</ATC_Lang_Russian>
+  <ATC_Lang_Ukrainian>우크라이나어</ATC_Lang_Ukrainian>
+
+  <ATC_Tooltip_TargetLang>【대상 언어】\nAI가 외국어 모드를 번역할 언어를 설정합니다.</ATC_Tooltip_TargetLang>
+  <ATC_Tooltip_Provider>【AI 서비스 제공자】\n사용할 AI 모델 제공자를 선택하세요. Google (Gemini) 또는 OpenAI를 강력히 권장합니다.</ATC_Tooltip_Provider>
+  <ATC_DefaultEmpty>기본값은 비워두기</ATC_DefaultEmpty>
+
+  <ATC_Log_HotReloadTrigger>[System] 언어 핫 리로드를 트리거합니다. {0}초 후 실행됩니다.</ATC_Log_HotReloadTrigger>
+  <ATC_Log_FetchModelsSuccess>[System] 모델 목록 가져오기 성공!</ATC_Log_FetchModelsSuccess>
+  <ATC_Log_FetchModelsFail>[System] 목록 가져오기 실패. API 키를 확인해주세요.</ATC_Log_FetchModelsFail>
+  <ATC_Log_AllTranslationWritten>[Success] 모든 번역이 !Translation_AI_Pack에 저장되었습니다!</ATC_Log_AllTranslationWritten>
+  <ATC_Log_StartingHotReload>[System] 자동 핫 리로드를 시작합니다. 잠시만 기다려주세요...</ATC_Log_StartingHotReload>
+  <ATC_Log_NetworkRetry>[System] 네트워크 불안정 또는 AI 서버 혼잡으로 자동 재시도 메커니즘이 트리거되었습니다...</ATC_Log_NetworkRetry>
+
+  <ATC_LogError_Format>[{0}] 형식 오류: {1}</ATC_LogError_Format>
+  <ATC_LogError_Unknown>[{0}] 알 수 없는 예외: {1}</ATC_LogError_Unknown>
+  <ATC_LogError_FileCorrupted>[파일 손상] 분석할 수 없는 파일 건너뛰기: {0}</ATC_LogError_FileCorrupted>
+  <ATC_LogError_ApiConn>[API] 통신 오류: {0}</ATC_LogError_ApiConn>
 </LanguageData>

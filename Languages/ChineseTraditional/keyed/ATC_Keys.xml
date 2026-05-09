@@ -1,12 +1,15 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <LanguageData>
     <!-- 介面與設定 -->
-    <ATC_ModTitle>🖥️ 全自動補位翻譯 V4.4</ATC_ModTitle>
+    <ATC_ModTitle>🖥️ 全自動補位翻譯 V4.5</ATC_ModTitle>
     <ATC_TargetLang>目標語系</ATC_TargetLang>
     <ATC_Lang_Traditional>繁體中文</ATC_Lang_Traditional>
     <ATC_Lang_Simplified>簡體中文</ATC_Lang_Simplified>
     <ATC_Lang_Japanese>日本語</ATC_Lang_Japanese>
     <ATC_Lang_Korean>한국어</ATC_Lang_Korean>
+    <ATC_Lang_Russian>俄語</ATC_Lang_Russian>
+    <ATC_Lang_Ukrainian>烏克蘭語</ATC_Lang_Ukrainian>
+
     <ATC_CurrentProvider>當前 AI 供應商</ATC_CurrentProvider>
     <ATC_ApiKey>API 密鑰 (API Key)</ATC_ApiKey>
     <ATC_CustomBaseUrl>自訂 API 網址 (Base URL)</ATC_CustomBaseUrl>
@@ -50,4 +53,56 @@
     <ATC_Log_AIFinish>   ✅ [{0}] AI 翻譯焊接完成！</ATC_Log_AIFinish>
     <ATC_Log_AIFail>   ❌ [{0}] AI 翻譯焊接失敗。</ATC_Log_AIFail>
     <ATC_Log_NoMissing>   ✨ [{0}] 零件齊全，無須焊接。</ATC_Log_NoMissing>
+
+    <ATC_FirstTime_Notice>[初次使用] 偵測到生成的翻譯包未啟用，已取消自動熱重載。</ATC_FirstTime_Notice>
+    <ATC_FirstTime_Dialog>【初次使用提示】\n\n系統偵測到您是第一次執行翻譯！\n目前翻譯包已經在您的本地生成，但尚未啟用。\n\n請前往 RimWorld 的「模組列表」，找到名為「! AutoTranslation AI Pack」的模組，將它【打勾啟用】並拖曳到排序的【最下方】，然後重啟遊戲。\n\n之後若安裝新模組再進行翻譯，系統就會直接進入語言熱重載，無須再重啟遊戲囉！</ATC_FirstTime_Dialog>
+    <ATC_ReloadingLog>執行語言熱重載中... 畫面可能會閃爍，請稍候。</ATC_ReloadingLog>
+    <ATC_ReloadDoneLog>熱重載完成！最新翻譯已全面生效。</ATC_ReloadDoneLog>
+
+    <ATC_Tutorial_Title>Auto Translation Core 終極使用指南</ATC_Tutorial_Title>
+    <ATC_Tutorial_StepsTitle>快速上手 5 步驟：</ATC_Tutorial_StepsTitle>
+    <ATC_Tutorial_Step1>選擇【AI 服務商】。台灣玩家推薦免費額度的 Google (Gemini)；大陸地區玩家強烈推薦使用 DeepSeek！</ATC_Tutorial_Step1>
+    <ATC_Tutorial_Step2>去官網申請一組【API 金鑰】並貼上。如果是官方 API 不用填寫 Base URL！</ATC_Tutorial_Step2>
+    <ATC_Tutorial_Step3>點擊【🔍 獲取可用模型清單】，成功後在右側下拉選單選擇模型。</ATC_Tutorial_Step3>
+    <ATC_Tutorial_Step4>點擊綠色的【🚀 開始執行自動翻譯】按鈕，然後去泡杯咖啡！或是回到遊戲繼續遊玩！</ATC_Tutorial_Step4>
+    <ATC_Tutorial_Step5>【初次使用必看】第一次執行翻譯後，系統會生成一個名為 `! AutoTranslation AI Pack` 的本地模組。請務必前往模組列表將它【打勾啟用】並放到最下方，然後重啟遊戲。</ATC_Tutorial_Step5>
+
+    <!-- V4.5 UI 按鈕與狀態標籤 -->
+    <ATC_ManualReload>手動重載翻譯</ATC_ManualReload>
+    <ATC_Tutorial_Btn>使用教學與 FAQ</ATC_Tutorial_Btn>
+    <ATC_Tutorial_FAQTitle>常見問題與 FAQ：</ATC_Tutorial_FAQTitle>
+    <ATC_FAQ_Q1>為什麼點擊獲取模型清單一直失敗 (HTTP 401 / 403)？</ATC_FAQ_Q1>
+    <ATC_FAQ_A1>通常是因為你的 API 金鑰填錯了，或是複製到多餘的空格。另外請確認你的帳號額度是否用盡。</ATC_FAQ_A1>
+    <ATC_FAQ_Q2>為什麼出現 HTTP 404 錯誤？</ATC_FAQ_Q2>
+    <ATC_FAQ_A2>如果你使用官方 API，請確保【自訂 Base URL】是「完全空白」的狀態！只有使用第三方中轉站才需要填寫網址。</ATC_FAQ_A2>
+    <ATC_FAQ_Q3>翻譯跑到一半卡住不動，或者出現通訊異常怎麼辦？</ATC_FAQ_Q3>
+    <ATC_FAQ_A3>網路波動或 AI 伺服器忙碌時會發生。模組已實裝「自動重試與 5 分鐘超時保護」。若真的卡死，請直接重開遊戲再按一次翻譯即可（已翻過的內容不會重複消耗 API）。</ATC_FAQ_A3>
+    <ATC_FAQ_Q4>翻譯完畢後，我需要重開遊戲嗎？</ATC_FAQ_Q4>
+    <ATC_FAQ_A4>如果是「第一次」使用，你必須去模組列表啟用生成的 `! AutoTranslation AI Pack` 並重啟遊戲。但如果該翻譯包【已經在啟用狀態】，系統會觸發「語言熱重載」，10 秒後最新翻譯會直接生效，無須重啟遊戲！</ATC_FAQ_A4>
+    <ATC_FAQ_Q5>翻譯好的檔案放在哪裡？可以分享給別人嗎？</ATC_FAQ_Q5>
+    <ATC_FAQ_A5>存放在你的 RimWorld/Mods/!Translation_AI_Pack 裡面！請注意，自動生成的翻譯包【僅供個人本地使用】，讓您享受最完整的 RimWorld 體驗，請勿打包分享或上傳至 Steam 創意工坊喔！</ATC_FAQ_A5> 
+    <!-- 全域倒數彈窗專用 -->
+    <ATC_ReloadingCountdown>翻譯已完成！將在</ATC_ReloadingCountdown>
+    <ATC_Seconds>秒後重新載入遊戲語言...</ATC_Seconds>
+    <ATC_ErrorLogTitle>⚠️ 異常檔案檢測報告</ATC_ErrorLogTitle>
+  
+   
+  <!-- 提示詞與預設文字 -->
+    <ATC_Tooltip_TargetLang>【目標語言】\n設定 AI 要將外語模組翻譯成什麼語言。</ATC_Tooltip_TargetLang>
+    <ATC_Tooltip_Provider>【AI 服務商】\n選擇你要使用的 AI 模型供應商。強烈推薦使用 Google (Gemini) 或 OpenAI。</ATC_Tooltip_Provider>
+    <ATC_DefaultEmpty>預設請留空</ATC_DefaultEmpty>
+
+  <!-- 產線日誌 (左側) -->
+    <ATC_Log_HotReloadTrigger>[System] 觸發語言熱重載，將於 {0} 秒後執行。</ATC_Log_HotReloadTrigger>
+    <ATC_Log_FetchModelsSuccess>[System] 獲取模型清單成功！</ATC_Log_FetchModelsSuccess>
+    <ATC_Log_FetchModelsFail>[System] 獲取清單失敗，請檢查金鑰。</ATC_Log_FetchModelsFail>
+    <ATC_Log_AllTranslationWritten>[Success] 所有翻譯已寫入 !Translation_AI_Pack！</ATC_Log_AllTranslationWritten>
+    <ATC_Log_StartingHotReload>[System] 正在啟動自動熱重載，請稍候...</ATC_Log_StartingHotReload>
+    <ATC_Log_NetworkRetry>[System] 網路波動或 AI 伺服器忙碌，系統已觸發自動重試機制...</ATC_Log_NetworkRetry>
+
+  <!-- 異常報告 (右側) -->
+    <ATC_LogError_Format>[{0}] 格式錯誤: {1}</ATC_LogError_Format>
+    <ATC_LogError_Unknown>[{0}] 未知異常: {1}</ATC_LogError_Unknown>
+    <ATC_LogError_FileCorrupted>[檔案損壞] 略過無法解析的檔案: {0}</ATC_LogError_FileCorrupted>
+    <ATC_LogError_ApiConn>[API] 通訊異常: {0}</ATC_LogError_ApiConn>
 </LanguageData>

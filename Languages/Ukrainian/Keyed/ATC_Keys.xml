@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<LanguageData>
+    <ATC_ModTitle>🖥️ Авто-перекладач AI V4.5</ATC_ModTitle>
+    <ATC_TargetLang>Цільова мова</ATC_TargetLang>
+    <ATC_Lang_Traditional>Традиційна китайська</ATC_Lang_Traditional>
+    <ATC_Lang_Simplified>Спрощена китайська</ATC_Lang_Simplified>
+    <ATC_Lang_Japanese>Японська</ATC_Lang_Japanese>
+    <ATC_Lang_Korean>Корейська</ATC_Lang_Korean>
+    <ATC_CurrentProvider>Поточний провайдер AI</ATC_CurrentProvider>
+    <ATC_ApiKey>Ключ API (API Key)</ATC_ApiKey>
+    <ATC_CustomBaseUrl>Свій URL API (Base URL)</ATC_CustomBaseUrl>
+    <ATC_OnlyScanActive>Сканувати лише активні моди</ATC_OnlyScanActive>
+    
+    <ATC_TestConnection>Тест з'єднання з AI</ATC_TestConnection>
+    <ATC_Msg_EmptyKey>Ключ API не вказано!</ATC_Msg_EmptyKey>
+    <ATC_TestingPulse>Надсилання тестового імпульсу...</ATC_TestingPulse>
+    <ATC_FetchModels>Отримати список моделей</ATC_FetchModels>
+    <ATC_Fetching>Зв'язок...</ATC_Fetching>
+    <ATC_SelectModel>Обрати модель</ATC_SelectModel>
+    <ATC_PlzFetchModel>Спочатку отримайте список моделей</ATC_PlzFetchModel>
+    <ATC_StartTranslation>Запустити авто-переклад</ATC_StartTranslation>
+    
+    <ATC_CurrentTask>Поточне завдання</ATC_CurrentTask>
+    <ATC_Idle>Очікування</ATC_Idle>
+    <ATC_TaskDone>Переклад завершено!</ATC_TaskDone>
+    <ATC_LogPanelTitle>--- 📡 Моніторинг процесу в реальному часі ---</ATC_LogPanelTitle>
+
+    <ATC_Log_TestPulse>🔌 [Test] Тестування з'єднання з [{0}]...</ATC_Log_TestPulse>
+    <ATC_Log_TestSuccess>✅ [Test] Успішно! Ядро AI працює стабільно.</ATC_Log_TestSuccess>
+    <ATC_Log_TestFail>❌ [Test] Помилка! Перевірте мережу або налаштування API.</ATC_Log_TestFail>
+
+    <ATC_Log_Init>🌐 [Init] Читання модів, створення загальної бази перекладу...</ATC_Log_Init>
+    <ATC_Log_InitDone>✅ [Init] Готово! Зібрано {0} рядків Def-перекладу.</ATC_Log_InitDone>
+    <ATC_Log_StartScan>🚀 Ядро запущено! Цільових модів: {0}</ATC_Log_StartScan>
+    <ATC_Log_ScanMod>\n📦 [Start] Сканування: {0}</ATC_Log_ScanMod>
+    <ATC_Log_SkipMod>   ⏩ [Skip] Кодовий мод без текстових даних.</ATC_Log_SkipMod>
+    <ATC_Log_KeyedScan>   🔍 [Keyed] Сканування...</ATC_Log_KeyedScan>
+    <ATC_Log_DefScan>   🔍 [DefInjected] Глибоке сканування та зіставлення...</ATC_Log_DefScan>
+    <ATC_Log_TaskDone>\n🎉 [Finish] Процес перекладу успішно завершено!</ATC_Log_TaskDone>
+    <ATC_Log_TaskError>❌ [Error] Збій процесу: {0}</ATC_Log_TaskError>
+    <ATC_Log_Clean>🧹 [Clean] Зупинка, пам'ять очищено.</ATC_Log_Clean>
+    
+    <ATC_Log_FoundMissing>   ⚙️ [{0}] Знайдено {1} пропусків! Запит до AI...</ATC_Log_FoundMissing>
+    <ATC_Log_AIFinish>   ✅ [{0}] AI завершив переклад!</ATC_Log_AIFinish>
+    <ATC_Log_AIFail>   ❌ [{0}] Помилка перекладу AI.</ATC_Log_AIFail>
+    <ATC_Log_NoMissing>   ✨ [{0}] Усі частини на місці, переклад не потрібен.</ATC_Log_NoMissing>
+
+    <ATC_FirstTime_Notice>[Перший запуск] Пакет перекладу не активовано, авто-перезавантаження скасовано.</ATC_FirstTime_Notice>
+    <ATC_FirstTime_Dialog>【Підказка при першому запуску】\n\nСистема виявила, що це ваш перший запуск перекладу!\nПакет перекладу створено локально, але ще не активовано.\n\nПерейдіть до списку модів RimWorld, знайдіть "! AutoTranslation AI Pack", активуйте його та перемістіть у самий низу списку, після чого перезапустіть гру.\n\nНадалі при перекладі нових модів гра буде перезавантажувати мову автоматично без перезапуску!</ATC_FirstTime_Dialog>
+    <ATC_ReloadingLog>Перезавантаження мови... Екран може мерехтіти, зачекайте.</ATC_ReloadingLog>
+    <ATC_ReloadDoneLog>Перезавантаження завершено! Переклад вступив у дію.</ATC_ReloadDoneLog>
+
+    <ATC_Tutorial_Title>Гайд по Auto Translation Core</ATC_Tutorial_Title>
+    <ATC_Tutorial_StepsTitle>Швидкий старт за 5 кроків:</ATC_Tutorial_StepsTitle>
+    <ATC_Tutorial_Step1>Оберіть AI провайдера. Google (Gemini) рекомендується для безкоштовного використання.</ATC_Tutorial_Step1>
+    <ATC_Tutorial_Step2>Отримайте ключ API та вставте його. Залиште Base URL порожнім для офіційних API!</ATC_Tutorial_Step2>
+    <ATC_Tutorial_Step3>Натисніть кнопку отримання списку моделей та оберіть потрібну.</ATC_Tutorial_Step3>
+    <ATC_Tutorial_Step4>Натисніть кнопку "Запустити авто-переклад" та випийте кави!</ATC_Tutorial_Step4>
+    <ATC_Tutorial_Step5>【Важливо】 Після першого разу активуйте "! AutoTranslation AI Pack" у списку модів і перезапустіть гру.</ATC_Tutorial_Step5>
+
+    <ATC_ManualReload>Перезавантажити переклад</ATC_ManualReload>
+    <ATC_Tutorial_Btn>Гайд та FAQ</ATC_Tutorial_Btn>
+    <ATC_Tutorial_FAQTitle>Часті питання (FAQ):</ATC_Tutorial_FAQTitle>
+    <ATC_ReloadingCountdown>Переклад завершено! Перезавантаження через</ATC_ReloadingCountdown>
+    <ATC_Seconds>сек...</ATC_Seconds>
+    <ATC_ErrorLogTitle>⚠️ Звіт про пошкоджені файли</ATC_ErrorLogTitle>
+
+    <ATC_Lang_Russian>Російська</ATC_Lang_Russian>
+  <ATC_Lang_Ukrainian>Українська</ATC_Lang_Ukrainian>
+
+  <ATC_Tooltip_TargetLang>[Цільова мова]\nВиберіть мову, на яку ШІ перекладатиме моди.</ATC_Tooltip_TargetLang>
+  <ATC_Tooltip_Provider>[Провайдер ШІ]\nВиберіть провайдера моделі ШІ. Настійно рекомендується Google (Gemini) або OpenAI.</ATC_Tooltip_Provider>
+  <ATC_DefaultEmpty>За замовчуванням пусто</ATC_DefaultEmpty>
+
+  <ATC_Log_HotReloadTrigger>[Система] Гаряче перезавантаження мови почнеться через {0} сек.</ATC_Log_HotReloadTrigger>
+  <ATC_Log_FetchModelsSuccess>[Система] Список моделей успішно отримано!</ATC_Log_FetchModelsSuccess>
+  <ATC_Log_FetchModelsFail>[Система] Не вдалося отримати список. Будь ласка, перевірте ваш API ключ.</ATC_Log_FetchModelsFail>
+  <ATC_Log_AllTranslationWritten>[Успіх] Всі переклади записані у !Translation_AI_Pack!</ATC_Log_AllTranslationWritten>
+  <ATC_Log_StartingHotReload>[Система] Запуск автоматичного перезавантаження, будь ласка, зачекайте...</ATC_Log_StartingHotReload>
+  <ATC_Log_NetworkRetry>[Система] Збій мережі або сервер зайнятий. Запущено механізм автоповтору...</ATC_Log_NetworkRetry>
+
+  <ATC_LogError_Format>[{0}] Помилка форматування: {1}</ATC_LogError_Format>
+  <ATC_LogError_Unknown>[{0}] Невідома помилка: {1}</ATC_LogError_Unknown>
+  <ATC_LogError_FileCorrupted>[Файл пошкоджено] Пропуск нечитабельного файлу: {0}</ATC_LogError_FileCorrupted>
+  <ATC_LogError_ApiConn>[API] Помилка зв'язку: {0}</ATC_LogError_ApiConn>
+</LanguageData>

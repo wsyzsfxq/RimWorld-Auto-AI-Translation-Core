@@ -32,6 +32,7 @@ namespace AutoTranslator_Core
             string targetLanguageName = "";
             string languageSpecificRules = "";
 
+            // 🌟 咪咪特製：順便幫大哥把俄語和烏克蘭語的 AI 提示詞也寫進去了！
             switch (targetLang)
             {
                 case TargetLanguage.Traditional:
@@ -49,6 +50,14 @@ namespace AutoTranslator_Core
                 case TargetLanguage.Korean:
                     targetLanguageName = "한국어 (Korean)";
                     languageSpecificRules = "1. 翻譯風格：請使用符合 RimWorld 遊戲氛圍的自然韓語，專有名詞請參考韓國玩家的習慣用語。\n";
+                    break;
+                case TargetLanguage.Russian:
+                    targetLanguageName = "俄語 (Russian, ru-RU)";
+                    languageSpecificRules = "1. 翻譯風格：請使用符合 RimWorld 遊戲氛圍的自然俄語，確保名詞的性別和格數正確。\n";
+                    break;
+                case TargetLanguage.Ukrainian:
+                    targetLanguageName = "烏克蘭語 (Ukrainian, uk-UA)";
+                    languageSpecificRules = "1. 翻譯風格：請使用符合 RimWorld 遊戲氛圍的自然烏克蘭語，專有名詞請參考烏克蘭玩家的習慣用語。\n";
                     break;
             }
 
@@ -241,19 +250,26 @@ namespace AutoTranslator_Core
 
                 return ParseResponse(await res.Content.ReadAsStringAsync(), s.CurrentProvider, texts.Count);
             }
-            catch (TaskCanceledException)
+            catch (Exception ex)
             {
-                // 🌟 攔截超時錯誤，只發出警告不噴紅字報錯！
-                Log.Warning("[AutoTranslationCore] 翻譯通訊超時 (Timeout)！API 伺服器無回應，可能是請求被取消或網路擁塞。");
-                return null;
-            }
-            catch (Exception e)
-            {
-                Log.Error($"[AutoTranslationCore] 翻譯通訊異常: {e.Message}");
+                if (ex is TaskCanceledException || ex.Message.Contains("canceled") || ex.Message.Contains("aborted"))
+                {
+                    // 寫在開發者日誌的保留原樣（大哥用來 debug 看的）
+                    Log.Warning("[AutoTranslationCore] 翻譯通訊超時 (Timeout)！API 伺服器無回應，系統準備重試。");
+
+                    // 🌟 寫在玩家面板的換成在地化
+                    AutoTranslatorSettings.AddLog("⚠️ " + "ATC_Log_NetworkRetry".Translate());
+                }
+                else
+                {
+                    // 🌟 寫在玩家面板異常區的換成在地化
+                    AutoTranslatorSettings.AddErrorLog("❌ " + "ATC_LogError_ApiConn".Translate(ex.Message));
+                    Log.Error($"[AutoTranslationCore] 翻譯通訊異常: {ex.Message}");
+                }
+
                 return null;
             }
         }
-
         private static List<string> ParseResponse(string json, TranslatorProvider p, int count)
         {
             try

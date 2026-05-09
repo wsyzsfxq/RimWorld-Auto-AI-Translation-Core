@@ -26,6 +26,7 @@ namespace AutoTranslator_Core
             return Path.Combine(rimWorldRoot, "Mods/!Translation_AI_Pack");
         }
 
+        // 🌟 咪咪特製：幫大哥補上俄語和烏克蘭語的資料夾對應！
         public static string GetFolderNameByLanguage(TargetLanguage lang)
         {
             switch (lang)
@@ -34,6 +35,8 @@ namespace AutoTranslator_Core
                 case TargetLanguage.Simplified: return "ChineseSimplified";
                 case TargetLanguage.Japanese: return "Japanese";
                 case TargetLanguage.Korean: return "Korean";
+                case TargetLanguage.Russian: return "Russian";
+                case TargetLanguage.Ukrainian: return "Ukrainian";
                 default: return "English";
             }
         }
@@ -143,9 +146,9 @@ namespace AutoTranslator_Core
                 settings.CurrentProgress = 1f;
                 AutoTranslatorSettings.AddLog("ATC_Log_TaskDone".Translate());
 
-                // 🌟 V4.5 新增：完成任務後，排程 10 秒後自動熱重載
-                AutoTranslatorSettings.AddLog("🎉 [Success] 所有翻譯已寫入 !Translation_AI_Pack！");
-                AutoTranslatorSettings.AddLog("✨ [System] 正在啟動自動熱重載，請稍候...");
+                // 🌟 V4.5 新增：完成任務後，排程 10 秒後自動熱重載 (已在地化)
+                AutoTranslatorSettings.AddLog("🎉 " + "ATC_Log_AllTranslationWritten".Translate());
+                AutoTranslatorSettings.AddLog("✨ " + "ATC_Log_StartingHotReload".Translate());
                 AutoTranslatorSettings.RequestReload(10f);
 
             }
@@ -327,15 +330,15 @@ namespace AutoTranslator_Core
                 }
                 catch (XmlException xmlEx)
                 {
-                    // 🌟 把 Path.GetFileName 換成我們的 GetShortPath
-                    AutoTranslatorSettings.AddErrorLog($"⚠️ [{mod.Name}] 格式錯誤: {GetShortPath(file)}");
+                    // 已在地化
+                    AutoTranslatorSettings.AddErrorLog("⚠️ " + "ATC_LogError_Format".Translate(mod.Name, GetShortPath(file)));
                     Log.Warning($"[AutoTranslationCore] XML 解析錯誤 ({mod.Name}): {xmlEx.Message}");
                     continue;
                 }
                 catch (Exception ex)
                 {
-                    // 🌟 把 Path.GetFileName 換成我們的 GetShortPath
-                    AutoTranslatorSettings.AddErrorLog($"⚠️ [{mod.Name}] 未知異常: {GetShortPath(file)}");
+                    // 已在地化
+                    AutoTranslatorSettings.AddErrorLog("⚠️ " + "ATC_LogError_Unknown".Translate(mod.Name, GetShortPath(file)));
                     Log.Warning($"[AutoTranslationCore] 檔案處理異常 ({mod.Name}): {ex.Message}");
                     continue;
                 }
@@ -486,8 +489,8 @@ namespace AutoTranslator_Core
             }
             catch (Exception ex)
             {
-                // 🌟 把 Path.GetFileName 換成我們的 GetShortPath
-                AutoTranslatorSettings.AddErrorLog($"⚠️ [檔案損壞] 略過無法解析的檔案: {GetShortPath(filePath)}");
+                // 已在地化
+                AutoTranslatorSettings.AddErrorLog("⚠️ " + "ATC_LogError_FileCorrupted".Translate(GetShortPath(filePath)));
                 Log.Warning($"[AutoTranslationCore] XML 解析錯誤 ({Path.GetFileName(filePath)}): {ex.Message}");
             }
             return dict;
@@ -502,7 +505,6 @@ namespace AutoTranslator_Core
             d.AppendChild(r); d.Save(path);
         }
 
-        // 🌟 咪咪特製：只擷取 294100 或 Mods 之後的實用路徑
         private static string GetShortPath(string fullPath)
         {
             if (string.IsNullOrEmpty(fullPath)) return "";
