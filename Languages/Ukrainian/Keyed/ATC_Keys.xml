@@ -1,151 +1,165 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <LanguageData>
 
-  <!-- ==================== Налаштування інтерфейсу та мови ==================== -->
-  <ATC_ModTitle>🖥️ Автоматичне AI Ядро Перекладу V4.6</ATC_ModTitle>
-  <ATC_TargetLang>Цільова мова</ATC_TargetLang>
-  
-  <ATC_Lang_Traditional>Традиційна китайська</ATC_Lang_Traditional>
-  <ATC_Lang_Simplified>Спрощена китайська</ATC_Lang_Simplified>
-  <ATC_Lang_Japanese>Японська</ATC_Lang_Japanese>
-  <ATC_Lang_Korean>Корейська</ATC_Lang_Korean>
-  <ATC_Lang_Russian>Російська</ATC_Lang_Russian>
-  <ATC_Lang_Ukrainian>Українська</ATC_Lang_Ukrainian>
-  <ATC_Lang_English>Англійська (English)</ATC_Lang_English>
+<ATC_ModTitle>🖥️ Автоматичне дозаповнення перекладу V4.7</ATC_ModTitle>
+<ATC_TargetLang>Цільова мова</ATC_TargetLang>
 
-  <ATC_CurrentProvider>Поточний постачальник AI</ATC_CurrentProvider>
-  <ATC_ApiKey>Ключ API (API Key)</ATC_ApiKey>
-  <ATC_CustomBaseUrl>Власний URL API (Base URL)</ATC_CustomBaseUrl>
-  <ATC_DefaultEmpty>Залиште порожнім для стандартного</ATC_DefaultEmpty>
-  <ATC_OnlyScanActive>Сканувати лише активні моди</ATC_OnlyScanActive>
+<ATC_Lang_Traditional>Традиційна китайська</ATC_Lang_Traditional>
+<ATC_Lang_Simplified>Спрощена китайська</ATC_Lang_Simplified>
+<ATC_Lang_Japanese>Японська</ATC_Lang_Japanese>
+<ATC_Lang_Korean>Корейська</ATC_Lang_Korean>
+<ATC_Lang_Russian>Російська</ATC_Lang_Russian>
+<ATC_Lang_Ukrainian>Українська</ATC_Lang_Ukrainian>
+<ATC_Lang_English>Англійська (English)</ATC_Lang_English>
 
-  <!-- ==================== Підказки (Tooltips) ==================== -->
-  <ATC_Tooltip_TargetLang>【Цільова мова】\nВстановіть мову, на яку AI має перекладати моди.</ATC_Tooltip_TargetLang>
-  <ATC_Tooltip_Provider>【Постачальник AI】\nВиберіть постачальника моделі AI. Наполегливо рекомендуємо Google (Gemini) або OpenAI.</ATC_Tooltip_Provider>
+<ATC_CurrentProvider>Поточний провайдер AI</ATC_CurrentProvider>
+<ATC_ApiKey>API-ключ (API Key)</ATC_ApiKey>
+<ATC_CustomBaseUrl>Власний URL API (Base URL)</ATC_CustomBaseUrl>
+<ATC_DefaultEmpty>Залиште порожнім за замовчуванням</ATC_DefaultEmpty>
+<ATC_OnlyScanActive>Сканувати лише активні моди</ATC_OnlyScanActive>
 
-  <!-- ==================== Текст кнопок ==================== -->
-  <ATC_TestConnection>Тест з'єднання AI</ATC_TestConnection>
-  <ATC_TestingPulse>Надсилання тестового імпульсу...</ATC_TestingPulse>
-  
-  <ATC_FetchModels>Отримати список моделей</ATC_FetchModels>
-  <ATC_Fetching>З'єднання...</ATC_Fetching>
-  <ATC_SelectModel>Виберіть модель</ATC_SelectModel>
-  <ATC_PlzFetchModel>Спочатку отримайте список моделей</ATC_PlzFetchModel>
+<ATC_Tooltip_TargetLang>【Цільова мова】\nВкажіть мову, на яку AI має перекладати іноземні моди.</ATC_Tooltip_TargetLang>
+<ATC_Tooltip_Provider>【Провайдер AI】\nВиберіть постачальника моделей AI. Настійно рекомендуємо Google (Gemini) або OpenAI.</ATC_Tooltip_Provider>
 
-  <ATC_TranslateSingleMod>Перекласти конкретний мод</ATC_TranslateSingleMod>
-  <ATC_StartTranslation>Запустити автоматичний переклад</ATC_StartTranslation>
-  <ATC_StopTranslation>Екстрена зупинка</ATC_StopTranslation>
-  <ATC_ManualReload>Ручне гаряче перезавантаження</ATC_ManualReload>
+<ATC_TestConnection>Перевірити з'єднання з AI</ATC_TestConnection>
+<ATC_TestingPulse>Надсилання тестового імпульсу...</ATC_TestingPulse>
 
-  <ATC_Tutorial_Btn>Інструкція та FAQ</ATC_Tutorial_Btn>
-  <ATC_UpdateLog_Btn>Журнал оновлень</ATC_UpdateLog_Btn>
+<ATC_FetchModels>Отримати список моделей</ATC_FetchModels>
+<ATC_Fetching>Зв'язок...</ATC_Fetching>
+<ATC_SelectModel>Виберіть модель</ATC_SelectModel>
+<ATC_PlzFetchModel>Спочатку натисніть «Отримати список моделей»</ATC_PlzFetchModel>
 
-  <!-- ==================== Панель завдань та статусу ==================== -->
-  <ATC_CurrentTask>Поточне завдання</ATC_CurrentTask>
-  <ATC_Idle>Очікування</ATC_Idle>
-  <ATC_TaskDone>Всі завдання виконано!</ATC_TaskDone>
-  
-  <ATC_LogPanelTitle>--- 📡 Моніторинг виробничої лінії в реальному часі ---</ATC_LogPanelTitle>
-  <ATC_ErrorLogTitle>⚠️ Звіт про аномальні файли</ATC_ErrorLogTitle>
+<ATC_TranslateSingleMod>Перекласти конкретний мод</ATC_TranslateSingleMod>
+<ATC_StartTranslation>Запустити план автодозаповнення</ATC_StartTranslation>
+<ATC_StopTranslation>Екстрена зупинка конвеєра</ATC_StopTranslation>
 
-  <!-- ==================== Звичайні логи (Зліва) ==================== -->
-  <ATC_Msg_EmptyKey>Не можна тестувати без ключа, дурнику!</ATC_Msg_EmptyKey>
-  <ATC_Log_TestPulse>🔌 [Test] Надсилання імпульсу для перевірки з'єднання [{0}]...</ATC_Log_TestPulse>
-  <ATC_Log_TestSuccess>✅ [Test] Успіх! Ядро AI працює ідеально.</ATC_Log_TestSuccess>
-  <ATC_Log_TestFail>❌ [Test] Помилка! Перевірте мережу або налаштування API.</ATC_Log_TestFail>
+<ATC_Tutorial_Btn>Посібник та FAQ</ATC_Tutorial_Btn>
+<ATC_UpdateLog_Btn>Журнал оновлень мода</ATC_UpdateLog_Btn>
 
-  <ATC_Log_Init>🌐 [Init] Читання модів та створення глобального кешу перекладів...</ATC_Log_Init>
-  <ATC_Log_InitDone>✅ [Init] Готово! Зібрано {0} рядків перекладу Def.</ATC_Log_InitDone>
-  <ATC_Log_MigrateSuccess>📦 [Міграція системи] {0} ({1}) успішно та без проблем перенесено до нової структури!</ATC_Log_MigrateSuccess>
-  <ATC_Log_StartSingleMod>🎯 [System] Початок перекладу окремого мода: {0}</ATC_Log_StartSingleMod>
-  <ATC_Log_SingleModDone>🎉 Завдання з перекладу окремого мода ідеально завершено!</ATC_Log_SingleModDone>
-  <ATC_Log_ProcessAborted>🛑 [System] Процес перекладу безпечно перервано.</ATC_Log_ProcessAborted>
-  <ATC_Log_ProcessAbortedWithSave>🛑 [System] Процес безпечно перервано, перекладений вміст збережено.</ATC_Log_ProcessAbortedWithSave>
-  <ATC_TaskAborted>Перервано</ATC_TaskAborted>
-  
-  <ATC_Log_StartScan>🚀 Ядро автоматичного перекладу активовано! Модів до обробки: {0}</ATC_Log_StartScan>
-  <ATC_Log_ScanMod>\n📦 [Start] Сканування: {0}</ATC_Log_ScanMod>
-  <ATC_Log_SkipMod>   ⏩ [Skip] Не знайдено Languages або Defs. Мод лише з кодом.</ATC_Log_SkipMod>
-  <ATC_Log_KeyedScan>   🔍 [Keyed] Сканування...</ATC_Log_KeyedScan>
-  <ATC_Log_DefScan>   🔍 [DefInjected] Глибоке сканування та глобальне зіставлення...</ATC_Log_DefScan>
-  
-  <ATC_Log_FoundMissing>   ⚙️ [{0}] Знайдено {1} відсутніх рядків! AI зварює їх зараз...</ATC_Log_FoundMissing>
-  <ATC_Log_AIFinish>   ✅ [{0}] Зварювання AI завершено!</ATC_Log_AIFinish>
-  <ATC_Log_AIFail>   ❌ [{0}] Зварювання AI не вдалося.</ATC_Log_AIFail>
-  <ATC_Log_NoMissing>   ✨ [{0}] Всі деталі на місці. Зварювання не потрібне.</ATC_Log_NoMissing>
+<ATC_CurrentTask>Поточне завдання</ATC_CurrentTask>
+<ATC_Idle>Очікування</ATC_Idle>
+<ATC_TaskDone>Роботу завершено!</ATC_TaskDone>
 
-  <ATC_Log_TaskDone>\n🎉 [Finish] Місію з перекладу виконано!</ATC_Log_TaskDone>
-  <ATC_Log_TaskError>❌ [Error] Виробничу лінію перервано: {0}</ATC_Log_TaskError>
-  <ATC_Log_Clean>🧹 [Clean] Робота завершена. Пам'ять звільнена.</ATC_Log_Clean>
-  <ATC_CancelRequested>Отримано команду зупинки. Застосування екстрених гальм...</ATC_CancelRequested>
+<ATC_LogPanelTitle>--- 📡 Моніторинг конвеєра в реальному часі ---</ATC_LogPanelTitle>
+<ATC_ErrorLogTitle>⚠️ Звіт про аномальні файли</ATC_ErrorLogTitle>
 
-  <ATC_Log_FetchModelsSuccess>[System] Список моделей отримано успішно!</ATC_Log_FetchModelsSuccess>
-  <ATC_Log_FetchModelsFail>[System] Не вдалося отримати список. Перевірте ключ API.</ATC_Log_FetchModelsFail>
-  <ATC_Log_AllTranslationWritten>[Success] Всі переклади записані в !Translation_AI_Pack!</ATC_Log_AllTranslationWritten>
-  <ATC_Log_NetworkRetry>[System] Нестабільна мережа або сервер AI зайнятий. Запуск автоповтору...</ATC_Log_NetworkRetry>
+<ATC_Msg_EmptyKey>Ключ не заповнено! Як я можу його перевірити?</ATC_Msg_EmptyKey>
+<ATC_Log_TestPulse>🔌 [Test] Надсилання мікроімпульсу, перевірка статусу з'єднання [{0}]...</ATC_Log_TestPulse>
+<ATC_Log_TestSuccess>✅ [Test] Успіх! Ядро AI відповідає нормально.</ATC_Log_TestSuccess>
+<ATC_Log_TestFail>❌ [Test] Помилка! Перевірте мережу або налаштування API.</ATC_Log_TestFail>
 
-  <!-- ==================== Звіти про помилки (Справа) ==================== -->
-  <ATC_LogError_Format>[{0}] Помилка формату: {1}</ATC_LogError_Format>
-  <ATC_LogError_Unknown>[{0}] Невідома помилка: {1}</ATC_LogError_Unknown>
-  <ATC_LogError_FileCorrupted>[Пошкоджено] Пропуск файлу, який неможливо обробити: {0}</ATC_LogError_FileCorrupted>
-  <ATC_LogError_ApiConn>[API] Помилка з'єднання: {0}</ATC_LogError_ApiConn>
+<ATC_Log_Init>🌐 [Init] Читання модів, створення глобального пулу перекладів...</ATC_Log_Init>
+<ATC_Log_InitDone>✅ [Init] Готово! Зібрано {0} перекладів Def.</ATC_Log_InitDone>
 
-  <!-- ==================== Гаряче перезавантаження та відлік ==================== -->
-  <ATC_FirstTime_Notice>[Перше використання] Пакет перекладу не активовано. Автоперезавантаження скасовано.</ATC_FirstTime_Notice>
-  <ATC_FirstTime_Dialog>【Порада для першого використання】\n\nСхоже, ви перекладаєте вперше!\nПакет перекладу створено локально, але він ще не активний.\n\nБудь ласка, перейдіть до "Списку модів" RimWorld, знайдіть "! AutoTranslation AI Pack", 【Увімкніть】 його та перетягніть у самий 【Низ】 списку завантаження. Потім перезапустіть гру.\n\nПісля цього при перекладі нових модів зміни застосовуватимуться миттєво без перезапуску!</ATC_FirstTime_Dialog>
-  
-  <ATC_Log_HotReloadTrigger>[System] Запуск гарячого перезавантаження мови через {0} сек.</ATC_Log_HotReloadTrigger>
-  <ATC_Log_StartingHotReload>[System] Початок автоматичного гарячого перезавантаження. Зачекайте...</ATC_Log_StartingHotReload>
-  
-  <ATC_ReloadingCountdown>Переклад завершено! </ATC_ReloadingCountdown>
-  <ATC_Seconds> сек. до перезавантаження мови...</ATC_Seconds>
-  <ATC_ReloadingMessage>Перезавантаження мовних даних...</ATC_ReloadingMessage>
-  <ATC_ReloadingLog>Виконується гаряче перезавантаження... Екран може мерехтіти або тимчасово замерзнути.</ATC_ReloadingLog>
-  <ATC_ReloadDoneLog>Гаряче перезавантаження завершено! Останні переклади активовані.</ATC_ReloadDoneLog>
+<ATC_Log_StartScan>🚀 Запуск Auto Translation Core! Цільових модів: {0}</ATC_Log_StartScan>
+<ATC_Log_ScanMod>\n📦 [Start] Сканування мода: {0}</ATC_Log_ScanMod>
+<ATC_Log_SkipMod>   ⏩ [Skip] Немає Languages або Defs, це мод із чистим кодом.</ATC_Log_SkipMod>
+<ATC_Log_KeyedScan>   🔍 [Keyed] Сканування...</ATC_Log_KeyedScan>
+<ATC_Log_DefScan>   🔍 [DefInjected] Глибоке сканування та глобальне зіставлення...</ATC_Log_DefScan>
 
-  <!-- ==================== Довгий текст (Інструкція) ==================== -->
-  <ATC_Tutorial_FullText>【Швидкий старт за 5 кроків】
-1. Виберіть 【Цільову мову】 (V4.6 тепер підтримує зворотний переклад на англійську, українську та російську!) та 【Постачальника AI】. Рекомендуємо Google (Gemini) за його безкоштовний рівень.
-2. Введіть свій 【Ключ API】. Якщо використовуєте офіційні API, залиште Base URL порожнім!
-3. Натисніть 【🔍 Отримати список моделей】 та виберіть модель зі списку.
-4. Натисніть зелену кнопку 【🚀 Запустити автоматичний переклад】 для сканування всіх модів або 【🎯 Перекласти конкретний мод】 для точкового перекладу. Ви можете використати 【🛑 Екстрену зупинку】 в будь-який час.
-5. 【Важливо для першого разу】 Після першого запуску буде створено мод з назвою `! AutoTranslation AI Pack`. Ви ПОВИННІ 【Увімкнути】 його в списку модів і поставити в самий низ. Перезапустіть гру один раз.
+<ATC_Log_FoundMissing>   ⚙️ [{0}] Знайдено {1} пропусків! Запит підтримки AI...</ATC_Log_FoundMissing>
+<ATC_Log_AIFinish>   ✅ [{0}] Дозаповнення перекладом AI завершено!</ATC_Log_AIFinish>
+<ATC_Log_AIFail>   ❌ [{0}] Помилка дозаповнення перекладом AI.</ATC_Log_AIFail>
+<ATC_Log_NoMissing>   ✨ [{0}] Усі частини на місці, переклад не потрібен.</ATC_Log_NoMissing>
 
-【FAQ】
-Q: Не вдається отримати список моделей (HTTP 401 / 403).
-A: Ваш ключ API, ймовірно, неправильний або має зайві пробіли. Також перевірте баланс вашого рахунку.
+<ATC_Log_TaskDone>\n🎉 [Finish] Завдання виконано ідеально!</ATC_Log_TaskDone>
+<ATC_Log_TaskError>❌ [Error] Конвеєр несподівано перервано: {0}</ATC_Log_TaskError>
+<ATC_Log_Clean>🧹 [Clean] Конвеєр зупинено, пам'ять звільнено.</ATC_Log_Clean>
+<ATC_CancelRequested>Отримано команду зупинки, екстрене гальмування конвеєра...</ATC_CancelRequested>
 
-Q: Помилка HTTP 404.
-A: Якщо використовуєте офіційні API, переконайтеся, що 【Власний Base URL】 повністю порожній!
+<ATC_Log_FetchModelsSuccess>[System] Список моделей успішно отримано!</ATC_Log_FetchModelsSuccess>
+<ATC_Log_FetchModelsFail>[System] Помилка отримання списку, перевірте ключ.</ATC_Log_FetchModelsFail>
+<ATC_Log_AllTranslationWritten>[Success] Усі переклади збережено в !Translation_AI_Pack!</ATC_Log_AllTranslationWritten>
+<ATC_Log_NetworkRetry>[System] Нестабільна мережа або сервер зайнятий, активовано механізм автоповтору...</ATC_Log_NetworkRetry>
 
-Q: Я бачу попередження "Timeout" або "Network Instability" у логах.
-A: Сервер AI може бути перевантажений. Мод має надійний механізм автоматичного повтору. Якщо переклад триває, просто зачекайте!
+<ATC_Log_MigrateSuccess>📦 [Міграція] {1} з {0} успішно перенесено в нову архітектуру!</ATC_Log_MigrateSuccess>
+<ATC_Log_StartSingleMod>🎯 [System] Початок перекладу окремого мода: {0}</ATC_Log_StartSingleMod>
+<ATC_Log_SingleModDone>🎉 Переклад окремого мода успішно завершено!</ATC_Log_SingleModDone>
+<ATC_Log_ProcessAborted>🛑 [System] Конвеєр безпечно зупинено.</ATC_Log_ProcessAborted>
+<ATC_Log_ProcessAbortedWithSave>🛑 [System] Конвеєр безпечно зупинено, прогрес збережено.</ATC_Log_ProcessAbortedWithSave>
+<ATC_TaskAborted>Перервано</ATC_TaskAborted>
 
-Q: Процес застиг більше ніж на 5 хвилин.
-A: Натисніть 【🛑 Екстрену зупинку】, перезапустіть гру та спробуйте ще раз. Вже перекладений контент збережений і не споживатиме вашу квоту API знову.
+<ATC_LogError_Format>[{0}] Помилка формату: {1}</ATC_LogError_Format>
+<ATC_LogError_Unknown>[{0}] Невідома аномалія: {1}</ATC_LogError_Unknown>
+<ATC_LogError_FileCorrupted>[Файл пошкоджено] Пропуск нечитабельного файлу: {0}</ATC_LogError_FileCorrupted>
+<ATC_LogError_ApiConn>[API] Помилка зв'язку: {0}</ATC_LogError_ApiConn>
 
-Q: Чи потрібно перезапускати гру після перекладу?
-A: Лише "Перший раз". Після цього, якщо пакет перекладу активовано, функція "Гарячого перезавантаження" застосує зміни приблизно за 10 секунд.
+<ATC_FinishMessage_Title>Переклад завершено</ATC_FinishMessage_Title>
+<ATC_FinishMessage_OK>Зрозумів! (OK)</ATC_FinishMessage_OK>
+<ATC_FinishMessage_Text>🎉 Завдання з перекладу успішно виконано!
 
-Q: Де розташовані файли?
-A: У вашій папці RimWorld/Mods/!Translation_AI_Pack. Цей пакет призначений 【Лише для особистого використання】. Будь ласка, не поширюйте його та не завантажуйте в Steam Workshop.</ATC_Tutorial_FullText>
+【Випадок А: Ви використовуєте цей мод вперше】
+Будь ласка, перейдіть до списку модів у головному меню, увімкніть створений «! AutoTranslation AI Pack», перемістіть його в самий [НИЗ] списку завантаження та 【Перезапустіть гру】!
 
-  <ATC_UpdateLog_FullText>--- V4.6 Ultimate Оновлення ---
-• Додано підтримку зворотного перекладу на 【англійську, українську, російську】! Локалізуйте свої моди для всього світу.
-• Реалізовано двигун 【🎯 Переклад конкретного мода】 для хірургічно точного сканування.
-• Реалізовано 【🛑 Систему екстреної зупинки】 для безпечного переривання виробництва зі збереженням прогресу.
-• Рентген-зонд оновлено до 【Level 3 Recursive Deep-Dive】 для пошуку прихованого тексту в будь-якій структурі папок.
-• Повністю перебудовано бекенд UI з динамічною висотою вікон.
+【Випадок Б: Пакет перекладу вже увімкнено】
+Перейдіть до Головне меню ＞  Вибір мови та 【ще раз натисніть на поточну мову】. Гра миттєво очистить кеш і завантажить актуальні рядки, перезапуск не потрібен!</ATC_FinishMessage_Text>
+
+<ATC_Tutorial_FullText>【Посібник користувача】
+
+Виберіть 【Цільову мову】 (підтримується переклад між китайською, японською, корейською, англійською, російською, українською та ін.!) та 【Провайдера】. Рекомендуємо безкоштовний Google (Gemini) або DeepSeek!
+
+Отримайте 【API-ключ】 і вставте його. 🔥 Новинка V4.7: підтримка «Безкінечного магазину API»! Натисніть «＋», щоб додати кілька інтерфейсів. Система буде автоматично чергувати завдання між ними, максимально використовуючи безкоштовні ліміти!
+
+【Автовизначення моделі】 Після вставки ключа (довжиною >10) система автоматично знайде доступні моделі у фоновому режимі — кнопка пошуку не потрібна! Просто виберіть модель у списку праворуч.
+
+Налаштуйте 【Кількість потоків】 (рекомендується: число активних ключів x 3). Потім натисніть зелену кнопку 【🚀 Перекласти всі моди】 для повного сканування або 【🎯 Перекласти один мод】 для точкової роботи! Зупинити процес можна кнопкою 【🛑 Зупинити переклад】.
+
+【🎉 Обов'язкові дії після перекладу】
+👉 Випадок А (вперше): У списку модів увімкніть «! AutoTranslation AI Pack», перемістіть його в самий низ списку завантаження та 【Перезапустіть гру】!
+👉 Випадок Б (вже увімкнено): У Головному меню ＞ Вибір мови 【ще раз натисніть на поточну мову】, щоб миттєво оновити тексти!
+
+【Часті питання (FAQ)】
+Q: Чому переклад завершено, але в грі все ще англійська?
+A: Див. пункт 5! Якщо це ваш перший пакет — обов'язковий перезапуск. Якщо пакет уже активний — «переберіть мову ще раз» (примусове оновлення). Це обмеження рушія гри, а не баг!
+
+Q: Чому виникає помилка HTTP 401 / 403?
+A: Зазвичай через невірний API-ключ або вичерпання ліміту. Переконайтеся, що немає зайвих пробілів, або додайте більше ключів через «＋»!
+
+Q: Чому виникає помилка HTTP 404?
+A: Якщо використовуєте офіційний API, переконайтеся, що 【Власний Base URL】 «повністю порожній»! Це поле тільки для сторонніх проксі.
+
+Q: У логах червоні написи «Timeout» або «Очікування повтору». Що робити?
+A: Сервери API зайняті або діють обмеження частоти запитів. У мод вбудована система повторів та ротації ключів. Якщо переклад триває — просто зачекайте трохи~(≧∀∀≦)ゞ
+
+Q: Де лежать перекладені файли? Чи можна ними ділитися?
+A: У папці RimWorld/Mods/!Translation_AI_Pack. Увага: ці пакети 【тільки для особистого користування】. Не розповсюджуйте їх і не завантажуйте в Steam Workshop!</ATC_Tutorial_FullText>
+
+<ATC_UpdateLog_FullText>--- V4.7 Швидкісне оновлення (Speedster Ultimate) ---
+• Перша у світі система 【Безкінечний магазин API】: одночасне налаштування кількох API. Система використовує Round-Robin для балансування навантаження, обходячи обмеження частоти запитів!
+• 【Регулятор швидкості потоків】: більше ніяких обмежень у 3 потоки! Налаштовуйте до 30 потоків одночасно для неймовірної швидкості перекладу.
+• Новий 【Радар моделей】: автоматичне фонове визначення доступних моделей після вставки ключа.
+• 【Глобальний UI з прокруткою】: вирішено проблему переповнення інтерфейсу та обрізки логів за допомогою розкішного монітора з фіксованою висотою!
+
+--- V4.6 Ультимативне оновлення (Ultimate) ---
+• Додано 【Зворотний переклад】 для англійської, української та російської мов. Тепер можна перекладати китайські моди на інші мови!
+• Двигун 【🎯 Окремий переклад】: вибирайте конкретний мод для швидкого сканування.
+• 【🛑 Екстрене гальмування】: переривайте процес у будь-який момент із збереженням прогресу.
+• X-Ray зонд оновлено до 【Level 3 Рекурсивний режим】, дозволяючи знаходити текст у будь-якій структурі папок.
+• Повністю переписана архітектура UI з динамічними вікнами.
+• Видалено нестабільне гаряче перезавантаження; тепер використовується офіційне меню для 100% стабільності!
 
 --- V4.5 Оновлення ---
-• Додано панель моніторингу 【Звіт про аномальні файли】.
-• Реалізовано 【Corruption Shield】 для автоматичного виявлення та пропуску пошкоджених файлів XML.
-• Додано інструкції для першого запуску та захист від помилок.
-• Реалізовано 10-секундний відлік до безшовного гарячого перезавантаження.
+• Додана панель моніторингу 【Звіт про аномальні файли】.
+• Впроваджено 【Corruption Shield】 для автоматичного захисту та пропуску пошкоджених XML файлів.
+• Додані навчальні вікна для нових користувачів.
 
 --- V4.3 Оновлення ---
-• Перша реалізація 【Виробничої лінії автоматичного перекладу】.
-• Вбудований глобальний кеш пам'яті перекладів для економії витрат на API.
-• Підтримка власних Base URL для локальних моделей AI (LM Studio, Ollama тощо).</ATC_UpdateLog_FullText>
+• Перша 【Лінія автозаповнення перекладу】: більше не потрібно шукати відсутні рядки вручну.
+• Вбудована 【Глобальна пам'ять перекладів】: об'єднує тексти всіх встановлених модів для економії лімітів API.
+• Підтримка власних Base URL: повна сумісність з локальними моделями (LM Studio, Ollama та ін.).</ATC_UpdateLog_FullText>
+
+<ATC_ApiConfigTitle>🔧 Налаштування магазину API-інтерфейсів (підтримка ротації)</ATC_ApiConfigTitle>
+<ATC_Provider>Провайдер</ATC_Provider>
+<ATC_CustomUrlOptional>(Власний BaseUrl, залиште порожнім за замовчуванням)</ATC_CustomUrlOptional>
+<ATC_Delete>Видалити</ATC_Delete>
+<ATC_PasteKey>(Вставте API-ключ)</ATC_PasteKey>
+<ATC_FetchingModel>Пошук моделей...</ATC_FetchingModel>
+<ATC_NoModelWaitKey>Модель не вибрана (вставте ключ для автопошуку)</ATC_NoModelWaitKey>
+<ATC_AddApiBtn>Додати API-інтерфейс (Add API Interface)</ATC_AddApiBtn>
+<ATC_EmergencyStop>Зупинити переклад (Emergency Stop)</ATC_EmergencyStop>
+<ATC_StartFullScan>Перекласти всі моди (Start Full Scan)</ATC_StartFullScan>
+<ATC_EmptyConfigWarning>Будь ласка, вкажіть хоча б одне валідне налаштування API!</ATC_EmptyConfigWarning>
+<ATC_MaxThreads>Потоків одночасно (Max Threads)</ATC_MaxThreads>
+<ATC_MaxThreadsTip>Рекомендується: Число активних ключів x 3</ATC_MaxThreadsTip>
 
 </LanguageData>

@@ -14,9 +14,11 @@ namespace AutoTranslator_Core
     {
         private static readonly HttpClient client = new HttpClient();
 
+        // 🌟 咪咪特製：輪詢計數器 (負載平衡發牌器)
+        private static int currentKeyIndex = 0;
+
         static AutoTranslatorAPI()
         {
-            // Increase timeout for slow AI responses / 考慮到 AI 回應可能很慢，超時設長一點
             client.Timeout = TimeSpan.FromMinutes(5);
         }
 
@@ -26,7 +28,6 @@ namespace AutoTranslator_Core
             return new string(input.Where(c => c >= 32 && c <= 126).ToArray()).Trim();
         }
 
-        // 🌟 V4.6 Ultimate multi-language Prompt (Includes all original rules) / V4.6 終極多語系 Prompt (包含原本完整的規則)
         private static string GetSystemPrompt()
         {
             var targetLang = AutoTranslatorMod.Settings.TargetLang;
@@ -52,29 +53,12 @@ namespace AutoTranslator_Core
 
                 switch (targetLang)
                 {
-                    case TargetLanguage.Japanese:
-                        targetLanguageName = "Japanese (日本語)";
-                        specificRules = "1. Style: Use natural Japanese suitable for the RimWorld gaming atmosphere. Use appropriate Katakana for sci-fi terms.\n";
-                        break;
-                    case TargetLanguage.Korean:
-                        targetLanguageName = "Korean (한국어)";
-                        specificRules = "1. Style: Use natural Korean suitable for the RimWorld gaming atmosphere.\n";
-                        break;
-                    case TargetLanguage.Russian:
-                        targetLanguageName = "Russian (Русский)";
-                        specificRules = "1. Style: Use natural Russian suitable for the RimWorld gaming atmosphere.\n";
-                        break;
-                    case TargetLanguage.Ukrainian:
-                        targetLanguageName = "Ukrainian (Українська)";
-                        specificRules = "1. Style: Use natural Ukrainian suitable for the RimWorld gaming atmosphere.\n";
-                        break;
-                    case TargetLanguage.English:
-                        targetLanguageName = "English (US/UK)";
-                        specificRules = "1. Style: Translate foreign text into natural English suitable for the RimWorld gaming atmosphere.\n";
-                        break;
-                    default:
-                        targetLanguageName = "English";
-                        break;
+                    case TargetLanguage.Japanese: targetLanguageName = "Japanese (日本語)"; specificRules = "1. Style: Use natural Japanese suitable for the RimWorld gaming atmosphere. Use appropriate Katakana for sci-fi terms.\n"; break;
+                    case TargetLanguage.Korean: targetLanguageName = "Korean (한국어)"; specificRules = "1. Style: Use natural Korean suitable for the RimWorld gaming atmosphere.\n"; break;
+                    case TargetLanguage.Russian: targetLanguageName = "Russian (Русский)"; specificRules = "1. Style: Use natural Russian suitable for the RimWorld gaming atmosphere.\n"; break;
+                    case TargetLanguage.Ukrainian: targetLanguageName = "Ukrainian (Українська)"; specificRules = "1. Style: Use natural Ukrainian suitable for the RimWorld gaming atmosphere.\n"; break;
+                    case TargetLanguage.English: targetLanguageName = "English (US/UK)"; specificRules = "1. Style: Translate foreign text into natural English suitable for the RimWorld gaming atmosphere.\n"; break;
+                    default: targetLanguageName = "English"; break;
                 }
 
                 return $"You are an API endpoint that ONLY performs translation tasks and returns a pure JSON array. You specialize in localizing the game 'RimWorld'.\n" +
@@ -86,12 +70,10 @@ namespace AutoTranslator_Core
             }
         }
 
-        private static string GetBaseUrl(TranslatorProvider p)
+        private static string GetBaseUrl(ApiKeyConfig config)
         {
-            var s = AutoTranslatorMod.Settings;
-            string custom = CleanInput(s.CustomBaseUrl);
+            string custom = CleanInput(config.CustomBaseUrl);
 
-            // 🌟 Use custom URL if provided by the user / 只要有填寫自定義網址，就優先使用它
             if (!string.IsNullOrEmpty(custom))
             {
                 if (custom.EndsWith("/")) custom = custom.Substring(0, custom.Length - 1);
@@ -99,7 +81,7 @@ namespace AutoTranslator_Core
                 return custom;
             }
 
-            switch (p)
+            switch (config.Provider)
             {
                 case TranslatorProvider.Google: return "https://generativelanguage.googleapis.com/v1beta";
                 case TranslatorProvider.DeepSeek: return "https://api.deepseek.com/v1";
@@ -111,51 +93,79 @@ namespace AutoTranslator_Core
             }
         }
 
-        public static async Task<List<string>> FetchRemoteModelsAsync()
+        // 🌟 咪咪特製：動態自動獲取模型！傳入特定的配置進行獲取
+        public static void AutoFetchForConfig(ApiKeyConfig config)
         {
-            var s = AutoTranslatorMod.Settings;
-            try
+            config.IsFetching = true;
+            Task.Run(async () =>
             {
-                string apiKey = CleanInput(s.ApiKey);
-                string baseUrl = GetBaseUrl(s.CurrentProvider);
-
-                // Determine if it's an official Google request format / 判斷是否為 Google 官方格式請求
-                bool isGoogleRaw = (s.CurrentProvider == TranslatorProvider.Google && string.IsNullOrEmpty(s.CustomBaseUrl));
-
-                string url = isGoogleRaw
-                    ? $"{baseUrl}/models?key={apiKey}"
-                    : $"{baseUrl}/models";
-
-                client.DefaultRequestHeaders.Clear();
-                if (!isGoogleRaw && !string.IsNullOrEmpty(apiKey))
-                    client.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
-
-                var res = await client.GetAsync(new Uri(url));
-                if (!res.IsSuccessStatusCode) return null;
-
-                var obj = JObject.Parse(await res.Content.ReadAsStringAsync());
-                var list = new List<string>();
-
-                if (isGoogleRaw)
+                try
                 {
-                    var models = obj["models"];
-                    if (models != null)
-                        foreach (var m in models)
-                            if (m["supportedGenerationMethods"]?.ToString().Contains("generateContent") == true)
-                                list.Add(m["name"].ToString().Replace("models/", ""));
+                    string apiKey = CleanInput(config.Key);
+                    string baseUrl = GetBaseUrl(config);
+                    bool isGoogleRaw = (config.Provider == TranslatorProvider.Google && string.IsNullOrEmpty(config.CustomBaseUrl));
+
+                    string url = isGoogleRaw ? $"{baseUrl}/models?key={apiKey}" : $"{baseUrl}/models";
+
+                    client.DefaultRequestHeaders.Clear();
+                    if (!isGoogleRaw && !string.IsNullOrEmpty(apiKey))
+                        client.DefaultRequestHeaders.Add("Authorization", $"Bearer {apiKey}");
+
+                    var res = await client.GetAsync(new Uri(url));
+                    if (res.IsSuccessStatusCode)
+                    {
+                        var obj = JObject.Parse(await res.Content.ReadAsStringAsync());
+                        var list = new List<string>();
+
+                        if (isGoogleRaw)
+                        {
+                            var models = obj["models"];
+                            if (models != null)
+                                foreach (var m in models)
+                                    if (m["supportedGenerationMethods"]?.ToString().Contains("generateContent") == true)
+                                        list.Add(m["name"].ToString().Replace("models/", ""));
+                        }
+                        else
+                        {
+                            var data = obj["data"];
+                            if (data != null) foreach (var m in data) list.Add(m["id"].ToString());
+                        }
+
+                        if (list.Count > 0)
+                        {
+                            config.FetchedModels = list.OrderBy(x => x).ToList();
+                            if (string.IsNullOrEmpty(config.SelectedModel)) config.SelectedModel = config.FetchedModels[0];
+                            AutoTranslatorSettings.AddLog($"✅ 成功自動抓取 [{config.Provider}] 模型清單！");
+                        }
+                    }
+                    else
+                    {
+                        AutoTranslatorSettings.AddErrorLog($"❌ 自動抓取 [{config.Provider}] 模型失敗！請檢查 Key。");
+                    }
                 }
-                else
+                catch (Exception e)
                 {
-                    var data = obj["data"];
-                    if (data != null) foreach (var m in data) list.Add(m["id"].ToString());
+                    AutoTranslatorSettings.AddErrorLog($"⚠️ 抓取 [{config.Provider}] 模型異常: {e.Message}");
                 }
-                return list.OrderBy(x => x).ToList();
-            }
-            catch (Exception e)
-            {
-                Log.Error($"[AutoTranslationCore] Fetch model list error / 獲取模型清單異常: {e.Message}");
-                return null;
-            }
+                finally
+                {
+                    config.IsFetching = false;
+                }
+            });
+        }
+
+        // 🌟 咪咪特製：無限彈匣輪詢發牌器
+        public static ApiKeyConfig GetNextConfig()
+        {
+            var validConfigs = AutoTranslatorMod.Settings.ApiConfigs
+                .Where(c => !string.IsNullOrEmpty(c.Key) && !string.IsNullOrEmpty(c.SelectedModel))
+                .ToList();
+
+            if (validConfigs.Count == 0) return null;
+            if (validConfigs.Count == 1) return validConfigs[0];
+
+            int idx = System.Threading.Interlocked.Increment(ref currentKeyIndex);
+            return validConfigs[Math.Abs(idx) % validConfigs.Count];
         }
 
         public static async Task<bool> TestConnectionAsync()
@@ -168,14 +178,13 @@ namespace AutoTranslator_Core
         {
             if (AutoTranslatorSettings.IsCancellationRequested) return null;
 
-            var s = AutoTranslatorMod.Settings;
-            string apiKey = CleanInput(s.ApiKey);
-            string model = CleanInput(s.SelectedModel);
-            string baseUrl = GetBaseUrl(s.CurrentProvider);
+            // 🌟 透過發牌器拿到這次要用的 API 配置
+            ApiKeyConfig targetConfig = GetNextConfig();
+            if (targetConfig == null) return null;
 
-            // Lenient check for local models or custom relays / 針對本地模型或自定義中轉的寬鬆檢查
-            if (string.IsNullOrEmpty(apiKey) && string.IsNullOrEmpty(s.CustomBaseUrl) && s.CurrentProvider != TranslatorProvider.Custom_OpenAI)
-                return null;
+            string apiKey = CleanInput(targetConfig.Key);
+            string model = CleanInput(targetConfig.SelectedModel);
+            string baseUrl = GetBaseUrl(targetConfig);
 
             try
             {
@@ -184,15 +193,12 @@ namespace AutoTranslator_Core
                 string prompt = GetSystemPrompt();
                 string inputJson = JsonConvert.SerializeObject(texts);
 
-                // Core fix: Use OpenAI compatible format if Google is selected but a custom relay is used / 核心修復：如果選擇 Google 但填了中轉站，改走 OpenAI 兼容格式 (中轉站通常是這樣跑的)
-                if (s.CurrentProvider == TranslatorProvider.Google && string.IsNullOrEmpty(s.CustomBaseUrl))
+                if (targetConfig.Provider == TranslatorProvider.Google && string.IsNullOrEmpty(targetConfig.CustomBaseUrl))
                 {
                     url = $"{baseUrl}/models/{model}:generateContent?key={apiKey}";
                     payload = new
                     {
-                        contents = new[] {
-                            new { parts = new[] { new { text = $"{prompt}\n\nInput JSON:\n{inputJson}" } } }
-                        }
+                        contents = new[] { new { parts = new[] { new { text = $"{prompt}\n\nInput JSON:\n{inputJson}" } } } }
                     };
                 }
                 else
@@ -218,11 +224,11 @@ namespace AutoTranslator_Core
                 if (!res.IsSuccessStatusCode)
                 {
                     string err = await res.Content.ReadAsStringAsync();
-                    Log.Error($"[AutoTranslationCore] API Error / API 錯誤 (HTTP {res.StatusCode}): {err}");
+                    Log.Error($"[AutoTranslationCore] API Error [{targetConfig.Provider}] (HTTP {res.StatusCode}): {err}");
                     return null;
                 }
 
-                return ParseResponse(await res.Content.ReadAsStringAsync(), s.CurrentProvider, texts.Count);
+                return ParseResponse(await res.Content.ReadAsStringAsync(), targetConfig.Provider, texts.Count, string.IsNullOrEmpty(targetConfig.CustomBaseUrl));
             }
             catch (Exception ex)
             {
@@ -231,23 +237,17 @@ namespace AutoTranslator_Core
             }
         }
 
-        private static List<string> ParseResponse(string json, TranslatorProvider p, int count)
+        private static List<string> ParseResponse(string json, TranslatorProvider p, int count, bool isGoogleRaw)
         {
             try
             {
                 var obj = JObject.Parse(json);
-                var s = AutoTranslatorMod.Settings;
-
-                // Check if it follows official Google format / 判斷是否走官方 Google 格式
-                bool isGoogleRaw = (p == TranslatorProvider.Google && string.IsNullOrEmpty(s.CustomBaseUrl));
-
-                string raw = isGoogleRaw
+                string raw = (p == TranslatorProvider.Google && isGoogleRaw)
                     ? obj["candidates"]?[0]?["content"]?["parts"]?[0]?["text"]?.ToString()
                     : obj["choices"]?[0]?["message"]?["content"]?.ToString();
 
                 if (string.IsNullOrEmpty(raw)) return null;
 
-                // 🌟 Strict cleaning: Extract only the JSON array part / 強效清理：只提取 JSON 陣列部分
                 raw = raw.Replace("```json", "").Replace("```", "").Trim();
                 int start = raw.IndexOf('[');
                 int end = raw.LastIndexOf(']');
@@ -259,7 +259,6 @@ namespace AutoTranslator_Core
                 List<string> list = null;
                 if (raw.StartsWith("{"))
                 {
-                    // Handle models that return { "translations": [...] } / 某些 AI 會返回 { "translations": [...] }
                     var dict = JsonConvert.DeserializeObject<Dictionary<string, List<string>>>(raw);
                     list = dict.Values.FirstOrDefault();
                 }

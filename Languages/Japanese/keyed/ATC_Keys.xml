@@ -1,151 +1,166 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <LanguageData>
 
-  <!-- ==================== インターフェースと言語設定 ==================== -->
-  <ATC_ModTitle>🖥️ 全自動 AI 翻訳コア V4.6</ATC_ModTitle>
-  <ATC_TargetLang>ターゲット言語</ATC_TargetLang>
-  
-  <ATC_Lang_Traditional>繁体字中国語</ATC_Lang_Traditional>
-  <ATC_Lang_Simplified>簡体字中国語</ATC_Lang_Simplified>
-  <ATC_Lang_Japanese>日本語</ATC_Lang_Japanese>
-  <ATC_Lang_Korean>韓国語</ATC_Lang_Korean>
-  <ATC_Lang_Russian>ロシア語</ATC_Lang_Russian>
-  <ATC_Lang_Ukrainian>ウクライナ語</ATC_Lang_Ukrainian>
-  <ATC_Lang_English>英語 (English)</ATC_Lang_English>
 
-  <ATC_CurrentProvider>現在の AI プロバイダー</ATC_CurrentProvider>
-  <ATC_ApiKey>API キー (API Key)</ATC_ApiKey>
-  <ATC_CustomBaseUrl>カスタム API URL (Base URL)</ATC_CustomBaseUrl>
-  <ATC_DefaultEmpty>デフォルトは空欄</ATC_DefaultEmpty>
-  <ATC_OnlyScanActive>有効な Mod のみスキャン</ATC_OnlyScanActive>
+<ATC_ModTitle>🖥️ 自動補完翻訳 V4.7</ATC_ModTitle>
+<ATC_TargetLang>ターゲット言語</ATC_TargetLang>
 
-  <!-- ==================== ツールチップ (Tooltips) ==================== -->
-  <ATC_Tooltip_TargetLang>【ターゲット言語】\nAI が Mod をどの言語に翻訳するかを設定します。</ATC_Tooltip_TargetLang>
-  <ATC_Tooltip_Provider>【AI プロバイダー】\n使用する AI モデルの提供元を選択します。Google (Gemini) または OpenAI を強く推奨します。</ATC_Tooltip_Provider>
+<ATC_Lang_Traditional>繁体字中国語</ATC_Lang_Traditional>
+<ATC_Lang_Simplified>簡体字中国語</ATC_Lang_Simplified>
+<ATC_Lang_Japanese>日本語</ATC_Lang_Japanese>
+<ATC_Lang_Korean>韓国語</ATC_Lang_Korean>
+<ATC_Lang_Russian>ロシア語</ATC_Lang_Russian>
+<ATC_Lang_Ukrainian>ウクライナ語</ATC_Lang_Ukrainian>
+<ATC_Lang_English>英語 (English)</ATC_Lang_English>
 
-  <!-- ==================== ボタンテキスト ==================== -->
-  <ATC_TestConnection>AI 接続テスト</ATC_TestConnection>
-  <ATC_TestingPulse>接続テスト送信中...</ATC_TestingPulse>
-  
-  <ATC_FetchModels>モデルリストを取得</ATC_FetchModels>
-  <ATC_Fetching>通信中...</ATC_Fetching>
-  <ATC_SelectModel>モデルを選択</ATC_SelectModel>
-  <ATC_PlzFetchModel>先にモデルリストを取得してください</ATC_PlzFetchModel>
+<ATC_CurrentProvider>現在の AI プロバイダー</ATC_CurrentProvider>
+<ATC_ApiKey>API キー (API Key)</ATC_ApiKey>
+<ATC_CustomBaseUrl>カスタム API URL (Base URL)</ATC_CustomBaseUrl>
+<ATC_DefaultEmpty>デフォルトは空欄のままにしてください</ATC_DefaultEmpty>
+<ATC_OnlyScanActive>有効な Mod のみをスキャンする</ATC_OnlyScanActive>
 
-  <ATC_TranslateSingleMod>特定の Mod のみを翻訳</ATC_TranslateSingleMod>
-  <ATC_StartTranslation>自動翻訳プロセスを開始</ATC_StartTranslation>
-  <ATC_StopTranslation>緊急停止</ATC_StopTranslation>
-  <ATC_ManualReload>翻訳データを手動更新</ATC_ManualReload>
+<ATC_Tooltip_TargetLang>【ターゲット言語】\nAI が Mod をどの言語に翻訳するかを設定します。</ATC_Tooltip_TargetLang>
+<ATC_Tooltip_Provider>【AI プロバイダー】\n使用する AI モデルの提供元を選択します。Google (Gemini) または OpenAI を強く推奨します。</ATC_Tooltip_Provider>
 
-  <ATC_Tutorial_Btn>チュートリアル ＆ FAQ</ATC_Tutorial_Btn>
-  <ATC_UpdateLog_Btn>更新履歴</ATC_UpdateLog_Btn>
+<ATC_TestConnection>AI 接続テスト</ATC_TestConnection>
+<ATC_TestingPulse>テストパルス送信中...</ATC_TestingPulse>
 
-  <!-- ==================== タスクとステータスパネル ==================== -->
-  <ATC_CurrentTask>現在のタスク</ATC_CurrentTask>
-  <ATC_Idle>待機中</ATC_Idle>
-  <ATC_TaskDone>プロセス完了！</ATC_TaskDone>
-  
-  <ATC_LogPanelTitle>--- 📡 リアルタイム監視ログ ---</ATC_LogPanelTitle>
-  <ATC_ErrorLogTitle>⚠️ 異常ファイル検出レポート</ATC_ErrorLogTitle>
-  <ATC_Log_MigrateSuccess>📦 [システム移行] {0} の {1} を新しい構造へシームレスに移行しました！</ATC_Log_MigrateSuccess>
-  <ATC_Log_StartSingleMod>🎯 [System] 単一のMod翻訳を開始します: {0}</ATC_Log_StartSingleMod>
-  <ATC_Log_SingleModDone>🎉 単一のMod翻訳タスクが完璧に完了しました！</ATC_Log_SingleModDone>
-  <ATC_Log_ProcessAborted>🛑 [System] 翻訳プロセスを安全に中断しました。</ATC_Log_ProcessAborted>
-  <ATC_Log_ProcessAbortedWithSave>🛑 [System] 翻訳プロセスを安全に中断しました。翻訳済みの内容は保存されています。</ATC_Log_ProcessAbortedWithSave>
-  <ATC_TaskAborted>中断済み</ATC_TaskAborted>
-  
-  <!-- ==================== 通常ログ (左側) ==================== -->
-  <ATC_Msg_EmptyKey>キーを入力しないとテストできません！</ATC_Msg_EmptyKey>
-  <ATC_Log_TestPulse>🔌 [Test] テストパルス送信中、 [{0}] の接続状態を確認...</ATC_Log_TestPulse>
-  <ATC_Log_TestSuccess>✅ [Test] 接続成功！ AI コアは正常に反応しています。</ATC_Log_TestSuccess>
-  <ATC_Log_TestFail>❌ [Test] 接続失敗！ ネットワークまたは API 設定を確認してください。</ATC_Log_TestFail>
+<ATC_FetchModels>モデルリストを取得</ATC_FetchModels>
+<ATC_Fetching>通信中...</ATC_Fetching>
+<ATC_SelectModel>モデルを選択</ATC_SelectModel>
+<ATC_PlzFetchModel>最初にモデルリストを取得してください</ATC_PlzFetchModel>
 
-  <ATC_Log_Init>🌐 [Init] Mod を読み込み中、グローバル翻訳キャッシュを構築...</ATC_Log_Init>
-  <ATC_Log_InitDone>✅ [Init] 完了！ {0} 件の Def 翻訳データを収集しました。</ATC_Log_InitDone>
-  
-  <ATC_Log_StartScan>🚀 Auto Translation Core 起動！ 対象 Mod 数: {0}</ATC_Log_StartScan>
-  <ATC_Log_ScanMod>\n📦 [Start] スキャン中: {0}</ATC_Log_ScanMod>
-  <ATC_Log_SkipMod>   ⏩ [Skip] 言語ファイルも Defs も見つかりません。純粋なコード Mod です。</ATC_Log_SkipMod>
-  <ATC_Log_KeyedScan>   🔍 [Keyed] スキャン中...</ATC_Log_KeyedScan>
-  <ATC_Log_DefScan>   🔍 [DefInjected] 深層スキャンとグローバル照合を開始...</ATC_Log_DefScan>
-  
-  <ATC_Log_FoundMissing>   ⚙️ [{0}] {1} 件の未翻訳項目を発見！ AI 翻訳を実行中...</ATC_Log_FoundMissing>
-  <ATC_Log_AIFinish>   ✅ [{0}] AI 翻訳が完了しました！</ATC_Log_AIFinish>
-  <ATC_Log_AIFail>   ❌ [{0}] AI 翻訳に失敗しました。</ATC_Log_AIFail>
-  <ATC_Log_NoMissing>   ✨ [{0}] 翻訳済みの項目のみです。スルーします。</ATC_Log_NoMissing>
+<ATC_TranslateSingleMod>指定した Mod を個別に翻訳</ATC_TranslateSingleMod>
+<ATC_StartTranslation>自動補完プランを開始</ATC_StartTranslation>
+<ATC_StopTranslation>ラインを緊急停止</ATC_StopTranslation>
 
-  <ATC_Log_TaskDone>\n🎉 [Finish] 全てのタスクが正常に終了しました！</ATC_Log_TaskDone>
-  <ATC_Log_TaskError>❌ [Error] プロセスが予期せず中断されました: {0}</ATC_Log_TaskError>
-  <ATC_Log_Clean>🧹 [Clean] プロセス終了、メモリを解放しました。</ATC_Log_Clean>
-  <ATC_CancelRequested>停止命令を受信。プロセスを緊急停止しています...</ATC_CancelRequested>
+<ATC_Tutorial_Btn>チュートリアルと FAQ</ATC_Tutorial_Btn>
+<ATC_UpdateLog_Btn>Mod 更新履歴</ATC_UpdateLog_Btn>
 
-  <ATC_Log_FetchModelsSuccess>[System] モデルリストの取得に成功しました！</ATC_Log_FetchModelsSuccess>
-  <ATC_Log_FetchModelsFail>[System] モデルリストの取得に失敗しました。キーを確認してください。</ATC_Log_FetchModelsFail>
-  <ATC_Log_AllTranslationWritten>[Success] 全ての翻訳データが !Translation_AI_Pack に保存されました！</ATC_Log_AllTranslationWritten>
-  <ATC_Log_NetworkRetry>[System] ネットワーク不安定または AI サーバー混雑。自動リトライを実行します...</ATC_Log_NetworkRetry>
+<ATC_CurrentTask>現在のタスク</ATC_CurrentTask>
+<ATC_Idle>待機中</ATC_Idle>
+<ATC_TaskDone>ライン作業完了！</ATC_TaskDone>
 
-  <!-- ==================== 異常レポート (右側) ==================== -->
-  <ATC_LogError_Format>[{0}] フォーマットエラー: {1}</ATC_LogError_Format>
-  <ATC_LogError_Unknown>[{0}] 不明なエラー: {1}</ATC_LogError_Unknown>
-  <ATC_LogError_FileCorrupted>[ファイル破損] 解析できないファイルをスキップしました: {0}</ATC_LogError_FileCorrupted>
-  <ATC_LogError_ApiConn>[API] 通信異常: {0}</ATC_LogError_ApiConn>
+<ATC_LogPanelTitle>--- 📡 リアルタイムモニタリングログ ---</ATC_LogPanelTitle>
+<ATC_ErrorLogTitle>⚠️ 異常ファイル検出レポート</ATC_ErrorLogTitle>
 
-  <!-- ==================== ホットリロードとカウントダウン ==================== -->
-  <ATC_FirstTime_Notice>[初回利用] 生成された翻訳パックが無効です。自動更新をキャンセルしました。</ATC_FirstTime_Notice>
-  <ATC_FirstTime_Dialog>【初回利用のヒント】\n\nシステムは、これが初めての翻訳実行であることを検出しました！\n翻訳パックはローカルに生成されましたが、まだ有効化されていません。\n\nRimWorld の「Mod リスト」から「! AutoTranslation AI Pack」を探し、【有効化】して Mod 並び順の【一番下】に配置し、ゲームを再起動してください。\n\n次回からは、新しい Mod を翻訳する際、再起動なしで即座に翻訳が反映されるようになります！</ATC_FirstTime_Dialog>
-  
-  <ATC_Log_HotReloadTrigger>[System] 言語のホットリロードを実行します。 {0} 秒後に開始。</ATC_Log_HotReloadTrigger>
-  <ATC_Log_StartingHotReload>[System] 自動ホットリロードを開始しています。しばらくお待ちください...</ATC_Log_StartingHotReload>
-  
-  <ATC_ReloadingCountdown>翻訳完了！ </ATC_ReloadingCountdown>
-  <ATC_Seconds> 秒後に言語データを再読み込みします...</ATC_Seconds>
-  <ATC_ReloadingMessage>言語データを再読み込み中...</ATC_ReloadingMessage>
-  <ATC_ReloadingLog>ホットリロードを実行中... 画面が一時的に固まることがありますが、そのままお待ちください。</ATC_ReloadingLog>
-  <ATC_ReloadDoneLog>ホットリロード完了！ 最新の翻訳が反映されました。</ATC_ReloadDoneLog>
+<ATC_Msg_EmptyKey>キーが入力されていません！</ATC_Msg_EmptyKey>
+<ATC_Log_TestPulse>🔌 [Test] 微量パルスを送信、[{0}] の接続状態をテスト中...</ATC_Log_TestPulse>
+<ATC_Log_TestSuccess>✅ [Test] テスト成功！AI コアの反応は正常です。</ATC_Log_TestSuccess>
+<ATC_Log_TestFail>❌ [Test] テスト失敗！ネットワークまたは API 設定を確認してください。</ATC_Log_TestFail>
 
-  <!-- ==================== 長文テキスト (チュートリアル) ==================== -->
-  <ATC_Tutorial_FullText>【クイックガイド 5 ステップ】
-1. 【ターゲット言語】(V4.6 より英語、ウクライナ語、ロシア語への翻訳にも対応！) と【AI プロバイダー】を選択します。
-2. 各公式サイトで取得した【API キー】を入力します。公式 API を使用する場合、Base URL は「空欄」にしてください。
-3. 【🔍 モデルリストを取得】をクリックし、成功したら右側のプルダウンからモデルを選択します。
-4. 緑色の【🚀 自動翻訳を開始】をクリックして全スキャンを開始するか、新機能の【🎯 特定 Mod を翻訳】を使用して個別に翻訳を行います。中断したい場合はいつでも【🛑 緊急停止】が可能です。
-5. 【初回利用時の注意】最初の翻訳後、`! AutoTranslation AI Pack` という Mod が生成されます。必ず Mod リストでこれを【有効化】し、一番下に配置してゲームを再起動してください。
+<ATC_Log_Init>🌐 [Init] Mod を読み込み中、グローバル翻訳共有プールを作成しています...</ATC_Log_Init>
+<ATC_Log_InitDone>✅ [Init] 完了！合計 {0} 件の Def 翻訳を収集しました。</ATC_Log_InitDone>
 
-【FAQ】
-Q: モデルリストの取得に失敗します (HTTP 401 / 403)。
-A: API キーが間違っているか、不要なスペースが含まれている可能性があります。また、アカウントの残高を確認してください。
+<ATC_Log_StartScan>🚀 Auto Translation Core 起動！ターゲット Mod 数: {0}</ATC_Log_StartScan>
+<ATC_Log_ScanMod>\n📦 [Start] Mod をスキャン中: {0}</ATC_Log_ScanMod>
+<ATC_Log_SkipMod>   ⏩ [Skip] Languages も Defs も存在しません。コードのみの Mod です。</ATC_Log_SkipMod>
+<ATC_Log_KeyedScan>   🔍 [Keyed] スキャン中...</ATC_Log_KeyedScan>
+<ATC_Log_DefScan>   🔍 [DefInjected] ディープスキャンとグローバル照合を開始...</ATC_Log_DefScan>
 
-Q: HTTP 404 エラーが発生します。
-A: 公式 API を使用している場合、【カスタム Base URL】を「完全に空欄」にしてください！
+<ATC_Log_FoundMissing>   ⚙️ [{0}] {1} 件の欠落を発見！AI 支援を要請中...</ATC_Log_FoundMissing>
+<ATC_Log_AIFinish>   ✅ [{0}] AI による自動補完が完了しました！</ATC_Log_AIFinish>
+<ATC_Log_AIFail>   ❌ [{0}] AI による自動補完に失敗しました。</ATC_Log_AIFail>
+<ATC_Log_NoMissing>   ✨ [{0}] 全てのパーツが揃っています。翻訳は不要です。</ATC_Log_NoMissing>
 
-Q: ログに「タイムアウト」や「通信不安定」の警告が出ます。
-A: AI サーバーが一時的に混雑している可能性があります。Mod には自動リトライ機能が搭載されているため、翻訳が進行しているようであればそのままお待ちください。
+<ATC_Log_TaskDone>\n🎉 [Finish] 自動補完タスク完了！</ATC_Log_TaskDone>
+<ATC_Log_TaskError>❌ [Error] ラインが予期せず中断されました: {0}</ATC_Log_TaskError>
+<ATC_Log_Clean>🧹 [Clean] ライン停止、メモリを解放しました。</ATC_Log_Clean>
+<ATC_CancelRequested>停止命令を受信。ラインを緊急停止しています...</ATC_CancelRequested>
 
-Q: 翻訳中にフリーズしました。
-A: 5 分以上動きがない場合は【🛑 緊急停止】をクリックしてゲームを再起動し、再度実行してください（翻訳済みのデータは保存されているため、API の重複消費は最小限に抑えられます）。
+<ATC_Log_FetchModelsSuccess>[System] モデルリストの取得に成功しました！</ATC_Log_FetchModelsSuccess>
+<ATC_Log_FetchModelsFail>[System] 取得に失敗しました。キーを確認してください。</ATC_Log_FetchModelsFail>
+<ATC_Log_AllTranslationWritten>[Success] 全ての翻訳が !Translation_AI_Pack に安全に書き込まれました！</ATC_Log_AllTranslationWritten>
+<ATC_Log_NetworkRetry>[System] ネットワークの不安定またはサーバーの混雑。自動リトライを開始します...</ATC_Log_NetworkRetry>
 
-Q: 翻訳後、再起動は必要ですか？
-A: 「初回のみ」必要です。それ以降は、翻訳パックが有効であれば「ホットリロード」機能により、約 10 秒で自動的に反映されます。
+<ATC_Log_MigrateSuccess>📦 [システム移行] {0} の {1} を新しいアーキテクチャに移行しました！</ATC_Log_MigrateSuccess>
+<ATC_Log_StartSingleMod>🎯 [System] Mod を個別に翻訳中: {0}</ATC_Log_StartSingleMod>
+<ATC_Log_SingleModDone>🎉 個別翻訳タスク完了！</ATC_Log_SingleModDone>
+<ATC_Log_ProcessAborted>🛑 [System] ラインを安全に中断しました。</ATC_Log_ProcessAborted>
+<ATC_Log_ProcessAbortedWithSave>🛑 [System] ラインを安全に中断しました。翻訳済みの内容は保存されています。</ATC_Log_ProcessAbortedWithSave>
+<ATC_TaskAborted>中断済み</ATC_TaskAborted>
 
-Q: 翻訳ファイルはどこにありますか？
-A: RimWorld/Mods/!Translation_AI_Pack に保存されています。この Mod は【個人利用専用】として生成されます。無断での再配布やワークショップへのアップロードは控えてください。</ATC_Tutorial_FullText>
+<ATC_LogError_Format>[{0}] 形式エラー: {1}</ATC_LogError_Format>
+<ATC_LogError_Unknown>[{0}] 不明な異常: {1}</ATC_LogError_Unknown>
+<ATC_LogError_FileCorrupted>[ファイル破損] 解析できないファイルをスキップ: {0}</ATC_LogError_FileCorrupted>
+<ATC_LogError_ApiConn>[API] 通信異常: {0}</ATC_LogError_ApiConn>
 
-  <ATC_UpdateLog_FullText>--- V4.6 Ultimate 更新内容 ---
-• 【英語、ウクライナ語、ロシア語】への逆翻訳に対応！ 中国語 Mod などを多言語化できるようになりました。
-• 【🎯 特定 Mod 翻訳】エンジンの実装。特定の Mod のみを選択して迅速に翻訳可能。
-• 【🛑 緊急停止システム】の実装。実行中いつでも中断でき、進捗は自動保存されます。
-• X 線スキャンを【レベル 3 再帰モード】にアップグレード。複雑なフォルダ構造内の全てのテキストを抽出します。
-• UI アーキテクチャを刷新し、動的なウィンドウ高さを実現。
+<ATC_FinishMessage_Title>翻訳完了</ATC_FinishMessage_Title>
+<ATC_FinishMessage_OK>了解！(OK)</ATC_FinishMessage_OK>
+<ATC_FinishMessage_Text>🎉 翻訳タスクが正常に完了しました！
 
---- V4.5 更新内容 ---
-• 【異常ファイル検出レポート】ダッシュボードを新設。
-• 【Corruption Shield】の実装。破損した XML ファイルを自動的に検出しスキップします。
-• 初回利用時のガイダンス用ポップアップを追加。
-• 10 秒間のシームレスなホットリロードカウントダウン機能を実装。
+【パターン A：初めてこの Mod を使用する場合】
+ゲームメインメニューの「Mod」リストへ行き、新しく生成された「! AutoTranslation AI Pack」にチェックを入れて有効化し、並び順の【一番下】に移動させてから【ゲームを再起動】してください！
 
---- V4.3 更新内容 ---
-• 【全自動 AI 翻訳プロセス】を初実装。手動翻訳の苦労から解放されます。
-• グローバル翻訳キャッシュ機能により、既存の翻訳データを流用して API 消費を節約。
-• カスタム Base URL に対応。ローカル AI (LM Studio, Ollama 等) との連携が可能に。</ATC_UpdateLog_FullText>
+【パターン B：翻訳パックが既に有効な場合】
+メインメニュー ＞ オプション ＞ 言語設定 へ行き、【現在の言語を再度クリック】してください。ゲームのキャッシュが即座にクリアされ、最新の翻訳内容が読み込まれます。再起動は不要です！</ATC_FinishMessage_Text>
+
+<ATC_Tutorial_FullText>【チュートリアル】
+
+【ターゲット言語】（中国語、日本語、韓国語、英語、ロシア語、ウクライナ語など多言語対応！）と【プロバイダー】を選択します。台湾のプレイヤーには無料の Google (Gemini)、中国本土のプレイヤーには DeepSeek がおすすめです！
+
+【API キー】を申請して貼り付けます。🔥 V4.7 新機能：「無限 API マガジン」対応！「＋」ボタンで複数の API キーを追加でき、システムが自動的にタスクを割り振ることで、無料枠を最大限に活用できます！
+
+【モデル自動検出】キーを貼り付けると（長さ 10 文字以上）、検索ボタンを押さなくてもバックグラウンドで自動的にモデルを取得します！取得成功後、右側のプルダウンメニューからモデルを選択してください。
+
+【並列スレッド数】を調整します（推奨設定：有効なインターフェース数 x 3）。次に緑色の【🚀 全モジュールを一括翻訳】をクリックしてスキャンを開始するか、【🎯 単一モジュールを翻訳】で特定のものを翻訳します。中断したい場合はいつでも【🛑 翻訳停止】を押せます。
+
+【🎉 翻訳完了後の必須手順】
+👉 パターン A (初回使用)：Mod リストで生成された「! AutoTranslation AI Pack」にチェックを入れて有効化し、並び順の一番下に移動させてから【ゲームを再起動】してください！
+👉 パターン B (有効化済み)：メインメニュー ＞ 言語設定 で、【現在の言語を再度クリック】すると、設定が瞬時に更新されます！
+
+【よくある質問 Ｑ＆Ａ】
+Q: 翻訳が終わったのに、ゲーム内が英語のままなのはなぜ？
+A: 上記の手順 5 を確認してください！初めて翻訳パックを生成した場合は「再起動」が必要です。既に有効な場合は「言語を切り替え直す」（強制リロード）ことで反映されます。これはバグではなくゲームの仕様です。
+
+Q: HTTP 401 / 403 エラーが出るのはなぜ？
+A: 通常、API キーの間違いか、無料枠の使い切りが原因です。コピー時に余分なスペースが入っていないか確認するか、「＋」ボタンで複数のキーを追加してみてください！
+
+Q: HTTP 404 エラーが出るのはなぜ？
+A: 公式 API を使用している場合、【カスタム Base URL】が「完全に空欄」であることを確認してください！サードパーティの中継サーバーを使用する場合のみ入力が必要です。
+
+Q: ログに「通信タイムアウト」や「再試行待ち」の赤文字が出る場合は？
+A: API サーバーの混雑やレート制限によるものです。Mod には自動リトライとキー巡回機能が内蔵されています。翻訳成功の表示が続いているなら、そのまましばらくお待ちください～(≧∀≦)ゞ
+
+Q: 翻訳されたファイルはどこにありますか？共有できますか？
+A: RimWorld/Mods/!Translation_AI_Pack 内に保存されます。生成されたパックは【個人利用限定】です。配布や Steam ワークショップへのアップロードはお控えください！</ATC_Tutorial_FullText>
+
+<ATC_UpdateLog_FullText>--- V4.7 Speedster Ultimate アップデート ---
+• 初の【無限 API マガジン】システム：複数の API 設定（Google ＋ DeepSeek など）に対応。ラウンドロビン方式の負荷分散により、API 制限を回避しつつ無料枠を使い切ります！
+• 【超速スレッド調整ツール】：3 スレッド固定を撤廃！最大 30 スレッドまで調整可能。マルチ API と組み合わせることで、翻訳速度が飛躍的に向上しました。
+• 新機能【モデル自動レーダー】：API キー入力後にバックグラウンドでモデルを自動検知。面倒な手動検索を廃止しました。
+• 【グローバルスクロール UI】：インターフェースの混雑とログの表示切れを解消。固定高さの豪華なモニタリング画面を実装！
+
+--- V4.6 Ultimate アップデート ---
+• 【英・烏・露への逆翻訳】に対応。中国語 Mod を多言語に翻訳可能になりました。
+• 【🎯 単独翻訳】エンジン実装：特定の Mod を指定してクイックスキャンと翻訳が可能に。
+• 【🛑 緊急停止システム】：実行中にいつでも中断し、進捗を保存できるようになりました。
+• X線プローブを【Level 3 再帰ディープダイブ】に強化。フォルダ構造を問わず隠れたテキストを抽出します。
+• UI アーキテクチャを刷新。動的な高さ調整ウィンドウを実装。
+• 不安定な自動ホットリロードを廃止。公式メニューからのシームレスな切り替えに変更し、安定性が 100% 向上しました。
+
+--- V4.5 アップデート ---
+• 【異常ファイル検出レポート】モニタリングダッシュボード追加。
+• 【Corruption Shield】：破損した XML ファイルを自動的に防御・スキップ。
+• 初回使用時のチュートリアルポップアップを追加。
+
+--- V4.3 アップデート ---
+• 初の【自動補完翻訳ライン】：不足している翻訳を自動で特定し補完します。
+• 【グローバル翻訳メモリ】：インストール済み Mod の全テキストを統合し、API の消費を節約。
+• カスタム Base URL 対応：ローカル LLM (LM Studio, Ollama 等) と完全互換。</ATC_UpdateLog_FullText>
+
+<ATC_ApiConfigTitle>🔧 API マガジン設定 (複数並列巡回対応)</ATC_ApiConfigTitle>
+<ATC_Provider>プロバイダー</ATC_Provider>
+<ATC_CustomUrlOptional>(カスタム BaseUrl、空欄でデフォルト使用)</ATC_CustomUrlOptional>
+<ATC_Delete>削除</ATC_Delete>
+<ATC_PasteKey>(API キーを貼り付け)</ATC_PasteKey>
+<ATC_FetchingModel>モデルを検索中...</ATC_FetchingModel>
+<ATC_NoModelWaitKey>モデル未選択 (キー入力で自動取得)</ATC_NoModelWaitKey>
+<ATC_AddApiBtn>API インターフェースを追加 (Add API Interface)</ATC_AddApiBtn>
+<ATC_EmergencyStop>翻訳停止 (Emergency Stop)</ATC_EmergencyStop>
+<ATC_StartFullScan>全モジュールを一括翻訳 (Start Full Scan)</ATC_StartFullScan>
+<ATC_EmptyConfigWarning>少なくとも 1 つの有効な API 設定が必要です！</ATC_EmptyConfigWarning>
+<ATC_MaxThreads>並列スレッド数 (Max Threads)</ATC_MaxThreads>
+<ATC_MaxThreadsTip>推奨: 有効なインターフェース数 x 3</ATC_MaxThreadsTip>
 
 </LanguageData>
