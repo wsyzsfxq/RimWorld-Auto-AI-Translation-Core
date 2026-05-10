@@ -77,7 +77,12 @@
   <ATC_Log_FetchModelsFail>[System] 获取清单失败，请检查密钥。</ATC_Log_FetchModelsFail>
   <ATC_Log_AllTranslationWritten>[Success] 所有翻译已写入 !Translation_AI_Pack！</ATC_Log_AllTranslationWritten>
   <ATC_Log_NetworkRetry>[System] 网络波动或 AI 服务器忙碌，系统已触发自动重试机制...</ATC_Log_NetworkRetry>
-
+  <ATC_Log_MigrateSuccess>📦 [系统搬家] 已将 {0} 的 {1} 无痛转移至新架构！</ATC_Log_MigrateSuccess>
+  <ATC_Log_StartSingleMod>🎯 [System] 开始单独翻译模组: {0}</ATC_Log_StartSingleMod>
+  <ATC_Log_SingleModDone>🎉 单独翻译任务完美收工！</ATC_Log_SingleModDone>
+  <ATC_Log_ProcessAborted>🛑 [System] 产线已安全中断。</ATC_Log_ProcessAborted>
+  <ATC_Log_ProcessAbortedWithSave>🛑 [System] 产线已安全中断，已翻译的内容已保留。</ATC_Log_ProcessAbortedWithSave>
+  <ATC_TaskAborted>已中断</ATC_TaskAborted>
   <!-- ==================== 异常错误报告 (右侧) ==================== -->
   <ATC_LogError_Format>[{0}] 格式错误: {1}</ATC_LogError_Format>
   <ATC_LogError_Unknown>[{0}] 未知异常: {1}</ATC_LogError_Unknown>

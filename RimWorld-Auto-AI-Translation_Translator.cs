@@ -16,7 +16,7 @@ namespace AutoTranslator_Core
 
         static AutoTranslatorAPI()
         {
-            // 考慮到 AI 回應可能很慢，咪咪把超時設長一點
+            // Increase timeout for slow AI responses / 考慮到 AI 回應可能很慢，超時設長一點
             client.Timeout = TimeSpan.FromMinutes(5);
         }
 
@@ -26,7 +26,7 @@ namespace AutoTranslator_Core
             return new string(input.Where(c => c >= 32 && c <= 126).ToArray()).Trim();
         }
 
-        // 🌟 咪咪 V4.6 終極多語系 Prompt (包含原本完整的規則)
+        // 🌟 V4.6 Ultimate multi-language Prompt (Includes all original rules) / V4.6 終極多語系 Prompt (包含原本完整的規則)
         private static string GetSystemPrompt()
         {
             var targetLang = AutoTranslatorMod.Settings.TargetLang;
@@ -91,7 +91,7 @@ namespace AutoTranslator_Core
             var s = AutoTranslatorMod.Settings;
             string custom = CleanInput(s.CustomBaseUrl);
 
-            // 🌟 只要大哥有填自定義網址，咪咪就優先用它
+            // 🌟 Use custom URL if provided by the user / 只要有填寫自定義網址，就優先使用它
             if (!string.IsNullOrEmpty(custom))
             {
                 if (custom.EndsWith("/")) custom = custom.Substring(0, custom.Length - 1);
@@ -119,7 +119,7 @@ namespace AutoTranslator_Core
                 string apiKey = CleanInput(s.ApiKey);
                 string baseUrl = GetBaseUrl(s.CurrentProvider);
 
-                // 判斷是否為 Google 官方格式請求
+                // Determine if it's an official Google request format / 判斷是否為 Google 官方格式請求
                 bool isGoogleRaw = (s.CurrentProvider == TranslatorProvider.Google && string.IsNullOrEmpty(s.CustomBaseUrl));
 
                 string url = isGoogleRaw
@@ -153,7 +153,7 @@ namespace AutoTranslator_Core
             }
             catch (Exception e)
             {
-                Log.Error($"[AutoTranslationCore] 獲取模型清單異常: {e.Message}");
+                Log.Error($"[AutoTranslationCore] Fetch model list error / 獲取模型清單異常: {e.Message}");
                 return null;
             }
         }
@@ -173,7 +173,7 @@ namespace AutoTranslator_Core
             string model = CleanInput(s.SelectedModel);
             string baseUrl = GetBaseUrl(s.CurrentProvider);
 
-            // 針對本地模型或自定義中轉的寬鬆檢查
+            // Lenient check for local models or custom relays / 針對本地模型或自定義中轉的寬鬆檢查
             if (string.IsNullOrEmpty(apiKey) && string.IsNullOrEmpty(s.CustomBaseUrl) && s.CurrentProvider != TranslatorProvider.Custom_OpenAI)
                 return null;
 
@@ -184,7 +184,7 @@ namespace AutoTranslator_Core
                 string prompt = GetSystemPrompt();
                 string inputJson = JsonConvert.SerializeObject(texts);
 
-                // 核心修復：如果選擇 Google 但填了中轉站，改走 OpenAI 兼容格式 (中轉站通常是這樣跑的)
+                // Core fix: Use OpenAI compatible format if Google is selected but a custom relay is used / 核心修復：如果選擇 Google 但填了中轉站，改走 OpenAI 兼容格式 (中轉站通常是這樣跑的)
                 if (s.CurrentProvider == TranslatorProvider.Google && string.IsNullOrEmpty(s.CustomBaseUrl))
                 {
                     url = $"{baseUrl}/models/{model}:generateContent?key={apiKey}";
@@ -218,7 +218,7 @@ namespace AutoTranslator_Core
                 if (!res.IsSuccessStatusCode)
                 {
                     string err = await res.Content.ReadAsStringAsync();
-                    Log.Error($"[AutoTranslationCore] API 錯誤 (HTTP {res.StatusCode}): {err}");
+                    Log.Error($"[AutoTranslationCore] API Error / API 錯誤 (HTTP {res.StatusCode}): {err}");
                     return null;
                 }
 
@@ -226,7 +226,7 @@ namespace AutoTranslator_Core
             }
             catch (Exception ex)
             {
-                Log.Error($"[AutoTranslationCore] 翻譯通訊異常: {ex.Message}");
+                Log.Error($"[AutoTranslationCore] Translation API communication error / 翻譯通訊異常: {ex.Message}");
                 return null;
             }
         }
@@ -238,7 +238,7 @@ namespace AutoTranslator_Core
                 var obj = JObject.Parse(json);
                 var s = AutoTranslatorMod.Settings;
 
-                // 判斷是否走官方 Google 格式
+                // Check if it follows official Google format / 判斷是否走官方 Google 格式
                 bool isGoogleRaw = (p == TranslatorProvider.Google && string.IsNullOrEmpty(s.CustomBaseUrl));
 
                 string raw = isGoogleRaw
@@ -247,7 +247,7 @@ namespace AutoTranslator_Core
 
                 if (string.IsNullOrEmpty(raw)) return null;
 
-                // 🌟 咪咪強效清理：只提取 JSON 陣列部分
+                // 🌟 Strict cleaning: Extract only the JSON array part / 強效清理：只提取 JSON 陣列部分
                 raw = raw.Replace("```json", "").Replace("```", "").Trim();
                 int start = raw.IndexOf('[');
                 int end = raw.LastIndexOf(']');
@@ -259,7 +259,7 @@ namespace AutoTranslator_Core
                 List<string> list = null;
                 if (raw.StartsWith("{"))
                 {
-                    // 某些 AI 會返回 { "translations": [...] }
+                    // Handle models that return { "translations": [...] } / 某些 AI 會返回 { "translations": [...] }
                     var dict = JsonConvert.DeserializeObject<Dictionary<string, List<string>>>(raw);
                     list = dict.Values.FirstOrDefault();
                 }
@@ -272,7 +272,7 @@ namespace AutoTranslator_Core
             }
             catch (Exception e)
             {
-                Log.Error($"[AutoTranslationCore] 解析 AI 回應失敗: {e.Message}");
+                Log.Error($"[AutoTranslationCore] AI response parsing failed / 解析 AI 回應失敗: {e.Message}");
                 return null;
             }
         }

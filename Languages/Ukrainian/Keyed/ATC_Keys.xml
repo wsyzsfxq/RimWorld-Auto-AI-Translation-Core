@@ -56,6 +56,12 @@
 
   <ATC_Log_Init>🌐 [Init] Читання модів та створення глобального кешу перекладів...</ATC_Log_Init>
   <ATC_Log_InitDone>✅ [Init] Готово! Зібрано {0} рядків перекладу Def.</ATC_Log_InitDone>
+  <ATC_Log_MigrateSuccess>📦 [Міграція системи] {0} ({1}) успішно та без проблем перенесено до нової структури!</ATC_Log_MigrateSuccess>
+  <ATC_Log_StartSingleMod>🎯 [System] Початок перекладу окремого мода: {0}</ATC_Log_StartSingleMod>
+  <ATC_Log_SingleModDone>🎉 Завдання з перекладу окремого мода ідеально завершено!</ATC_Log_SingleModDone>
+  <ATC_Log_ProcessAborted>🛑 [System] Процес перекладу безпечно перервано.</ATC_Log_ProcessAborted>
+  <ATC_Log_ProcessAbortedWithSave>🛑 [System] Процес безпечно перервано, перекладений вміст збережено.</ATC_Log_ProcessAbortedWithSave>
+  <ATC_TaskAborted>Перервано</ATC_TaskAborted>
   
   <ATC_Log_StartScan>🚀 Ядро автоматичного перекладу активовано! Модів до обробки: {0}</ATC_Log_StartScan>
   <ATC_Log_ScanMod>\n📦 [Start] Сканування: {0}</ATC_Log_ScanMod>

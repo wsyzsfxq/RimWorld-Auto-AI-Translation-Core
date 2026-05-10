@@ -77,7 +77,13 @@
   <ATC_Log_FetchModelsFail>[System] Не удалось получить список. Проверьте ключ API.</ATC_Log_FetchModelsFail>
   <ATC_Log_AllTranslationWritten>[Success] Все переводы записаны в !Translation_AI_Pack!</ATC_Log_AllTranslationWritten>
   <ATC_Log_NetworkRetry>[System] Нестабильная сеть или сервер AI занят. Запуск автоповтора...</ATC_Log_NetworkRetry>
-
+  <ATC_Log_MigrateSuccess>📦 [Миграция системы] {0} ({1}) успешно и без проблем перенесено в новую структуру!</ATC_Log_MigrateSuccess>
+  <ATC_Log_StartSingleMod>🎯 [System] Запуск перевода отдельного мода: {0}</ATC_Log_StartSingleMod>
+  <ATC_Log_SingleModDone>🎉 Задача по переводу отдельного мода идеально завершена!</ATC_Log_SingleModDone>
+  <ATC_Log_ProcessAborted>🛑 [System] Процесс перевода безопасно прерван.</ATC_Log_ProcessAborted>
+  <ATC_Log_ProcessAbortedWithSave>🛑 [System] Процесс безопасно прерван, переведенный контент сохранен.</ATC_Log_ProcessAbortedWithSave>
+  <ATC_TaskAborted>Прервано</ATC_TaskAborted>
+  
   <!-- ==================== Отчеты об ошибках (Справа) ==================== -->
   <ATC_LogError_Format>[{0}] Ошибка формата: {1}</ATC_LogError_Format>
   <ATC_LogError_Unknown>[{0}] Неизвестная ошибка: {1}</ATC_LogError_Unknown>

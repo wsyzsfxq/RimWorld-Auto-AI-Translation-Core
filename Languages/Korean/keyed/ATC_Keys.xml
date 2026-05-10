@@ -47,7 +47,13 @@
   
   <ATC_LogPanelTitle>--- 📡 실시간 모니터링 로그 ---</ATC_LogPanelTitle>
   <ATC_ErrorLogTitle>⚠️ 이상 파일 탐지 보고서</ATC_ErrorLogTitle>
-
+  <ATC_Log_MigrateSuccess>📦 [시스템 마이그레이션] {0}의 {1}을(를) 새로운 구조로 원활하게 마이그레이션했습니다!</ATC_Log_MigrateSuccess>
+  <ATC_Log_StartSingleMod>🎯 [System] 단일 모드 번역 시작: {0}</ATC_Log_StartSingleMod>
+  <ATC_Log_SingleModDone>🎉 단일 모드 번역 작업이 완벽하게 완료되었습니다!</ATC_Log_SingleModDone>
+  <ATC_Log_ProcessAborted>🛑 [System] 번역 프로세스가 안전하게 중단되었습니다.</ATC_Log_ProcessAborted>
+  <ATC_Log_ProcessAbortedWithSave>🛑 [System] 번역 프로세스가 안전하게 중단되었으며, 번역된 내용은 저장되었습니다.</ATC_Log_ProcessAbortedWithSave>
+  <ATC_TaskAborted>중단됨</ATC_TaskAborted>
+  
   <!-- ==================== 일반 로그 (왼쪽) ==================== -->
   <ATC_Msg_EmptyKey>키를 입력하지 않으면 테스트할 수 없어요!</ATC_Msg_EmptyKey>
   <ATC_Log_TestPulse>🔌 [Test] 테스트 신호 송신 중, [{0}] 연결 상태 확인...</ATC_Log_TestPulse>

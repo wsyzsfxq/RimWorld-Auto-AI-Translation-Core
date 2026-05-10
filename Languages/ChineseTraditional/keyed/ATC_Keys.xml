@@ -77,7 +77,14 @@
   <ATC_Log_FetchModelsFail>[System] 獲取清單失敗，請檢查金鑰。</ATC_Log_FetchModelsFail>
   <ATC_Log_AllTranslationWritten>[Success] 所有翻譯已寫入 !Translation_AI_Pack！</ATC_Log_AllTranslationWritten>
   <ATC_Log_NetworkRetry>[System] 網路波動或 AI 伺服器忙碌，系統已觸發自動重試機制...</ATC_Log_NetworkRetry>
-
+  <!-- 新增的 UI/Log 文本 -->
+  <ATC_Log_MigrateSuccess>📦 [系統搬家] 已將 {0} 的 {1} 無痛轉移至新架構！</ATC_Log_MigrateSuccess>
+  <ATC_Log_StartSingleMod>🎯 [System] 開始單獨翻譯模組: {0}</ATC_Log_StartSingleMod>
+  <ATC_Log_SingleModDone>🎉 單獨翻譯任務完美收工！</ATC_Log_SingleModDone>
+  <ATC_Log_ProcessAborted>🛑 [System] 產線已安全中斷。</ATC_Log_ProcessAborted>
+  <ATC_Log_ProcessAbortedWithSave>🛑 [System] 產線已安全中斷，已翻譯的內容已保留。</ATC_Log_ProcessAbortedWithSave>
+  <ATC_TaskAborted>已中斷</ATC_TaskAborted>
+  
   <!-- ==================== 異常錯誤報告 (右側) ==================== -->
   <ATC_LogError_Format>[{0}] 格式錯誤: {1}</ATC_LogError_Format>
   <ATC_LogError_Unknown>[{0}] 未知異常: {1}</ATC_LogError_Unknown>

@@ -47,7 +47,13 @@
   
   <ATC_LogPanelTitle>--- 📡 リアルタイム監視ログ ---</ATC_LogPanelTitle>
   <ATC_ErrorLogTitle>⚠️ 異常ファイル検出レポート</ATC_ErrorLogTitle>
-
+  <ATC_Log_MigrateSuccess>📦 [システム移行] {0} の {1} を新しい構造へシームレスに移行しました！</ATC_Log_MigrateSuccess>
+  <ATC_Log_StartSingleMod>🎯 [System] 単一のMod翻訳を開始します: {0}</ATC_Log_StartSingleMod>
+  <ATC_Log_SingleModDone>🎉 単一のMod翻訳タスクが完璧に完了しました！</ATC_Log_SingleModDone>
+  <ATC_Log_ProcessAborted>🛑 [System] 翻訳プロセスを安全に中断しました。</ATC_Log_ProcessAborted>
+  <ATC_Log_ProcessAbortedWithSave>🛑 [System] 翻訳プロセスを安全に中断しました。翻訳済みの内容は保存されています。</ATC_Log_ProcessAbortedWithSave>
+  <ATC_TaskAborted>中断済み</ATC_TaskAborted>
+  
   <!-- ==================== 通常ログ (左側) ==================== -->
   <ATC_Msg_EmptyKey>キーを入力しないとテストできません！</ATC_Msg_EmptyKey>
   <ATC_Log_TestPulse>🔌 [Test] テストパルス送信中、 [{0}] の接続状態を確認...</ATC_Log_TestPulse>

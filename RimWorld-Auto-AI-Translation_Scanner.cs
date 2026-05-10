@@ -36,7 +36,7 @@ namespace AutoTranslator_Core
                 case TargetLanguage.Korean: return "Korean";
                 case TargetLanguage.Russian: return "Russian";
                 case TargetLanguage.Ukrainian: return "Ukrainian";
-                case TargetLanguage.English: return "English"; // 🌟 V4.6 新增英文
+                case TargetLanguage.English: return "English"; // 🌟 V4.6 Add English / 新增英文
                 default: return "English";
             }
         }
@@ -75,7 +75,7 @@ namespace AutoTranslator_Core
             return null;
         }
 
-        // 🌟 咪咪特製：無痛搬家系統 (把舊的嵌套結構壓平，保護玩家的錢包！)
+        // 🌟 Seamless migration system (Flattens old nested structures) / 無痛搬家系統 (把舊的嵌套結構壓平，保護結構完整)
         public static void MigrateOldTranslations()
         {
             try
@@ -89,13 +89,13 @@ namespace AutoTranslator_Core
                     string defInjectedDir = Path.Combine(langDir, "DefInjected");
                     if (!Directory.Exists(defInjectedDir)) continue;
 
-                    // 掃描可能是舊架構的 PackageId 資料夾
+                    // Scan directories that might be old PackageId structures / 掃描可能是舊架構的 PackageId 資料夾
                     foreach (var maybePackageDir in Directory.GetDirectories(defInjectedDir))
                     {
                         string packageName = Path.GetFileName(maybePackageDir);
                         bool isOldPackageStructure = false;
 
-                        // 舊架構特徵：底下還有 DefType 目錄，裡面包著 AutoTranslated_Defs.xml
+                        // Old structure feature: contains DefType directories with AutoTranslated_Defs.xml inside / 舊架構特徵：底下還有 DefType 目錄，裡面包著 AutoTranslated_Defs.xml
                         foreach (var defTypeDir in Directory.GetDirectories(maybePackageDir))
                         {
                             string defType = Path.GetFileName(defTypeDir);
@@ -110,7 +110,7 @@ namespace AutoTranslator_Core
                                 string cleanPackageName = packageName.Replace(".", "_");
                                 string newFile = Path.Combine(newTargetDir, $"{cleanPackageName}_AutoTranslated.xml");
 
-                                // 搬家：合併或直接搬移
+                                // Migrate: Merge or move directly / 搬家：合併或直接搬移
                                 if (File.Exists(newFile))
                                 {
                                     var oldDict = LoadXmlFileToDict(oldFile);
@@ -123,11 +123,11 @@ namespace AutoTranslator_Core
                                 {
                                     File.Move(oldFile, newFile);
                                 }
-                                AutoTranslatorSettings.AddLog($"📦 [系統搬家] 已將 {packageName} 的 {defType} 無痛轉移至新架構！");
+                                AutoTranslatorSettings.AddLog("ATC_Log_MigrateSuccess".Translate(packageName, defType));
                             }
                         }
 
-                        // 如果舊的資料夾空了，就把它砍了，乾淨俐落！
+                        // Delete the old directory if it's empty / 如果舊的資料夾空了，就把它砍了，乾淨俐落！
                         if (isOldPackageStructure)
                         {
                             try
@@ -144,7 +144,7 @@ namespace AutoTranslator_Core
             }
             catch (Exception ex)
             {
-                Log.Warning($"[AutoTranslationCore] 無感搬家系統發生錯誤: {ex.Message}");
+                Log.Warning($"[AutoTranslationCore] Migration system error / 無感搬家系統發生錯誤: {ex.Message}");
             }
         }
 
@@ -158,11 +158,11 @@ namespace AutoTranslator_Core
                 File.WriteAllText(aboutPath, "<?xml version=\"1.0\" encoding=\"utf-8\"?><ModMetaData><name>! AutoTranslation AI Pack</name><author>Auto Translator Core</author><packageId>AITranslation.Pack</packageId><supportedVersions><li>1.6</li></supportedVersions></ModMetaData>");
             }
 
-            // 🌟 啟動時順便幫大哥執行一次無痛搬家
+            // 🌟 Execute seamless migration on startup / 啟動時順便執行一次無痛搬家
             MigrateOldTranslations();
         }
 
-        // 🌟 V4.6 單獨翻譯模組引擎
+        // 🌟 V4.6 Single mod translation engine / 單獨翻譯模組引擎
         public static async void StartSingleScan(ModMetaData targetMod)
         {
             try
@@ -174,7 +174,7 @@ namespace AutoTranslator_Core
                 settings.CurrentProgress = 0f;
                 settings.CurrentTaskName = $"Translating: {targetMod.Name}";
 
-                AutoTranslatorSettings.AddLog($"🎯 [System] 開始單獨翻譯模組: {targetMod.Name}");
+                AutoTranslatorSettings.AddLog("ATC_Log_StartSingleMod".Translate(targetMod.Name));
 
                 var activeMods = ModLister.AllInstalledMods.Where(m => m.Active && !OfficialModules.Contains(m.PackageId.ToLower())).ToList();
                 BuildGlobalTranslationDatabase(activeMods);
@@ -216,14 +216,14 @@ namespace AutoTranslator_Core
                 {
                     settings.CurrentTaskName = "ATC_TaskDone".Translate();
                     settings.CurrentProgress = 1f;
-                    AutoTranslatorSettings.AddLog("🎉 單獨翻譯任務完美收工！");
+                    AutoTranslatorSettings.AddLog("ATC_Log_SingleModDone".Translate());
                     AutoTranslatorSettings.RequestReload(5f);
                 }
             }
             catch (Exception e)
             {
                 AutoTranslatorSettings.AddLog("ATC_Log_TaskError".Translate(e.Message));
-                Log.Error($"[AutoTranslationCore] 單一產線意外中斷: {e.Message}");
+                Log.Error($"[AutoTranslationCore] Single translation task interrupted / 單一產線意外中斷: {e.Message}");
             }
             finally
             {
@@ -231,8 +231,8 @@ namespace AutoTranslator_Core
                 AutoTranslatorSettings.IsRunning = false;
                 if (AutoTranslatorSettings.IsCancellationRequested)
                 {
-                    AutoTranslatorSettings.AddLog("🛑 [System] 產線已安全中斷。");
-                    AutoTranslatorMod.Settings.CurrentTaskName = "已中斷";
+                    AutoTranslatorSettings.AddLog("ATC_Log_ProcessAborted".Translate());
+                    AutoTranslatorMod.Settings.CurrentTaskName = "ATC_TaskAborted".Translate();
                 }
             }
         }
@@ -312,7 +312,7 @@ namespace AutoTranslator_Core
             catch (Exception e)
             {
                 AutoTranslatorSettings.AddLog("ATC_Log_TaskError".Translate(e.Message));
-                Log.Error($"[AutoTranslationCore] 產線意外中斷: {e.Message}");
+                Log.Error($"[AutoTranslationCore] Process interrupted / 產線意外中斷: {e.Message}");
             }
             finally
             {
@@ -320,8 +320,8 @@ namespace AutoTranslator_Core
                 AutoTranslatorSettings.IsRunning = false;
                 if (AutoTranslatorSettings.IsCancellationRequested)
                 {
-                    AutoTranslatorSettings.AddLog("🛑 [System] 產線已安全中斷，已翻譯的內容已保留。");
-                    AutoTranslatorMod.Settings.CurrentTaskName = "已中斷";
+                    AutoTranslatorSettings.AddLog("ATC_Log_ProcessAbortedWithSave".Translate());
+                    AutoTranslatorMod.Settings.CurrentTaskName = "ATC_TaskAborted".Translate();
                 }
             }
         }
@@ -505,7 +505,7 @@ namespace AutoTranslator_Core
                         TraverseDefNode(defNode, defName, defType, result);
                     }
                 }
-                catch { /* 遇到損壞的 XML 自動略過 */ }
+                catch { /* Automatically skip corrupted XML / 遇到損壞的 XML 自動略過 */ }
             }
             return result;
         }
@@ -571,13 +571,13 @@ namespace AutoTranslator_Core
                 catch (XmlException xmlEx)
                 {
                     AutoTranslatorSettings.AddErrorLog("⚠️ " + "ATC_LogError_Format".Translate(mod.Name, GetShortPath(file)));
-                    Log.Warning($"[AutoTranslationCore] XML 解析錯誤 ({mod.Name}): {xmlEx.Message}");
+                    Log.Warning($"[AutoTranslationCore] XML Parse Error / XML 解析錯誤 ({mod.Name}): {xmlEx.Message}");
                     continue;
                 }
                 catch (Exception ex)
                 {
                     AutoTranslatorSettings.AddErrorLog("⚠️ " + "ATC_LogError_Unknown".Translate(mod.Name, GetShortPath(file)));
-                    Log.Warning($"[AutoTranslationCore] 檔案處理異常 ({mod.Name}): {ex.Message}");
+                    Log.Warning($"[AutoTranslationCore] File Processing Exception / 檔案處理異常 ({mod.Name}): {ex.Message}");
                     continue;
                 }
             }
@@ -593,7 +593,7 @@ namespace AutoTranslator_Core
             if (settings.TargetLang == TargetLanguage.Traditional) secondaryTag = "[來自簡中]";
             else if (settings.TargetLang == TargetLanguage.Simplified) secondaryTag = "[來自繁中]";
 
-            // 🌟 咪咪修正了這裡：不再加上 mod.PackageId 子目錄！直接壓平！
+            // 🌟 Structure adjustment: Removed mod.PackageId sub-folder, flattening directly / 架構調整：不再加上 mod.PackageId 子目錄！直接壓平！
             string packDefBaseDir = Path.Combine(GetLocalPackPath(), "Languages", targetFolder, "DefInjected");
 
             Dictionary<string, Dictionary<string, string>> allKnownDefs = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
@@ -648,7 +648,7 @@ namespace AutoTranslator_Core
                 var currentDict = defGroup.Value;
                 if (currentDict.Count == 0) continue;
 
-                // 🌟 咪咪修正了這裡：改為 [PackageId]_AutoTranslated.xml 格式
+                // 🌟 Structure adjustment: Use [PackageId]_AutoTranslated.xml format / 架構調整：改為 [PackageId]_AutoTranslated.xml 格式
                 string cleanPackageId = mod.PackageId.Replace(".", "_");
                 string targetFile = Path.Combine(packDefBaseDir, defType, $"{cleanPackageId}_AutoTranslated.xml");
                 var packDict = LoadXmlFileToDict(targetFile);
@@ -738,7 +738,7 @@ namespace AutoTranslator_Core
             catch (Exception ex)
             {
                 AutoTranslatorSettings.AddErrorLog("⚠️ " + "ATC_LogError_FileCorrupted".Translate(GetShortPath(filePath)));
-                Log.Warning($"[AutoTranslationCore] XML 解析錯誤 ({Path.GetFileName(filePath)}): {ex.Message}");
+                Log.Warning($"[AutoTranslationCore] XML Parse Error / XML 解析錯誤 ({Path.GetFileName(filePath)}): {ex.Message}");
             }
             return dict;
         }

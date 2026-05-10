@@ -9,7 +9,7 @@ using System.IO;
 
 namespace AutoTranslator_Core
 {
-    // 🌟 V4.6 新增：支援英文 (English)
+    // 🌟 V4.6 Add: Support English / 新增：支援英文
     public enum TargetLanguage { Traditional, Simplified, Japanese, Korean, Russian, Ukrainian, English }
     public enum TranslatorProvider { Google, OpenAI, DeepSeek, Grok, GLM, Alibaba, OpenRouter, Custom_OpenAI }
 
@@ -40,7 +40,7 @@ namespace AutoTranslator_Core
         public static float ReloadTimer = -1f;
         public static bool IsReloadingRequested = false;
 
-        // 🌟 V4.6 新增：緊急煞車開關
+        // 🌟 V4.6 Add: Emergency stop switch / 新增：緊急煞車開關
         public static bool IsCancellationRequested = false;
         public static bool IsRunning = false;
 
@@ -67,8 +67,9 @@ namespace AutoTranslator_Core
                 RuntimeLogs.Add(line);
                 if (RuntimeLogs.Count > 500) RuntimeLogs.RemoveAt(0);
                 logScrollPos.y = 99999f;
+                // Optimization: Moved inside lock to ensure thread safety / 優化：移至鎖定區塊內以確保線程安全
+                WriteLogToFile(line);
             }
-            WriteLogToFile(line);
         }
 
         public static void AddErrorLog(string msg)
@@ -82,6 +83,7 @@ namespace AutoTranslator_Core
                 if (ErrorLogs.Count > 100) ErrorLogs.RemoveAt(0);
                 errorScrollPos.y = 99999f;
 
+                // Optimization: Moved inside lock to ensure thread safety / 優化：移至鎖定區塊內以確保線程安全
                 WriteLogToFile("[ERROR] " + line);
             }
         }
@@ -148,7 +150,7 @@ namespace AutoTranslator_Core
                 case TargetLanguage.Korean: return "ATC_Lang_Korean".Translate();
                 case TargetLanguage.Russian: return "ATC_Lang_Russian".Translate();
                 case TargetLanguage.Ukrainian: return "ATC_Lang_Ukrainian".Translate();
-                case TargetLanguage.English: return "ATC_Lang_English".Translate(); // 🌟 V4.6 新增英文
+                case TargetLanguage.English: return "ATC_Lang_English".Translate(); // 🌟 V4.6 Add English / 新增英文
                 default: return lang.ToString();
             }
         }
@@ -161,13 +163,13 @@ namespace AutoTranslator_Core
 
             Rect topBarRect = l.GetRect(30f);
 
-            // 🌟 V4.6 新增：左側的「更新日誌」按鈕
+            // 🌟 V4.6 Add: "Update Log" button on the left / 新增：左側的「更新日誌」按鈕
             if (Widgets.ButtonText(new Rect(topBarRect.x, topBarRect.y, 250f, topBarRect.height), "ATC_UpdateLog_Btn".Translate()))
             {
                 Find.WindowStack.Add(new UpdateLogWindow());
             }
 
-            // 右側的「教學與 FAQ」按鈕
+            // Tutorial and FAQ button on the right / 右側的「教學與 FAQ」按鈕
             if (Widgets.ButtonText(new Rect(topBarRect.x + topBarRect.width - 250f, topBarRect.y, 250f, topBarRect.height), "ATC_Tutorial_Btn".Translate()))
             {
                 Find.WindowStack.Add(new TutorialWindow());
@@ -178,7 +180,7 @@ namespace AutoTranslator_Core
             Rect langRect = new Rect(row1.x, row1.y, row1.width / 2 - 5f, row1.height);
             if (Mouse.IsOver(langRect)) TooltipHandler.TipRegion(langRect, "ATC_Tooltip_TargetLang".Translate());
 
-            // 🌟 運行中鎖定選項
+            // 🌟 Lock options while running / 運行中鎖定選項
             if (AutoTranslatorSettings.IsRunning) GUI.color = Color.grey;
 
             if (Widgets.ButtonText(langRect, "ATC_TargetLang".Translate() + ": " + GetLangLabel(Settings.TargetLang)))
@@ -217,7 +219,8 @@ namespace AutoTranslator_Core
 
             Rect keyLabelRect = l.GetRect(24f);
             Widgets.Label(keyLabelRect, "ATC_ApiKey".Translate() + ":");
-            // 🌟 運行中鎖定選項
+
+            // 🌟 Lock options while running / 運行中鎖定選項
             if (AutoTranslatorSettings.IsRunning) GUI.color = Color.grey;
             Settings.ApiKey = l.TextEntry(Settings.ApiKey);
             GUI.color = Color.white;
@@ -327,7 +330,7 @@ namespace AutoTranslator_Core
             GUI.color = Color.white;
             l.Gap(15f);
 
-            // 🌟 V4.6 單獨翻譯按鈕
+            // 🌟 V4.6 Single translate button / 單獨翻譯按鈕
             Rect singleModRow = l.GetRect(30f);
             if (AutoTranslatorSettings.IsRunning) GUI.color = Color.grey;
             if (Widgets.ButtonText(singleModRow, "🎯 " + "ATC_TranslateSingleMod".Translate()))
@@ -367,7 +370,7 @@ namespace AutoTranslator_Core
 
             Rect startRect = new Rect(actionRow.x + actionRow.width * 0.35f, actionRow.y, actionRow.width * 0.65f, actionRow.height);
 
-            // 🌟 V4.6 運行中切換為停止按鈕
+            // 🌟 V4.6 Switch to stop button while running / 運行中切換為停止按鈕
             if (AutoTranslatorSettings.IsRunning)
             {
                 GUI.color = new Color(1f, 0.4f, 0.4f);
@@ -391,7 +394,7 @@ namespace AutoTranslator_Core
                     else
                     {
                         AutoTranslatorSettings.ClearLog();
-                        AutoTranslatorSettings.IsCancellationRequested = false; // 重置中斷旗標
+                        AutoTranslatorSettings.IsCancellationRequested = false; // Reset interrupt flag / 重置中斷旗標
                         AutoTranslatorScanner.StartFullScan();
                     }
                 }
@@ -548,8 +551,8 @@ namespace AutoTranslator_Core
         }
     }
 
-    // 教學視窗
-    // 🌟 全新動態讀取的教學視窗
+    // Tutorial Window / 教學視窗
+    // 🌟 New dynamic loading tutorial window / 全新動態讀取的教學視窗
     public class TutorialWindow : Window
     {
         private Vector2 scrollPos = Vector2.zero;
@@ -573,10 +576,10 @@ namespace AutoTranslator_Core
 
             Rect outRect = new Rect(0, 45f, inRect.width, inRect.height - 100f);
 
-            // 🌟 直接從 XML 抓取一整包超長文字
+            // 🌟 Fetching long text directly from XML / 直接從 XML 抓取一整包超長文字
             string contentText = "ATC_Tutorial_FullText".Translate();
 
-            // 系統自動幫大哥計算文字需要多高，不會再被截斷！
+            // Auto calculate text height to prevent truncation / 系統自動計算文字高度，防止截斷
             float textHeight = Text.CalcHeight(contentText, inRect.width - 20f);
             Rect viewRect = new Rect(0, 0, inRect.width - 20f, Mathf.Max(textHeight + 50f, outRect.height));
 
@@ -586,7 +589,7 @@ namespace AutoTranslator_Core
         }
     }
 
-    // 🌟 V4.6 新增：更新日誌專屬視窗
+    // 🌟 V4.6 Add: Dedicated Update Log Window / 新增：更新日誌專屬視窗
     public class UpdateLogWindow : Window
     {
         private Vector2 scrollPos = Vector2.zero;
@@ -610,7 +613,7 @@ namespace AutoTranslator_Core
 
             Rect outRect = new Rect(0, 45f, inRect.width, inRect.height - 100f);
 
-            // 🌟 直接從 XML 抓取更新日誌內容
+            // 🌟 Fetching update log directly from XML / 直接從 XML 抓取更新日誌內容
             string logText = "ATC_UpdateLog_FullText".Translate();
 
             float textHeight = Text.CalcHeight(logText, inRect.width - 20f);
@@ -621,4 +624,4 @@ namespace AutoTranslator_Core
             Widgets.EndScrollView();
         }
     }
-} 
+}

@@ -39,7 +39,13 @@
 
   <ATC_Tutorial_Btn>Tutorial &amp; FAQ</ATC_Tutorial_Btn>
   <ATC_UpdateLog_Btn>Update Log</ATC_UpdateLog_Btn>
-
+  <ATC_Log_MigrateSuccess>📦 [System Migration] Successfully migrated {0}'s {1} to the new structure seamlessly!</ATC_Log_MigrateSuccess>
+  <ATC_Log_StartSingleMod>🎯 [System] Starting single mod translation: {0}</ATC_Log_StartSingleMod>
+  <ATC_Log_SingleModDone>🎉 Single mod translation task perfectly completed!</ATC_Log_SingleModDone>
+  <ATC_Log_ProcessAborted>🛑 [System] Translation process safely aborted.</ATC_Log_ProcessAborted>
+  <ATC_Log_ProcessAbortedWithSave>🛑 [System] Translation process safely aborted, translated content has been saved.</ATC_Log_ProcessAbortedWithSave>
+  <ATC_TaskAborted>Aborted</ATC_TaskAborted>
+  
   <!-- ==================== Tasks & Status Panel ==================== -->
   <ATC_CurrentTask>Current Task</ATC_CurrentTask>
   <ATC_Idle>Idle</ATC_Idle>
@@ -94,7 +100,9 @@
   <ATC_ReloadingCountdown>Translation complete! </ATC_ReloadingCountdown>
   <ATC_Seconds> seconds until language reload...</ATC_Seconds>
   <ATC_ReloadingMessage>Reloading language data...</ATC_ReloadingMessage>
-  <ATC_ReloadingLog>Hot-reload in progress... The screen may flicker or freeze momentarily.</ATC_ReloadDoneLog>
+  
+  <!-- 🌟 咪咪幫你把這裡修好啦！前後標籤一致了！ -->
+  <ATC_ReloadingLog>Hot-reload in progress... The screen may flicker or freeze momentarily.</ATC_ReloadingLog>
   <ATC_ReloadDoneLog>Hot-reload complete! Latest translations are now active.</ATC_ReloadDoneLog>
 
   <!-- ==================== Long Text (Tutorial) ==================== -->
