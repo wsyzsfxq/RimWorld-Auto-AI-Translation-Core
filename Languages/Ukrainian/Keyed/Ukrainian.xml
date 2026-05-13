@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<LanguageData>
+
+  <ATC_ModTitle> Автоматичне доповнення перекладу V4.8</ATC_ModTitle>
+  <ATC_TargetLang>Цільова мова</ATC_TargetLang>
+  
+  <ATC_Lang_Traditional>Традиційна китайська</ATC_Lang_Traditional>
+  <ATC_Lang_Simplified>Спрощена китайська</ATC_Lang_Simplified>
+  <ATC_Lang_Japanese>Японська</ATC_Lang_Japanese>
+  <ATC_Lang_Korean>Корейська</ATC_Lang_Korean>
+  <ATC_Lang_Russian>Російська</ATC_Lang_Russian>
+  <ATC_Lang_Ukrainian>Українська</ATC_Lang_Ukrainian>
+  <ATC_Lang_English>Англійська (English)</ATC_Lang_English>
+
+  <ATC_CurrentProvider>Поточний постачальник AI</ATC_CurrentProvider>
+  <ATC_ApiKey>Ключ API (API Key)</ATC_ApiKey>
+  <ATC_CustomBaseUrl>Власний URL API (Base URL)</ATC_CustomBaseUrl>
+  <ATC_DefaultEmpty>Залиште порожнім за замовчуванням</ATC_DefaultEmpty>
+  <ATC_OnlyScanActive>Сканувати лише активні моди</ATC_OnlyScanActive>
+
+  <ATC_Tooltip_TargetLang>【Цільова мова】\nВстановіть мову, на яку AI має перекладати іноземні моди.</ATC_Tooltip_TargetLang>
+  <ATC_Tooltip_Provider>【Постачальник AI】\nВиберіть постачальника моделей AI. Наполегливо рекомендується Google (Gemini) або OpenAI.</ATC_Tooltip_Provider>
+
+  <ATC_TestConnection>Тестувати з'єднання з AI</ATC_TestConnection>
+  <ATC_TestingPulse>Надсилання тестового імпульсу...</ATC_TestingPulse>
+  
+  <ATC_FetchModels>Отримати список моделей</ATC_FetchModels>
+  <ATC_Fetching>Зв'язок...</ATC_Fetching>
+  <ATC_SelectModel>Вибрати модель</ATC_SelectModel>
+  <ATC_PlzFetchModel>Спочатку натисніть «Отримати список моделей»</ATC_PlzFetchModel>
+
+  <ATC_TranslateSingleMod>Перекласти окремий мод</ATC_TranslateSingleMod>
+  <ATC_StartTranslation>Запустити проект автоматичного доповнення</ATC_StartTranslation>
+  <ATC_StopTranslation>Аварійна зупинка лінії</ATC_StopTranslation>
+
+  <ATC_Tutorial_Btn>Інструкція та FAQ</ATC_Tutorial_Btn>
+  <ATC_UpdateLog_Btn>Журнал оновлень мода</ATC_UpdateLog_Btn>
+
+  <ATC_CurrentTask>Поточне завдання</ATC_CurrentTask>
+  <ATC_Idle>В очікуванні</ATC_Idle>
+  <ATC_TaskDone>Лінія завершила роботу!</ATC_TaskDone>
+  
+  <ATC_LogPanelTitle>--- Журнал моніторингу лінії в реальному часі ---</ATC_LogPanelTitle>
+  <ATC_ErrorLogTitle>⚠ Звіт про виявлення аномальних файлів</ATC_ErrorLogTitle>
+
+  <ATC_Msg_EmptyKey>Як я можу тестувати без ключа API!</ATC_Msg_EmptyKey>
+  <ATC_Log_TestPulse> [Test] Надсилання мікроімпульсу, тестування статусу з'єднання [{0}]...</ATC_Log_TestPulse>
+  <ATC_Log_TestSuccess> [Test] Тест успішний! Ядро AI реагує добре.</ATC_Log_TestSuccess>
+  <ATC_Log_TestFail> [Test] Тест не вдався! Перевірте мережу або налаштування API.</ATC_Log_TestFail>
+
+  <ATC_Log_Init> [Init] Читання модів, створення глобального пулу перекладів...</ATC_Log_Init>
+  <ATC_Log_InitDone> [Init] Готово! Зібрано {0} перекладів Def.</ATC_Log_InitDone>
+  
+  <ATC_Log_StartScan> Auto Translation Core запущено! Цільова кількість модів: {0}</ATC_Log_StartScan>
+  <ATC_Log_ScanMod>\n [Start] Сканування мода: {0}</ATC_Log_ScanMod>
+  <ATC_Log_SkipMod>    [Skip] Немає Languages або Defs, мод лише з кодом.</ATC_Log_SkipMod>
+  <ATC_Log_KeyedScan>    [Keyed] Сканування...</ATC_Log_KeyedScan>
+  <ATC_Log_DefScan>    [DefInjected] Запуск глибокого сканування та глобального порівняння...</ATC_Log_DefScan>
+  
+  <ATC_Log_FoundMissing>    [{0}] Знайдено {1} відсутніх елементів! Виклик підтримки AI...</ATC_Log_FoundMissing>
+  <ATC_Log_AIFinish>    [{0}] Доповнення перекладу AI завершено!</ATC_Log_AIFinish>
+  <ATC_Log_AIFail>    [{0}] Доповнення перекладу AI не вдалося.</ATC_Log_AIFail>
+  <ATC_Log_NoMissing>    [{0}] Усі деталі на місці, переклад не потрібен.</ATC_Log_NoMissing>
+
+  <ATC_Log_TaskDone>\n [Finish] Завдання з доповнення виконано ідеально!</ATC_Log_TaskDone>
+  <ATC_Log_TaskError> [Error] Лінію перервано: {0}</ATC_Log_TaskError>
+  <ATC_Log_Clean> [Clean] Лінію зупинено, пам'ять звільнено.</ATC_Log_Clean>
+  <ATC_CancelRequested>Отримано команду зупинки, аварійне гальмування лінії...</ATC_CancelRequested>
+
+  <ATC_Log_FetchModelsSuccess>[System] Список моделей успішно отримано!</ATC_Log_FetchModelsSuccess>
+  <ATC_Log_FetchModelsFail>[System] Не вдалося отримати список, перевірте ключ API.</ATC_Log_FetchModelsFail>
+  <ATC_Log_AllTranslationWritten>[Success] Усі переклади безпечно записано в !Translation_AI_Pack!</ATC_Log_AllTranslationWritten>
+  <ATC_Log_NetworkRetry>[System] Коливання мережі або сервер зайнятий, активовано автоповтор...</ATC_Log_NetworkRetry>
+  
+  <ATC_Log_MigrateSuccess> [Міграція] Успішно перенесено {0} з {1} на нову архітектуру!</ATC_Log_MigrateSuccess>
+  <ATC_Log_StartSingleMod> [System] Початок окремого перекладу мода: {0}</ATC_Log_StartSingleMod>
+  <ATC_Log_SingleModDone> Окреме завдання з перекладу виконано ідеально!</ATC_Log_SingleModDone>
+  <ATC_Log_ProcessAborted> [System] Лінію безпечно зупинено.</ATC_Log_ProcessAborted>
+  <ATC_Log_ProcessAbortedWithSave> [System] Лінію безпечно зупинено, перекладений вміст збережено.</ATC_Log_ProcessAbortedWithSave>
+  <ATC_TaskAborted>Перервано</ATC_TaskAborted>
+  
+  <ATC_LogError_Format>[{0}] Помилка формату: {1}</ATC_LogError_Format>
+  <ATC_LogError_Unknown>[{0}] Невідома аномалія: {1}</ATC_LogError_Unknown>
+  <ATC_LogError_FileCorrupted>[Файл пошкоджено] Пропуск файлу, який не вдалося розпізнати: {0}</ATC_LogError_FileCorrupted>
+  <ATC_LogError_ApiConn>[API] Аномалія зв'язку: {0}</ATC_LogError_ApiConn>
+
+  <ATC_FinishMessage_Title>Підказка про завершення перекладу</ATC_FinishMessage_Title>
+  <ATC_FinishMessage_OK>Зрозумів! (OK)</ATC_FinishMessage_OK>
+  <ATC_FinishMessage_Text> Завдання з перекладу успішно завершено!
+
+【Ситуація А: Використання мода вперше】
+Перейдіть до списку «Моди» в головному меню гри, увімкніть щойно створений «! AutoTranslation AI Pack», перетягніть його в самий 【низ】 списку, а потім 【перезапустіть гру】!
+
+【Ситуація Б: Пакет перекладу вже увімкнено】
+Перейдіть до Головне меню ＞ Налаштування ＞ Виберіть мову, та 【натисніть ще раз на поточну мову】. Гра миттєво очистить кеш і завантажить найновіший переклад, перезапуск не потрібен!</ATC_FinishMessage_Text>
+
+<ATC_Tutorial_FullText>【Інструкція з використання】
+1. Виберіть 【Цільову мову】 (підтримується взаємний переклад між китайською, японською, корейською, англійською, російською, українською та іншими мовами!) та 【Постачальника】. Гравцям з Тайваню рекомендується безкоштовний Google (Gemini); гравцям з материка — DeepSeek!
+
+2. Подайте заявку на 【Ключ API】 та вставте його. 🔥 Нова функція V4.7: Підтримка «Нескінченної обойми API»! Ви можете натиснути «＋», щоб додати кілька інтерфейсів, і система автоматично розподілятиме завдання між ними, щоб максимально використати безкоштовні ліміти!
+
+3. 【Автоматичне виявлення моделей】 Після вставки ключа (довжина понад 10 знаків) не потрібно натискати жодних кнопок пошуку, система автоматично знайде моделі у фоновому режимі! Після успішного пошуку виберіть модель у випадаючому списку праворуч.
+
+4. Налаштуйте 【Кількість потоків】 (рекомендовано: кількість діючих інтерфейсів x 3). Потім натисніть зелену кнопку 【🚀 Перекласти всі моди в один клік】 для загального сканування або 【🎯 Перекласти окремий мод】 для точкового перекладу! Зупинити процес можна в будь-який момент натиснувши 【🛑 Зупинити переклад】.
+
+5. 【🎉 Обов'язкові кроки після завершення перекладу】
+   👉 Ситуація А (перше використання): Увімкніть створений «! AutoTranslation AI Pack» у списку модів, перетягніть його в самий низ і 【перезапустіть гру】!
+   👉 Ситуація Б (вже увімкнено): Перейдіть до Головне меню ＞ Вибір мови, 【натисніть на поточну мову ще раз】, і гра миттєво оновить налаштування!
+
+【Часті запитання Q＆A】
+Q: Чому після завершення перекладу в грі все одно англійська мова?
+A: Дивіться пункт 5 вище! Якщо ви вперше створили пакет перекладу, потрібно «перезапустити гру». Якщо він уже увімкнений, «перемкніть мову ще раз» (щоб змусити гру оновитися). Це не баг, а обмеження механіки гри!
+
+Q: Чому з'являється помилка HTTP 401 / 403?
+A: Зазвичай це через неправильний ключ API або вичерпаний ліміт безкоштовного використання! Переконайтеся, що немає зайвих пробілів, або скористайтеся «＋», щоб додати більше ключів!
+
+Q: Чому з'являється помилка HTTP 404?
+A: Якщо ви використовуєте офіційний API, переконайтеся, що поле 【Власний Base URL】 «повністю порожнє»! Адреса потрібна лише для сторонніх проксі-серверів.
+
+Q: В журналі постійно з'являються червоні попередження «Тайм-аут» або «Очікування повтору»?
+A: Це означає, що сервер API зайнятий або ви досягли ліміту частоти запитів! Мод має вбудований механізм автоповтору та ротації ключів. Якщо далі з'являються повідомлення про успішний переклад, просто дайте йому трохи часу~ (≧∀≦)ゞ
+
+Q: Чому з'єднання з локальним сервером (LM Studio / Ollama) або проксі-сервером постійно переривається або видає HTTP 404?
+A: 1. Переконайтеся, що «Власний Base URL» вказано правильно (наприклад, http://localhost:1234), система сама додасть /v1!
+   2. Ключ API (API Key) не може бути порожнім! Для локального сервера введіть будь-що (наприклад, local-key).
+   3. Вказуйте саме «URL інтерфейсу API», а не адресу звичайного чату в браузері!
+
+Q: Чому локальний переклад дуже повільний або комп'ютер починає гальмувати?
+A: Переклад AI споживає багато ресурсів комп'ютера (особливо відеопам'ять). Якщо занадто повільно, спробуйте менші квантовані моделі (наприклад, версію Q4_K_M) або зменште «Кількість потоків» у налаштуваннях!
+
+Q: Де зберігаються перекладені файли? Чи можна ними ділитися?
+A: У папці RimWorld/Mods/!Translation_AI_Pack! Зверніть увагу, що автоматично створені пакети призначені 【лише для особистого використання】, не розповсюджуйте їх та не завантажуйте в Steam Workshop!
+
+</ATC_Tutorial_FullText>
+
+<ATC_UpdateLog_FullText>
+
+	--- V4.8 Ультимативна еволюція (Multi-Select ＆ Optimize) ---
+	• Реалізовано 【Інтерфейс пошуку та мультиселекту модів】: Більше ніякої втоми в руках! Тепер можна шукати та вибирати кілька модів одночасно з неймовірно плавним «слайд-вибором»!
+	• Додано 【Пропустити поточний мод】: Мод застряг або перекладається занадто довго? Натисніть пропуск, і система миттєво перейде до наступного!
+	• Звільнення продуктивності 【Асинхронна побудова словника】: Повністю вирішено проблему замерзання гри при завантаженні величезних пакетів модів. Подвійна смуга прогресу працює плавно!
+	• Виправлено 【Сумісність з проксі API та локальними серверами】: Повна підтримка LM Studio / Ollama та додано розумний механізм «автодоповнення /v1».
+
+	--- V4.7 Швидкісне оновлення (Speedster Ultimate) ---
+	• Перша в світі система 【Нескінченна обойма API】: Підтримка одночасного налаштування кількох інтерфейсів (наприклад, мікс Google ＋ DeepSeek). Система автоматично розподіляє навантаження (Round-Robin) для обходу лімітів!
+	• Реалізовано 【Високошвидкісний регулятор потоків】: Більше не обмежено 3 потоками! Вільно налаштовуйте до 30 потоків одночасно для неймовірної швидкості перекладу!
+	• Новий 【Автоматичний радар моделей】: Фонове виявлення доступних моделей після вставки ключа API.
+	• Впроваджено 【Глобальний скрол UI】: Вирішено проблему тісноти в інтерфейсі налаштувань та зникнення логів.
+
+	--- V4.6 Епічне оновлення (Ultimate) ---
+	• Додано підтримку 【Зворотного перекладу з англійської, української та російської】. Тепер китайські моди можна перекладати на багато мов!
+	• Реалізовано двигун 【Окремого перекладу】, що дозволяє швидко сканувати та перекладати один вибраний мод.
+	• Реалізовано 【Систему аварійного гальмування】 для зупинки процесу зі збереженням прогресу.
+	• Рентген-зонд оновлено до 【Рівня 3 Рекурсивного занурення】, що дозволяє знаходити прихований текст на будь-якій глибині папок.
+	• Повністю переписано архітектуру UI, впроваджено вікна з динамічною висотою.
+	• Видалено нестабільний механізм авто-перезавантаження, замінено на офіційне безшовне перемикання мов!
+
+	--- V4.5 Оновлення ---
+	• Додано панель моніторингу 【Звіт про аномальні файли】.
+	• Реалізовано 【Corruption Shield】 для автоматичного захисту та пропуску пошкоджених файлів XML.
+	• Додано спливаюче вікно з інструкцією для першого використання.
+
+	--- V4.3 Оновлення ---
+	• Перша в світі 【Лінія автоматичного доповнення перекладу】, що позбавляє від мук ручного пошуку відсутнього тексту.
+	• Вбудований 【Глобальний пул пам'яті перекладів】 для економії лімітів API.
+	• Підтримка власних Base URL для повної сумісності з локальними моделями (LM Studio, Ollama тощо).</ATC_UpdateLog_FullText>
+
+<ATC_ApiConfigTitle> Налаштування обойми інтерфейсів API (Підтримка ротації)</ATC_ApiConfigTitle>
+<ATC_Provider>Постачальник</ATC_Provider>
+<ATC_CustomUrlOptional>(Власний BaseUrl, порожньо — за замовчуванням)</ATC_CustomUrlOptional>
+<ATC_Delete>Видалити</ATC_Delete>
+<ATC_PasteKey>(Вставити API Key)</ATC_PasteKey>
+<ATC_FetchingModel>Пошук моделей...</ATC_FetchingModel>
+<ATC_NoModelWaitKey>Модель не вибрано (Вставте Key для автопошуку)</ATC_NoModelWaitKey>
+<ATC_AddApiBtn>Додати інтерфейс API (Add API Interface)</ATC_AddApiBtn>
+<ATC_EmergencyStop>Зупинити переклад (Emergency Stop)</ATC_EmergencyStop>
+<ATC_StartFullScan>Перекласти всі моди в один клік (Start Full Scan)</ATC_StartFullScan>
+<ATC_EmptyConfigWarning>Будь ласка, налаштуйте принаймні одну валідну групу параметрів API!</ATC_EmptyConfigWarning>
+<ATC_MaxThreads>Кількість потоків (Max Threads)</ATC_MaxThreads>
+<ATC_MaxThreadsTip>Наполегливо рекомендуємо: кількість ключів x 3</ATC_MaxThreadsTip>
+
+<ATC_Log_ApiRecovered>[API] Повторне з'єднання успішне! Лінія відновила роботу на високій швидкості.</ATC_Log_ApiRecovered>
+  <ATC_Log_ApiRetry>[API] Помилка або таймаут, повтор через {0} сек...</ATC_Log_ApiRetry>
+  <ATC_Log_ApiFallback>[API] Помилка перекладу блоку; запуск «Режиму дуелі» для пореченнявого розбору...</ATC_Log_ApiFallback>
+  <ATC_LogError_ApiCritical>[Критична помилка API] Переклад тексту в 【{0}】 повністю не вдався! Збережено оригінал.</ATC_LogError_ApiCritical>
+
+  <ATC_TranslateMultiMod> Окремий/Мультиселект переклад</ATC_TranslateMultiMod>
+  <ATC_SkipCurrentMod> Пропустити поточний мод</ATC_SkipCurrentMod>
+  <ATC_MultiSelect_Title> Виберіть моди для перекладу (можна кілька)</ATC_MultiSelect_Title>
+  <ATC_MultiSelect_Search>Введіть назву мода для пошуку...</ATC_MultiSelect_Search>
+  <ATC_MultiSelect_Start> Почати переклад {0} вибраних модів</ATC_MultiSelect_Start>
+
+  <ATC_SubTask_AnalyzingDict>Аналіз локальних текстів...</ATC_SubTask_AnalyzingDict>
+  <ATC_SubTask_BuildingDict>Побудова словника: {0}</ATC_SubTask_BuildingDict>
+  <ATC_SubTask_DictDone>Словник побудовано!</ATC_SubTask_DictDone>
+  <ATC_SubTask_Scanning>Сканування тексту...</ATC_SubTask_Scanning>
+  <ATC_SubTask_TranslatingKeyed>Переклад Keyed...</ATC_SubTask_TranslatingKeyed>
+  <ATC_SubTask_TranslatingDef>Переклад DefInjected...</ATC_SubTask_TranslatingDef>
+
+  <ATC_Log_SkippedMod>Пропущено мод: {0}</ATC_Log_SkippedMod>
+  <ATC_Log_MultiScanStart>Підготовка до перекладу {0} вибраних модів...</ATC_Log_MultiScanStart>
+  <ATC_Log_MultiScanDone>Завдання з перекладу вибраних модів завершено!</ATC_Log_MultiScanDone>
+
+  <ATC_LogError_OldToxicFiles>【Увага】 Виявлено застарілі аномальні файли! Проводиться примусове очищення для запобігання помилкам!</ATC_LogError_OldToxicFiles>
+  <ATC_Log_OldFilesDeleted>【System】 Застарілі аномальні файли успішно видалено!</ATC_Log_OldFilesDeleted>
+  <ATC_Log_AutoRebuildStart>【System】 Система автоматично перебудує чистий пакет перекладу!</ATC_Log_AutoRebuildStart>
+
+	<ATC_One_click_chaos> Хаос в один клік</ATC_One_click_chaos>
+	<ATC_Rickroll>Ні в якому разі не тисніть сюди...</ATC_Rickroll>
+	<ATC_SelectAll>Вибрати все</ATC_SelectAll>
+	<ATC_DeselectAll>Скасувати вибір</ATC_DeselectAll>
+
+</LanguageData>

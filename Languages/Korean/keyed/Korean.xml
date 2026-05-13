@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<LanguageData>
+
+  <ATC_ModTitle> 자동 보충 번역 V4.8</ATC_ModTitle>
+  <ATC_TargetLang>목표 언어</ATC_TargetLang>
+  
+  <ATC_Lang_Traditional>번체 중국어</ATC_Lang_Traditional>
+  <ATC_Lang_Simplified>간체 중국어</ATC_Lang_Simplified>
+  <ATC_Lang_Japanese>일본어</ATC_Lang_Japanese>
+  <ATC_Lang_Korean>한국어</ATC_Lang_Korean>
+  <ATC_Lang_Russian>러시아어</ATC_Lang_Russian>
+  <ATC_Lang_Ukrainian>우크라이나어</ATC_Lang_Ukrainian>
+  <ATC_Lang_English>영어 (English)</ATC_Lang_English>
+
+  <ATC_CurrentProvider>현재 AI 공급업체</ATC_CurrentProvider>
+  <ATC_ApiKey>API 키 (API Key)</ATC_ApiKey>
+  <ATC_CustomBaseUrl>사용자 지정 API 주소 (Base URL)</ATC_CustomBaseUrl>
+  <ATC_DefaultEmpty>기본적으로 비워두세요</ATC_DefaultEmpty>
+  <ATC_OnlyScanActive>활성화된 모드만 스캔</ATC_OnlyScanActive>
+
+  <ATC_Tooltip_TargetLang>【목표 언어】\nAI가 외국어 모드를 어떤 언어로 번역할지 설정합니다。</ATC_Tooltip_TargetLang>
+  <ATC_Tooltip_Provider>【AI 서비스 제공업체】\n사용할 AI 모델 공급업체를 선택하세요。Google (Gemini) 또는 OpenAI를 강력히 추천합니다。</ATC_Tooltip_Provider>
+
+  <ATC_TestConnection>AI 연결 테스트</ATC_TestConnection>
+  <ATC_TestingPulse>테스트 펄스 전송 중...</ATC_TestingPulse>
+  
+  <ATC_FetchModels>모델 목록 가져오기</ATC_FetchModels>
+  <ATC_Fetching>통신 중...</ATC_Fetching>
+  <ATC_SelectModel>모델 선택</ATC_SelectModel>
+  <ATC_PlzFetchModel>먼저 모델 목록 가져오기를 클릭하세요</ATC_PlzFetchModel>
+
+  <ATC_TranslateSingleMod>지정된 모드 개별 번역</ATC_TranslateSingleMod>
+  <ATC_StartTranslation>자동 보충 계획 실행</ATC_StartTranslation>
+  <ATC_StopTranslation>생산 라인 긴급 정지</ATC_StopTranslation>
+
+  <ATC_Tutorial_Btn>사용 설명서 및 FAQ</ATC_Tutorial_Btn>
+  <ATC_UpdateLog_Btn>모드 업데이트 로그</ATC_UpdateLog_Btn>
+
+  <ATC_CurrentTask>현재 작업</ATC_CurrentTask>
+  <ATC_Idle>대기 중</ATC_Idle>
+  <ATC_TaskDone>생산 라인 완공！</ATC_TaskDone>
+  
+  <ATC_LogPanelTitle>--- 생산 라인 실시간 모니터링 로그 ---</ATC_LogPanelTitle>
+  <ATC_ErrorLogTitle>⚠ 이상 파일 탐지 보고서</ATC_ErrorLogTitle>
+
+  <ATC_Msg_EmptyKey>Key가 비어있는데 어떻게 테스트해요！</ATC_Msg_EmptyKey>
+  <ATC_Log_TestPulse> [Test] 미량의 펄스를 발송하여 [{0}] 연결 상태를 테스트 중...</ATC_Log_TestPulse>
+  <ATC_Log_TestSuccess> [Test] 테스트 성공！AI 코어 반응이 양호합니다。</ATC_Log_TestSuccess>
+  <ATC_Log_TestFail> [Test] 테스트 실패！네트워크 또는 API 설정을 확인하세요。</ATC_Log_TestFail>
+
+  <ATC_Log_Init> [Init] 모드를 읽는 중이며, 전역 번역 공유 풀을 생성하고 있습니다...</ATC_Log_Init>
+  <ATC_Log_InitDone> [Init] 완료！총 {0}개의 Def 번역을 수집했습니다。</ATC_Log_InitDone>
+  
+  <ATC_Log_StartScan> Auto Translation Core 시작！목표 모드 수: {0}</ATC_Log_StartScan>
+  <ATC_Log_ScanMod>\n [Start] 모드 스캔: {0}</ATC_Log_ScanMod>
+  <ATC_Log_SkipMod>    [Skip] Languages도 Defs도 없는 순수 코드 모드입니다。</ATC_Log_SkipMod>
+  <ATC_Log_KeyedScan>    [Keyed] 스캔 중...</ATC_Log_KeyedScan>
+  <ATC_Log_DefScan>    [DefInjected] 심층 스캔 및 전역 비교 시작...</ATC_Log_DefScan>
+  
+  <ATC_Log_FoundMissing>    [{0}] {1}개의 누락 발견！AI 지원 호출 중...</ATC_Log_FoundMissing>
+  <ATC_Log_AIFinish>    [{0}] AI 번역 보충 완료！</ATC_Log_AIFinish>
+  <ATC_Log_AIFail>    [{0}] AI 번역 보충 실패。</ATC_Log_AIFail>
+  <ATC_Log_NoMissing>    [{0}] 부품이 모두 갖춰져 번역이 필요 없습니다。</ATC_Log_NoMissing>
+
+  <ATC_Log_TaskDone>\n [Finish] 보충 작업이 완벽하게 끝났습니다！</ATC_Log_TaskDone>
+  <ATC_Log_TaskError> [Error] 생산 라인이 예기치 않게 중단되었습니다: {0}</ATC_Log_TaskError>
+  <ATC_Log_Clean> [Clean] 생산 라인 가동 중지, 메모리가 해제되었습니다。</ATC_Log_Clean>
+  <ATC_CancelRequested>정지 명령 수신, 생산 라인 긴급 제동 중...</ATC_CancelRequested>
+
+  <ATC_Log_FetchModelsSuccess>[System] 모델 목록 가져오기 성공！</ATC_Log_FetchModelsSuccess>
+  <ATC_Log_FetchModelsFail>[System] 목록 가져오기 실패, 키를 확인하세요。</ATC_Log_FetchModelsFail>
+  <ATC_Log_AllTranslationWritten>[Success] 모든 번역이 !Translation_AI_Pack에 안전하게 저장되었습니다！</ATC_Log_AllTranslationWritten>
+  <ATC_Log_NetworkRetry>[System] 네트워크 불안정 또는 서버 부하로 인해 자동 재시도 메커니즘이 트리거되었습니다...</ATC_Log_NetworkRetry>
+  
+  <ATC_Log_MigrateSuccess> [시스템 이전] {0}의 {1}를 새 구조로 완벽하게 이전했습니다！</ATC_Log_MigrateSuccess>
+  <ATC_Log_StartSingleMod> [System] 개별 모드 번역 시작: {0}</ATC_Log_StartSingleMod>
+  <ATC_Log_SingleModDone> 개별 번역 작업이 완벽하게 끝났습니다！</ATC_Log_SingleModDone>
+  <ATC_Log_ProcessAborted> [System] 생산 라인이 안전하게 중단되었습니다。</ATC_Log_ProcessAborted>
+  <ATC_Log_ProcessAbortedWithSave> [System] 생산 라인이 안전하게 중단되었으며, 번역된 내용은 보존되었습니다。</ATC_Log_ProcessAbortedWithSave>
+  <ATC_TaskAborted>중단됨</ATC_TaskAborted>
+  
+  <ATC_LogError_Format>[{0}] 형식 오류: {1}</ATC_LogError_Format>
+  <ATC_LogError_Unknown>[{0}] 알 수 없는 이상: {1}</ATC_LogError_Unknown>
+  <ATC_LogError_FileCorrupted>[파일 손상] 분석할 수 없는 파일 건너뛰기: {0}</ATC_LogError_FileCorrupted>
+  <ATC_LogError_ApiConn>[API] 통신 이상: {0}</ATC_LogError_ApiConn>
+
+  <ATC_FinishMessage_Title>번역 완료 안내</ATC_FinishMessage_Title>
+  <ATC_FinishMessage_OK>확인！(OK)</ATC_FinishMessage_OK>
+  <ATC_FinishMessage_Text> 번역 작업이 성공적으로 완료되었습니다！
+
+【상황 A：본 모드를 처음 사용하는 경우】
+게임 메인 메뉴의 「모드」 목록으로 이동하여 방금 생성된 「! AutoTranslation AI Pack」을 체크하여 활성화하고, 정렬 순서를 【최하단】으로 드래그한 뒤 【게임을 재시작】하세요！
+
+【상황 B：번역 팩이 이미 활성화된 상태인 경우】
+메인 메뉴 ＞ 설정 ＞ 언어 선택에서 【현재 사용 중인 언어를 다시 클릭】하세요。그러면 게임이 즉시 캐시를 비우고 최신 번역을 로드하며, 재시작할 필요가 없습니다！</ATC_FinishMessage_Text>
+
+<ATC_Tutorial_FullText>【사용 설명서】
+1. 【목표 언어】(중국어, 일본어, 한국어, 영어, 러시아어, 우크라이나어 등 다국어 상호 번역 지원！)와 【공급업체】를 선택하세요。대만 플레이어는 무료 Google (Gemini)을, 대륙 플레이어는 DeepSeek를 추천합니다！
+
+2. 【API 키】를 신청하여 붙여넣으세요。🔥 V4.7 신기능：「무한 API 탄창」 지원！「＋」를 클릭하여 여러 개의 API 인터페이스를 추가하면 시스템이 자동으로 작업을 분산하여 무료 할당량을 최대한 활용합니다！
+
+3. 【전정동 모델 감지】키를 붙여넣으면(길이 10자 이상), 검색 버튼을 누를 필요 없이 배경에서 자동으로 모델을 가져옵니다！성공하면 오른쪽 드롭다운 메뉴에서 모델을 선택하세요。
+
+4. 【병렬 스레드 수】를 조정하세요(권장 설정: 유효 인터페이스 수 x 3)。그 후 녹색의 【🚀 모든 모드 일괄 번역】을 클릭하여 전체 스캔을 진행하거나, 【🎯 단일 모드 번역】을 사용하여 특정 모드만 번역하세요！중단하고 싶을 때는 언제든지 【🛑 번역 중지】를 누를 수 있습니다。
+
+5. 【🎉 번역 완료 후 필수 단계】
+   👉 상황 A (처음 사용): 모드 목록에서 생성된 「! AutoTranslation AI Pack」을 활성화하고 최하단으로 드래그한 뒤 【게임 재시작】！
+   👉 상황 B (이미 활성화됨): 메인 메뉴 ＞ 언어 선택에서 【현재 언어를 다시 클릭】하면 즉시 최신 설정이 반영됩니다！
+
+【자주 묻는 질문 Q＆A】
+Q: 번역이 끝났는데 왜 게임 안은 여전히 영어인가요?
+A: 위 5번 단계를 확인하세요！번역 팩을 처음 생성했다면 「재시작」해야 합니다。이미 활성화된 경우 설정에서 「언어를 다시 선택」(강제 새로고침)해야 합니다。이는 버그가 아니라 게임의 기본 메커니즘 제한 때문입니다！
+
+Q: HTTP 401 / 403 오류가 발생하는 이유는 무엇인가요?
+A: 보통 API 키를 잘못 입력했거나 무료 할당량을 모두 소진했기 때문입니다！복사 시 공백이 포함되지 않았는지 확인하거나, 「＋」를 사용하여 더 많은 키를 등록하세요！
+
+Q: HTTP 404 오류가 발생하는 이유는 무엇인가요?
+A: 공식 API를 사용하는 경우 【사용자 지정 Base URL】을 「완전한 빈칸」으로 유지하세요！서드파티 중계 서버를 사용하는 경우에만 주소를 입력해야 합니다。
+
+Q: 로그에 「통신 시간 초과」 또는 「재시도 대기」라는 빨간색 경고가 계속 뜹니다.
+A: API 서버가 혼잡하거나 요청 빈도 제한에 걸린 것입니다！모드에는 자동 재시도 및 키 순환 메커니즘이 내장되어 있습니다。번역 성공 로그가 계속 올라온다면 그대로 두시면 됩니다～(≧∀≦)ゞ
+
+Q: 로컬 환경(LM Studio / Ollama)이나 중계 API가 계속 연결 실패 또는 HTTP 404가 뜹니다.
+A: 1. 「사용자 지정 Base URL」이 정확한지 확인하세요(예: http://localhost:1234)。뒤에 /v1을 붙일 걱정은 하지 마세요, 시스템이 자동으로 보충합니다！
+   2. API 키를 비워두지 마세요！로컬 환경이라면 아무 글자나 입력하세요(예: local-key)。
+   3. 입력하는 주소는 「API 인터페이스 주소」여야 하며, 일반 웹 채팅창 주소가 아닙니다！
+
+Q: 로컬 번역이 너무 느리고 컴퓨터가 멈추려고 합니다.
+A: AI 번역은 컴퓨터 연산 능력(특히 VRAM)을 많이 소모합니다。너무 느리다면 더 작은 양자화 모델(예: Q4_K_M 버전)을 사용하거나 설정에서 「병렬 스레드 수」를 낮추어 과부하를 방지하세요！
+
+Q: 번역된 파일은 어디에 있나요? 다른 사람과 공유해도 되나요?
+A: RimWorld/Mods/!Translation_AI_Pack 폴더에 저장됩니다！자동 생성된 번역 팩은 【개인 사용 용도】이므로, 배포하거나 Steam 창작마당에 업로드하지 마세요！
+
+</ATC_Tutorial_FullText>
+
+<ATC_UpdateLog_FullText>
+
+	--- V4.8 궁극의 진화 (Multi-Select ＆ Optimize) ---
+	• 【모드 다중 선택 및 검색 인터페이스】 구현: 손가락 피로 끝！이제 여러 모드를 한 번에 검색하고 선택할 수 있으며, 부드러운 드래그 선택으로 일괄 번역이 가능합니다！
+	• 【현재 모드 건너뛰기】 추가: 멈추거나 너무 오래 걸리는 모드가 있나요? 건너뛰기를 누르면 즉시 다음 모드로 넘어갑니다！
+	• 성능 해방 【비동기 사전 구축】: 대규모 모드 팩 로드 시 전역 사전 구축으로 인해 화면이 멈추는 문제를 해결했습니다。더블 진행 바가 더욱 매끄럽게 작동합니다！
+	• 【중계 API 및 로컬 호환성】 완벽 수정: LM Studio / Ollama 등 로컬 모델을 완벽 지원하며 지능형 「/v1 자동 보충」 메커니즘을 도입했습니다。
+
+	--- V4.7 질주 업데이트 (Speedster Ultimate) ---
+	• 최초의 【무한 API 탄창】 시스템: 여러 개의 API 인터페이스(예: Google ＋ DeepSeek 혼합)를 동시에 설정 가능。라운드 로빈 로드 밸런싱을 통해 빈도 제한을 피하고 무료 할당량을 최대한 활용합니다！
+	• 【초고속 스레드 조절기】 구현: 3스레드 제한 해제！최대 30스레드 병렬 실행이 가능해져 번역 속도가 비약적으로 향상되었습니다！
+	• 새로운 【전자동 모델 레이더】: API 키를 붙여넣기만 하면 배경에서 사용 가능한 모델을 자동으로 탐색합니다。번거로운 수동 검색 버튼을 제거했습니다。
+	• 【전역 스크롤 UI】 도입: 설정 인터페이스의 혼잡함과 로그 누락 문제를 해결하여 고정된 높이의 대형 모니터링 화면을 제공합니다！
+
+	--- V4.6 에픽 업데이트 (Ultimate) ---
+	• 【영어, 우크라이나어, 러시아어 역번역】 지원 추가。이제 중국어 모드를 다양한 언어로 번역할 수 있습니다！
+	• 【개별 번역】 엔진 구현。사용자가 특정 모드만 지정하여 빠르게 스캔하고 번역할 수 있습니다。
+	• 【긴급 제동 시스템】 구현。실행 중 언제든지 중단하고 진행 상황을 보존할 수 있습니다。
+	• X-레이 프로브가 【Level 3 재귀 딥 모드】로 업그레이드되어 폴더 구조 깊숙이 숨겨진 모든 텍스트를 찾아냅니다。
+	• UI 하부 구조를 완전히 재작성하여 동적 높이 창을 구현했습니다。
+	• 불안정한 구버전 자동 핫 리로드 메커니즘을 제거하고, 공식 메뉴를 통한 원활한 언어 전환 방식을 채택하여 안정성을 100% 향상시켰습니다！
+
+	--- V4.5 업데이트 ---
+	• 【이상 파일 탐지 보고서】 듀얼 스크린 모니터링 대시보드 추가。
+	• 【Corruption Shield】 구현。손상된 XML 파일을 자동으로 방어하고 건너뜁니다。
+	• 자동 탐지 및 최초 사용 가이드 팝업 추가。
+
+	--- V4.3 업데이트 ---
+	• 최초의 【전자동 보충 번역 라인】 도입。수동으로 누락된 텍스트를 찾는 고통에서 해방됩니다。
+	• 【전역 번역 메모리 풀】 내장。설치된 모든 모드의 텍스트를 통합하여 API 사용량을 절약합니다。
+	• 사용자 지정 Base URL 지원으로 LM Studio, Ollama 등 로컬 모델과 완벽하게 호환됩니다。</ATC_UpdateLog_FullText>
+
+<ATC_ApiConfigTitle> API 인터페이스 탄창 설정 (다중 병렬 순환 지원)</ATC_ApiConfigTitle>
+<ATC_Provider>공급업체</ATC_Provider>
+<ATC_CustomUrlOptional>(사용자 지정 BaseUrl, 비워두면 기본값 사용)</ATC_CustomUrlOptional>
+<ATC_Delete>삭제</ATC_Delete>
+<ATC_PasteKey>(API Key 붙여넣기)</ATC_PasteKey>
+<ATC_FetchingModel>모델 검색 중...</ATC_FetchingModel>
+<ATC_NoModelWaitKey>모델 미선택 (Key 붙여넣기 시 자동 획득)</ATC_NoModelWaitKey>
+<ATC_AddApiBtn>API 인터페이스 추가 (Add API Interface)</ATC_AddApiBtn>
+<ATC_EmergencyStop>번역 중지 (Emergency Stop)</ATC_EmergencyStop>
+<ATC_StartFullScan>모든 모드 일괄 번역 (Start Full Scan)</ATC_StartFullScan>
+<ATC_EmptyConfigWarning>최소 한 개의 유효한 API 매개변수를 설정하세요！</ATC_EmptyConfigWarning>
+<ATC_MaxThreads>병렬 스레드 수 (Max Threads)</ATC_MaxThreads>
+<ATC_MaxThreadsTip>강력 권장: 숫자는 유효 인터페이스 수 x 3</ATC_MaxThreadsTip>
+
+<ATC_Log_ApiRecovered>[API] 재연결 성공！생산 라인이 다시 고속으로 작동합니다。</ATC_Log_ApiRecovered>
+  <ATC_Log_ApiRetry>[API] 번역 중 혹은 시간 초과, {0}초 후 재시도 중...</ATC_Log_ApiRetry>
+  <ATC_Log_ApiFallback>[API] 블록 번역이 완전히 실패했습니다。「개별 해결 모드」를 가동하여 한 문장씩 처리합니다...</ATC_Log_ApiFallback>
+  <ATC_LogError_ApiCritical>[API 심각한 오류] 【{0}】의 텍스트 번역에 완전히 실패했습니다！원본 텍스트를 유지합니다。</ATC_LogError_ApiCritical>
+
+  <ATC_TranslateMultiMod> 개별/다중 선택 번역</ATC_TranslateMultiMod>
+  <ATC_SkipCurrentMod> 현재 모드 건너뛰기</ATC_SkipCurrentMod>
+  <ATC_MultiSelect_Title> 번역할 모드 선택 (다중 선택 가능)</ATC_MultiSelect_Title>
+  <ATC_MultiSelect_Search>검색할 모드 이름을 입력하세요...</ATC_MultiSelect_Search>
+  <ATC_MultiSelect_Start> 선택한 {0}개 모드 번역 시작</ATC_MultiSelect_Start>
+
+  <ATC_SubTask_AnalyzingDict>로컬 번역 텍스트 분석 중...</ATC_SubTask_AnalyzingDict>
+  <ATC_SubTask_BuildingDict>사전 구축 중: {0}</ATC_SubTask_BuildingDict>
+  <ATC_SubTask_DictDone>사전 구축 완료！</ATC_SubTask_DictDone>
+  <ATC_SubTask_Scanning>텍스트 스캔 중...</ATC_SubTask_Scanning>
+  <ATC_SubTask_TranslatingKeyed>Keyed 번역 중...</ATC_SubTask_TranslatingKeyed>
+  <ATC_SubTask_TranslatingDef>DefInjected 번역 중...</ATC_SubTask_TranslatingDef>
+
+  <ATC_Log_SkippedMod>건너뛴 모드: {0}</ATC_Log_SkippedMod>
+  <ATC_Log_MultiScanStart>선택한 {0}개 모드 번역 준비 중...</ATC_Log_MultiScanStart>
+  <ATC_Log_MultiScanDone>다중 선택 모드 번역 작업 완료！</ATC_Log_MultiScanDone>
+
+  <ATC_LogError_OldToxicFiles>【경고】 구버전의 비정상적인 번역 파일 발견！오류 방지를 위해 강제 정리를 수행합니다！</ATC_LogError_OldToxicFiles>
+  <ATC_Log_OldFilesDeleted>【System】 구버전의 비정상적인 파일이 성공적으로 삭제되었습니다！</ATC_Log_OldFilesDeleted>
+  <ATC_Log_AutoRebuildStart>【System】 깨끗한 번역 팩을 자동으로 다시 구축합니다！</ATC_Log_AutoRebuildStart>
+
+	<ATC_One_click_chaos> 무작위 선택</ATC_One_click_chaos>
+	<ATC_Rickroll>절대 여기를 누르지 마세요...</ATC_Rickroll>
+	<ATC_SelectAll>전체 선택</ATC_SelectAll>
+	<ATC_DeselectAll>전체 선택 해제</ATC_DeselectAll>
+
+</LanguageData>

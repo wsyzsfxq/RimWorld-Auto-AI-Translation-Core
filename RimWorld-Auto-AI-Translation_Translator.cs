@@ -76,8 +76,25 @@ namespace AutoTranslator_Core
 
             if (!string.IsNullOrEmpty(custom))
             {
+                // 🌟 防呆第一步：先把結尾多餘的斜線清掉
                 if (custom.EndsWith("/")) custom = custom.Substring(0, custom.Length - 1);
-                if (!custom.StartsWith("http://") && !custom.StartsWith("https://")) custom = "https://" + custom;
+
+                // 🌟 防呆第二步：補上 http:// (本地端通常是 http)
+                if (!custom.StartsWith("http://") && !custom.StartsWith("https://"))
+                    custom = "http://" + custom;
+
+                // 🌟 防呆第三步：自動補 /v1 (如果不是 Google 官方，且結尾沒帶版本號)
+                if (config.Provider != TranslatorProvider.Google &&
+                    !custom.EndsWith("/v1") &&
+                    !custom.EndsWith("/v1beta") &&
+                    !custom.EndsWith("/v4") &&
+                    !custom.EndsWith("/api"))
+                {
+                    custom += "/v1";
+                }
+
+                // 🌟 寫回 config，讓 UI 瞬間自動更新！
+                config.CustomBaseUrl = custom;
                 return custom;
             }
 
@@ -153,7 +170,15 @@ namespace AutoTranslator_Core
                 }
             });
         }
-
+        /*
+            ██╗     ██╗████████╗███████╗
+            ██║     ██║╚══██╔══╝██╔════╝
+            ██║   █╗ ██║   ██║   █████╗  
+            ██║███╗██║   ██║   ██╔══╝  
+            ╚███╔███╔╝   ██║   ██║     
+             ╚══╝╚══╝    ╚═╝   ╚═╝     
+                What The F*** is going on here?! 
+*/
         // 🌟 咪咪特製：無限彈匣輪詢發牌器
         public static ApiKeyConfig GetNextConfig()
         {
@@ -193,7 +218,8 @@ namespace AutoTranslator_Core
                 string prompt = GetSystemPrompt();
                 string inputJson = JsonConvert.SerializeObject(texts);
 
-                if (targetConfig.Provider == TranslatorProvider.Google && string.IsNullOrEmpty(targetConfig.CustomBaseUrl))
+                // 【修改後】✨ 只要是 Google，不管是不是中轉站，都用 Google 格式！
+                if (targetConfig.Provider == TranslatorProvider.Google)
                 {
                     url = $"{baseUrl}/models/{model}:generateContent?key={apiKey}";
                     payload = new
@@ -228,7 +254,10 @@ namespace AutoTranslator_Core
                     return null;
                 }
 
-                return ParseResponse(await res.Content.ReadAsStringAsync(), targetConfig.Provider, texts.Count, string.IsNullOrEmpty(targetConfig.CustomBaseUrl));
+                // 【修改後】✨ 傳遞是否為 Google 格式的布林值
+                bool expectsGoogleFormat = (targetConfig.Provider == TranslatorProvider.Google);
+                return ParseResponse(await res.Content.ReadAsStringAsync(), targetConfig.Provider, texts.Count, expectsGoogleFormat);
+
             }
             catch (Exception ex)
             {
@@ -237,12 +266,12 @@ namespace AutoTranslator_Core
             }
         }
 
-        private static List<string> ParseResponse(string json, TranslatorProvider p, int count, bool isGoogleRaw)
+        private static List<string> ParseResponse(string json, TranslatorProvider p, int count, bool expectsGoogleFormat)
         {
             try
             {
                 var obj = JObject.Parse(json);
-                string raw = (p == TranslatorProvider.Google && isGoogleRaw)
+                string raw = expectsGoogleFormat
                     ? obj["candidates"]?[0]?["content"]?["parts"]?[0]?["text"]?.ToString()
                     : obj["choices"]?[0]?["message"]?["content"]?.ToString();
 

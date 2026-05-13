@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<LanguageData>
+
+  <ATC_ModTitle> Auto Translation Core V4.8</ATC_ModTitle>
+  <ATC_TargetLang>Target Language</ATC_TargetLang>
+  
+  <ATC_Lang_Traditional>Traditional Chinese</ATC_Lang_Traditional>
+  <ATC_Lang_Simplified>Simplified Chinese</ATC_Lang_Simplified>
+  <ATC_Lang_Japanese>Japanese</ATC_Lang_Japanese>
+  <ATC_Lang_Korean>Korean</ATC_Lang_Korean>
+  <ATC_Lang_Russian>Russian</ATC_Lang_Russian>
+  <ATC_Lang_Ukrainian>Ukrainian</ATC_Lang_Ukrainian>
+  <ATC_Lang_English>English</ATC_Lang_English>
+
+  <ATC_CurrentProvider>Current AI Provider</ATC_CurrentProvider>
+  <ATC_ApiKey>API Key</ATC_ApiKey>
+  <ATC_CustomBaseUrl>Custom Base URL</ATC_CustomBaseUrl>
+  <ATC_DefaultEmpty>Leave empty by default</ATC_DefaultEmpty>
+  <ATC_OnlyScanActive>Only scan active mods</ATC_OnlyScanActive>
+
+  <ATC_Tooltip_TargetLang>【Target Language】\nSet which language the AI should translate foreign mods into.</ATC_Tooltip_TargetLang>
+  <ATC_Tooltip_Provider>【AI Provider】\nSelect the AI model provider you want to use. Google (Gemini) or OpenAI is highly recommended.</ATC_Tooltip_Provider>
+
+  <ATC_TestConnection>Test AI Connection</ATC_TestConnection>
+  <ATC_TestingPulse>Testing pulse sending...</ATC_TestingPulse>
+  
+  <ATC_FetchModels>Fetch Model List</ATC_FetchModels>
+  <ATC_Fetching>Communicating...</ATC_Fetching>
+  <ATC_SelectModel>Select Model</ATC_SelectModel>
+  <ATC_PlzFetchModel>Please fetch model list first</ATC_PlzFetchModel>
+
+  <ATC_TranslateSingleMod>Translate specified mod individually</ATC_TranslateSingleMod>
+  <ATC_StartTranslation>Start Auto Translation Project</ATC_StartTranslation>
+  <ATC_StopTranslation>Emergency Stop Production Line</ATC_StopTranslation>
+
+  <ATC_Tutorial_Btn>Tutorial &amp; FAQ</ATC_Tutorial_Btn>
+  <ATC_UpdateLog_Btn>Mod Update Log</ATC_UpdateLog_Btn>
+
+  <ATC_CurrentTask>Current Task</ATC_CurrentTask>
+  <ATC_Idle>Idle</ATC_Idle>
+  <ATC_TaskDone>Production Line Done!</ATC_TaskDone>
+  
+  <ATC_LogPanelTitle>--- Real-time Production Monitoring Log ---</ATC_LogPanelTitle>
+  <ATC_ErrorLogTitle>⚠ Abnormal File Detection Report</ATC_ErrorLogTitle>
+
+  <ATC_Msg_EmptyKey>How can I test without an API Key!</ATC_Msg_EmptyKey>
+  <ATC_Log_TestPulse> [Test] Sending micro-pulse, testing [{0}] connection status...</ATC_Log_TestPulse>
+  <ATC_Log_TestSuccess> [Test] Test successful! AI core response is good.</ATC_Log_TestSuccess>
+  <ATC_Log_TestFail> [Test] Test failed! Please check network or API settings.</ATC_Log_TestFail>
+
+  <ATC_Log_Init> [Init] Reading mods, establishing global translation pool...</ATC_Log_Init>
+  <ATC_Log_InitDone> [Init] Done! Collected {0} Def translations.</ATC_Log_InitDone>
+  
+  <ATC_Log_StartScan> Auto Translation Core started! Target mod count: {0}</ATC_Log_StartScan>
+  <ATC_Log_ScanMod>\n [Start] Scanning mod: {0}</ATC_Log_ScanMod>
+  <ATC_Log_SkipMod>    [Skip] No Languages or Defs, code-only mod.</ATC_Log_SkipMod>
+  <ATC_Log_KeyedScan>    [Keyed] Scanning...</ATC_Log_KeyedScan>
+  <ATC_Log_DefScan>    [DefInjected] Deep scan and global comparison started...</ATC_Log_DefScan>
+  
+  <ATC_Log_FoundMissing>    [{0}] {1} missing found! Calling AI support...</ATC_Log_FoundMissing>
+  <ATC_Log_AIFinish>    [{0}] AI translation completed!</ATC_Log_AIFinish>
+  <ATC_Log_AIFail>    [{0}] AI translation failed.</ATC_Log_AIFail>
+  <ATC_Log_NoMissing>    [{0}] All parts present, no translation needed.</ATC_Log_NoMissing>
+
+  <ATC_Log_TaskDone>\n [Finish] Translation task completed perfectly!</ATC_Log_TaskDone>
+  <ATC_Log_TaskError> [Error] Production line interrupted: {0}</ATC_Log_TaskError>
+  <ATC_Log_Clean> [Clean] Production line stopped, memory released.</ATC_Log_Clean>
+  <ATC_CancelRequested>Stop command received, emergency braking in progress...</ATC_CancelRequested>
+
+  <ATC_Log_FetchModelsSuccess>[System] Model list fetched successfully!</ATC_Log_FetchModelsSuccess>
+  <ATC_Log_FetchModelsFail>[System] Fetch failed, please check API Key.</ATC_Log_FetchModelsFail>
+  <ATC_Log_AllTranslationWritten>[Success] All translations safely written to !Translation_AI_Pack!</ATC_Log_AllTranslationWritten>
+  <ATC_Log_NetworkRetry>[System] Network fluctuation or server busy, auto-retry triggered...</ATC_Log_NetworkRetry>
+  
+  <ATC_Log_MigrateSuccess> [Migration] Successfully transferred {0}'s {1} to the new architecture!</ATC_Log_MigrateSuccess>
+  <ATC_Log_StartSingleMod> [System] Starting individual mod translation: {0}</ATC_Log_StartSingleMod>
+  <ATC_Log_SingleModDone> Individual translation task completed perfectly!</ATC_Log_SingleModDone>
+  <ATC_Log_ProcessAborted> [System] Production line stopped safely.</ATC_Log_ProcessAborted>
+  <ATC_Log_ProcessAbortedWithSave> [System] Production line stopped safely; translated content preserved.</ATC_Log_ProcessAbortedWithSave>
+  <ATC_TaskAborted>Aborted</ATC_TaskAborted>
+  
+  <ATC_LogError_Format>[{0}] Format error: {1}</ATC_LogError_Format>
+  <ATC_LogError_Unknown>[{0}] Unknown error: {1}</ATC_LogError_Unknown>
+  <ATC_LogError_FileCorrupted>[File Corrupted] Skipping unparseable file: {0}</ATC_LogError_FileCorrupted>
+  <ATC_LogError_ApiConn>[API] Communication error: {0}</ATC_LogError_ApiConn>
+
+  <ATC_FinishMessage_Title>Translation Completion Tips</ATC_FinishMessage_Title>
+  <ATC_FinishMessage_OK>OK!</ATC_FinishMessage_OK>
+  <ATC_FinishMessage_Text> Translation task completed successfully!
+
+【Case A: First-time user】
+Please go to the "Mods" list in the main menu, enable "! AutoTranslation AI Pack", drag it to the [Bottom] of the list, and then [Restart the game]!
+
+【Case B: Translation pack already enabled】
+Please go to Main Menu &gt; Options &gt; Language, and [Click your current language again]. The game will clear the cache and load the latest translations instantly—no restart required!</ATC_FinishMessage_Text>
+
+<ATC_Tutorial_FullText>【Tutorial】
+1. Choose [Target Language] (Supports mutual translation between Chinese, Japanese, Korean, English, Russian, Ukrainian, etc.) and [Provider]. Google (Gemini) is recommended for international players!
+
+2. Apply for [API Key] and paste it. 🔥 V4.7 New Feature: Supports "Infinite API Magazine"! Click "+" to add multiple API interfaces; the system will auto-rotate tasks to maximize free quotas!
+
+3. [Auto Model Detection] Once the key is pasted (length &gt; 10), the system automatically detects models in the background—no search button needed! Select the model from the dropdown.
+
+4. Adjust [Max Threads] (Recommended: valid keys x 3). Click the green [🚀 Start Full Scan] or use [🎯 Translate Single Mod]. Press [🛑 Emergency Stop] anytime.
+
+5. 【🎉 Post-Translation Steps】
+   👉 Case A (First use): Enable "! AutoTranslation AI Pack" in the mod list, drag to the bottom, and [Restart game]!
+   👉 Case B (Already enabled): Go to Options &gt; Language and [Click your current language again] to refresh settings!
+
+【FAQ】
+Q: Translation finished, but the game is still in English?
+A: See Step 5! First-time users must "Restart Game." If enabled, "Switch Language" to force refresh. This is a game engine limitation, not a bug!
+
+Q: HTTP 401 / 403 error?
+A: Usually an incorrect API key or exhausted quota! Check for spaces or add more keys using "+"!
+
+Q: HTTP 404 error?
+A: If using official APIs, ensure [Custom Base URL] is "Completely Empty"! Only third-party proxies need URLs.
+
+Q: Log shows "Timeout" or "Waiting for retry" in red?
+A: API server is busy or rate-limited! The mod has built-in auto-retry and key rotation. If successes follow, just wait for it~ (≧∀≦)ゞ
+
+Q: Connection failure or 404 with local (LM Studio / Ollama) or proxies?
+A: 1. Ensure [Custom Base URL] is correct (e.g., http://localhost:1234). The system auto-appends /v1!
+   2. API Key cannot be empty! For local, use "local-key".
+   3. Use the "API Endpoint URL", not the web chat URL!
+
+Q: Local translation is slow or PC is lagging?
+A: AI uses heavy PC power (especially VRAM). Use smaller models (Q4_K_M) or lower [Max Threads].
+
+Q: Where are the files? Can I share them?
+A: Located in RimWorld/Mods/!Translation_AI_Pack. Auto-generated packs are for [Personal Use Only]; do not share or upload to Steam Workshop!
+
+
+</ATC_Tutorial_FullText>
+
+<ATC_UpdateLog_FullText>
+
+	--- V4.8 Ultimate Evolution (Multi-Select &amp; Optimize) ---
+	• Implemented [Multi-Select &amp; Search UI]: No more sore hands! Search and select multiple mods at once with smooth "slide-to-select" feel!
+	• Added [Skip Current Mod]: Stuck on a mod? Skip it instantly and move to the next!
+	• Performance Boost [Asynchronous Dictionary Construction]: Fixes game freezing when loading massive mod packs. Dual progress bars for smoother operation!
+	• Improved [Proxy &amp; Local API Compatibility]: Perfect support for LM Studio / Ollama with "Auto-complete /v1" mechanism.
+
+	--- V4.7 Speedster Update (Ultimate) ---
+	• First [Infinite API Magazine] system: Set multiple API interfaces (e.g., Google + DeepSeek). Round-Robin load balancing avoids limits and drains free quotas!
+	• [High-Speed Thread Adjuster]: No longer locked at 3 threads! Up to 30 concurrent threads for lightning speed!
+	• New [Auto Model Radar]: Background detection of available models upon pasting the key.
+	• [Global Scroll UI]: Fixed crowded UI and missing logs with a fixed-height monitor screen!
+
+	--- V4.6 Epic Update (Ultimate) ---
+	• Added [English, Ukrainian, Russian Reverse Translation] support. Translate Chinese mods into multiple languages!
+	• Implemented [Individual Translation] engine for quick scanning of specific mods.
+	• [Emergency Brake System]: Interrupt production anytime while preserving progress.
+	• X-Ray probe upgraded to [Level 3 Recursive Deep-Dive Mode] to find hidden text.
+	• Rewrote UI architecture for dynamic window heights.
+	• Replaced unstable auto-hot-reload with official language switching mechanism, increasing stability by 100%!
+
+	--- V4.5 Update ---
+	• Added [Abnormal File Detection Report] dashboard.
+	• Implemented [Corruption Shield] to auto-skip damaged XML files.
+	• Added auto-detection and first-use guide popups.
+
+	--- V4.3 Update ---
+	• First [Auto Translation Production Line] introduced.
+	• Built-in [Global Translation Memory Pool] to save API quotas.
+	• Custom Base URL support for local models (LM Studio, Ollama, etc.).</ATC_UpdateLog_FullText>
+
+<ATC_ApiConfigTitle> API Interface Magazine Settings (Supports Multi-thread Rotation)</ATC_ApiConfigTitle>
+<ATC_Provider>Provider</ATC_Provider>
+<ATC_CustomUrlOptional>(Custom BaseUrl, leave empty for default)</ATC_CustomUrlOptional>
+<ATC_Delete>Delete</ATC_Delete>
+<ATC_PasteKey>(Paste API Key)</ATC_PasteKey>
+<ATC_FetchingModel>Searching for models...</ATC_FetchingModel>
+<ATC_NoModelWaitKey>No model selected (Paste Key for auto-fetch)</ATC_NoModelWaitKey>
+<ATC_AddApiBtn>Add API Interface</ATC_AddApiBtn>
+<ATC_EmergencyStop>Emergency Stop</ATC_EmergencyStop>
+<ATC_StartFullScan>Start Full Scan</ATC_StartFullScan>
+<ATC_EmptyConfigWarning>Please set at least one valid API configuration!</ATC_EmptyConfigWarning>
+<ATC_MaxThreads>Max Threads</ATC_MaxThreads>
+<ATC_MaxThreadsTip>Recommended: Number of valid keys x 3</ATC_MaxThreadsTip>
+
+<ATC_Log_ApiRecovered>[API] Reconnection successful! Production line resumed at high speed.</ATC_Log_ApiRecovered>
+  <ATC_Log_ApiRetry>[API] Translation busy or timeout, retrying in {0}s...</ATC_Log_ApiRetry>
+  <ATC_Log_ApiFallback>[API] Block translation failed; starting "Solo Mode" sentence-by-sentence...</ATC_Log_ApiFallback>
+  <ATC_LogError_ApiCritical>[Critical API Error] Translation failed for text in 【{0}】! Original text preserved.</ATC_LogError_ApiCritical>
+
+  <ATC_TranslateMultiMod> Individual/Multi-Select Translation</ATC_TranslateMultiMod>
+  <ATC_SkipCurrentMod> Skip Current Mod</ATC_SkipCurrentMod>
+  <ATC_MultiSelect_Title> Select Mods to Translate (Multi-select)</ATC_MultiSelect_Title>
+  <ATC_MultiSelect_Search>Type mod name to search...</ATC_MultiSelect_Search>
+  <ATC_MultiSelect_Start> Start translating {0} selected mods</ATC_MultiSelect_Start>
+
+  <ATC_SubTask_AnalyzingDict>Analyzing local translation text...</ATC_SubTask_AnalyzingDict>
+  <ATC_SubTask_BuildingDict>Building dictionary: {0}</ATC_SubTask_BuildingDict>
+  <ATC_SubTask_DictDone>Dictionary built!</ATC_SubTask_DictDone>
+  <ATC_SubTask_Scanning>Scanning text...</ATC_SubTask_Scanning>
+  <ATC_SubTask_TranslatingKeyed>Translating Keyed...</ATC_SubTask_TranslatingKeyed>
+  <ATC_SubTask_TranslatingDef>Translating DefInjected...</ATC_SubTask_TranslatingDef>
+
+  <ATC_Log_SkippedMod>Skipped mod: {0}</ATC_Log_SkippedMod>
+  <ATC_Log_MultiScanStart>Preparing to translate {0} selected mods...</ATC_Log_MultiScanStart>
+  <ATC_Log_MultiScanDone>Multi-select translation task complete!</ATC_Log_MultiScanDone>
+
+  <ATC_LogError_OldToxicFiles>【Warning】 Old abnormal translation files detected! Forced cleanup initiated to prevent errors!</ATC_LogError_OldToxicFiles>
+  <ATC_Log_OldFilesDeleted>【System】 Old abnormal files removed!</ATC_Log_OldFilesDeleted>
+  <ATC_Log_AutoRebuildStart>【System】 System will auto-rebuild a clean translation pack!</ATC_Log_AutoRebuildStart>
+
+	<ATC_One_click_chaos> One-click Chaos</ATC_One_click_chaos>
+	<ATC_Rickroll>Never click here...</ATC_Rickroll>
+	<ATC_SelectAll>Select All</ATC_SelectAll>
+	<ATC_DeselectAll>Deselect All</ATC_DeselectAll>
+
+</LanguageData>
