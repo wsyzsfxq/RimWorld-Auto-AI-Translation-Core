@@ -218,6 +218,7 @@ namespace AutoTranslator_Core
                 string prompt = GetSystemPrompt();
                 string inputJson = JsonConvert.SerializeObject(texts);
 
+
                 // 【修改後】✨ 只要是 Google，不管是不是中轉站，都用 Google 格式！
                 if (targetConfig.Provider == TranslatorProvider.Google)
                 {
@@ -254,6 +255,14 @@ namespace AutoTranslator_Core
                     return null;
                 }
 
+                // ==========================================
+                // 🌟 咪咪計數器啟動！(加在這裡，API 成功回傳才算字數！)
+                // ==========================================
+                int charCount = texts.Sum(t => t.Length);
+                AutoTranslatorMod.Settings.SessionCharCount += charCount;
+                AutoTranslatorMod.Settings.TotalCharCount += charCount;
+                // ==========================================
+
                 // 【修改後】✨ 傳遞是否為 Google 格式的布林值
                 bool expectsGoogleFormat = (targetConfig.Provider == TranslatorProvider.Google);
                 return ParseResponse(await res.Content.ReadAsStringAsync(), targetConfig.Provider, texts.Count, expectsGoogleFormat);
@@ -265,7 +274,6 @@ namespace AutoTranslator_Core
                 return null;
             }
         }
-
         private static List<string> ParseResponse(string json, TranslatorProvider p, int count, bool expectsGoogleFormat)
         {
             try

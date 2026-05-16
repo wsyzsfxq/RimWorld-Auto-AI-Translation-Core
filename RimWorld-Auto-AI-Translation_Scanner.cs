@@ -17,7 +17,7 @@ namespace AutoTranslator_Core
         private static readonly HashSet<string> BlacklistedModules = new HashSet<string>(StringComparer.OrdinalIgnoreCase) {
             "ludeon.rimworld", "ludeon.rimworld.royalty", "ludeon.rimworld.ideology",
             "ludeon.rimworld.biotech", "ludeon.rimworld.anomaly", "ludeon.rimworld.odyssey",
-            "auto.aitranslation.core", "aitranslation.pack"
+            "auto.aitranslation.core", "aitranslation.pack" 
         };
 
         private static Dictionary<string, string> GlobalPrimaryDefDict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -300,8 +300,9 @@ namespace AutoTranslator_Core
             MigrateOldTranslations();
 
             ApplyEmergencyHotfix();
+            RunDetoxScanner(); // 這是原本清垃圾空白的
+            RunAdvancedDetoxScanner(); // 🌟 咪咪新增：這是我們保護玩家錢包的高級手術！
         }
-
         public static async void StartSingleScan(ModMetaData targetMod)
         {
             try
@@ -313,7 +314,7 @@ namespace AutoTranslator_Core
                 settings.CurrentProgress = 0f;
                 settings.CurrentTaskName = $"Translating: {targetMod.Name}";
 
-                AutoTranslatorSettings.AddLog("ATC_Log_StartSingleMod".Translate(targetMod.Name));
+                AutoTranslatorSettings.AddLog("🚀 " + "ATC_Log_StartSingleMod".Translate(targetMod.Name));
 
                 var activeMods = ModLister.AllInstalledMods.Where(m => m.Active && !BlacklistedModules.Contains(m.PackageId.ToLower())).ToList();
                 BuildGlobalTranslationDatabase(activeMods);
@@ -328,7 +329,7 @@ namespace AutoTranslator_Core
 
                 if (!hasLang && !hasDefs)
                 {
-                    AutoTranslatorSettings.AddLog("ATC_Log_SkipMod".Translate());
+                    AutoTranslatorSettings.AddLog("⏭️ " + "ATC_Log_SkipMod".Translate());
                 }
                 else
                 {
@@ -339,7 +340,7 @@ namespace AutoTranslator_Core
                             string englishKeyed = Path.Combine(langRoot, "English/Keyed");
                             if (Directory.Exists(englishKeyed))
                             {
-                                AutoTranslatorSettings.AddLog("ATC_Log_KeyedScan".Translate());
+                                AutoTranslatorSettings.AddLog("⚙️ " + "ATC_Log_KeyedScan".Translate());
                                 await ProcessModKeyed(targetMod, englishKeyed);
                             }
                         }
@@ -349,7 +350,7 @@ namespace AutoTranslator_Core
 
                     if (hasDefs || hasLang)
                     {
-                        AutoTranslatorSettings.AddLog("ATC_Log_DefScan".Translate());
+                        AutoTranslatorSettings.AddLog("📦 " + "ATC_Log_DefScan".Translate());
                         await ProcessModDefInjected(targetMod, langRoots, defsRoots);
                     }
                 }
@@ -358,7 +359,7 @@ namespace AutoTranslator_Core
                 {
                     settings.CurrentTaskName = "ATC_TaskDone".Translate();
                     settings.CurrentProgress = 1f;
-                    AutoTranslatorSettings.AddLog("ATC_Log_SingleModDone".Translate());
+                    AutoTranslatorSettings.AddLog("✨ " + "ATC_Log_SingleModDone".Translate());
 
                     // 🌟 咪咪特製：翻譯完成的本地化彈窗！
                     string finishMessage = "ATC_FinishMessage_Text".Translate();
@@ -369,7 +370,7 @@ namespace AutoTranslator_Core
             }
             catch (Exception e)
             {
-                AutoTranslatorSettings.AddLog("ATC_Log_TaskError".Translate(e.Message));
+                AutoTranslatorSettings.AddLog("❌ " + "ATC_Log_TaskError".Translate(e.Message));
                 Log.Error($"[AutoTranslationCore] Single translation task interrupted: {e.Message}");
             }
             finally
@@ -378,7 +379,8 @@ namespace AutoTranslator_Core
                 AutoTranslatorSettings.IsRunning = false;
                 if (AutoTranslatorSettings.IsCancellationRequested)
                 {
-                    AutoTranslatorSettings.AddLog("ATC_Log_ProcessAborted".Translate());
+                    AutoTranslatorSettings.AddLog("🛑 " + "ATC_Log_ProcessAborted".Translate());
+
                     AutoTranslatorMod.Settings.CurrentTaskName = "ATC_TaskAborted".Translate();
                 }
             }
@@ -386,6 +388,7 @@ namespace AutoTranslator_Core
 
         public static void StartFullScan() // ❌ 拔掉 async
         {
+            AutoTranslatorMod.Settings.SessionCharCount = 0; // 🚀 大哥按下了按鈕，本次翻譯重新計數！
             AutoTranslatorSettings.IsRunning = true;
             EnsurePackInitialized();
             var settings = AutoTranslatorMod.Settings;
@@ -395,7 +398,7 @@ namespace AutoTranslator_Core
                 !BlacklistedModules.Contains(m.PackageId.ToLower()) &&
                 (!settings.OnlyScanActiveMods || m.Active)).ToList();
 
-            AutoTranslatorSettings.AddLog("ATC_Log_StartScan".Translate(mods.Count));
+            AutoTranslatorSettings.AddLog("🌐 " + "ATC_Log_StartScan".Translate(mods.Count));
 
             // 🌟 進入背景執行緒做苦力
             Task.Run(async () =>
@@ -424,7 +427,7 @@ namespace AutoTranslator_Core
                         settings.SubProgress = 0f;
                         settings.SubTaskName = "ATC_SubTask_Scanning".Translate();
 
-                        AutoTranslatorSettings.AddLog("ATC_Log_ScanMod".Translate(mod.Name));
+                        AutoTranslatorSettings.AddLog("🔍 " + "ATC_Log_ScanMod".Translate(mod.Name));
 
                         var langRoots = GetAllEffectiveLangPaths(mod);
                         var defsRoots = GetAllEffectiveDefsPaths(mod);
@@ -471,7 +474,7 @@ namespace AutoTranslator_Core
                         settings.CurrentProgress = 1f;
                         settings.SubTaskName = "";
                         settings.SubProgress = 1f;
-                        AutoTranslatorSettings.AddLog("ATC_Log_TaskDone".Translate());
+                        AutoTranslatorSettings.AddLog("🎉 " + "ATC_Log_TaskDone".Translate());
                         AutoTranslatorSettings.AddLog("🎉 " + "ATC_Log_AllTranslationWritten".Translate());
 
                         // 🌟 發送信號給主執行緒，讓它去彈窗！絕對不閃退！
@@ -503,6 +506,7 @@ namespace AutoTranslator_Core
         // 🌟 咪咪特製：專門處理 UI 多選的多模組非同步翻譯！
         public static void StartMultiScan(List<ModMetaData> targetMods) // ❌ 拔掉 async
         {
+            AutoTranslatorMod.Settings.SessionCharCount = 0; // 🚀 大哥按下了按鈕，本次翻譯重新計數！
             AutoTranslatorSettings.IsRunning = true;
             EnsurePackInitialized();
             var settings = AutoTranslatorMod.Settings;
@@ -616,12 +620,12 @@ if (defsRoots.Count > 0 || langRoots.Count > 0)
             GlobalSecondaryDefDict.Clear();
             GlobalPrimaryKeyedDict.Clear();
             GlobalSecondaryKeyedDict.Clear();
-            AutoTranslatorSettings.AddLog("ATC_Log_Clean".Translate());
+            AutoTranslatorSettings.AddLog("🧹 " + "ATC_Log_Clean".Translate());
         }
 
         private static void BuildGlobalTranslationDatabase(List<ModMetaData> mods)
         {
-            AutoTranslatorSettings.AddLog("ATC_Log_Init".Translate());
+            AutoTranslatorSettings.AddLog("📦 " + "ATC_Log_Init".Translate());
 
             var settings = AutoTranslatorMod.Settings;
             settings.SubTaskName = "ATC_SubTask_AnalyzingDict".Translate();
@@ -681,9 +685,10 @@ if (defsRoots.Count > 0 || langRoots.Count > 0)
             }
             settings.SubProgress = 1f;
             settings.SubTaskName = "ATC_SubTask_DictDone".Translate();
-            AutoTranslatorSettings.AddLog("ATC_Log_InitDone".Translate(GlobalPrimaryDefDict.Count));
+            AutoTranslatorSettings.AddLog("✨ " + "ATC_Log_InitDone".Translate(GlobalPrimaryDefDict.Count));
         }
 
+        // 🌟 咪咪原本就在這的標籤清單（大哥，這段要留著喔！）
         private static readonly HashSet<string> ExactTextTags = new HashSet<string>(StringComparer.OrdinalIgnoreCase) {
             "label", "description", "jobString", "reportString", "text", "labelShort", "customLabel", "descriptionShort",
             "pawnLabel", "gerund", "verb", "deathMessage", "inspectString", "baseInspectString", "helpText",
@@ -695,33 +700,62 @@ if (defsRoots.Count > 0 || langRoots.Count > 0)
             "commandLabel", "commandDescription", "formatString", "outfitName", "labelNoun", "labelNounPretty"
         };
 
-        private static bool IsTranslationTarget(string tagName)
+        // 🌟 咪咪新增：標籤黑名單
+        // 🌟 咪咪新增：從開源模組移植過來的「絕對不能翻」標籤清單 ＋ 咪咪的 RimWorld 底層防禦包
+        private static readonly HashSet<string> BlacklistedFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            if (ExactTextTags.Contains(tagName)) return true;
-            string lower = tagName.ToLower();
+            // 1. 資源與特效類 (處理音效、貼圖紅字)
+            "alienRace", "texPath", "graphicPath", "soundDef", "effecter",
+            "iconPath", "shader", "soundCast", "soundCastTail", "soundInteract",
+            "soundHitPawn", "soundMiss", "soundMeleeHit", "soundMeleeMiss",
+            "soundAmbience", "linkSound", "fleckDef", 
+            
+            // 2. 遊戲底層代碼關聯 (Def References - 解決神秘白銀與技能)
+            "thingDef", "itemDef", "pawnKindDef", "hediffDef", "recipeDef",
+            "researchProjectDef", "terrainDef", "traitDef", "skillDef",
+            "damageDef", "weaponDef", "apparelDef", "projectileDef",
 
-            // 🌟 咪咪特製防爆濾網：這些結尾的標籤絕對不能翻譯！(包含大哥抓到的 dollName)
-            if (lower == "defname" || lower.EndsWith("defname") ||
-                lower.EndsWith("class") ||
-                lower.EndsWith("texpath") ||
-                lower.EndsWith("dollname") ||
-                lower.EndsWith("dollpartname") ||
-                lower.EndsWith("sound") ||
-                lower.EndsWith("worker") ||
-                lower.EndsWith("def"))
+            // 3. 🚨 咪咪補救：假冒文字的底層變數 (為了解決醫療面板與各類 Def 報錯)
+            // 把它們加進來，排毒手術就會自動把舊檔案裡的這些垃圾刪掉！
+            "defName", "dollName", "dollPartName", "methodName", "class", "worker"
+        };        // 🌟 咪咪新增：檔案格式偵測 Regex
+        private static readonly Regex FilePathRegex = new Regex(@"\.(png|jpg|jpeg|wav|mp3|ogg|xml|txt|lua|tex|dds)$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+        // 🌟 咪咪升級版：過濾器本人
+        // 🌟 咪咪升級版：結合標籤名稱與內容分析的終極過濾器
+        private static bool IsTranslationTarget(string tagName, string value)
+        {
+            // 1. 基本檢查：太短、純數字、純符號的直接踢掉
+            if (string.IsNullOrWhiteSpace(value) || value.Length < 2) return false;
+            if (value.All(char.IsDigit) || Regex.IsMatch(value, @"^[^\w\s]+$")) return false;
+
+            // ==========================================
+            // 🌟 咪咪補破網：專殺假冒文字的底層變數！
+            // 只要結尾是這幾個字，管他叫什麼名字，一律不准翻！
+            // ==========================================
+            string lower = tagName.ToLower(); // 👈 這裡宣告一次就好了！
+            if (lower.EndsWith("defname") || lower.EndsWith("dollname") ||
+                lower.EndsWith("dollpartname") || lower.EndsWith("methodname") ||
+                lower.EndsWith("class") || lower.EndsWith("worker") || lower.EndsWith("def"))
                 return false;
 
-            /*
-    ██╗      ██╗████████╗███████╗
-    ██║      ██║╚══██╔══╝██╔════╝
-    ██║ █╗ ██║     ██║   █████╗  
-    ██║███╗██║   ██║   ██╔══╝  
-    ╚███╔███╔╝   ██║   ██║     
-     ╚══╝╚══╝      ╚═╝   ╚═╝     
-    What The F*** is going on here?! 
-*/
+            // 2. 標籤黑名單：如果是 texPath, soundDef 這種直接拒絕
+            if (BlacklistedFields.Contains(tagName)) return false;
 
-            // 只有符合這些結尾的才允許翻譯
+            // 3. 內容特徵分析：
+            // 如果包含斜線但沒有空格 -> 判定為路徑
+            if ((value.Contains("/") || value.Contains("\\")) && !value.Contains(" ")) return false;
+
+            // 如果包含底線但沒有空格 -> 判定為程式碼 ID (如 Apparel_Pants_Worker)
+            if (value.Contains("_") && !value.Contains(" ")) return false;
+
+            // 檢查是否包含檔案副檔名
+            if (FilePathRegex.IsMatch(value)) return false;
+
+            // 4. 最後判定：符合常用翻譯標籤或結尾才放行
+            if (ExactTextTags.Contains(tagName)) return true;
+
+            // 👈 這裡把重複宣告的 string lower 刪掉了，直接用！
             return lower.EndsWith("label") || lower.EndsWith("description") ||
                    lower.EndsWith("string") || lower.EndsWith("text") ||
                    lower.EndsWith("message") || lower.EndsWith("name") ||
@@ -762,14 +796,16 @@ if (defsRoots.Count > 0 || langRoots.Count > 0)
                 {
                     string text = child.InnerText.Trim();
 
-                    // 🌟 咪咪的新增：過濾無意義的「垃圾字串」 (純符號、純數字、或太短)
+                    // 🌟 咪咪特製過濾垃圾
                     bool isGarbage = text.Length < 2 || Regex.IsMatch(text, @"^[\d\s\-\+\.\%]+$");
 
                     if (!isGarbage && !string.IsNullOrWhiteSpace(text) && !text.Contains(".xml") && !text.StartsWith("Tex/") && !text.StartsWith("UI/"))
                     {
-                        bool shouldTranslate = IsTranslationTarget(child.Name);
+                        // ✅ 修復 CS7036：這裡必須傳入兩個引數
+                        bool shouldTranslate = IsTranslationTarget(child.Name, text);
 
-                        if (isListItem && node.Name != null && (IsTranslationTarget(node.Name) || node.Name.ToLower().Contains("rule")))
+                        // ✅ 修復 CS7036：這裡也要傳入兩個引數
+                        if (isListItem && node.Name != null && (IsTranslationTarget(node.Name, text) || node.Name.ToLower().Contains("rule")))
                         {
                             shouldTranslate = true;
                         }
@@ -787,7 +823,6 @@ if (defsRoots.Count > 0 || langRoots.Count > 0)
                 }
             }
         }
-
         private static Dictionary<string, Dictionary<string, string>> ExtractEnglishFromRawDefs(string defsRoot)
         {
             var result = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
@@ -882,7 +917,7 @@ if (defsRoots.Count > 0 || langRoots.Count > 0)
 
                     if (keysToAI.Count > 0)
                     {
-                        AutoTranslatorSettings.AddLog("ATC_Log_FoundMissing".Translate("Keyed", keysToAI.Count));
+                        AutoTranslatorSettings.AddLog("🔌 " + "ATC_Log_FoundMissing".Translate("Keyed", keysToAI.Count)); // 🔌代表通訊
                         var res = await SafeTranslateBatch(valuesToAI, $"{mod.Name} / {Path.GetFileName(file)}"); if (res != null)
                         {
                             for (int i = 0; i < keysToAI.Count; i++)
@@ -899,11 +934,11 @@ if (defsRoots.Count > 0 || langRoots.Count > 0)
                                 finalData[k] = v;
                             }
                             // 🌟 這裡修好啦！Keyed 沒有 defType，所以直接傳字串 "Keyed"
-                            AutoTranslatorSettings.AddLog("ATC_Log_AIFinish".Translate("Keyed"));
+                            AutoTranslatorSettings.AddLog("✨ " + "ATC_Log_AIFinish".Translate("Keyed")); // ✨代表成功完成
                         }
-                        else AutoTranslatorSettings.AddLog("ATC_Log_AIFail".Translate("Keyed"));
+                        else AutoTranslatorSettings.AddLog("⚠️ " + "ATC_Log_AIFail".Translate("Keyed")); // ⚠️代表警告失敗
                     }
-                    else AutoTranslatorSettings.AddLog("ATC_Log_NoMissing".Translate(Path.GetFileName(file)));
+                    AutoTranslatorSettings.AddLog("✅ " + "ATC_Log_NoMissing".Translate(Path.GetFileName(file))); // ✅代表不缺字串
 
                     if (finalData.Count > 0) SaveXml(targetFile, finalData);
                 }
@@ -1018,7 +1053,7 @@ if (defsRoots.Count > 0 || langRoots.Count > 0)
 
                 if (keysToAI.Count > 0)
                 {
-                    AutoTranslatorSettings.AddLog("ATC_Log_FoundMissing".Translate(defType, keysToAI.Count));
+                    AutoTranslatorSettings.AddLog("🔌 " + "ATC_Log_FoundMissing".Translate(defType, keysToAI.Count));
                     var res = await SafeTranslateBatch(valuesToAI, $"{mod.Name} / Defs: {defType}");
                     if (AutoTranslatorSettings.IsCancellationRequested || AutoTranslatorSettings.IsSkipCurrentRequested) return;
 
@@ -1037,11 +1072,11 @@ if (defsRoots.Count > 0 || langRoots.Count > 0)
 
                             finalData[k] = v;
                         }
-                        AutoTranslatorSettings.AddLog("ATC_Log_AIFinish".Translate(defType));
+                        AutoTranslatorSettings.AddLog("✨ " + "ATC_Log_AIFinish".Translate(defType));
                     }
-                    else AutoTranslatorSettings.AddLog("ATC_Log_AIFail".Translate(defType));
+                    else AutoTranslatorSettings.AddLog("⚠️ " + "ATC_Log_AIFail".Translate(defType));
                 }
-                else AutoTranslatorSettings.AddLog("ATC_Log_NoMissing".Translate($"Def:{defType}"));
+                else AutoTranslatorSettings.AddLog("✅ " + "ATC_Log_NoMissing".Translate($"Def:{defType}"));
 
                 if (finalData.Count > 0) SaveXml(targetFile, finalData);
             }
@@ -1201,10 +1236,22 @@ if (defsRoots.Count > 0 || langRoots.Count > 0)
             XmlDocument d = new XmlDocument();
             XmlDeclaration dec = d.CreateXmlDeclaration("1.0", "utf-8", null); d.AppendChild(dec);
             XmlElement r = d.CreateElement("LanguageData");
-            foreach (var p in data) { XmlElement n = d.CreateElement(p.Key); n.InnerText = p.Value; r.AppendChild(n); }
-            d.AppendChild(r); d.Save(path);
-        }
+            foreach (var p in data)
+            {
+                // 🛡️ 產線末端防禦：只要是空的、或是只剩看不見的零寬、控制字元，全部踢掉！
+                if (Regex.IsMatch(p.Value ?? "", @"^[\s\u200B\u200C\u200D\uFEFF\u00A0\x00-\x1F]*$"))
+                {
+                    continue; // 是垃圾！直接拒收，換下一個！
+                }
 
+                // 只有通過上面品管的優良翻譯，才可以來到這裡被寫入 XML！
+                XmlElement n = d.CreateElement(p.Key);
+                n.InnerText = p.Value;
+                r.AppendChild(n);
+            }
+            d.AppendChild(r);
+            d.Save(path);
+        }
         private static string GetShortPath(string fullPath)
         {
             if (string.IsNullOrEmpty(fullPath)) return "";
@@ -1250,5 +1297,142 @@ if (defsRoots.Count > 0 || langRoots.Count > 0)
                 Log.Warning($"[AutoTranslationCore] Delete failed (請手動刪除 !Translation_AI_Pack/Languages): {ex.Message}");
             }
         }
+        // 🌟 咪咪特製：V4.8 終極排毒機制 (微創手術，不刪玩家檔案！)
+        public static void RunDetoxScanner()
+            {
+            try
+            {
+                string packPath = GetLocalPackPath();
+                string langsPath = Path.Combine(packPath, "Languages");
+                if (!Directory.Exists(langsPath)) return;
+
+                var xmlFiles = Directory.GetFiles(langsPath, "*.xml", SearchOption.AllDirectories);
+                int fixedFiles = 0;
+                int removedTags = 0;
+
+                // 🌟 神奇放大鏡：精準抓出 <tag></tag> (含空白與零寬字元) 或 <tag/>
+                // 🌟 神奇放大鏡 (終極加強版)：加入 \u00A0 (不換行空白) 與 \x00-\x1F (控制字元)
+                // 只要標籤裡面只有這些垃圾，一律判定為劇毒！
+                Regex badTagRegex = new Regex(@"(?m)^\s*<([a-zA-Z0-9_\-\.]+)>[\s\u200B\u200C\u200D\uFEFF\u00A0\x00-\x1F]*<\/\1>\s*$|(?m)^\s*<[a-zA-Z0-9_\-\.]+\s*\/>\s*$", RegexOptions.Multiline);
+
+                foreach (var file in xmlFiles)
+                {
+                    string content = File.ReadAllText(file);
+                    if (badTagRegex.IsMatch(content))
+                    {
+                        // 🌟 顯影劑：把抓到的毒瘤印在後台，大哥你明天睡醒看 Log 就知道是誰在搞事了！
+                        MatchCollection matches = badTagRegex.Matches(content);
+                        foreach (Match match in matches)
+                        {
+                            Log.Warning($"[AutoTranslationCore] ⚠️ 抓到劇毒標籤，準備物理切除：{match.Value.Trim()} (來自檔案: {Path.GetFileName(file)})");
+                        }
+
+                        int matchCount = matches.Count;
+                        // 🌟 物理切除：把有毒的那整行替換成空字串
+                        string cleanContent = badTagRegex.Replace(content, "");
+                        // 🌟 順手把多餘的空行修掉，保持版面整潔
+                        cleanContent = Regex.Replace(cleanContent, @"^\s+$[\r\n]*", "", RegexOptions.Multiline);
+
+                        File.WriteAllText(file, cleanContent);
+                        fixedFiles++;
+                        removedTags += matchCount;
+                    }
+                }
+                if (fixedFiles > 0)
+                {
+                    // ✨ 修復 CS0019：RimWorld 的 Translate() 回傳的是 TaggedString，不能直接用 ??
+                    // 改用 CanTranslate() 來做標準判定，並補上 .ToString() 轉回普通字串！
+                    string logMsg = "ATC_Log_DetoxSuccess".CanTranslate()
+                        ? "ATC_Log_DetoxSuccess".Translate(fixedFiles, removedTags).ToString()
+                        : $"[排毒系統] 修復了 {fixedFiles} 個檔案，切除 {removedTags} 個劇毒標籤！";
+
+                    AutoTranslatorSettings.AddLog($"🛡️ {logMsg}");
+                    Log.Message($"[AutoTranslationCore] Detox complete: {fixedFiles} files fixed, {removedTags} tags removed.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning($"[AutoTranslationCore] 排毒系統異常: {ex.Message}");
+            }
+
+        }
+
+
+
+        // 🌟 咪咪特製：V4.9 玩家資產保衛戰！微創排毒手術 (精準刪除違規標籤，保留正常翻譯)
+        public static void RunAdvancedDetoxScanner()
+        {
+            try
+            {
+                string packPath = GetLocalPackPath();
+                string langsPath = Path.Combine(packPath, "Languages");
+                if (!Directory.Exists(langsPath)) return;
+
+                var xmlFiles = Directory.GetFiles(langsPath, "*.xml", SearchOption.AllDirectories);
+                int fixedFiles = 0;
+                int removedTags = 0;
+
+                foreach (var file in xmlFiles)
+                {
+                    XmlDocument doc = new XmlDocument();
+                    try { doc.Load(file); } catch { continue; } // 如果檔案壞了就跳過，不引發報錯
+
+                    if (doc.DocumentElement == null || doc.DocumentElement.Name != "LanguageData") continue;
+
+                    List<XmlNode> nodesToKill = new List<XmlNode>();
+
+                    // 遍歷檔案裡所有的翻譯標籤
+                    foreach (XmlNode node in doc.DocumentElement.ChildNodes)
+                    {
+                        if (node.NodeType != XmlNodeType.Element) continue;
+
+                        string tagName = node.Name;
+                        bool shouldKill = false;
+
+                        // 🔍 檢查這個標籤有沒有中我們的黑名單 (例如 Weapon_Rifle.soundInteract)
+                        foreach (var badField in BlacklistedFields)
+                        {
+                            // 只要標籤名稱「等於」或是「結尾是 .黑名單」，就判定為惡性腫瘤！
+                            if (tagName.EndsWith("." + badField, StringComparison.OrdinalIgnoreCase) ||
+                                tagName.Equals(badField, StringComparison.OrdinalIgnoreCase))
+                            {
+                                shouldKill = true;
+                                break;
+                            }
+                        }
+
+                        if (shouldKill)
+                        {
+                            nodesToKill.Add(node);
+                        }
+                    }
+
+                    // 🔪 執行物理切除！
+                    if (nodesToKill.Count > 0)
+                    {
+                        foreach (var node in nodesToKill)
+                        {
+                            doc.DocumentElement.RemoveChild(node);
+                            removedTags++;
+                        }
+                        doc.Save(file); // 存檔覆蓋
+                        fixedFiles++;
+                    }
+                }
+
+                if (fixedFiles > 0)
+                {
+                    // 🌟 本地化日誌：報告手術成果！
+                    AutoTranslatorSettings.AddLog($"🩺 [ATC System] " + "ATC_Log_AdvancedDetoxSuccess".Translate(removedTags, fixedFiles));
+                    Log.Message($"[AutoTranslationCore] Advanced Detox complete: Removed {removedTags} bad tags across {fixedFiles} files, saving player's API costs!");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning($"[AutoTranslationCore] 高級排毒系統異常: {ex.Message}");
+            }
+        }
+
     }
-}
+}  
+
