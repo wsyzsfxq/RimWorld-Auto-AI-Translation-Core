@@ -485,8 +485,22 @@ namespace AutoTranslator_Core
             string totalText = "ATC_Stats_Total".Translate(Settings.TotalCharCount);
             Widgets.Label(statsLeft, $"📊 {sessionText}\n📈 {totalText}");
 
-            // 🌟 顯示 UI 攔截器狀態 (不打擾玩家的精髓！)
-            if (Settings.EnableUIInterceptor)
+                // ==========================================
+                // 🚀 咪咪新增：一鍵注入熱重載按鈕 (免重開，前台後台同步刷新！)
+                // ==========================================
+                l.Gap(10f);
+                Rect reloadRow = l.GetRect(35f);
+                GUI.color = new Color(0.4f, 1f, 0.8f); // 給它一個漂亮的亮青色！
+                if (Widgets.ButtonText(reloadRow, "🔄 " + "ATC_Button_HotReload".Translate()))
+                {
+                    // 一行直接呼叫我們剛剛寫的超渡總樞紐！
+                    UIInterceptor.RequestHotReload();
+                }
+                GUI.color = Color.white;
+                l.Gap(10f);
+
+                // 🌟 顯示 UI 攔截器狀態 (不打擾玩家的精髓！)
+                if (Settings.EnableUIInterceptor)
             {
                 string uiQueue = UIInterceptor.GetQueueCount().ToString();
                 string uiCache = UIInterceptor.Cache.Count.ToString();

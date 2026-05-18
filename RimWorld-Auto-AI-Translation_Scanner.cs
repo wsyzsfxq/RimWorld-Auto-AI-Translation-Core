@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using System.Threading;
 using System.Text.RegularExpressions;
 using Verse;
-using RimWorld; // 🌟 咪咪提醒：呼叫彈窗視窗必須要有這行喔！
+using RimWorld;
 
 namespace AutoTranslator_Core
 {
@@ -53,6 +53,98 @@ namespace AutoTranslator_Core
                 case TargetLanguage.Traditional: return "ChineseSimplified";
                 case TargetLanguage.Simplified: return "ChineseTraditional";
                 default: return null;
+            }
+        }
+
+        // ==========================================
+        // 🚀 手術 1：把咪咪的神級空投引擎放在這！
+        // (放在 GetSecondaryFolderNameByLanguage 和 IsOldVersionPath 之間)
+        // ==========================================
+        public static void MemoryDrop_InjectNow()
+        {
+            try
+            {
+                LoadedLanguage activeLang = LanguageDatabase.activeLanguage;
+                if (activeLang == null) return;
+
+                string packPath = GetLocalPackPath();
+                string targetFolder = GetFolderNameByLanguage(AutoTranslatorMod.Settings.TargetLang);
+                string langRoot = Path.Combine(packPath, "Languages", targetFolder);
+
+                if (!Directory.Exists(langRoot)) return; // 沒快取就不用空投
+
+                int injectedKeyed = 0;
+                int injectedDefs = 0;
+
+                // 🪂 1. 空投 Keyed 字串
+                string keyedPath = Path.Combine(langRoot, "Keyed");
+                if (Directory.Exists(keyedPath))
+                {
+                    var keyedDict = LoadXmlFilesToDict(keyedPath);
+                    foreach (var kvp in keyedDict)
+                    {
+                        // ✅ 修復 CS0117: 拔掉 isModded
+                        activeLang.keyedReplacements[kvp.Key] = new LoadedLanguage.KeyedReplacement
+                        {
+                            key = kvp.Key,
+                            value = kvp.Value
+                        };
+                        injectedKeyed++;
+                    }
+                }
+
+                // 🪂 2. 空投 DefInjected (構造官方包裹)
+                string defPath = Path.Combine(langRoot, "DefInjected");
+                if (Directory.Exists(defPath))
+                {
+                    foreach (var typeDir in Directory.GetDirectories(defPath))
+                    {
+                        string defTypeName = Path.GetFileName(typeDir);
+                        Type defType = GenTypes.GetTypeInAnyAssembly(defTypeName);
+                        if (defType == null) continue;
+
+                        // 尋找或建立官方包裹
+                        DefInjectionPackage package = activeLang.defInjections.FirstOrDefault(p => p.defType == defType);
+                        if (package == null)
+                        {
+                            package = new DefInjectionPackage(defType);
+                            activeLang.defInjections.Add(package);
+                        }
+
+                        // ✅ 修復 CS0029: injections 是 Dictionary 而不是 List
+                        if (package.injections == null)
+                            package.injections = new Dictionary<string, DefInjectionPackage.DefInjection>();
+
+                        var defDict = LoadXmlFilesToDict(typeDir);
+                        foreach (var kvp in defDict)
+                        {
+                            // ✅ 修復 CS1061: 既然是字典，就不需要 RemoveAll，直接覆寫！
+                            package.injections[kvp.Key] = new DefInjectionPackage.DefInjection
+                            {
+                                path = kvp.Key,
+                                injection = kvp.Value
+                            };
+                            injectedDefs++;
+                        }
+                    }
+                }
+
+                // 💥 3. 引爆空投！強制呼叫官方的神聖綁定儀式！
+                activeLang.InjectIntoData_BeforeImpliedDefs();
+                activeLang.InjectIntoData_AfterImpliedDefs();
+
+                if (injectedKeyed > 0 || injectedDefs > 0)
+                {
+                    // 🌟 咪咪特製：全面本地化！
+                    AutoTranslatorSettings.AddLog("🪂 " + "ATC_Log_MemoryDropSuccess".Translate(injectedKeyed, injectedDefs));
+                    Log.Message($"[AutoTranslationCore] Memory Drop Success: Injected {injectedKeyed} Keyed & {injectedDefs} Defs without restart.");
+                }
+            }
+            catch (Exception ex)
+            {
+                // 🌟 咪咪特製：錯誤訊息也要本地化！
+                AutoTranslatorSettings.AddErrorLog("❌ " + "ATC_LogError_MemoryDropFailed".Translate(ex.Message));
+                Log.Error($"[AutoTranslationCore] Memory Drop Failed: {ex.Message}");
             }
         }
 
@@ -298,7 +390,6 @@ namespace AutoTranslator_Core
 
             CleanupSelfTranslations();
             MigrateOldTranslations();
-
             ApplyEmergencyHotfix();
             RunDetoxScanner(); // 這是原本清垃圾空白的
             RunAdvancedDetoxScanner(); // 🌟 咪咪新增：這是我們保護玩家錢包的高級手術！
@@ -361,6 +452,9 @@ namespace AutoTranslator_Core
                     settings.CurrentProgress = 1f;
                     AutoTranslatorSettings.AddLog("✨ " + "ATC_Log_SingleModDone".Translate());
 
+                    // 🚀 手術 3：StartSingleScan 翻譯完畢後，立刻呼叫空投！
+                    MemoryDrop_InjectNow();
+
                     // 🌟 咪咪特製：翻譯完成的本地化彈窗！
                     string finishMessage = "ATC_FinishMessage_Text".Translate();
                     string okButton = "ATC_FinishMessage_OK".Translate();
@@ -377,12 +471,6 @@ namespace AutoTranslator_Core
             {
                 ClearGlobalTranslationDatabase();
                 AutoTranslatorSettings.IsRunning = false;
-                if (AutoTranslatorSettings.IsCancellationRequested)
-                {
-                    AutoTranslatorSettings.AddLog("🛑 " + "ATC_Log_ProcessAborted".Translate());
-
-                    AutoTranslatorMod.Settings.CurrentTaskName = "ATC_TaskAborted".Translate();
-                }
             }
         }
 
@@ -476,6 +564,8 @@ namespace AutoTranslator_Core
                         settings.SubProgress = 1f;
                         AutoTranslatorSettings.AddLog("🎉 " + "ATC_Log_TaskDone".Translate());
                         AutoTranslatorSettings.AddLog("🎉 " + "ATC_Log_AllTranslationWritten".Translate());
+
+                        MemoryDrop_InjectNow();
 
                         // 🌟 發送信號給主執行緒，讓它去彈窗！絕對不閃退！
                         AutoTranslatorSettings.ShowFinishPopup = true;
@@ -588,7 +678,7 @@ if (defsRoots.Count > 0 || langRoots.Count > 0)
                         settings.SubTaskName = "";
                         settings.SubProgress = 1f;
                         AutoTranslatorSettings.AddLog("🎉 " + "ATC_Log_MultiScanDone".Translate());
-
+                        MemoryDrop_InjectNow();
                         // 🌟 發送信號給主執行緒！
                         AutoTranslatorSettings.ShowFinishPopup = true;
                     }
@@ -1200,7 +1290,7 @@ if (defsRoots.Count > 0 || langRoots.Count > 0)
         }
 
 
-        private static Dictionary<string, string> LoadXmlFilesToDict(string path)
+        public static Dictionary<string, string> LoadXmlFilesToDict(string path)
         {
             var dict = new Dictionary<string, string>();
             if (!Directory.Exists(path)) return dict;
@@ -1211,8 +1301,7 @@ if (defsRoots.Count > 0 || langRoots.Count > 0)
             }
             return dict;
         }
-
-        private static Dictionary<string, string> LoadXmlFileToDict(string filePath)
+        public static Dictionary<string, string> LoadXmlFileToDict(string filePath)
         {
             var dict = new Dictionary<string, string>();
             if (!File.Exists(filePath)) return dict;
@@ -1222,11 +1311,7 @@ if (defsRoots.Count > 0 || langRoots.Count > 0)
                 if (d.DocumentElement == null) return dict;
                 foreach (XmlNode n in d.DocumentElement.ChildNodes) if (n.NodeType == XmlNodeType.Element) dict[n.Name] = n.InnerText;
             }
-            catch (Exception ex)
-            {
-                AutoTranslatorSettings.AddErrorLog("⚠️ " + "ATC_LogError_FileCorrupted".Translate(GetShortPath(filePath)));
-                Log.Warning($"[AutoTranslationCore] XML Parse Error ({Path.GetFileName(filePath)}): {ex.Message}");
-            }
+            catch { }
             return dict;
         }
 

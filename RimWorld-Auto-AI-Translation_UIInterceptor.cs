@@ -16,20 +16,10 @@ namespace AutoTranslator_Core
     [StaticConstructorOnStartup]
     public static class UIInterceptor
     {
-
-        // 記憶體快取字典：前台瞬間查表，速度跟光一樣快！O(1)
         public static ConcurrentDictionary<string, string> Cache = new ConcurrentDictionary<string, string>();
-
-        // 🌟 咪咪的無間地獄終結者：這輩子都不准再問 AI 的黑名單字典！
         public static ConcurrentDictionary<string, bool> IgnoredCache = new ConcurrentDictionary<string, bool>();
-
-        // 排隊等候翻譯的清單
         private static ConcurrentQueue<string> TranslationQueue = new ConcurrentQueue<string>();
-
-        // 防重複發送的標記（避免同一個 UI 文字在 60 幀裡被排隊 60 次）
         private static ConcurrentDictionary<string, bool> PendingTranslations = new ConcurrentDictionary<string, bool>();
-
-        // 存檔路徑 (存在名揚的 Mod 資料夾裡)
         private static readonly string CacheFilePath;
 
         // ==========================================
@@ -47,15 +37,19 @@ namespace AutoTranslator_Core
             CacheFilePath = Path.Combine(AutoTranslatorScanner.GetLocalPackPath(), "UI_Hardcoded_Cache.json");
             LoadCache();
 
-            // ==========================================
-            // 🌟 咪咪特製：遊戲啟動瞬間，直接發動高級微創排毒手術！
-            // ==========================================
+            // 🌟 咪咪微創排毒手術！
             AutoTranslatorScanner.RunAdvancedDetoxScanner();
 
-            // 啟動背景翻譯執行緒！
+            // ==========================================
+            // 🚀 2.0 核心革命：開機自動掛載隱形快取！
+            // 玩家再也不用去 Mod 列表打勾那個 !Translation_AI_Pack 了！
+            // ==========================================
+            AutoTranslatorScanner.MemoryDrop_InjectNow();
+
+            // 啟動 background 翻譯執行緒！
             Task.Run(() => BackgroundTranslationWorker());
 
-            // 🌟 啟動 Harmony 霸王硬上弓，直接劫持 Unity 的底層 GUI！
+            // 🌟 啟動 Harmony 霸王硬上弓！
             var harmony = new Harmony("MingYang.AutoTranslation.UIInterceptor");
             harmony.PatchAll(typeof(UIInterceptor).Assembly);
 
@@ -97,15 +91,51 @@ namespace AutoTranslator_Core
             }
         }
 
-        // 🌟 咪咪小工具：讓設定面板能看到目前還有多少人在排隊
-        public static int GetQueueCount()
+        public static int GetQueueCount() { return TranslationQueue.Count; }
+
+        // ==========================================
+        // 🔄 咪咪特製：物理超渡前台 UI 緩存！
+        // ==========================================
+        public static void ClearUICache()
         {
-            return TranslationQueue.Count;
+            Patch_GUI_Label_GUIContent.ClearCache();
+            IgnoredCache.Clear(); // 黑名單清空，重新給生詞一次機會
+            Log.Message("[AutoTranslationCore] 🔄 UI 翻譯快取與忽略黑名單已完全清空！");
+        }
+
+        // ==========================================
+        // 🚀 咪咪特製：一鍵熱重載注入總樞紐！
+        // ==========================================
+        public static void RequestHotReload()
+        {
+            try
+            {
+                // 1. 清空前台 UI 緩存與黑名單，強制重新翻譯
+                ClearUICache();
+
+                // 2. 重新讀取實體 XML 快取並灌入記憶體
+                AutoTranslatorScanner.MemoryDrop_InjectNow();
+
+                // 3. 右上角彈出成功提示
+                // ✅ 完美修復 CS8957：加上 .ToString() 統一兩邊的資料類型為 string！
+                Messages.Message("ATC_Message_HotReloadSuccess".CanTranslate()
+                    ? "ATC_Message_HotReloadSuccess".Translate().ToString()
+                    : "🪂 [記憶體空投] 翻譯已即時注入，UI 視窗快取已完全刷新！",
+                    MessageTypeDefOf.PositiveEvent, false);
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"[AutoTranslationCore] Hot reload failed: {ex.Message}");
+            }
         }
 
         // 🌟 把發現的野生生字丟進排隊區
         public static void QueueForTranslation(string text)
         {
+            // 🛑 終極防爆閥：如果排隊超過 2000 單，直接踢掉不處理！
+            // 避免報錯海嘯把記憶體塞爆，保護大哥的 120 FPS！
+            if (TranslationQueue.Count > 2000) return;
+
             if (string.IsNullOrWhiteSpace(text) || text.Length < 2) return;
 
             // 🚀 超高速攔截：如果在黑名單裡，看都不看直接踢掉！
@@ -168,7 +198,6 @@ namespace AutoTranslator_Core
             }
         }
 
-        // 🌟 咪咪特製背景工人：默默打包、默默翻譯、默默存檔 (絕對不卡 FPS)
         private static async Task BackgroundTranslationWorker()
         {
             while (true)
@@ -233,26 +262,19 @@ namespace AutoTranslator_Core
         }
     }
 
-    // ==========================================
-    // 🌟 終極外掛區：攔截 Unity 底層畫 UI 的瞬間
-    // ==========================================
     [HarmonyPatch(typeof(UnityEngine.GUI), "Label", new Type[] { typeof(UnityEngine.Rect), typeof(UnityEngine.GUIContent), typeof(UnityEngine.GUIStyle) })]
     public static class Patch_GUI_Label_GUIContent
     {
-        // ✨ 咪咪的免死金牌開關！
         public static bool BypassInterceptor = false;
-
-        // 🚀 光速通道快取：只要縫合過一次的字串，直接存在這裡！
         private static Dictionary<string, GUIContent> guiContentCache = new Dictionary<string, GUIContent>();
 
-        private static readonly System.Text.RegularExpressions.Regex prefixRegex =
-            new System.Text.RegularExpressions.Regex(@"^(\s*(?:\(\d+\)\s*)?\[\d{2}:\d{2}:\d{2}\]\s*)(.*)$",
-            System.Text.RegularExpressions.RegexOptions.Compiled | System.Text.RegularExpressions.RegexOptions.Singleline);
+        // 🌟 咪咪特製：清空這個 Patch 獨享的 GUI 快取字典！
+        public static void ClearCache()
+        {
+            guiContentCache.Clear();
+        }
 
-        private static readonly System.Text.RegularExpressions.Regex suffixRegex =
-            new System.Text.RegularExpressions.Regex(@"^(.*?)(\s*[\(（][0-9\.,\/\s%]+[\)）]|\s*[:：]\s*[\+\-]?[0-9\.,]+%?|\s*[xXｘＸ]\s*[0-9\.,]+|\s*[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12})$",
-            System.Text.RegularExpressions.RegexOptions.Compiled | System.Text.RegularExpressions.RegexOptions.Singleline);
-
+        // 🌟 咪咪極速瘦身：把又慢又卡的正則拔掉，主迴圈只做 O(1) 查表！
         public static void Prefix(UnityEngine.Rect position, ref UnityEngine.GUIContent content)
         {
             if (!AutoTranslatorMod.Settings.EnableUIInterceptor || BypassInterceptor) return;
@@ -261,91 +283,32 @@ namespace AutoTranslator_Core
             {
                 string originalText = content.text;
 
-                // 🌟 咪咪的終極隱形斗篷：如果這是我們自己貼的「顯示原文」視窗（開頭有零寬字元），絕對不准攔截！
+                // 如果這是我們自己貼的「顯示原文」視窗，絕對不准攔截！
                 if (originalText.StartsWith("\u200B")) return;
 
-                // 🚀 終極光速通道 1：這段字已經有完整的翻譯結果了，直接替換！(0 延遲，拯救 FPS)
+                // 🚀 終極光速通道 1：有快取直接換！(0 延遲，拯救 FPS)
                 if (guiContentCache.TryGetValue(originalText, out GUIContent readyContent))
                 {
                     if (AutoTranslatorMod.Settings.ShowOriginalUI)
                     {
-                        // 🌟 補上零寬字元 \u200B 作為隱形記號！
                         Verse.TooltipHandler.TipRegion(position, new Verse.TipSignal("\u200B" + "ATC_OriginalText".Translate() + ":\n" + originalText));
                     }
                     content = readyContent;
                     return;
                 }
 
-                // 🚀 終極光速通道 2：這段字已經被判定為黑名單 (不用翻)，直接放行！(0 延遲)
+                // 🚀 終極光速通道 2：黑名單直接放行！(0 延遲)
                 if (UIInterceptor.IgnoredCache.ContainsKey(originalText)) return;
 
-                string textToTranslate = originalText;
-                string stackTracePart = "";
-
-                // 🔪 咪咪神級手術：報錯分離術！(把人話跟鬼話切開)
-                int stackIndex = textToTranslate.IndexOf("\n  at ");
-                if (stackIndex == -1) stackIndex = textToTranslate.IndexOf("\n[Ref ");
-                if (stackIndex == -1) stackIndex = textToTranslate.IndexOf("System.NullReferenceException");
-
-                if (stackIndex > 0)
-                {
-                    stackTracePart = textToTranslate.Substring(stackIndex);
-                    textToTranslate = textToTranslate.Substring(0, stackIndex);
-                }
-
-                // 🛡️ 如果切完之後的「人話」還是太長(>500)或太短，拉黑！
-                int len = textToTranslate.Length;
-                if (len < 2 || len > 500)
-                {
-                    UIInterceptor.IgnoredCache[originalText] = true;
-                    return;
-                }
-
-                string prefix = "";
-                string suffix = "";
-
-                // 🔪 第一刀 (頭部)
-                var prefixMatch = prefixRegex.Match(textToTranslate);
-                if (prefixMatch.Success)
-                {
-                    prefix = prefixMatch.Groups[1].Value;
-                    textToTranslate = prefixMatch.Groups[2].Value;
-                }
-
-                // 🔪 第二刀 (尾部)
-                var suffixMatch = suffixRegex.Match(textToTranslate);
-                if (suffixMatch.Success)
-                {
-                    textToTranslate = suffixMatch.Groups[1].Value;
-                    suffix = suffixMatch.Groups[2].Value;
-                }
-
-                if (string.IsNullOrWhiteSpace(textToTranslate))
-                {
-                    UIInterceptor.IgnoredCache[originalText] = true;
-                    return;
-                }
-
-                // 🚀 檢查純淨生肉是不是在黑名單
-                if (UIInterceptor.IgnoredCache.ContainsKey(textToTranslate))
-                {
-                    UIInterceptor.IgnoredCache[originalText] = true;
-                    return;
-                }
-
                 // 🔍 去查記憶體字典！
-                if (UIInterceptor.Cache.TryGetValue(textToTranslate, out string translated))
+                if (UIInterceptor.Cache.TryGetValue(originalText, out string translated))
                 {
                     if (AutoTranslatorMod.Settings.ShowOriginalUI)
                     {
-                        // 🌟 這裡也補上零寬字元 \u200B 作為隱形記號！
                         Verse.TooltipHandler.TipRegion(position, new Verse.TipSignal("\u200B" + "ATC_OriginalText".Translate() + ":\n" + originalText));
                     }
 
-                    // 🩹 手術縫合：把切下來的頭、尾、翻譯好的人話，還有底層的代碼全部黏回去！
-                    string finalTranslatedText = prefix + translated + suffix + stackTracePart;
-
-                    GUIContent newContent = new GUIContent(finalTranslatedText, content.image, content.tooltip);
+                    GUIContent newContent = new GUIContent(translated, content.image, content.tooltip);
 
                     // 📦 存入光速通道快取！
                     guiContentCache[originalText] = newContent;
@@ -354,8 +317,8 @@ namespace AutoTranslator_Core
                 }
                 else
                 {
-                    // 沒查到？把純淨生肉丟進背景排隊區！
-                    UIInterceptor.QueueForTranslation(textToTranslate);
+                    // 沒查到？把純淨生肉丟進背景排隊區，讓 Task 去頭痛！
+                    UIInterceptor.QueueForTranslation(originalText);
                 }
             }
         }
