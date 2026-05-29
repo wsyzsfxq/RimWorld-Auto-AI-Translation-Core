@@ -1,0 +1,360 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<LanguageData>
+	<ATC_ModTitle>全自動補位翻譯 正式版V2.2</ATC_ModTitle>
+	<ATC_TargetLang>目標語系</ATC_TargetLang>
+
+	<ATC_Lang_Traditional>繁體中文</ATC_Lang_Traditional>
+	<ATC_Lang_Simplified>簡體中文</ATC_Lang_Simplified>
+	<ATC_Lang_Japanese>日本語</ATC_Lang_Japanese>
+	<ATC_Lang_Korean>한국어</ATC_Lang_Korean>
+	<ATC_Lang_Russian>俄語</ATC_Lang_Russian>
+	<ATC_Lang_Ukrainian>烏克蘭語</ATC_Lang_Ukrainian>
+	<ATC_Lang_English>英文 (English)</ATC_Lang_English>
+
+	<ATC_CurrentProvider>當前 AI 供應商</ATC_CurrentProvider>
+	<ATC_ApiKey>API 密鑰 (API Key)</ATC_ApiKey>
+	<ATC_CustomBaseUrl>自訂 API 網址 (Base URL)</ATC_CustomBaseUrl>
+	<ATC_DefaultEmpty>預設請留空</ATC_DefaultEmpty>
+	<ATC_OnlyScanActive>僅掃描已啟用的模組</ATC_OnlyScanActive>
+	<ATC_Tooltip_TargetLang>【目標語言】\n設定 AI 要將外語模組翻譯成什麼語言。</ATC_Tooltip_TargetLang>
+	<ATC_Tooltip_Provider>【AI 服務商】\n選擇你要使用的 AI 模型供應商。強烈推薦使用 Google (Gemini) 或 OpenAI。</ATC_Tooltip_Provider>
+	<ATC_TestConnection>測試 AI 連線</ATC_TestConnection>
+	<ATC_TestingPulse>測試脈衝發送中...</ATC_TestingPulse>
+
+	<ATC_FetchModels>獲取模型清單</ATC_FetchModels>
+	<ATC_Fetching>通訊中...</ATC_Fetching>
+	<ATC_SelectModel>選擇模型</ATC_SelectModel>
+	<ATC_PlzFetchModel>請先點擊獲取模型清單</ATC_PlzFetchModel>
+	<ATC_TranslateSingleMod>單獨翻譯指定模組</ATC_TranslateSingleMod>
+	<ATC_StartTranslation>開始執行自動補位計畫</ATC_StartTranslation>
+	<ATC_StopTranslation>緊急停止產線</ATC_StopTranslation>
+	<ATC_Tutorial_Btn>使用教學與 FAQ</ATC_Tutorial_Btn>
+	<ATC_UpdateLog_Btn>模組更新日誌</ATC_UpdateLog_Btn>
+	<ATC_CurrentTask>當前任務</ATC_CurrentTask>
+	<ATC_Idle>空閒中</ATC_Idle>
+	<ATC_TaskDone>產線完工！</ATC_TaskDone>
+
+	<ATC_LogPanelTitle>---  產線即時監控日誌 ---</ATC_LogPanelTitle>
+	<ATC_ErrorLogTitle>⚠ 異常檔案檢測報告</ATC_ErrorLogTitle>
+	<ATC_Msg_EmptyKey>Key 都沒填怎麼測啦！</ATC_Msg_EmptyKey>
+	<ATC_Log_TestPulse>[Test] 發送微量脈衝，測試 [{0}] 連線狀態...</ATC_Log_TestPulse>
+	<ATC_Log_TestSuccess>[Test] 測試成功！AI 核心反應良好。</ATC_Log_TestSuccess>
+	<ATC_Log_TestFail>[Test] 測試失敗！請檢查網路或 API 設置。</ATC_Log_TestFail>
+	<ATC_Log_Init>[Init] 正在讀取模組，建立全域翻譯共用池...</ATC_Log_Init>
+	<ATC_Log_InitDone>[Init] 完成！共收集到 {0} 條 Def 翻譯。</ATC_Log_InitDone>
+
+	<ATC_Log_StartScan>Auto Translation Core 啟動！目標模組數: {0}</ATC_Log_StartScan>
+	<ATC_Log_ScanMod> [Start] 掃描模組: {0}</ATC_Log_ScanMod>
+	<ATC_Log_SkipMod> [Skip] 無 Languages 也無 Defs，純代碼模組。</ATC_Log_SkipMod>
+	<ATC_Log_KeyedScan> [Keyed] 正在掃描...</ATC_Log_KeyedScan>
+	<ATC_Log_DefScan> [DefInjected] 啟動深層掃描與全域比對...</ATC_Log_DefScan>
+
+	<ATC_Log_FoundMissing> [{0}] 發現 {1} 條缺失！呼叫 AI 支援中...</ATC_Log_FoundMissing>
+	<ATC_Log_AIFinish> [{0}] AI 翻譯補位完成！</ATC_Log_AIFinish>
+	<ATC_Log_AIFail> [{0}] AI 翻譯補位失敗。</ATC_Log_AIFail>
+	<ATC_Log_NoMissing> [{0}] 零件齊全，無須翻譯。</ATC_Log_NoMissing>
+	<ATC_Log_TaskDone> [Finish] 補位任務完美收工！</ATC_Log_TaskDone>
+	<ATC_Log_TaskError>[Error] 產線意外中斷: {0}</ATC_Log_TaskError>
+	<ATC_Log_Clean>[Clean] 產線停機，記憶體已釋放。</ATC_Log_Clean>
+	<ATC_CancelRequested>接收到停機指令，產線緊急煞車中...</ATC_CancelRequested>
+	<ATC_Log_FetchModelsSuccess>[System] 獲取模型清單成功！</ATC_Log_FetchModelsSuccess>
+	<ATC_Log_FetchModelsFail>[System] 獲取清單失敗，請檢查金鑰。</ATC_Log_FetchModelsFail>
+	<ATC_Log_AllTranslationWritten>[Success] 所有翻譯已安全寫入 !Translation_AI_Pack！</ATC_Log_AllTranslationWritten>
+	<ATC_Log_NetworkRetry>[System] 網路波動或伺服器忙碌，已觸發自動重試機制...</ATC_Log_NetworkRetry>
+
+	<ATC_Log_MigrateSuccess>[系統搬家] 已將 {0} 的 {1} 無痛轉移至新架構！</ATC_Log_MigrateSuccess>
+	<ATC_Log_StartSingleMod>[System] 開始單獨翻譯模組: {0}</ATC_Log_StartSingleMod>
+	<ATC_Log_SingleModDone>單獨翻譯任務完美收工！</ATC_Log_SingleModDone>
+	<ATC_Log_ProcessAborted>[System] 產線已安全中斷。</ATC_Log_ProcessAborted>
+	<ATC_Log_ProcessAbortedWithSave>[System] 產線已安全中斷，已翻譯的內容已保留。</ATC_Log_ProcessAbortedWithSave>
+	<ATC_TaskAborted>已中斷</ATC_TaskAborted>
+
+	<ATC_LogError_Format>[{0}] 格式錯誤: {1}</ATC_LogError_Format>
+	<ATC_LogError_Unknown>[{0}] 未知異常: {1}</ATC_LogError_Unknown>
+	<ATC_LogError_FileCorrupted>[檔案損壞] 略過無法解析的檔案: {0}</ATC_LogError_FileCorrupted>
+	<ATC_LogError_ApiConn>[API] 通訊異常: {0}</ATC_LogError_ApiConn>
+	<ATC_FinishMessage_Title>翻譯完成提示</ATC_FinishMessage_Title>
+	<ATC_FinishMessage_OK>了解！(OK)</ATC_FinishMessage_OK>
+
+	<ATC_FinishMessage_Text>翻譯任務已順利完成！\n【🪂 記憶體空投大成功】\n系統已透過官方合法通道，將最新的翻譯直接注入遊戲記憶體中！\n您現在可以直接關閉此視窗與設定面板，畫面上的物品與科技已經瞬間變成您設定的語言囉！\n(註：實體 XML 備份已在背景自動生成，但您【完全不需要】去模組列表勾選它！下次開機系統也會自動隱形掛載，徹底告別排序衝突！祝您遊戲愉快！)</ATC_FinishMessage_Text>
+
+	<ATC_Tutorial_FullText>【使用教學】\n1. 選擇【目標語系】(支援中、日、韓、英、俄、烏等多國語言互翻！) 與【供應商】。台灣玩家推薦免費的 Google (Gemini)；大陸地區玩家推薦 DeepSeek！\n2. 申請【API 金鑰】並貼上。支援「無限 API 彈匣」！你可以點擊「＋」號新增多組接口，系統會自動幫你輪流分配任務，完美榨乾免費額度！\n3. 【全自動模型偵測】貼上金鑰後（長度需大於 10），完全不用按任何搜尋按鈕，系統會在背景自動為你抓取模型！抓取成功後直接在右側下拉選單選擇模型即可。\n4. 調整【併發線程數】(建議設定為：有效接口數量 x 3)。接著點擊綠色的【🚀 一鍵翻譯所有模組】進行全域掃描，或使用【🎯 翻譯單/多重模組】進行精準打擊！若想中斷可隨時按下【🛑 停止翻譯】。\n5. 【🎉 翻譯完成後】\n完全不需要重開遊戲！系統會自動發動「記憶體空投」，瞬間將翻譯注入遊戲中，關閉面板即可看見效果！\n(系統會在背景生成實體 XML 備份，但您【不需要】去模組列表勾選啟用它，下次開機會自動隱形掛載！)\n\n【常見問題 Ｑ＆Ａ】\nQ: 什麼是「一鍵注入熱重載」？\nA: 如果你是硬核玩家，喜歡用記事本自己手動修改已生成的翻譯 XML 檔。修改存檔後，只需點擊這顆按鈕，系統就會瞬間刷新前台 UI 快取並重新空投記憶體，改完秒看結果，免重開機！\n\nQ: 為什麼產線日誌一直跳出「通訊超時」或「等待重試」的紅字警告？\nA: 這是因為 API 伺服器正在打瞌睡或遇到頻率限制！模組內建超強的自動退避重試與換 Key 輪詢機制。只要後續有繼續顯示翻譯成功，放著讓子彈飛一會兒就好啦～(≧∀≦)ゞ\n\nQ: 為什麼使用本地端 (LM Studio / Ollama) 或是中轉站 API 一直連線失敗？\nA: 1. 請確保你的「自訂 Base URL」有填寫正確（例如 http://localhost:1234），不用擔心忘記打後綴，系統會自動幫你補上 /v1！\n2. 金鑰 (API Key) 絕對不能留空！如果是本地端，請隨便填幾個字。\n\nQ: 動態 UI 攔截器會不會很卡？\nA: V2.0 已導入「光速快取」與「防爆閥」機制，就算遇到報錯海嘯，遊戲依舊穩鎖 120FPS。但請注意，此功能會捕捉畫面上所有未翻譯外文，若使用付費 API 請斟酌開啟，以免帳單爆表！</ATC_Tutorial_FullText>
+
+	<ATC_UpdateLog_FullText>--- V2.2 底層架構與連線穩定性更新 ---\n• 優化【API 請求架構】：重構底層邏輯，提升不同 AI 供應商的相容性與資料解析穩定性。\n• 實裝【自動退避重試】：當遇到伺服器擁擠 (HTTP 429) 或瞬間連線異常 (HTTP 500+) 時，系統將自動進行冷卻並重試，減少翻譯中斷的機率。\n• 新增【自訂超時與測試】：設定介面新增「測試連線」按鈕與「超時秒數滑桿」。(若使用深度思考模型，系統將自動適配較長的等待時間)。\n• 改良【全局錯誤通知】：導入跨執行緒 UI 橋接技術，現在當 API 發生連線異常或金鑰無效時，會即時於遊戲畫面左上角彈出提示，無須再頻繁切換分頁查看日誌。\n\n--- V2.1 翻譯體驗與智能升級 ---\n• 實裝【一鍵打包導出】：支援將翻譯好的模組獨立提取至桌面，並附帶聲明浮水印，方便提交給原作者或漢化組潤飾。\n• 新增【智能模組更新雷達】：系統現在能自動偵測出「有更新」或「未翻譯」的模組。\n• 支援【自動汰舊換新】：開啟後，在遇到模組更新時，系統將自動刪除舊翻譯檔案並重新翻譯，確保文本保持最新。\n• 修復【字串換行異常】：修正部分 `\n` 無法正常換行導致排版錯誤的底層問題。\n\n--- V2.0 效能優化與即時渲染 ---\n• 實裝【即時記憶體注入】：翻譯完成後，系統將翻譯結果直接寫入遊戲記憶體，畫面即刻切換為目標語系，下次開機自動生效，減少載入順序衝突。\n• 優化【動態 UI 攔截效能】：重構底層攔截邏輯與快取設計，大幅降低遊戲幀數 (FPS) 的效能消耗。\n• 新增【一鍵熱重載】：手動修改 XML 翻譯檔後，可點擊按鈕瞬間刷新 UI 緩存，無須重新啟動遊戲。\n\n--- V1.0 正式版發布 ---\n• 實裝【動態 UI 攔截系統】：支援即時攔截並自動翻譯設定面板或靜態 XML 遺漏的外文文本。\n• 實裝【原文對照功能】：支援滑鼠懸停顯示原文，方便進行雙語對照。</ATC_UpdateLog_FullText>
+	<ATC_ApiConfigTitle>API 接口彈匣設定 (支援多組並發輪詢)</ATC_ApiConfigTitle>
+	<ATC_Provider>供應商</ATC_Provider>
+	<ATC_CustomUrlOptional>(自定義 BaseUrl，留空使用預設)</ATC_CustomUrlOptional>
+	<ATC_Delete>刪除</ATC_Delete>
+	<ATC_PasteKey>(貼上 API Key)</ATC_PasteKey>
+	<ATC_FetchingModel>搜尋模型中...</ATC_FetchingModel>
+	<ATC_NoModelWaitKey>尚未選擇模型 (貼上Key自動獲取)</ATC_NoModelWaitKey>
+	<ATC_AddApiBtn>新增 API 接口 (Add API Interface)</ATC_AddApiBtn>
+	<ATC_EmergencyStop>停止翻譯 (Emergency Stop)</ATC_EmergencyStop>
+	<ATC_StartFullScan>一鍵翻譯所有模組 (Start Full Scan)</ATC_StartFullScan>
+	<ATC_EmptyConfigWarning>請至少設定一組有效的 API 參數！</ATC_EmptyConfigWarning>
+	<ATC_MaxThreads>併發線程數 (Max Threads)</ATC_MaxThreads>
+	<ATC_MaxThreadsTip>強烈建議: 數字為有效接口數量 x 3</ATC_MaxThreadsTip>
+
+	<ATC_Log_ApiRecovered>[API] 重新連線成功！產線恢復高速運轉。</ATC_Log_ApiRecovered>
+	<ATC_Log_ApiRetry>[API] 翻譯繁忙或超時，等待 {0} 秒後重試...</ATC_Log_ApiRetry>
+	<ATC_Log_ApiFallback>[API] 區塊翻譯徹底失敗，啟動「降級單挑模式」逐句破解...</ATC_Log_ApiFallback>
+	<ATC_LogError_ApiCritical>[API嚴重錯誤] 位於 【{0}】 的文本翻譯徹底失敗！已保留原文。</ATC_LogError_ApiCritical>
+
+	<ATC_TranslateMultiMod>單獨/多選翻譯</ATC_TranslateMultiMod>
+	<ATC_SkipCurrentMod>跳過當前 Mod</ATC_SkipCurrentMod>
+	<ATC_MultiSelect_Title>選擇要翻譯的模組 (可多選)</ATC_MultiSelect_Title>
+	<ATC_MultiSelect_Search>在此輸入模組名稱來搜尋...</ATC_MultiSelect_Search>
+	<ATC_MultiSelect_Start>開始翻譯已勾選的 {0} 個模組</ATC_MultiSelect_Start>
+
+	<ATC_SubTask_AnalyzingDict>正在分析本機漢化文本...</ATC_SubTask_AnalyzingDict>
+	<ATC_SubTask_BuildingDict>建構字典中: {0}</ATC_SubTask_BuildingDict>
+	<ATC_SubTask_DictDone>字典建置完成！</ATC_SubTask_DictDone>
+	<ATC_SubTask_Scanning>正在掃描文本...</ATC_SubTask_Scanning>
+	<ATC_SubTask_TranslatingKeyed>翻譯 Keyed 中...</ATC_SubTask_TranslatingKeyed>
+	<ATC_SubTask_TranslatingDef>翻譯 DefInjected 中...</ATC_SubTask_TranslatingDef>
+
+	<ATC_Log_SkippedMod>已跳過模組: {0}</ATC_Log_SkippedMod>
+	<ATC_Log_MultiScanStart>準備開始翻譯 {0} 個勾選的模組...</ATC_Log_MultiScanStart>
+	<ATC_Log_MultiScanDone>多選模組翻譯任務全部完成！</ATC_Log_MultiScanDone>
+	<ATC_LogError_OldToxicFiles>【警告】 發現舊版異常翻譯檔，為防止報錯，將執行強制清理！</ATC_LogError_OldToxicFiles>
+	<ATC_Log_OldFilesDeleted>【System】 舊版異常檔案已成功移除！</ATC_Log_OldFilesDeleted>
+	<ATC_Log_AutoRebuildStart>【System】 系統將自動為您重新建構乾淨的翻譯包！</ATC_Log_AutoRebuildStart>
+
+	<ATC_One_click_chaos>一鍵亂選</ATC_One_click_chaos>
+	<ATC_Rickroll>千萬不要按這裡...</ATC_Rickroll>
+	<ATC_SelectAll>一鍵全選</ATC_SelectAll>
+	<ATC_DeselectAll>取消全選</ATC_DeselectAll>
+
+	<ATC_Log_UIInterceptorStarted>動態 UI 攔截器已上線！背景快取系統啟動中...</ATC_Log_UIInterceptorStarted>
+	<ATC_Log_UICacheLoaded>成功載入 {0} 條硬編碼 UI 快取！</ATC_Log_UICacheLoaded>
+	<ATC_LogError_UICacheLoadFailed>讀取 UI 快取失敗: {0}</ATC_LogError_UICacheLoadFailed>
+	<ATC_LogError_UICacheSaveFailed>儲存 UI 快取失敗: {0}</ATC_LogError_UICacheSaveFailed>
+	<ATC_EnableUIInterceptor>開啟動態 UI 硬編碼攔截 【警告：可能影響效能】</ATC_EnableUIInterceptor>
+	<ATC_Log_AdvancedDetoxSuccess>高級排毒完畢！精準切除 {0} 個違規標籤，保護了玩家的翻譯資產 (共修復 {1} 個檔案)！</ATC_Log_AdvancedDetoxSuccess>
+	<ATC_DeleteModTrans_Btn>刪除翻譯</ATC_DeleteModTrans_Btn>
+	<ATC_DeleteModTrans_Title>翻譯檔案焚化爐 (勾選要刪除翻譯的模組)</ATC_DeleteModTrans_Title>
+	<ATC_ConfirmDelete_Btn>確認刪除 {0} 個模組的翻譯檔 (無法復原！)</ATC_ConfirmDelete_Btn>
+	<ATC_Log_DeleteTransSuccess>🗑️ [ATC System] 成功刪除 {0} 個模組的翻譯檔 (共清理 {1} 個檔案)！</ATC_Log_DeleteTransSuccess>
+	<ATC_Message_DeleteTransSuccess>成功刪除 {0} 個翻譯檔案！建議重啟遊戲以套用變更。</ATC_Message_DeleteTransSuccess>
+	<ATC_Message_DeleteTransError>⚠️ 刪除翻譯檔時發生錯誤: {0}</ATC_Message_DeleteTransError>
+	<ATC_InputOrSelectModel>輸入或選取模型...</ATC_InputOrSelectModel>
+	<ATC_Msg_NoModelListManualInput>目前沒有抓取到模型清單，請直接手動輸入模型名稱！</ATC_Msg_NoModelListManualInput>
+	<ATC_Stats_Session>本次翻譯：{0} 字</ATC_Stats_Session>
+	<ATC_Stats_Total>累計翻譯：{0} 字</ATC_Stats_Total>
+	<ATC_Stats_UIQueue>UI 排隊中：{0}</ATC_Stats_UIQueue>
+	<ATC_Stats_UICache>UI 快取數：{0}</ATC_Stats_UICache>
+	<ATC_ShowOriginalUI>顯示 UI 原文 (滑鼠懸停時顯示機翻前的英文)</ATC_ShowOriginalUI>
+	<ATC_OriginalText>原文</ATC_OriginalText>
+	<ATC_Log_MemoryDropSuccess>[記憶體空投] 成功注入 {0} 個系統文本與 {1} 個物品定義！</ATC_Log_MemoryDropSuccess>
+	<ATC_LogError_MemoryDropFailed>[記憶體空投失敗] {0}</ATC_LogError_MemoryDropFailed>
+	<ATC_Button_HotReload>一鍵注入熱重載 (免重啟，刷新畫面！)</ATC_Button_HotReload>
+	<ATC_Message_HotReloadSuccess>🪂 [記憶體空投] 翻譯已即時注入，UI 視窗快取已完全刷新！</ATC_Message_HotReloadSuccess>
+	<ATC_LogError_InvalidXmlKey>[XML 防禦] AI 回傳的 key 含非法字元，已自動跳過: {0}</ATC_LogError_InvalidXmlKey>
+	<ATC_LogError_AuthFailed>[API 認證失敗] 供應商 [{0}] 回報 401，請檢查 API Key 是否正確。</ATC_LogError_AuthFailed>
+	<ATC_LogError_RateLimit>[API 限流] 供應商 [{0}] 回報 429，已自動延長等待時間。</ATC_LogError_RateLimit>
+
+	<ATC_Tag_FromSimplified>[來自簡中]</ATC_Tag_FromSimplified>
+	<ATC_Tag_FromTraditional>[來自繁中]</ATC_Tag_FromTraditional>
+	<ATC_Log_SkipExistingTranslation>[Skip] 模組 [{0}] 已自帶 {1} 條翻譯，跳過重複翻譯。</ATC_Log_SkipExistingTranslation>
+	<ATC_Lang_DeepL_FreeNote>DeepL Free (自動偵測)</ATC_Lang_DeepL_FreeNote>
+	<ATC_Lang_DeepL_ProNote>DeepL Pro (自動偵測)</ATC_Lang_DeepL_ProNote>
+	<ATC_LogError_DeepL_LangNotSupport>[DeepL] 目標語系 [{0}] DeepL 不支援，請改用其他 AI 供應商。</ATC_LogError_DeepL_LangNotSupport>
+
+	<ATC_Log_MemoryDropQueued>[記憶體空投] 已排入主執行緒佇列，等待下一個 Tick 注入...</ATC_Log_MemoryDropQueued>
+	<ATC_Log_MemoryDropSkipMainThread>[記憶體空投] 偵測到背景執行緒呼叫，已自動轉交主執行緒處理。</ATC_Log_MemoryDropSkipMainThread>
+
+	<ATC_ExportTrans_Btn>📦 一鍵打包導出 ⚠️ 機翻警告</ATC_ExportTrans_Btn>
+	<ATC_ExportEula_Title>⚠️ 漢化導出與版權聲明 (v{0})</ATC_ExportEula_Title>
+	<ATC_ExportEula_CountdownLabel>請仔細閱讀（剩餘 {0} 秒）</ATC_ExportEula_CountdownLabel>
+	<ATC_ExportEula_CountdownDone>請勾選下方三項聲明</ATC_ExportEula_CountdownDone>
+	<ATC_ExportEula_Check1>我已仔細閱讀以上條款並完全理解</ATC_ExportEula_Check1>
+	<ATC_ExportEula_Check2>我承諾僅用於個人遊戲或人工潤飾的底料</ATC_ExportEula_Check2>
+	<ATC_ExportEula_Check3>我了解散布行為的法律後果與我自己有關</ATC_ExportEula_Check3>
+	<ATC_ExportEula_ConfirmBtn>確認進入打包</ATC_ExportEula_ConfirmBtn>
+	<ATC_ExportEula_CancelBtn>取消</ATC_ExportEula_CancelBtn>
+	<ATC_ExportEula_NeedAllChecks>必須勾選全部三項才能繼續</ATC_ExportEula_NeedAllChecks>
+
+	<ATC_ExportEula_FullText>📜 版權尊重\n模組的原始文本版權歸原始模組作者所有。AI 翻譯產物屬於「衍生作品 (Derivative Work)」，依照各國著作權法，散布衍生作品需要取得原作者明確授權。\n\n🚫 嚴格禁止\n• 嚴禁上傳至 Steam Workshop\n• 嚴禁上傳至 NEXUS / Mod.io / 任何公開平台\n• 嚴禁透過雲端連結（Google Drive、百度網盤等）公開分享\n• 嚴禁透過種子、Discord 等管道散布\n• 嚴禁假冒為官方翻譯或漢化組作品\n• 嚴禁任何形式的商業使用\n\n✅ 允許用途\n• 個人本機遊戲使用\n• 漢化組進行人工潤飾的底料（潤飾後仍需取得原作者授權才能發布）\n• 提交給原模組作者作為翻譯貢獻\n• 朋友間私下分享（不公開）\n\n📋 工具中立性聲明\n本工具僅提供本地翻譯輔助功能。本工具：\n• 不主動上傳任何翻譯內容\n• 不收集使用者翻譯資料\n• 不協助散布衍生作品\n• 不背書任何上傳行為\n\n⚖️ 免責聲明\n本工具開發者不對使用者的散布行為負責。使用者使用本功能導出並傳播檔案所引發的任何版權糾紛、社群衝突或法律訴訟，由使用者自行承擔，與本工具作者無關。\n\n🚨 法律後果\n違反本聲明可能導致：\n• DMCA 下架通知\n• Steam 帳號封禁\n• 民事訴訟（賠償原作者損失）\n• 刑事責任（依各國著作權法規定）\n\n⏰ 同意期效\n本同意有效期為 30 天。30 天後將再次要求重新閱讀並同意，以確保你持續知悉條款變動。\n\n📝 紀錄保存\n本機會保存「同意紀錄」（包含同意時間、版本、設備資訊），作為使用者已知悉條款的證明。請勿刪除此檔案。</ATC_ExportEula_FullText>
+
+	<ATC_ExportReminder_Title>📦 導出前提醒</ATC_ExportReminder_Title>
+	<ATC_ExportReminder_AlreadyAccepted>你已於 {0} 同意 EULA v{1}</ATC_ExportReminder_AlreadyAccepted>
+	<ATC_ExportReminder_DaysLeft>此同意還剩 {0} 天有效</ATC_ExportReminder_DaysLeft>
+	<ATC_ExportReminder_KeyPoints>⚠️ 再次提醒重點：</ATC_ExportReminder_KeyPoints>
+	<ATC_ExportReminder_Rule1>❌ 不得上傳至 Steam Workshop</ATC_ExportReminder_Rule1>
+	<ATC_ExportReminder_Rule2>❌ 不得公開散布</ATC_ExportReminder_Rule2>
+	<ATC_ExportReminder_Rule3>✅ 僅限個人或人工潤飾用途</ATC_ExportReminder_Rule3>
+	<ATC_ExportReminder_Continue>我了解，繼續導出</ATC_ExportReminder_Continue>
+	<ATC_ExportReminder_RereadEula>重新閱讀完整 EULA</ATC_ExportReminder_RereadEula>
+
+	<ATC_ExportWindow_Title>📦 選擇要導出的模組</ATC_ExportWindow_Title>
+	<ATC_ExportWindow_SearchHint>搜尋模組名稱...</ATC_ExportWindow_SearchHint>
+	<ATC_ExportWindow_DetectedCount>共偵測到 {0} 個已翻譯模組</ATC_ExportWindow_DetectedCount>
+	<ATC_ExportWindow_NoFullSelectNotice>⚠️ 請逐一勾選（防濫用機制：本工具刻意不提供全選）</ATC_ExportWindow_NoFullSelectNotice>
+	<ATC_ExportWindow_ModInfo_DefCount>已翻譯：{0} 條 DefInjected + {1} 條 Keyed</ATC_ExportWindow_ModInfo_DefCount>
+	<ATC_ExportWindow_OutputPath>💾 導出位置：{0}</ATC_ExportWindow_OutputPath>
+	<ATC_ExportWindow_WatermarkNotice>⚠️ 每個 XML 檔案會自動加上「機翻警告」水印</ATC_ExportWindow_WatermarkNotice>
+	<ATC_ExportWindow_ConfirmBtn>導出選取的 {0} 個模組</ATC_ExportWindow_ConfirmBtn>
+	<ATC_ExportWindow_NoModSelected>請至少選取一個模組</ATC_ExportWindow_NoModSelected>
+	<ATC_ExportWindow_NoTranslationFound>目前沒有任何已翻譯的模組。請先執行翻譯任務。</ATC_ExportWindow_NoTranslationFound>
+
+	<ATC_Export_Success_Title>導出完成</ATC_Export_Success_Title>
+	<ATC_Export_Success_Message>成功導出 {0} 個模組（共 {1} 個檔案）\n\n位置：{2}</ATC_Export_Success_Message>
+	<ATC_Export_Failed_Message>導出失敗：{0}</ATC_Export_Failed_Message>
+
+	<ATC_Log_EulaAccepted>[EULA] 玩家已同意 v{0}，紀錄已寫入本機。</ATC_Log_EulaAccepted>
+	<ATC_Log_ExportStart>📦 開始導出 {0} 個模組...</ATC_Log_ExportStart>
+	<ATC_Log_ExportComplete>✅ 導出完成！{0} 個模組，{1} 個檔案。</ATC_Log_ExportComplete>
+	<ATC_Log_ExportFailed>❌ 導出失敗：{0}</ATC_Log_ExportFailed>
+
+	<ATC_Export_CooldownReady_Free>⏱️ 本次冷卻狀態：可立即導出 (本次免冷卻)</ATC_Export_CooldownReady_Free>
+	<ATC_Export_CooldownReady_NextWillCooldown>⏱️ 本次冷卻狀態：可立即導出 (下次導出後需冷卻 {0} 秒)</ATC_Export_CooldownReady_NextWillCooldown>
+	<ATC_Export_CooldownWait>⏱️ 冷卻中，請等待 {0} 秒...</ATC_Export_CooldownWait>
+	<ATC_Export_TodayCount>今日已導出：{0} 次（每日上限 100）</ATC_Export_TodayCount>
+	<ATC_Export_TooManyToday>⚠️ 今日已導出 {0} 次，達到每日上限。請明日再試。</ATC_Export_TooManyToday>
+	<ATC_Export_TooManyAtOnce>單次最多導出 10 個模組，請分批導出。當前已選 {0} 個。</ATC_Export_TooManyAtOnce>
+	<ATC_Export_CooldownDialogTitle>⏱️ 冷卻中</ATC_Export_CooldownDialogTitle>
+	<ATC_Export_CooldownDialogMsg>距離下次可導出還需等待 {0} 秒。\n\n智能冷卻機制是為了防止濫用，合法使用情境（如翻譯重試、模組對比）通常不會觸發。</ATC_Export_CooldownDialogMsg>
+
+	<ATC_ContactAuthor_Title>💌 想要把翻譯貢獻給原作者嗎？</ATC_ContactAuthor_Title>
+	<ATC_ContactAuthor_JustExported>你剛剛導出了 {0} 個模組的翻譯。</ATC_ContactAuthor_JustExported>
+	<ATC_ContactAuthor_DidYouKnow>🌟 你知道嗎？</ATC_ContactAuthor_DidYouKnow>
+	<ATC_ContactAuthor_Intro>比起上傳到 Workshop，把翻譯直接貢獻給原作者更有意義：</ATC_ContactAuthor_Intro>
+	<ATC_ContactAuthor_Benefit1>✅ 原作者可以將翻譯整合進官方版本</ATC_ContactAuthor_Benefit1>
+	<ATC_ContactAuthor_Benefit2>✅ 你的貢獻會被列入模組更新日誌</ATC_ContactAuthor_Benefit2>
+	<ATC_ContactAuthor_Benefit3>✅ 完全合法，無版權爭議</ATC_ContactAuthor_Benefit3>
+	<ATC_ContactAuthor_Benefit4>✅ 幫助整個社群</ATC_ContactAuthor_Benefit4>
+	<ATC_ContactAuthor_SelectMod>選擇要聯絡作者的模組：</ATC_ContactAuthor_SelectMod>
+	<ATC_ContactAuthor_TemplateLabel>📧 已為你準備好聯絡範本：</ATC_ContactAuthor_TemplateLabel>
+	<ATC_ContactAuthor_CopyTemplate>📋 複製 Email 範本</ATC_ContactAuthor_CopyTemplate>
+	<ATC_ContactAuthor_OpenWorkshop>🌐 打開 Steam Workshop 聯絡作者</ATC_ContactAuthor_OpenWorkshop>
+	<ATC_ContactAuthor_TemplateCopied>✅ 範本已複製到剪貼簿！</ATC_ContactAuthor_TemplateCopied>
+	<ATC_ContactAuthor_CannotOpenWorkshop>無法開啟 Steam Workshop（可能未安裝 Steam 或模組無 Workshop 連結）</ATC_ContactAuthor_CannotOpenWorkshop>
+	<ATC_ContactAuthor_Close>關閉</ATC_ContactAuthor_Close>
+	<ATC_ContactAuthor_NoSteamMods>沒有任何模組能透過 Steam Workshop 聯絡（可能都是本機 Mods 資料夾的模組）</ATC_ContactAuthor_NoSteamMods>
+
+	<ATC_EmailTemplate_Subject>Translation Contribution for {0}</ATC_EmailTemplate_Subject>
+	<ATC_EmailTemplate_Body>Hi {0},\n\nI'm a fan of your mod "{1}". I've drafted a {2} translation using AI tools as a starting point, and I'd love to contribute it back to your mod.\n\nThe translation includes:\n- {3} DefInjected entries\n- {4} Keyed entries\n\nI understand it's machine-generated and may need human polishing before being officially included. I'm sharing the files so you can:\n- Use them as a starting point for an official translation\n- Pass them to a community translator\n- Or simply have them as reference\n\nThe files were exported to my desktop using a tool called "Auto Translation Core". I have NOT and will NOT redistribute them publicly.\n\nWould you like me to send them to you? I can attach them in a reply, or send them via Discord / GitHub PR if you prefer.\n\nThank you for making such an amazing mod!\n\nBest regards,\nA Player</ATC_EmailTemplate_Body>
+
+	<ATC_Export_Success_ContactAuthorBtn>💌 我想把翻譯貢獻給原作者</ATC_Export_Success_ContactAuthorBtn>
+	<ATC_Export_Success_CloseBtn>關閉</ATC_Export_Success_CloseBtn>
+
+	<ATC_Log_CooldownTriggered>⏱️ [Cooldown] 第 {0} 次導出，套用 {1} 秒冷卻。</ATC_Log_CooldownTriggered>
+	<ATC_Log_DailyLimitReached>🛑 [Limit] 今日已達 100 次導出上限。</ATC_Log_DailyLimitReached>
+
+	<!-- ========================================== -->
+	<!-- 🔄 模組更新檢測與自動清理 -->
+	<!-- ========================================== -->
+	<ATC_AutoClearOldOnUpdate>智能增量補譯：模組更新時保留原有翻譯，僅針對新文本呼叫 AI (極度省錢)</ATC_AutoClearOldOnUpdate>
+	<ATC_ModUpdateStatusBtn>智能補譯 (發現 {0} 個模組更新或未翻譯)</ATC_ModUpdateStatusBtn>
+	<ATC_ClearCacheSuccess>已自動清除 {0} 個已更新模組的舊翻譯檔案。</ATC_ClearCacheSuccess>
+	<!-- 導出資料夾內的 README 說明檔 -->
+	<ATC_Export_Readme_Full>
+================================================================
+WARNING: AUTO-GENERATED MACHINE TRANSLATION
+警告：本資料夾為 AI 機器翻譯產物，請仔細閱讀
+================================================================
+
+產生時間 (Generation Time): {0}
+產生工具 (Generator): Auto Translation Core
+模組數量 (Mod Count): {1}
+
+匯出的模組清單 (Exported Mods):
+{2}
+================================================================
+嚴禁行為 (Strictly Prohibited)
+================================================================
+
+1. 嚴禁直接上傳至 Steam Workshop
+2. 嚴禁直接上傳至 NEXUS / Mod.io / 其他公開平台
+3. 嚴禁透過雲端連結（Google Drive、百度網盤等）公開分享
+4. 嚴禁假冒為官方翻譯或漢化組作品
+5. 嚴禁商業使用
+
+================================================================
+允許用途 (Allowed Usage)
+================================================================
+
+1. 個人本機使用
+2. 漢化組進行人工潤飾的底料（潤飾後仍需取得原作者授權才能發布）
+3. 提交給原模組作者作為翻譯貢獻參考
+4. 私下與朋友分享（不公開）
+
+================================================================
+法律提醒 (Legal Notice)
+================================================================
+
+本翻譯為 AI 機器翻譯產物，屬於原作品的「衍生作品 (Derivative Work)」。
+依照各國著作權法，散布衍生作品需要取得原作者明確授權。
+
+未經授權散布可能導致：
+- DMCA 下架通知
+- Steam 帳號封禁
+- 法律訴訟（最高可能涉及刑事責任）
+
+================================================================
+	</ATC_Export_Readme_Full>
+
+	<!-- 導出資料夾內的 EULA 紀錄檔 -->
+	<ATC_Export_ConsentRecord_Full>
+================================================================
+EULA 同意紀錄 (Consent Record)
+================================================================
+
+同意時間 (UTC+8): {0}
+EULA 版本 (Version): {1}
+累計同意次數 (Accept Count): {2}
+使用者本機名稱 (Machine): {3}
+作業系統 (OS): {4}
+匯出時間 (Export Time): {5}
+
+同意項目 (Accepted Items):
+[O] 我已仔細閱讀以上條款並完全理解
+[O] 我承諾僅用於個人遊戲或人工潤飾的底料
+[O] 我了解散布行為的法律後果與我自己有關
+
+================================================================
+重要 (Important)
+================================================================
+
+此檔案為使用者同意紀錄，請勿刪除。
+如有版權爭議，此檔案將作為使用者已知悉條款的證明。
+
+================================================================
+	</ATC_Export_ConsentRecord_Full>
+	<ATC_Tab_Main>終端控制台</ATC_Tab_Main>
+	<ATC_Tab_Settings>詳細系統與 API 設定</ATC_Tab_Settings>
+	<ATC_Log_SkipRequested>[System] 玩家已主動請求跳過當前模組...</ATC_Log_SkipRequested>
+
+
+	<ATC_SmartUpdateBtn>智能補譯 (發現 {0} 個待更新)</ATC_SmartUpdateBtn>
+	<ATC_AutoClearOldOnUpdate>確保準確性：翻譯已更新的模組前，強制刪除舊有翻譯 (推薦開啟)</ATC_AutoClearOldOnUpdate>
+	<ATC_AutoTranslateOnUpdate>全自動排程：遊戲啟動時若發現模組更新，自動在背景啟動翻譯產線 (預設關閉)</ATC_AutoTranslateOnUpdate>
+
+	<!-- 網路診斷關聯 -->
+	<ATC_Error_Unknown>未知錯誤</ATC_Error_Unknown>
+	<ATC_Error_Timeout>API 請求超時 (Timeout)。可能模型過載或網路不穩。</ATC_Error_Timeout>
+	<ATC_Error_Connection>無法連線至 {0} 伺服器，請檢查網路或節點是否被牆。</ATC_Error_Connection>
+	<ATC_Error_Unauthorized>API Key 無效或額度耗盡 (HTTP 401/403)。</ATC_Error_Unauthorized>
+	<ATC_Error_NetworkAbnormal>連線異常</ATC_Error_NetworkAbnormal>
+
+	<!-- 網址驗證關聯 -->
+	<ATC_Warning_InvalidUrlFallback>無效的自訂網址: {0}，將嘗試硬載入...</ATC_Warning_InvalidUrlFallback>
+	<!-- 解析錯誤關聯 -->
+	<ATC_Error_ParseFailed>AI 回傳格式錯誤 (非有效 JSON)。請檢查提示詞，或更換較聰明的模型。</ATC_Error_ParseFailed>
+	<ATC_Error_RateLimit>API 請求頻率過高 (HTTP 429)。請調高中斷延遲，或稍後再試。</ATC_Error_RateLimit>
+	<ATC_Error_ServerError>AI 伺服器崩潰或維護中 (HTTP 500+)。請換另一個模型或供應商。</ATC_Error_ServerError>
+	<ATC_Error_HttpGeneric>API 請求失敗 (HTTP {0})，請查看錯誤日誌。</ATC_Error_HttpGeneric>
+	<ATC_Log_RetryAttempt>遇到 HTTP {0}，準備進行第 {1} 次重試 (冷卻 {2} 毫秒)...</ATC_Log_RetryAttempt>
+	<ATC_Log_RetryTimeout>請求超時，準備進行第 {0} 次重試 (冷卻 {1} 毫秒)...</ATC_Log_RetryTimeout>
+	<!-- GUI 設定面板: API 超時關聯 -->
+	<ATC_Setting_Timeout>API 請求超時上限: {0} 秒</ATC_Setting_Timeout>
+	<ATC_Setting_Timeout_Tooltip>當 AI 在這個時間內未回應，系統會自動中斷並降溫重試。建議設定 60~120\n(如果使用深度思考模型，後台會強制保底等待 300 秒)</ATC_Setting_Timeout_Tooltip>
+	<!-- API 測試關聯 -->
+	<ATC_Testing>測試中...</ATC_Testing>
+	<ATC_TestConnection>測試連線</ATC_TestConnection>
+	<ATC_Log_TestSuccess>連線測試成功！API 回應正常，解析格式無誤。</ATC_Log_TestSuccess>
+	<ATC_Msg_TestSuccess>[{0}] 測試成功！準備就緒！</ATC_Msg_TestSuccess>
+	<ATC_Msg_TestFailed>[{0}] 測試失敗，請查看左上角或日誌紅字原因。</ATC_Msg_TestFailed>
+	<ATC_FilteredCodeOnly>已過濾 {0} 個純代碼模組，無需翻譯。</ATC_FilteredCodeOnly>
+	<ATC_FilteredModsCount>已過濾 {0} 個非翻譯模組（純代碼/純素材）</ATC_FilteredModsCount>
+</LanguageData>

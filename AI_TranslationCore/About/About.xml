@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<ModMetaData>
+  <name>全自動補位翻譯核心 (Auto AI Translation)</name>
+  <author> anln9487</author>
+  <packageId>Auto.AITranslation.Core</packageId>
+  <supportedVersions>
+    <li>1.6</li>
+  </supportedVersions>
+  <description>
+這是一套具備 AI 自動補位與繁簡轉換功能的翻譯引擎。
+利用產線的最新技術，讓玩家玩遊戲再也不用看英文！
+  </description>
+</ModMetaData>
