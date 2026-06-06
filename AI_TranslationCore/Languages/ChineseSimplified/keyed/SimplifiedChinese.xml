@@ -356,4 +356,10 @@ EULA 版本 (Version): {1}
 	<ATC_Msg_TestFailed>［{0}］测试失败，请查看左上角或日志红字原因。</ATC_Msg_TestFailed>
 	<ATC_FilteredCodeOnly>已过滤 {0} 个纯代码模组，无需翻译。</ATC_FilteredCodeOnly>
 	<ATC_FilteredModsCount>已过滤 {0} 个非翻译模组（纯代码／纯素材）</ATC_FilteredModsCount>
+	<ATC_Log_DeepL_EndpointDetected>✅ DeepL［{0}］端点侦测完成。</ATC_Log_DeepL_EndpointDetected>
+	<ATC_Log_FetchModelsSuccess>✅ 成功自动抓取［{0}］模型清单！</ATC_Log_FetchModelsSuccess>
+	<ATC_Log_FetchModelsRetry>Fetch Models 遇到 HTTP {0}，准备第 {1} 次重试…</ATC_Log_FetchModelsRetry>
+	<ATC_Error_FetchModelsFailed>❌ 自动抓取［{0}］模型失败！（HTTP {1}）请检查 Key。</ATC_Error_FetchModelsFailed>
+	<ATC_Error_FetchModelsException>⚠️ 抓取［{0}］模型异常：{1}</ATC_Error_FetchModelsException>
+
 </LanguageData>

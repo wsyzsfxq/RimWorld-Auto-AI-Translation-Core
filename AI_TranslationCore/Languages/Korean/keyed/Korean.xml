@@ -290,4 +290,10 @@ EULA 버전 (Version): {1}
 	<ATC_Msg_TestFailed>［{0}］테스트 실패，좌측 상단 팝업이나 로그의 빨간 글씨 원인을 확인하세요。</ATC_Msg_TestFailed>
 	<ATC_FilteredCodeOnly>{0} 개의 순수 코드 모드를 필터링했습니다，번역이 필요하지 않습니다。</ATC_FilteredCodeOnly>
 	<ATC_FilteredModsCount>{0} 개의 비번역 모드（순수 코드／순수 에셋）를 필터링했습니다</ATC_FilteredModsCount>
+	<ATC_Log_DeepL_EndpointDetected>✅ DeepL［{0}］엔드포인트 감지 완료。</ATC_Log_DeepL_EndpointDetected>
+	<ATC_Log_FetchModelsSuccess>✅ ［{0}］모델 목록 자동 가져오기 성공！</ATC_Log_FetchModelsSuccess>
+	<ATC_Log_FetchModelsRetry>Fetch Models 중 HTTP {0} 발생，{1} 번째 재시도 준비 중…</ATC_Log_FetchModelsRetry>
+	<ATC_Error_FetchModelsFailed>❌ ［{0}］모델 자동 가져오기 실패！（HTTP {1}）Key를 확인하세요。</ATC_Error_FetchModelsFailed>
+	<ATC_Error_FetchModelsException>⚠️ ［{0}］모델 가져오기 이상：{1}</ATC_Error_FetchModelsException>
+
 </LanguageData>

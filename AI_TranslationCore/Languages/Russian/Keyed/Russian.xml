@@ -293,4 +293,10 @@ WARNING: AUTO-GENERATED MACHINE TRANSLATION
 	<ATC_Msg_TestFailed>［{0}］Тест не пройден，пожалуйста，проверьте левый верхний угол или красный текст в журнале для выяснения причины。</ATC_Msg_TestFailed>
 	<ATC_FilteredCodeOnly>Отфильтровано {0} модов только с кодом，перевод не требуется。</ATC_FilteredCodeOnly>
 	<ATC_FilteredModsCount>Отфильтровано {0} непереводимых модов（только код／только ресурсы）</ATC_FilteredModsCount>
+	<ATC_Log_DeepL_EndpointDetected>✅ Обнаружение конечной точки DeepL［{0}］завершено。</ATC_Log_DeepL_EndpointDetected>
+	<ATC_Log_FetchModelsSuccess>✅ Успешное автоматическое получение списка моделей［{0}］！</ATC_Log_FetchModelsSuccess>
+	<ATC_Log_FetchModelsRetry>В Fetch Models встречена ошибка HTTP {0}，подготовка к {1}-й повторной попытке…</ATC_Log_FetchModelsRetry>
+	<ATC_Error_FetchModelsFailed>❌ Не удалось автоматически получить модели［{0}］！（HTTP {1}）Пожалуйста，проверьте Key。</ATC_Error_FetchModelsFailed>
+	<ATC_Error_FetchModelsException>⚠️ Аномалия при получении моделей［{0}］：{1}</ATC_Error_FetchModelsException>
+
 </LanguageData>

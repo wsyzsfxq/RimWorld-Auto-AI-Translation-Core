@@ -44,6 +44,9 @@ namespace AutoTranslator_Core
             // ✨ 架構師：開機無感自動歷史換行排毒！保證空投前完美！
             AutoTranslatorScanner.RunNewlineDetoxScanner();
 
+            // ✨ AI 架構師：開機自動獵殺漢化包雙胞胎垃圾檔！(必須在空投前執行)
+            AutoTranslatorScanner.CleanupPatchModTwins();
+
             // ==========================================
             // 🚀 2.0 核心革命：開機自動掛載隱形快取！
             // 玩家再也不用去 Mod 列表打勾那個 !Translation_AI_Pack 了！
@@ -61,13 +64,28 @@ namespace AutoTranslator_Core
 
                 if (AutoTranslatorMod.Settings.AutoTranslateOnUpdate)
                 {
-                    var updates = ModUpdateDetector.GetUpdatedOrNewModsCached();
+                    // 確保呼叫到正確的路徑
+                    var updates = DeleteTranslationWindow.ModUpdateDetector.GetUpdatedOrNewModsCached();
                     if (updates.Count > 0)
                     {
-                        AutoTranslatorSettings.AddLog($"[系統] 偵測到 {updates.Count} 個模組更新，已根據玩家設定，自動啟動背景翻譯產線！");
+                        // ✨ 咪咪知錯了：完美呼叫本地化接口！
+                        AutoTranslatorSettings.AddLog("⚙️ " + "ATC_Log_AutoStartUpdateScan".Translate(updates.Count));
                         // 直接把名單丟進多選掃描器！
                         AutoTranslatorScanner.StartMultiScan(updates);
                     }
+                }
+            });
+
+            // ✨ 架構師優化：開機無感預先載入雲端大腦清單！
+            Task.Run(async () =>
+            {
+                await Task.Delay(3000); // 等待遊戲啟動 5 秒後再偷偷抓取，不卡開機畫面
+                var data = await AutoTranslatorCloudClient.FetchRegistryAsync();
+                if (data != null && data.Count > 0)
+                {
+                    AutoTranslatorSettings.CloudRegistry = data;
+                    AutoTranslatorSettings.HasFetchedCloudThisSession = true;
+                    AutoTranslatorSettings.AddLog("☁️ " + "ATC_Log_CloudPrefetchSuccess".Translate(data.Count));
                 }
             });
 
@@ -77,7 +95,6 @@ namespace AutoTranslator_Core
 
             Log.Message("[AutoTranslationCore] 🛡️ " + "ATC_Log_UIInterceptorStarted".Translate());
         }
-
         private static void LoadCache()
         {
             try
@@ -116,15 +133,30 @@ namespace AutoTranslator_Core
         public static int GetQueueCount() { return TranslationQueue.Count; }
 
         // ==========================================
-        // 🔄 咪咪特製：物理超渡前台 UI 緩存！
+        // 🔄 咪咪特製：物理超渡前台 UI 緩存！(含實體檔案刪除)
         // ==========================================
         public static void ClearUICache()
         {
+            // 1. 清空記憶體裡的所有字典 (包含翻譯結果、黑名單、視窗快取)
+            Cache.Clear();
+            IgnoredCache.Clear();
             Patch_GUI_Label_GUIContent.ClearCache();
-            IgnoredCache.Clear(); // 黑名單清空，重新給生詞一次機會
-            Log.Message("[AutoTranslationCore] 🔄 UI 翻譯快取與忽略黑名單已完全清空！");
-        }
 
+            // 2. 物理超渡硬碟裡的實體字典檔案！
+            try
+            {
+                if (File.Exists(CacheFilePath))
+                {
+                    File.Delete(CacheFilePath);
+                }
+            }
+            catch (Exception ex)
+            {
+                Verse.Log.Warning($"[AutoTranslationCore] " + "ATC_LogError_DeleteUICacheFailed".Translate(ex.Message));
+            }
+
+            Verse.Log.Message("[AutoTranslationCore] 🔄 " + "ATC_Log_UICacheClearedFull".Translate());
+        }
         // ==========================================
         // 🚀 咪咪特製：一鍵熱重載注入總樞紐！
         // ==========================================

@@ -357,4 +357,44 @@ EULA 版本 (Version): {1}
 	<ATC_Msg_TestFailed>[{0}] 測試失敗，請查看左上角或日誌紅字原因。</ATC_Msg_TestFailed>
 	<ATC_FilteredCodeOnly>已過濾 {0} 個純代碼模組，無需翻譯。</ATC_FilteredCodeOnly>
 	<ATC_FilteredModsCount>已過濾 {0} 個非翻譯模組（純代碼/純素材）</ATC_FilteredModsCount>
+	<ATC_Log_DeepL_EndpointDetected>✅ DeepL［{0}］端點偵測完成。 </ATC_Log_DeepL_EndpointDetected>
+	<ATC_Log_FetchModelsSuccess>✅ 成功自動抓取［{0}］模型清單！ </ATC_Log_FetchModelsSuccess>
+	<ATC_Log_FetchModelsRetry>Fetch Models 遇到 HTTP {0}，準備第 {1} 次重試…</ATC_Log_FetchModelsRetry>
+	<ATC_Error_FetchModelsFailed>❌ 自動抓取［{0}］模型失敗！ （HTTP {1}）請檢查 Key。 </ATC_Error_FetchModelsFailed>
+	<ATC_Error_FetchModelsException>⚠️ 抓取［{0}］模型異常：{1}</ATC_Error_FetchModelsException>
+	<!--  假語言檔攔截系統 -->
+	<ATC_Log_FakeLanguageDetected>🕵️ [防偽系統] 抓到作者偷懶！檔案 {0} 被判定為假語言檔，已強制送交 AI 重新翻譯！</ATC_Log_FakeLanguageDetected>
+
+	<!--  V3.0 雲端功能 -->
+	<ATC_Tab_Cloud>☁️ 雲端共享</ATC_Tab_Cloud>
+	<ATC_Cloud_Refresh>🔄 重新整理雲端清單</ATC_Cloud_Refresh>
+	<ATC_Cloud_Fetching>⏳ 正在連線至 Cloudflare 大腦...</ATC_Cloud_Fetching>
+	<ATC_Cloud_FetchFailed>⚠️ 無法取得雲端資料，請檢查網路連線。</ATC_Cloud_FetchFailed>
+
+	<ATC_Cloud_Status_Official>👑 官方精翻</ATC_Cloud_Status_Official>
+	<ATC_Cloud_Status_UpdateAvailable>🟢 發現更新</ATC_Cloud_Status_UpdateAvailable>
+	<ATC_Cloud_Status_Outdated>🟡 翻譯疑似過期</ATC_Cloud_Status_Outdated>
+	<ATC_Cloud_Status_NoCloud>🔘 尚未有翻譯</ATC_Cloud_Status_NoCloud>
+	<ATC_Cloud_Status_Latest>🔵 已是最新版</ATC_Cloud_Status_Latest>
+
+	<ATC_Cloud_Btn_Download>☁️ 一鍵空投</ATC_Cloud_Btn_Download>
+	<ATC_Cloud_Btn_Upload>⬆️ 貢獻翻譯</ATC_Cloud_Btn_Upload>
+	<ATC_Cloud_Btn_Uploading>⏳ 封裝上傳中...</ATC_Cloud_Btn_Uploading>
+	<ATC_Cloud_LastUpdate>最後更新</ATC_Cloud_LastUpdate>
+	<ATC_Cloud_Author>貢獻者</ATC_Cloud_Author>
+	<ATC_Cloud_Nickname>👤 貢獻者暱稱</ATC_Cloud_Nickname>
+	<ATC_Cloud_AdminKey>🔑 神聖特權碼</ATC_Cloud_AdminKey>
+	<ATC_Cloud_Btn_DeleteLocal>🗑️ 刪除本地</ATC_Cloud_Btn_DeleteLocal>
+	<ATC_Cloud_Btn_DeleteCloud>🔥 雲端刪除</ATC_Cloud_Btn_DeleteCloud>
+	<ATC_Cloud_Deleting>⏳ 正在刪除...</ATC_Cloud_Deleting>
+
+	<ATC_Msg_DownloadStart>📥 正在請求空投：{0}...</ATC_Msg_DownloadStart>
+	<ATC_Msg_DownloadSuccess>✅ 空投成功！{0} 已載入記憶體！</ATC_Msg_DownloadSuccess>
+	<ATC_Msg_DownloadFailed>❌ 空投失敗：{0}</ATC_Msg_DownloadFailed>
+
+	<ATC_Msg_UploadSuccess>🚀 上傳成功！感謝您對生態系的貢獻：{0}</ATC_Msg_UploadSuccess>
+	<ATC_Msg_UploadFailed>❌ 上傳失敗：{0} (可能無翻譯檔或網路錯誤)</ATC_Msg_UploadFailed>
+
+	<ATC_Msg_DeleteCloudSuccess>🔥 雲端刪除成功：{0}</ATC_Msg_DeleteCloudSuccess>
+	<ATC_Msg_DeleteCloudFailed>❌ 雲端刪除失敗 (請檢查特權碼)：{0}</ATC_Msg_DeleteCloudFailed>
 </LanguageData>

@@ -293,4 +293,9 @@ In case of copyright disputes，this file will serve as proof that the user was 
 	<ATC_Msg_TestFailed>［{0}］Test failed，please check the top left corner or the red text in the log for the reason。</ATC_Msg_TestFailed>
 	<ATC_FilteredCodeOnly>Filtered {0} pure code mods，no translation needed。</ATC_FilteredCodeOnly>
 	<ATC_FilteredModsCount>Filtered {0} non-translation mods（pure code／pure assets）</ATC_FilteredModsCount>
+	<ATC_Log_DeepL_EndpointDetected>✅ DeepL［{0}］endpoint detection complete。</ATC_Log_DeepL_EndpointDetected>
+	<ATC_Log_FetchModelsSuccess>✅ Successfully auto-fetched［{0}］model list！</ATC_Log_FetchModelsSuccess>
+	<ATC_Log_FetchModelsRetry>Fetch Models encountered HTTP {0}，preparing for the {1}th retry…</ATC_Log_FetchModelsRetry>
+	<ATC_Error_FetchModelsFailed>❌ Failed to auto-fetch［{0}］models！（HTTP {1}）Please check your Key。</ATC_Error_FetchModelsFailed>
+	<ATC_Error_FetchModelsException>⚠️ Exception while fetching［{0}］models：{1}</ATC_Error_FetchModelsException>
 </LanguageData>

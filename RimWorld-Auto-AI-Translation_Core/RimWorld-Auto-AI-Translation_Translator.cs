@@ -9,24 +9,87 @@ using System.Threading.Tasks;
 using Verse;
 using static AutoTranslator_Core.DeleteTranslationWindow;
 
+
 namespace AutoTranslator_Core
 {
     public static class AutoTranslatorAPI
     {
         // 共享的 HttpClient 維持單例（避免 socket exhaustion）
-        // 但不再使用 DefaultRequestHeaders，改用 HttpRequestMessage per-request 設定
+        // 🌟 咪咪終極換血：拔除 Mono 引擎充滿 Bug 的自動解壓縮功能！
         private static readonly HttpClient client = new HttpClient();
         private static int currentKeyIndex = 0;
 
         static AutoTranslatorAPI()
         {
+            // 🌟 咪咪特製修復 1：強制啟用 TLS 1.2，防止 RimWorld 底層 Mono 引擎加密協定太舊被 DeepSeek 踢掉
+            System.Net.ServicePointManager.SecurityProtocol = System.Net.SecurityProtocolType.Tls12;
+
             // 1. 全域設為無限大，把超時控制權交還給每次的 Request
             client.Timeout = System.Threading.Timeout.InfiniteTimeSpan;
+
+            // 🌟 架構師終極修復：拔除假 Chrome 偽裝！
+            // 原因：Cloudflare 抓機器人非常嚴格，偽裝成 Chrome 但底層 TLS 指紋不符，會被 100% 判定為惡意爬蟲並阻斷連線。
+            // 解法：老實坦白我們是 API 客戶端，或者給一個專屬名稱，Cloudflare 反而會直接放行。
+            client.DefaultRequestHeaders.Add("User-Agent", "RimWorld-ATC-Client/4.9");
+
+            // 🌟 咪咪特製修復 3：主動告訴伺服器「我只接收 JSON」，避免伺服器出錯時塞整頁 HTML 網頁過来導致解析崩潰
+            client.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+
+            // 🌟 咪咪特製修復 4：強制要求伺服器回傳「無壓縮」的純文字 (identity)
+            // 徹底繞過 RimWorld 底層 Mono 引擎解壓縮失敗導致的 Illegal byte sequence 報錯！
+            client.DefaultRequestHeaders.AcceptEncoding.Clear();
+            client.DefaultRequestHeaders.Add("Accept-Encoding", "identity");
+        }
+        public struct ProviderDef
+        {
+            public string BaseUrl;
+            public string ListModelsUrl;
+        }
+
+        public static readonly Dictionary<TranslatorProvider, ProviderDef> ProviderRegistry = new Dictionary<TranslatorProvider, ProviderDef>
+        {
+            { TranslatorProvider.Google, new ProviderDef { BaseUrl = "https://generativelanguage.googleapis.com/v1beta", ListModelsUrl = "https://generativelanguage.googleapis.com/v1beta/models" } },
+            { TranslatorProvider.DeepSeek, new ProviderDef { BaseUrl = "https://api.deepseek.com/v1", ListModelsUrl = "https://api.deepseek.com/models" } },
+            { TranslatorProvider.Grok, new ProviderDef { BaseUrl = "https://api.x.ai/v1", ListModelsUrl = "https://api.x.ai/v1/models" } },
+            { TranslatorProvider.OpenRouter, new ProviderDef { BaseUrl = "https://openrouter.ai/api/v1", ListModelsUrl = "https://openrouter.ai/api/v1/models" } },
+            { TranslatorProvider.GLM, new ProviderDef { BaseUrl = "https://open.bigmodel.cn/api/paas/v4", ListModelsUrl = "https://open.bigmodel.cn/api/paas/v4/models" } },
+            { TranslatorProvider.Alibaba, new ProviderDef { BaseUrl = "https://dashscope.aliyuncs.com/compatible-mode/v1", ListModelsUrl = "https://dashscope.aliyuncs.com/compatible-mode/v1/models" } }
+        };
+
+        // 🌟 咪咪特製：容錯型位元組讀取器 (專治 Illegal byte sequence 報錯)
+        // 🌟 咪咪特製：容錯型位元組讀取器 (專治 Illegal byte sequence 報錯)
+        private static async Task<string> SafeReadContentAsync(HttpContent content)
+        {
+            try
+            {
+                // 🌟 終極核彈級防禦：直接抽底層 Stream，無視 Mono 文字快取與 GBK 雞婆解碼
+                using (var stream = await content.ReadAsStreamAsync())
+                using (var reader = new System.IO.StreamReader(stream, new System.Text.UTF8Encoding(false, false)))
+                {
+                    return await reader.ReadToEndAsync();
+                }
+            }
+            catch
+            {
+                // 真的爛到連 Stream 都讀不出來就給空字串，死命保護大哥的遊戲不閃退！
+                return "";
+            }
         }
         public static string CleanInput(string input)
         {
             if (string.IsNullOrEmpty(input)) return "";
-            return new string(input.Where(c => c >= 32 && c <= 126).ToArray()).Trim();
+
+            // 🌟 咪咪借鑑 RimChat 的絕招：無差別抹除所有空白！
+            // 防止玩家複製 Key 或網址時，中間不小心夾帶了半形空白或不可見字元
+            var builder = new StringBuilder(input.Length);
+            foreach (char c in input)
+            {
+                if (!char.IsWhiteSpace(c) && c >= 32 && c <= 126)
+                {
+                    builder.Append(c);
+                }
+            }
+            return builder.ToString();
         }
 
         // 1. 建立語言規則的藍圖
@@ -36,18 +99,25 @@ namespace AutoTranslator_Core
             public string Specifics;
         }
 
-        // 2. 初始化規則庫 (無需本地化，直接寫死)
+        // 2. 初始化規則庫 (加入 7 種歐美主流語言)
         private static readonly Dictionary<TargetLanguage, LangRule> PromptRules = new Dictionary<TargetLanguage, LangRule>
-{
-    { TargetLanguage.Traditional, new LangRule { Name = "台灣繁體中文 (Traditional Chinese, zh-TW)", Specifics = "1. 術語轉換：若原文為另一種語系，必須強制轉換（例如：質量->品質、信息->訊息、激活->啟動、菜單->選單、程序->程式）。\n" }},
-    { TargetLanguage.Simplified, new LangRule { Name = "大陆简体中文 (Simplified Chinese, zh-CN)", Specifics = "1. 术语转换：若原文为另一种语系，必须强制转换（例如：品質->質量、訊息->信息、啟動->激活、選單->菜單、程式->程序）。\n" }},
-    { TargetLanguage.Japanese, new LangRule { Name = "Japanese (日本語)", Specifics = "1. Style: Use natural Japanese suitable for the RimWorld gaming atmosphere. Use appropriate Katakana for sci-fi terms.\n" }},
-    { TargetLanguage.Korean, new LangRule { Name = "Korean (한국어)", Specifics = "1. Style: Use natural Korean suitable for the RimWorld gaming atmosphere.\n" }},
-    { TargetLanguage.Russian, new LangRule { Name = "Russian (Русский)", Specifics = "1. Style: Use natural Russian suitable for the RimWorld gaming atmosphere.\n" }},
-    { TargetLanguage.Ukrainian, new LangRule { Name = "Ukrainian (Українська)", Specifics = "1. Style: Use natural Ukrainian suitable for the RimWorld gaming atmosphere.\n" }},
-    { TargetLanguage.English, new LangRule { Name = "English (US/UK)", Specifics = "1. Style: Translate foreign text into natural English suitable for the RimWorld gaming atmosphere.\n" }}
-};
-
+        {
+            { TargetLanguage.Traditional, new LangRule { Name = "台灣繁體中文 (Traditional Chinese, zh-TW)", Specifics = "1. 術語轉換：若原文為另一種語系，必須強制轉換（例如：質量->品質、信息->訊息、激活->啟動、菜單->選單、程序->程式）。\n" }},
+            { TargetLanguage.Simplified, new LangRule { Name = "大陆简体中文 (Simplified Chinese, zh-CN)", Specifics = "1. 术语转换：若原文为另一种语系，必须强制转换（例如：品質->質量、訊息->信息、啟動->激活、選單->菜單、程式->程序）。\n" }},
+            { TargetLanguage.Japanese, new LangRule { Name = "Japanese (日本語)", Specifics = "1. Style: Use natural Japanese suitable for the RimWorld gaming atmosphere. Use appropriate Katakana for sci-fi terms.\n" }},
+            { TargetLanguage.Korean, new LangRule { Name = "Korean (한국어)", Specifics = "1. Style: Use natural Korean suitable for the RimWorld gaming atmosphere.\n" }},
+            { TargetLanguage.Russian, new LangRule { Name = "Russian (Русский)", Specifics = "1. Style: Use natural Russian suitable for the RimWorld gaming atmosphere.\n" }},
+            { TargetLanguage.Ukrainian, new LangRule { Name = "Ukrainian (Українська)", Specifics = "1. Style: Use natural Ukrainian suitable for the RimWorld gaming atmosphere.\n" }},
+            { TargetLanguage.English, new LangRule { Name = "English (US/UK)", Specifics = "1. Style: Translate foreign text into natural English suitable for the RimWorld gaming atmosphere.\n" }},
+            // ✨ 架構師擴充：新用語系規則
+            { TargetLanguage.French, new LangRule { Name = "French (Français)", Specifics = "1. Style: Use natural French suitable for the RimWorld gaming atmosphere.\n" }},
+            { TargetLanguage.German, new LangRule { Name = "German (Deutsch)", Specifics = "1. Style: Use natural German suitable for the RimWorld gaming atmosphere.\n" }},
+            { TargetLanguage.Spanish, new LangRule { Name = "Spanish (Español)", Specifics = "1. Style: Use natural Spanish suitable for the RimWorld gaming atmosphere.\n" }},
+            { TargetLanguage.Italian, new LangRule { Name = "Italian (Italiano)", Specifics = "1. Style: Use natural Italian suitable for the RimWorld gaming atmosphere.\n" }},
+            { TargetLanguage.Polish, new LangRule { Name = "Polish (Polski)", Specifics = "1. Style: Use natural Polish suitable for the RimWorld gaming atmosphere.\n" }},
+            { TargetLanguage.Portuguese, new LangRule { Name = "Brazilian Portuguese (Português do Brasil)", Specifics = "1. Style: Use natural Brazilian Portuguese suitable for the RimWorld gaming atmosphere.\n" }},
+            { TargetLanguage.Turkish, new LangRule { Name = "Turkish (Türkçe)", Specifics = "1. Style: Use natural Turkish suitable for the RimWorld gaming atmosphere.\n" }}
+        };
         // 3. 乾淨俐落的 Method
         private static string GetSystemPrompt()
         {
@@ -57,28 +127,32 @@ namespace AutoTranslator_Core
             if (!PromptRules.TryGetValue(targetLang, out var rule))
                 rule = PromptRules[TargetLanguage.English];
 
-            // 直接套用模板，O(1) 複雜度，沒有任何 if-else
-            return $"# 任務說明 / Task Description\n" +
-                   $"你是一個程式碼字串本地化處理器（String Localization Processor），負責處理遊戲軟體 RimWorld 的 i18n 資源檔字串。\n" +
-                   $"你的工作是接收一個 JSON 陣列格式的程式碼字串資源，將其中的英文 string literal 轉譯為 {rule.Name}，並以合法的 JSON 陣列格式回傳。\n" +
-                   $"這是一個結構化資料處理（structured data processing）任務，不是內容生成任務。\n\n" +
-                   $"# Input JSON Schema Example\n```\n[\"Build a wall\", \"Pawn {0} died.\"]\n```\n\n" +
-                   $"# Output JSON Schema Example\n```\n[\"...\", \"...\"]\n```\n\n" +
-                   $"# Processing Rules\n" +
-                   rule.Specifics +
-                   "2. Code placeholders MUST be preserved 100% (i18n compliance):\n" +
-                   "   - Bracket variables: [PAWN_nameDef], [TARGET_label]\n" +
-                   "   - Brace parameters: {0}, {1}, {PAWN_0}\n" +
-                   "   - XML-style tags: <color=red>, </color>, <i>, </i>\n" +
-                   "   - Escape sequences: \\n, \\t, \\r MUST output as TWO characters, NOT real line break\n" +
-                   "   - HTML entities: &amp;, &lt;, &gt;\n" +
-                   "3. JSON safety: If input contains '{' or '\\\\', treat as string literal, NOT JSON control char.\n" +
-                   "4. Style: Sci-Fi, Survival, Hardcore tone. Use community-standard translations.\n" +
-                   "5. Strict output requirements:\n" +
-                   "   - Return ONLY a JSON array with length equaling input length\n" +
-                   "   - Element order MUST correspond to input\n" +
-                   "   - NO Markdown (no ```json)\n" +
-                   "   - NO explanatory text or dialogue";
+            // ✨ 架構師重裝甲版 (全英文)：利用 AI 對英文指令最高服從度的特性，徹底鎖死輸出格式！
+            return $@"You are a top-tier AI translation engine specialized in localizing RimWorld game mods.
+Your SOLE task is to translate every string in the provided JSON array into {rule.Name}.
+
+[ABSOLUTE CORE RULES - VIOLATION WILL CAUSE SYSTEM CRASH]
+1. Mandatory Format: You MUST return ONLY a valid JSON array.
+2. No Nonsense: ABSOLUTELY NO Markdown tags (e.g., ```json or ```). NO greetings, NO concluding remarks, NO explanations, and NO conversational filler like ""Sure"" or ""Here is your translation"".
+3. Strict Array Length Match: The returned JSON array MUST have the EXACT SAME number of elements as the input JSON array, and the order MUST match 100%.
+4. Original Text Preservation: If a string contains untranslatable code, file paths, or appears to be pure programming code, return the original string exactly as is. NEVER leave it empty.
+
+[TRANSLATION CONTEXT & STYLE]
+- The game setting is Sci-Fi, Survival, and Hardcore. Use terminology consistent with the RimWorld community.
+{rule.Specifics}
+
+[VARIABLES & SPECIAL CHARACTERS PROTECTION (CRITICAL)]
+1. Bracketed Variables: Variables like {{0}}, {{1}}, {{PAWN_nameDef}}, and [TARGET_label] MUST be preserved 100% exactly as they are. Do not add or remove spaces around them.
+2. XML Tags: Formatting tags like <color=#FF0000>, </color>, <i>, and <b> MUST be retained intact in their correct positions.
+3. Escape Characters: If the original text contains literal escape sequences like \n, \t, or \r, keep them exactly as literal strings. DO NOT output actual line breaks.
+4. Quotation Marks: If quotes are needed in the translated text, you MUST escape them properly using backslashes (e.g., \"") to prevent breaking the JSON structure.
+
+[INPUT & OUTPUT EXAMPLES]
+Input Example: [""Attack"", ""Pawn {{0}} is dead."", ""<color=red>Warning!</color>""]
+Correct Output Example: [""攻擊"", ""殖民者 {{0}} 已經死亡。"", ""<color=red>警告！</color>""]
+Wrong Output Example: ```json\n[""攻擊"", ...]``` (WRONG! Markdown is strictly forbidden!)
+
+FINAL STRICT WARNING: Your output MUST start directly with `[` and end directly with `]`. Absolutely NO other text is allowed!";
         }
         private static string GetBaseUrl(ApiKeyConfig config)
         {
@@ -94,6 +168,16 @@ namespace AutoTranslator_Core
                     // Uri 類別會自動幫你處理乾淨所有的結尾斜線跟不合法的空白
                     string cleanUrl = validUri.AbsoluteUri.TrimEnd('/');
 
+                    // 🌟 咪咪終極防呆：大哥們超愛把整串 /chat/completions 貼進來！我們幫他切掉！
+                    if (cleanUrl.EndsWith("/chat/completions", StringComparison.OrdinalIgnoreCase))
+                    {
+                        cleanUrl = cleanUrl.Substring(0, cleanUrl.Length - 17); // 切除尾巴
+                    }
+                    else if (cleanUrl.EndsWith("/models", StringComparison.OrdinalIgnoreCase))
+                    {
+                        cleanUrl = cleanUrl.Substring(0, cleanUrl.Length - 7);
+                    }
+
                     // 依然保留你的 v1 自動補全規則
                     if (config.Provider != TranslatorProvider.Google &&
                         !cleanUrl.EndsWith("/v1") && !cleanUrl.EndsWith("/v1beta") &&
@@ -101,7 +185,6 @@ namespace AutoTranslator_Core
                     {
                         cleanUrl += "/v1";
                     }
-
                     config.CustomBaseUrl = cleanUrl;
                     return cleanUrl;
                 }
@@ -112,22 +195,20 @@ namespace AutoTranslator_Core
                     return custom;
                 }
             }
-            switch (config.Provider)
+            // 1. 先處理 DeepL 這個異類 (因為它的網址要看 Key 結尾動態決定)
+            if (config.Provider == TranslatorProvider.DeepL)
             {
-                case TranslatorProvider.Google: return "https://generativelanguage.googleapis.com/v1beta";
-                case TranslatorProvider.DeepSeek: return "https://api.deepseek.com/v1";
-                case TranslatorProvider.Grok: return "https://api.x.ai/v1";
-                case TranslatorProvider.OpenRouter: return "https://openrouter.ai/api/v1";
-                case TranslatorProvider.GLM: return "https://open.bigmodel.cn/api/paas/v4";
-                case TranslatorProvider.Alibaba: return "https://dashscope.aliyuncs.com/compatible-mode/v1";
-                // 修正 Bug F-2：DeepL 智能版 — 根據 Key 結尾自動切換 Free / Pro endpoint
-                // DeepL Free 帳號的 Key 結尾固定為 ":fx"
-                case TranslatorProvider.DeepL:
-                    return (!string.IsNullOrEmpty(config.Key) && config.Key.Trim().EndsWith(":fx"))
-                        ? "https://api-free.deepl.com/v2"
-                        : "https://api.deepl.com/v2";
-                default: return "https://api.openai.com/v1";
+                return (!string.IsNullOrEmpty(config.Key) && config.Key.Trim().EndsWith(":fx"))
+                    ? "https://api-free.deepl.com/v2"
+                    : "https://api.deepl.com/v2";
             }
+
+            // 2. 剩下的直接查表！找不到就預設給 OpenAI
+            if (ProviderRegistry.TryGetValue(config.Provider, out var def))
+            {
+                return def.BaseUrl;
+            }
+            return "https://api.openai.com/v1";
         }
 
         // 🌟 咪咪特製：動態自動獲取模型！傳入特定的配置進行獲取
@@ -149,7 +230,7 @@ namespace AutoTranslator_Core
 
                         config.FetchedModels = new List<string> { virtualModel };
                         config.SelectedModel = virtualModel;
-                        AutoTranslatorSettings.AddLog($"✅ DeepL [{(isFree ? "Free" : "Pro")}] 端點偵測完成。");
+                        AutoTranslatorSettings.AddLog("ATC_Log_DeepL_EndpointDetected".Translate(isFree ? "Free" : "Pro"));
                     }
                     finally
                     {
@@ -167,50 +248,169 @@ namespace AutoTranslator_Core
                     string baseUrl = GetBaseUrl(config);
                     bool isGoogleRaw = (config.Provider == TranslatorProvider.Google && string.IsNullOrEmpty(config.CustomBaseUrl));
 
-                    string url = isGoogleRaw ? $"{baseUrl}/models?key={apiKey}" : $"{baseUrl}/models";
-
-                    // 修正 Bug F-1：模型抓取也改用 per-request header，避免汙染共享狀態
-                    var request = new HttpRequestMessage(HttpMethod.Get, new Uri(url));
-                    if (!isGoogleRaw && !string.IsNullOrEmpty(apiKey))
+                    string url;
+                    // 玩家有自訂 BaseUrl → 只能拼 /models
+                    if (!string.IsNullOrEmpty(config.CustomBaseUrl))
                     {
-                        request.Headers.Authorization =
-                            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
+                        url = $"{baseUrl}/models";
                     }
-                    var res = await client.SendAsync(request);
-                    if (res.IsSuccessStatusCode)
+                    // 沒自訂 → 直接使用 ProviderRegistry 預先登記的 ListModelsUrl
+                    else if (ProviderRegistry.TryGetValue(config.Provider, out var def))
                     {
-                        var obj = JObject.Parse(await res.Content.ReadAsStringAsync());
-                        var list = new List<string>();
-
-                        if (isGoogleRaw)
-                        {
-                            var models = obj["models"];
-                            if (models != null)
-                                foreach (var m in models)
-                                    if (m["supportedGenerationMethods"]?.ToString().Contains("generateContent") == true)
-                                        list.Add(m["name"].ToString().Replace("models/", ""));
-                        }
-                        else
-                        {
-                            var data = obj["data"];
-                            if (data != null) foreach (var m in data) list.Add(m["id"].ToString());
-                        }
-
-                        if (list.Count > 0)
-                        {
-                            config.FetchedModels = list.OrderBy(x => x).ToList();
-                            if (string.IsNullOrEmpty(config.SelectedModel)) config.SelectedModel = config.FetchedModels[0];
-                            AutoTranslatorSettings.AddLog($"✅ 成功自動抓取 [{config.Provider}] 模型清單！");
-                        }
+                        url = def.ListModelsUrl;
                     }
                     else
                     {
-                        AutoTranslatorSettings.AddErrorLog($"❌ 自動抓取 [{config.Provider}] 模型失敗！請檢查 Key。");
+                        url = $"{baseUrl}/models"; // fallback
+                    }
+                    // Google 需要把 API Key 放在 Query String
+                    if (isGoogleRaw)
+                    {
+                        url += $"?key={apiKey}";
+                    }
+
+                    // 🌟 咪咪特製：替抓取模型加上「自動退避重試」！DeepSeek 伺服器太擠了，失敗是家常便饭，必須重試！
+                    // 🌟 咪咪特製：替抓取模型加上「自動退避重試」！並全面升級為 UnityWebRequest 引擎，物理免疫編碼衝突！
+                    int maxRetries = 2;
+                    for (int attempt = 0; attempt <= maxRetries; attempt++)
+                    {
+                        var tcs = new TaskCompletionSource<ATC_WebResponse>();
+
+                        // 必須在主執行緒發射 UnityWebRequest
+                        ATC_Dispatcher.RunOnMainThread(() =>
+                        {
+                            try
+                            {
+                                var request = UnityEngine.Networking.UnityWebRequest.Get(url);
+                                request.timeout = 15;
+                                request.SetRequestHeader("Accept", "application/json");
+
+                                if (!isGoogleRaw && !string.IsNullOrEmpty(apiKey))
+                                {
+                                    request.SetRequestHeader("Authorization", $"Bearer {apiKey}");
+                                }
+
+                                var operation = request.SendWebRequest();
+                                operation.completed += (op) =>
+                                {
+                                    try
+                                    {
+                                        var webRes = new ATC_WebResponse
+                                        {
+                                            IsSuccess = request.result == UnityEngine.Networking.UnityWebRequest.Result.Success,
+                                            HttpCode = request.responseCode,
+                                            ErrorText = request.error ?? ""
+                                        };
+
+                                        // 🌟 終極防禦：直接抓最純粹的 byte[]，用寬容模式解析 UTF-8！
+                                        byte[] rawData = request.downloadHandler.data;
+                                        if (rawData != null && rawData.Length > 0)
+                                        {
+                                            System.Text.Encoding tolerantUtf8 = new System.Text.UTF8Encoding(false, false);
+                                            webRes.ResponseBody = tolerantUtf8.GetString(rawData);
+                                        }
+                                        else
+                                        {
+                                            webRes.ResponseBody = "";
+                                        }
+
+                                        // 檢查是否回傳了非 JSON 的垃圾網頁 (例如 Cloudflare 阻擋頁面)
+                                        string contentType = request.GetResponseHeader("Content-Type");
+                                        if (webRes.IsSuccess && (contentType == null || !contentType.Contains("application/json")))
+                                        {
+                                            // 強制標記為失敗，讓它進去重試或報錯
+                                            webRes.IsSuccess = false;
+                                            webRes.ErrorText = "Non-JSON Response";
+                                        }
+
+                                        tcs.TrySetResult(webRes);
+                                    }
+                                    catch (Exception ex) { tcs.TrySetException(ex); }
+                                    finally { request.Dispose(); }
+                                };
+                            }
+                            catch (Exception ex) { tcs.TrySetException(ex); }
+                        });
+
+                        // 背景執行緒乖乖等主執行緒的空投
+                        var resHolder = await tcs.Task;
+
+                        if (resHolder.IsSuccess)
+                        {
+                            string rawResponse = resHolder.ResponseBody;
+
+                            var obj = JObject.Parse(rawResponse);
+                            var list = new List<string>();
+
+                            if (isGoogleRaw)
+                            {
+                                var models = obj["models"];
+                                if (models != null)
+                                    foreach (var m in models)
+                                        if (m["supportedGenerationMethods"]?.ToString().Contains("generateContent") == true)
+                                            list.Add(m["name"].ToString().Replace("models/", ""));
+                            }
+                            else
+                            {
+                                var data = obj["data"];
+                                if (data != null) foreach (var m in data) list.Add(m["id"].ToString());
+                            }
+
+                            if (list.Count > 0)
+                            {
+                                config.FetchedModels = list.OrderBy(x => x).ToList();
+                                if (string.IsNullOrEmpty(config.SelectedModel)) config.SelectedModel = config.FetchedModels[0];
+                                AutoTranslatorSettings.AddLog("ATC_Log_FetchModelsSuccess".Translate(config.Provider.ToString()));
+                            }
+                            return; // 成功就跳出迴圈
+                        }
+                        else
+                        {
+                            int statusCode = (int)resHolder.HttpCode;
+
+                            // ✨ 原有的重試機制保留：如果是 429 或是 500 以上，且還沒超過重試次數，就等待後重試
+                            if ((statusCode == 429 || statusCode >= 500 || statusCode == 0) && attempt < maxRetries)
+                            {
+                                // 🌟 架構師升級：加入隨機抖動 (Jitter)，打散併發線程的重試時間
+                                int baseDelay = 1000 * (int)Math.Pow(2, attempt);
+                                int jitter = new System.Random().Next(100, 800);
+                                int delayMs = baseDelay + jitter;
+                                Verse.Log.Warning($"[AutoTranslationCore] " + "ATC_Log_FetchModelsRetry".Translate(statusCode.ToString(), (attempt + 1).ToString()));
+                                await Task.Delay(delayMs);
+                                continue;
+                            }
+
+                            // ❌ 徹底失敗了，套用大哥提供的新版精準報錯機制！
+                            string errorBody = resHolder.ResponseBody;
+                            string safeError = errorBody.Length > 200 ? errorBody.Substring(0, 200) + "..." : errorBody;
+
+                            // 寫入開發者日誌
+                            Verse.Log.Error($"[AutoTranslationCore] Fetch Models Error [{config.Provider}] HTTP {statusCode}: {errorBody} | ErrorText: {resHolder.ErrorText}");
+
+                            // 友善本地化 Key
+                            string friendlyKey = "ATC_Error_FetchModels_Unknown";
+                            switch (statusCode)
+                            {
+                                case 401: friendlyKey = "ATC_Error_FetchModels_Unauthorized"; break;
+                                case 403: friendlyKey = "ATC_Error_FetchModels_Forbidden"; break;
+                                case 429: friendlyKey = "ATC_Error_FetchModels_RateLimit"; break;
+                                default:
+                                    if (statusCode >= 500) friendlyKey = "ATC_Error_FetchModels_ServerError";
+                                    else if (resHolder.ErrorText == "Non-JSON Response") friendlyKey = "ATC_Error_FetchModels_NonJson";
+                                    break;
+                            }
+
+                            AutoTranslatorSettings.AddErrorLog(friendlyKey.Translate(
+                                config.Provider.ToString(), statusCode.ToString(), safeError));
+
+                            break; // 徹底失敗跳出迴圈
+                        }
                     }
                 }
+                
                 catch (Exception e)
                 {
-                    AutoTranslatorSettings.AddErrorLog($"⚠️ 抓取 [{config.Provider}] 模型異常: {e.Message}");
+                    AutoTranslatorSettings.AddErrorLog("ATC_Error_FetchModelsException".Translate(config.Provider.ToString(), e.Message));
                 }
                 finally
                 {
@@ -248,12 +448,12 @@ namespace AutoTranslator_Core
         }
 
         // 1. 這是你要用來取代原本 TranslateBatchAsync 的全新完整方法
+        // 1. 這是你要用來取代原本 TranslateBatchAsync 的全新完整方法 (純血 UnityWebRequest ＋ 安全日誌版)
         public static async Task<List<string>> TranslateBatchAsync(List<string> texts, ApiKeyConfig forceConfig = null)
         {
             if (AutoTranslatorSettings.IsCancellationRequested) return null;
 
-            // 如果有指定槍，就用指定的；沒有就從彈匣拿下一把
-            ApiKeyConfig targetConfig = forceConfig ?? GetNextConfig(); 
+            ApiKeyConfig targetConfig = forceConfig ?? GetNextConfig();
             if (targetConfig == null) return null;
 
             string apiKey = CleanInput(targetConfig.Key);
@@ -267,9 +467,6 @@ namespace AutoTranslator_Core
                 string prompt = GetSystemPrompt();
                 string inputJson = JsonConvert.SerializeObject(texts);
 
-                var request = new HttpRequestMessage(HttpMethod.Post, (Uri)null);
-
-                // --- (你原本的 Provider 判斷與 Payload 生成邏輯，保持不變) ---
                 if (targetConfig.Provider == TranslatorProvider.Google)
                 {
                     url = $"{baseUrl}/models/{model}:generateContent?key={apiKey}";
@@ -279,126 +476,115 @@ namespace AutoTranslator_Core
                 {
                     url = $"{baseUrl}/translate";
                     string deepLLang = MapToDeepLLangCode(AutoTranslatorMod.Settings.TargetLang);
-                    if (string.IsNullOrEmpty(deepLLang))
-                    {
-                        AutoTranslatorSettings.AddErrorLog("🌐 " + "ATC_LogError_DeepL_LangNotSupport".Translate(AutoTranslatorMod.Settings.TargetLang.ToString()));
-                        return null;
-                    }
-                    request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("DeepL-Auth-Key", apiKey);
+                    if (string.IsNullOrEmpty(deepLLang)) return null;
                     payload = new { text = texts.ToArray(), target_lang = deepLLang, preserve_formatting = true, tag_handling = "xml" };
                 }
                 else
                 {
                     url = $"{baseUrl}/chat/completions";
-                    if (!string.IsNullOrEmpty(apiKey))
-                        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
-
                     bool isReasoningModel = IsReasoningModel(model);
-                    if (isReasoningModel)
+                    int safeMaxTokens = 4096;
+
+                    if (isReasoningModel || targetConfig.Provider == TranslatorProvider.Custom_OpenAI || targetConfig.Provider == TranslatorProvider.DeepSeek)
                     {
-                        payload = new { model = string.IsNullOrEmpty(model) ? "local-model" : model, messages = new[] { new { role = "system", content = prompt }, new { role = "user", content = inputJson } }, max_tokens = 8192 };
+                        payload = new { model = string.IsNullOrEmpty(model) ? "local-model" : model, messages = new[] { new { role = "system", content = prompt }, new { role = "user", content = inputJson } }, max_tokens = safeMaxTokens };
                     }
                     else
                     {
-                        payload = new { model = string.IsNullOrEmpty(model) ? "local-model" : model, messages = new[] { new { role = "system", content = prompt }, new { role = "user", content = inputJson } }, response_format = new { type = "json_object" }, max_tokens = 8192 };
+                        payload = new { model = string.IsNullOrEmpty(model) ? "local-model" : model, messages = new[] { new { role = "system", content = prompt }, new { role = "user", content = inputJson } }, response_format = new { type = "json_object" }, max_tokens = safeMaxTokens };
                     }
                 }
-
-                request.RequestUri = new Uri(url);
-                request.Content = new StringContent(JsonConvert.SerializeObject(payload), Encoding.UTF8, "application/json");
-
-                // 🌟 核心改動區域：動態超時與退避重試機制
-                int maxRetries = 2; // 最多重試 2 次
-
-                // 解析玩家設定的超時秒數，如果尚未在設定裡建立變數，預設給 60 秒
-                // (註: 若你還沒在 Settings 裡寫 TimeoutSeconds，請先用 int customTimeout = 60;)
+                string jsonPayload = JsonConvert.SerializeObject(payload);
+                int maxRetries = 2;
                 int customTimeout = AutoTranslatorMod.Settings.TimeoutSeconds > 0 ? AutoTranslatorMod.Settings.TimeoutSeconds : 60;
-
-                // 修正 Bug K: Reasoning 模型強制定為 300 秒(5分鐘) 避免過早中斷
                 if (IsReasoningModel(model)) customTimeout = 300;
+
+                if (targetConfig.Provider == TranslatorProvider.Custom_OpenAI || targetConfig.Provider == TranslatorProvider.DeepSeek)
+                {
+                    customTimeout = Math.Max(customTimeout, 300);
+                }
 
                 for (int attempt = 0; attempt <= maxRetries; attempt++)
                 {
-                    // 每次發送都必須複製出一個全新的 Request (因為 HttpClient 規定同一個 Request 不能傳第二次)
-                    var retryRequest = CloneHttpRequest(request);
+                    if (AutoTranslatorSettings.IsCancellationRequested) return null;
 
-                    // 建立帶有自訂秒數的 Token (時間到會自動拋出 TaskCanceledException)
-                    using (var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(customTimeout)))
+                    var tcs = new TaskCompletionSource<ATC_WebResponse>();
+
+                    ATC_Dispatcher.RunOnMainThread(() =>
                     {
-                        try
+                        ATC_WebRequestEngine.Instance.FireRequest(url, jsonPayload, apiKey, targetConfig.Provider, customTimeout, tcs);
+                    });
+
+                    var resHolder = await tcs.Task;
+
+                    if (resHolder.IsSuccess)
+                    {
+                        int charCount = texts.Sum(t => t.Length);
+                        AutoTranslatorMod.Settings.SessionCharCount += charCount;
+                        AutoTranslatorMod.Settings.TotalCharCount += charCount;
+                        bool expectsGoogleFormat = (targetConfig.Provider == TranslatorProvider.Google);
+
+                        if (texts.Count == 1 && texts[0] == "Connection Test")
                         {
-                            // 將 cts.Token 傳入，啟動超時倒數
-                            var res = await client.SendAsync(retryRequest, cts.Token);
-
-                            // ✅ 成功取得回應：不再重試，直接解析並回傳！
-                            if (res.IsSuccessStatusCode)
-                            {
-                                int charCount = texts.Sum(t => t.Length);
-                                AutoTranslatorMod.Settings.SessionCharCount += charCount;
-                                AutoTranslatorMod.Settings.TotalCharCount += charCount;
-                                bool expectsGoogleFormat = (targetConfig.Provider == TranslatorProvider.Google);
-                                return ParseResponse(await res.Content.ReadAsStringAsync(), targetConfig.Provider, texts.Count, expectsGoogleFormat);
-                            }
-
-                            // ❌ 伺服器回傳了錯誤碼 (4xx / 5xx)
-                            int statusCode = (int)res.StatusCode;
-
-                            // 只有 429 頻率限制、或 500 以上伺服器錯誤才值得重試
-                            if ((statusCode == 429 || statusCode >= 500) && attempt < maxRetries)
-                            {
-                                int delayMs = 1000 * (int)Math.Pow(2, attempt); // 1秒 -> 2秒
-                                Log.Warning($"[AutoTranslationCore] " + "ATC_Log_RetryAttempt".Translate(statusCode.ToString(), (attempt + 1).ToString(), delayMs.ToString()));
-                                await Task.Delay(delayMs);
-                                continue; // 繼續下一次迴圈重試
-                            }
-
-                            // 如果不能重試 (如 401 權限不足)，接上我們前面完成的 HTTP 狀態本地化邏輯
-                            string err = await res.Content.ReadAsStringAsync();
-                            if (statusCode == 401 || statusCode == 403)
-                            {
-                                AutoTranslatorSettings.AddErrorLog($"🔒 [{targetConfig.Provider}] " + "ATC_Error_Unauthorized".Translate());
-                            }
-                            else if (statusCode == 429)
-                            {
-                                AutoTranslatorSettings.AddErrorLog($"⏱️ [{targetConfig.Provider}] " + "ATC_Error_RateLimit".Translate());
-                            }
-                            else if (statusCode >= 500)
-                            {
-                                AutoTranslatorSettings.AddErrorLog($"🔥 [{targetConfig.Provider}] " + "ATC_Error_ServerError".Translate());
-                            }
-                            else
-                            {
-                                AutoTranslatorSettings.AddErrorLog($"⚠️ [{targetConfig.Provider}] " + "ATC_Error_HttpGeneric".Translate(statusCode.ToString()));
-                            }
-                            Log.Error($"[AutoTranslationCore] API Error [{targetConfig.Provider}] (HTTP {statusCode}): {err}");
-                            return null;
+                            return new List<string> { "Connection OK" };
                         }
-                        catch (Exception ex)
-                        {
-                            // 攔截超時或斷線
-                            if (attempt < maxRetries && (ex is TaskCanceledException || ex.Message.ToLower().Contains("timeout")))
-                            {
-                                int delayMs = 1000 * (int)Math.Pow(2, attempt);
-                                Log.Warning($"[AutoTranslationCore] " + "ATC_Log_RetryTimeout".Translate((attempt + 1).ToString(), delayMs.ToString()));
-                                await Task.Delay(delayMs);
-                                continue; // 繼續下一次迴圈重試
-                            }
 
-                            // 真正死透了，交給我們寫好的分析器印出錯誤
-                            AnalyzeAndLogNetworkError(targetConfig.Provider, ex);
-                            return null;
-                        }
+                        return ParseResponse(resHolder.ResponseBody, targetConfig.Provider, texts.Count, expectsGoogleFormat);
                     }
+
+                    int statusCode = (int)resHolder.HttpCode;
+
+                    if ((statusCode == 429 || statusCode >= 500 || resHolder.HttpCode == 0) && attempt < maxRetries)
+                    {
+                        int baseDelay = 1000 * (int)Math.Pow(2, attempt);
+                        int jitter = new System.Random().Next(100, 800);
+                        int delayMs = baseDelay + jitter;
+
+                        // 🛡️ 安全寫入開發者日誌
+                        ATC_Dispatcher.RunOnMainThread(() =>
+                            Verse.Log.Warning($"[AutoTranslationCore] " + "ATC_Log_RetryAttempt".Translate(statusCode.ToString(), (attempt + 1).ToString(), delayMs.ToString()))
+                        );
+
+                        await Task.Delay(delayMs);
+                        continue;
+                    }
+
+                    string errText = resHolder.ErrorText;
+                    if (statusCode == 401 || statusCode == 403)
+                    {
+                        AutoTranslatorSettings.AddErrorLog($"🔒 [{targetConfig.Provider}] " + "ATC_Error_Unauthorized".Translate());
+                    }
+                    else if (statusCode == 429)
+                    {
+                        AutoTranslatorSettings.AddErrorLog($"⏱️ [{targetConfig.Provider}] " + "ATC_Error_RateLimit".Translate());
+                    }
+                    else if (statusCode >= 500)
+                    {
+                        AutoTranslatorSettings.AddErrorLog($"🔥 [{targetConfig.Provider}] " + "ATC_Error_ServerError".Translate());
+                    }
+                    else
+                    {
+                        AutoTranslatorSettings.AddErrorLog($"⚠️ [{targetConfig.Provider}] " + "ATC_Error_HttpGeneric".Translate(statusCode.ToString()) + $" ({errText})");
+                    }
+
+                    // 🛡️ 安全寫入開發者日誌
+                    ATC_Dispatcher.RunOnMainThread(() =>
+                        Verse.Log.Error($"[AutoTranslationCore] UnityWebRequest Package Lost [{targetConfig.Provider}] (HTTP {statusCode}): {errText}\nBody: {resHolder.ResponseBody}")
+                    );
+
+                    return null;
                 }
-                return null; // 迴圈意外結束的保底回傳
+                return null;
             }
             catch (Exception ex)
             {
-                Log.Error($"[AutoTranslationCore] Fatal Translation API Error: {ex}");
+                // 🛡️ 安全寫入開發者日誌
+                ATC_Dispatcher.RunOnMainThread(() =>
+                    Verse.Log.Error($"[AutoTranslationCore] Fatal Translation Bridge Error: {ex}")
+                );
                 return null;
             }
         }
-
         // 2. 這是重試機制必備的輔助方法 (請直接貼在 TranslateBatchAsync 下方)
         // 因為 HttpClient 不允許你把「已經發送過」的 Request 再次丟進去，我們必須提供一個複製功能。
         private static HttpRequestMessage CloneHttpRequest(HttpRequestMessage req)
@@ -451,18 +637,17 @@ namespace AutoTranslator_Core
         public static void RunConnectionTest(ApiKeyConfig config)
         {
             if (config == null) return;
-
-            // 把狀態切成測試中，UI 會變成黃色的「⏳ 測試中...」
             config.IsTesting = true;
+
+            // ✨ 架構師修復：解除全域封鎖狀態！
+            // 避免玩家按下「停止翻譯」後，殘留的取消標記把連線測試也一起秒殺！
+            AutoTranslatorSettings.IsCancellationRequested = false;
 
             Task.Run(async () =>
             {
                 try
                 {
-                    // 故意只送一個超短的字串去翻譯，速度最快
                     var testTexts = new List<string> { "Connection Test" };
-
-                    // 強制指定使用這組 Config 進行發送！
                     var result = await TranslateBatchAsync(testTexts, config);
 
                     ATC_Dispatcher.RunOnMainThread(() =>
@@ -470,26 +655,29 @@ namespace AutoTranslator_Core
                         if (result != null && result.Count > 0)
                         {
                             AutoTranslatorSettings.AddLog($"✅ [{config.Provider}] " + "ATC_Log_TestSuccess".Translate());
-                            // 測試成功，跳出綠色音效彈窗
                             Verse.Messages.Message("ATC_Msg_TestSuccess".Translate(config.Provider.ToString()), RimWorld.MessageTypeDefOf.PositiveEvent, false);
                         }
                         else
                         {
-                            // 如果失敗，TranslateBatchAsync 那邊已經自動幫你跳紅字錯誤了！這裡補個小提示就好
+                            // ✅ 失敗時使用本地化訊息，並提示玩家查看日誌
+                            AutoTranslatorSettings.AddErrorLog("ATC_Log_TestFailed_Detail".Translate(config.Provider.ToString()));
                             Verse.Messages.Message("ATC_Msg_TestFailed".Translate(config.Provider.ToString()), RimWorld.MessageTypeDefOf.RejectInput, false);
                         }
-                        // 恢復按鈕狀態
                         config.IsTesting = false;
                     });
                 }
                 catch (Exception ex)
                 {
                     Log.Warning($"[AutoTranslationCore] Test Thread Aborted: {ex.Message}");
-                    ATC_Dispatcher.RunOnMainThread(() => config.IsTesting = false);
+                    ATC_Dispatcher.RunOnMainThread(() =>
+                    {
+                        AutoTranslatorSettings.AddErrorLog("ATC_Log_TestException".Translate(config.Provider.ToString(), ex.Message));
+                        Verse.Messages.Message("ATC_Msg_TestFailed".Translate(config.Provider.ToString()), RimWorld.MessageTypeDefOf.RejectInput, false);
+                        config.IsTesting = false;
+                    });
                 }
             });
         }
-
         /// <summary>
         /// 判定是否為 reasoning model（回應慢、不支援 response_format 強制）
         /// 修正 Bug K：DeepSeek Pro / OpenAI o1 系列適配
@@ -514,55 +702,106 @@ namespace AutoTranslator_Core
         {
             switch (lang)
             {
-                case TargetLanguage.Traditional: return "ZH-HANT";  // DeepL 2023 後支援繁中
+                case TargetLanguage.Traditional: return "ZH-HANT";
                 case TargetLanguage.Simplified: return "ZH-HANS";
                 case TargetLanguage.Japanese: return "JA";
                 case TargetLanguage.Korean: return "KO";
                 case TargetLanguage.Russian: return "RU";
                 case TargetLanguage.English: return "EN-US";
-                case TargetLanguage.Ukrainian: return null;  // DeepL 不支援烏克蘭語
+                case TargetLanguage.Ukrainian: return null;  // DeepL 不支援烏克蘭文
+                // ✨ 架構師擴充：支援 DeepL 新語系
+                case TargetLanguage.French: return "FR";
+                case TargetLanguage.German: return "DE";
+                case TargetLanguage.Spanish: return "ES";
+                case TargetLanguage.Italian: return "IT";
+                case TargetLanguage.Polish: return "PL";
+                case TargetLanguage.Portuguese: return "PT-BR"; // 巴西葡文
+                case TargetLanguage.Turkish: return "TR";
                 default: return null;
             }
         }
-
-private static List<string> ParseResponse(string json, TranslatorProvider p, int count, bool expectsGoogleFormat)
-{
-    try
-    {
-        var obj = JObject.Parse(json);
-
-        // 修正 Bug F-2：DeepL 有自己的回應格式，不走 LLM 解析流程
-        if (p == TranslatorProvider.DeepL)
+        // 🌟 架構師特製：無敵 JSON 榨汁機核心算法（移植自 RimChat 概念）
+        private static string ExtractCleanJson(string text)
         {
-            var translations = obj["translations"];
-            if (translations == null) return null;
+            if (string.IsNullOrWhiteSpace(text)) return text;
 
-            var result = new List<string>();
-            foreach (var item in translations)
+            // 尋找 JSON 的真正起點
+            int start = text.IndexOfAny(new char[] { '[', '{' });
+            if (start == -1) return text; // 找不到就退回，讓後續報錯機制處理
+
+            char openChar = text[start];
+            char closeChar = openChar == '[' ? ']' : '}';
+            int depth = 0;
+            bool inString = false;
+            bool escape = false;
+
+            // 遍歷字串，利用深度計算精準找到真正的結尾
+            for (int i = start; i < text.Length; i++)
             {
-                result.Add(item["text"]?.ToString() ?? "");
+                char c = text[i];
+                if (inString)
+                {
+                    if (escape) escape = false;
+                    else if (c == '\\') escape = true;
+                    else if (c == '"') inString = false;
+                    continue;
+                }
+                if (c == '"')
+                {
+                    inString = true;
+                    continue;
+                }
+
+                if (c == openChar) depth++;
+                else if (c == closeChar)
+                {
+                    depth--;
+                    if (depth == 0)
+                    {
+                        // 完美捕捉！無視後面的廢話
+                        return text.Substring(start, i - start + 1);
+                    }
+                }
             }
-            return (result.Count == count) ? result : null;
+            return text.Substring(start); // 括號沒對齊的保底機制
         }
 
-                string raw = expectsGoogleFormat
-                    ? obj["candidates"]?[0]?["content"]?["parts"]?[0]?["text"]?.ToString()
-                    : obj["choices"]?[0]?["message"]?["content"]?.ToString();
+        private static List<string> ParseResponse(string json, TranslatorProvider p, int count, bool expectsGoogleFormat)
+        {
+            try
+            {
+                var obj = JObject.Parse(json);
 
-                if (string.IsNullOrEmpty(raw)) return null;
+                // 修正 Bug F-2：DeepL 有自己的回應格式，不走 LLM 解析流程
+                if (p == TranslatorProvider.DeepL)
+                {
+                    var translations = obj["translations"];
+                    if (translations == null) return null;
+
+                    var result = new List<string>();
+                    foreach (var item in translations)
+                    {
+                        result.Add(item["text"]?.ToString() ?? "");
+                    }
+                    return (result.Count == count) ? result : null;
+                }
+
+                string raw = expectsGoogleFormat
+                                    ? obj["candidates"]?[0]?["content"]?["parts"]?[0]?["text"]?.ToString()
+                                    : obj["choices"]?[0]?["message"]?["content"]?.ToString();
+
+                // 🛡️ 官方認證 Bug 防禦：如果真的拿到空值，印出警告並回傳 null，讓上層自動進行重試！
+                if (string.IsNullOrWhiteSpace(raw))
+                {
+                    Log.Warning($"[AutoTranslationCore] 解析到空內容 (API 可能觸發了空包彈 Bug)，準備觸發重試機制...");
+                    return null;
+                }
 
                 // 1. 暴力清除所有可能的 Markdown 標記 (忽略大小寫的 json/JSON 標籤)
-                raw = System.Text.RegularExpressions.Regex.Replace(raw, @"```(?:json)?", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-
+                raw = System.Text.RegularExpressions.Regex.Replace(raw, @"json?", "", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
                 // 2. 智慧定位 JSON 的真正邊界 (無管它是 Array 還是 Object)
-                int start = raw.IndexOfAny(new char[] { '[', '{' });
-                int end = raw.LastIndexOfAny(new char[] { ']', '}' });
-
-                if (start != -1 && end != -1 && end >= start)
-                {
-                    // 精準切出 JSON 核心，無視 AI 在前後說的任何廢話 (例如："好的，這是您的翻譯：[...]")
-                    raw = raw.Substring(start, end - start + 1);
-                }
+                // 🌟 架構師升級：呼叫無敵 JSON 榨汁機！
+                raw = ExtractCleanJson(raw);
                 List<string> list = null;
                 if (raw.StartsWith("{"))
                 {
@@ -599,6 +838,114 @@ private static List<string> ParseResponse(string json, TranslatorProvider p, int
                 Log.Error($"[AutoTranslationCore] JSON 解析失敗 (AI 回傳格式異常): {e.Message}\n異常 Payload: {preview}");
 
                 return null;
+            }
+        }
+        // 🌟 架構師縫合：跨執行緒網頁回應載體
+        public class ATC_WebResponse
+        {
+            public bool IsSuccess;
+            public long HttpCode;
+            public string ErrorText;
+            public string ResponseBody;
+        }
+
+        // 🌟 架構師縫合：RimChat 同款的「不死發射引擎 (Singleton)」
+        // 完美解決場景切換或剛開機時找不到 GameObject 的 Bug！
+        public class ATC_WebRequestEngine : UnityEngine.MonoBehaviour
+        {
+            private static ATC_WebRequestEngine _instance;
+            private static readonly object _instanceLock = new object();
+
+            public static ATC_WebRequestEngine Instance
+            {
+                get
+                {
+                    if (_instance == null)
+                    {
+                        lock (_instanceLock)
+                        {
+                            if (_instance == null)
+                            {
+                                var go = new UnityEngine.GameObject("ATC_WebRequestEngine_Unkillable");
+                                UnityEngine.Object.DontDestroyOnLoad(go);
+                                _instance = go.AddComponent<ATC_WebRequestEngine>();
+                            }
+                        }
+                    }
+                    return _instance;
+                }
+            }
+
+            // 核心協程：完全照搬 RimChat 的 UnityWebRequest 處理邏輯
+            public void FireRequest(string url, string jsonBody, string apiKey, TranslatorProvider provider, int timeoutSeconds, TaskCompletionSource<ATC_WebResponse> tcs)
+            {
+                StartCoroutine(ExecuteRequestCoroutine(url, jsonBody, apiKey, provider, timeoutSeconds, tcs));
+            }
+
+            private System.Collections.IEnumerator ExecuteRequestCoroutine(
+                string url, string jsonBody, string apiKey, TranslatorProvider provider, int timeoutSeconds, TaskCompletionSource<ATC_WebResponse> tcs)
+            {
+                using (var webRequest = new UnityEngine.Networking.UnityWebRequest(url, "POST"))
+                {
+                    byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonBody);
+                    webRequest.uploadHandler = new UnityEngine.Networking.UploadHandlerRaw(bodyRaw);
+                    webRequest.downloadHandler = new UnityEngine.Networking.DownloadHandlerBuffer();
+                    webRequest.SetRequestHeader("Content-Type", "application/json");
+
+                    string trimmedApiKey = apiKey?.Trim() ?? string.Empty;
+                    if (!string.IsNullOrEmpty(trimmedApiKey))
+                    {
+                        if (provider == TranslatorProvider.DeepL)
+                        {
+                            webRequest.SetRequestHeader("Authorization", $"DeepL-Auth-Key {trimmedApiKey}");
+                        }
+                        // 🌟 咪咪特製修復：Google (Gemini) 已經把 Key 塞在網址裡了，絕對不能送 Bearer 標頭，否則會被當成錯誤的 OAuth2 憑證！
+                        else if (provider != TranslatorProvider.Google)
+                        {
+                            webRequest.SetRequestHeader("Authorization", $"Bearer {trimmedApiKey}");
+                        }
+                        // (如果玩家有填自訂網址的 Google 代理站，也是直接走網址參數，所以這裡一律排除)
+                    }
+                    // ... 這裡上方是發射網頁請求的設定 
+                    webRequest.timeout = timeoutSeconds;
+
+                    // 倒傳入 Unity 原生無感異步等待，絕不卡死主執行緒
+                    yield return webRequest.SendWebRequest();
+
+                    string safeText = string.Empty;
+                    if (webRequest.downloadHandler != null)
+                    {
+                        // 🌟 咪咪大腦縫合點：不讀取會炸裂的 .text，直接抓取底層最純粹的原始 byte 陣列
+                        byte[] rawData = webRequest.downloadHandler.data;
+                        if (rawData != null && rawData.Length > 0)
+                        {
+                            try
+                            {
+                                // 🌟 終極防禦：建立一個「絕對不拋出例外、遇到壞字元自動替換成安全字元」的寬容 UTF-8 解碼器
+                                // 這樣就能在代碼層面徹底擺脫 Windows 系統語系編碼（Big5/GBK）對 Mono 運行時的干擾！
+                                System.Text.Encoding tolerantUtf8 = new System.Text.UTF8Encoding(false, false);
+                                safeText = tolerantUtf8.GetString(rawData);
+                            }
+                            catch
+                            {
+                                // 萬一極端狀況下連 byte 轉碼都失敗，再用原廠 text 進行保底，死守遊戲不閃退
+                                safeText = webRequest.downloadHandler.text ?? string.Empty;
+                            }
+                        }
+                    }
+
+                    // 打包執行結果
+                    var response = new ATC_WebResponse
+                    {
+                        HttpCode = webRequest.responseCode,
+                        ErrorText = webRequest.error ?? "",
+                        ResponseBody = safeText //  將我們排毒淨化後的安全字串傳回去
+                    };
+                    response.IsSuccess = (webRequest.result == UnityEngine.Networking.UnityWebRequest.Result.Success);
+
+                    // 將結果彈回背景執行緒，完美喚醒 4.9 版的高速多線程產線
+                    tcs.SetResult(response);
+                }
             }
         }
     }

@@ -293,4 +293,10 @@ EULA バージョン (Version): {1}
 	<ATC_Msg_TestFailed>［{0}］テスト失敗，左上のポップアップまたはログの赤字の理由を確認してください。</ATC_Msg_TestFailed>
 	<ATC_FilteredCodeOnly>{0} 個の純コード Mod をフィルタリングしました，翻訳は不要です。</ATC_FilteredCodeOnly>
 	<ATC_FilteredModsCount>{0} 個の非翻訳 Mod（純コード／純素材）をフィルタリングしました</ATC_FilteredModsCount>
+	<ATC_Log_DeepL_EndpointDetected>✅ DeepL［{0}］エンドポイントの検出が完了しました。</ATC_Log_DeepL_EndpointDetected>
+	<ATC_Log_FetchModelsSuccess>✅ ［{0}］モデルリストの自動取得に成功しました！</ATC_Log_FetchModelsSuccess>
+	<ATC_Log_FetchModelsRetry>Fetch Models で HTTP {0} が発生しました，第 {1} 回目の再試行を準備中…</ATC_Log_FetchModelsRetry>
+	<ATC_Error_FetchModelsFailed>❌ ［{0}］モデルの自動取得に失敗しました！（HTTP {1}）Key を確認してください。</ATC_Error_FetchModelsFailed>
+	<ATC_Error_FetchModelsException>⚠️ ［{0}］モデル取得異常：{1}</ATC_Error_FetchModelsException>
+
 </LanguageData>
