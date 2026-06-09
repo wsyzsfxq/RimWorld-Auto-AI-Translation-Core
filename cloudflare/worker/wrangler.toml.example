@@ -1,0 +1,17 @@
+name = "rimworld-auto-ai-translation-cloud"
+main = "worker-v2.js"
+compatibility_date = "2026-06-07"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "YOUR_D1_DATABASE_NAME"
+database_id = "YOUR_D1_DATABASE_ID"
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "YOUR_R2_BUCKET_NAME"
+
+# Secrets are set with:
+# npx wrangler secret put MASTER_SECRET
+# npx wrangler secret put TOKEN_HASH_PEPPER
+# npx wrangler secret put LEGACY_OFFICIAL_SECRETS
