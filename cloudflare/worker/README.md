@@ -198,6 +198,19 @@ Reviewer privilege codes should include:
 ["record:verify", "audit:read", "feedback:moderate", "feedback:read_private"]
 ```
 
+## RWMod Phase 4 Launch Readiness
+
+Before attaching `rwmod.net`, running remote D1 migrations, or enabling public
+RWMod reports, review `../../docs/RWMod_Phase4_Launch_Readiness.md`.
+
+The recommended first public topology is:
+
+- `rwmod.net`: Cloudflare Pages serving `web/rwmod-frontier`.
+- `api.rwmod.net`: this Worker serving `/api/v1/*`.
+
+Production must bind D1 as `DB`, bind R2 as `BUCKET`, set
+`TURNSTILE_SECRET_KEY`, and avoid `RWMOD_LOCAL_PREVIEW=1`.
+
 ## File-Based Deployment
 
 1. Copy `wrangler.toml.example` to `wrangler.toml`.

@@ -100,6 +100,10 @@ C:\Users\g1061\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin
 
 ## Next Production Steps
 
+Phase 4 expands these steps into a launch readiness plan. See
+`docs/RWMod_Phase4_Launch_Readiness.md` before running any remote Cloudflare or
+D1 command.
+
 These require explicit operator confirmation before running:
 
 1. Inspect the existing production D1 schema.

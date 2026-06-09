@@ -30,6 +30,11 @@ Not included yet:
 - Worker deployment
 - production D1 migration
 
+Phase 4 launch readiness is documented in
+`../../docs/RWMod_Phase4_Launch_Readiness.md`. It defines the recommended first
+production topology as Cloudflare Pages for `rwmod.net` plus a Worker API on
+`api.rwmod.net`; it is a preparation plan, not a completed deployment.
+
 ## Local Preview
 
 Mock API preview:
@@ -147,7 +152,21 @@ For production report submission, also set the public Turnstile site key before
 </script>
 ```
 
+Recommended first production injection:
+
+```html
+<script>
+  window.RWMOD_API_BASE = "https://api.rwmod.net";
+  window.RWMOD_TURNSTILE_SITE_KEY = "your-public-site-key";
+</script>
+```
+
+Do not treat local preview report behavior as production security. Production
+requires the Worker `TURNSTILE_SECRET_KEY` secret and must not set
+`RWMOD_LOCAL_PREVIEW=1`.
+
 ## Design References
 
 - `docs/RWMod_Frontend_Design_System.md`
 - `docs/RWMod_Phase1_Data_Model.md`
+- `docs/RWMod_Phase4_Launch_Readiness.md`

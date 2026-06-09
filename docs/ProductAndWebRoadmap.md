@@ -116,6 +116,29 @@ RWMod should evolve from a searchable catalog into a structured RimWorld mod
 encyclopedia. The order below keeps the current MVP useful while reserving a
 clear path toward a mcmod-style knowledge system.
 
+### Phase 4: Launch Readiness And Production Cutover
+
+Phase 4 prepares `rwmod.net` for a safe beta launch without deploying by
+accident. The source of truth is `docs/RWMod_Phase4_Launch_Readiness.md`.
+
+- Choose the first production topology:
+  - `rwmod.net` on Cloudflare Pages for the static frontend.
+  - `api.rwmod.net` on Cloudflare Workers for API, D1, R2, admin, and reports.
+- Keep production deployment behind explicit operator gates:
+  - Cloudflare resource inventory.
+  - Read-only D1 inspection.
+  - Safe RWMod catalog migration.
+  - Seed preview.
+  - Approved seed.
+  - Staging frontend smoke.
+  - Production custom-domain cutover.
+- Require Turnstile before public report submission.
+- Forbid `RWMOD_LOCAL_PREVIEW=1` in production.
+- Keep rollback simple:
+  - Pages rollback for frontend.
+  - Worker rollback for API.
+  - No emergency `DROP TABLE`; hide or disable RWMod surfaces instead.
+
 ### Phase 5: Precision Homepage Portal
 
 The homepage should stop presenting an unfiltered wall of every indexed mod.
