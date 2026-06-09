@@ -18,12 +18,8 @@ binding = "BUCKET"
 bucket_name = "rimworld-translation-hub"
 
 # Reserved for RWMod encyclopedia public media. The current Worker does not
-# write to this bucket yet; bind it only when asset ingestion starts.
+# write to this bucket yet; bind it now so the deployed shape matches the
+# planned production topology.
 [[r2_buckets]]
 binding = "RWMOD_ASSETS"
 bucket_name = "rwmod-assets"
-
-# Secrets are set with:
-# npx wrangler secret put MASTER_SECRET
-# npx wrangler secret put TOKEN_HASH_PEPPER
-# npx wrangler secret put LEGACY_OFFICIAL_SECRETS

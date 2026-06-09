@@ -8,94 +8,103 @@ Date: 2026-06-09
 
 Phase 4 prepares `rwmod.net` for production launch without deploying anything
 yet. It turns the Phase 3 local Worker-backed preview into a safe deployment
-plan with explicit operator gates for Cloudflare Pages, Workers, D1, R2,
-Turnstile, DNS, and rollback.
+plan with explicit operator gates for a unified Cloudflare Worker, Workers
+Static Assets, D1, R2, Turnstile, DNS, and rollback.
 
 Phase 4 is complete when the repository has a clear launch checklist and the
 operator knows exactly which Cloudflare actions are still manual.
 
 ## Non-Goals
 
-- Do not deploy the Worker.
-- Do not publish Cloudflare Pages.
+- Do not deploy the Worker during the Gate 6 architecture revision.
+- Do not create or publish a Cloudflare Pages project.
 - Do not change `rwmod.net` DNS.
-- Do not run remote D1 migrations.
-- Do not seed production D1.
+- Do not run additional remote D1 migrations.
+- Do not run additional production D1 seed steps.
 - Do not enable public report submission without Turnstile.
 - Do not set `RWMOD_LOCAL_PREVIEW=1` in production.
 
 ## Recommended Production Topology
 
-Use a separated frontend/API topology for the first public launch:
+Use a unified full-stack Worker topology for the first public launch:
 
 ```text
 https://rwmod.net
-  -> Cloudflare Pages
-  -> web/rwmod-frontier static frontend
-
-https://api.rwmod.net
   -> Cloudflare Worker
   -> cloudflare/worker/worker-v2.js
+  -> Workers Static Assets: web/rwmod-frontier
+  -> same-origin /api/v1/* routes
   -> existing D1 binding: DB
   -> existing R2 binding: BUCKET
 ```
 
-This keeps the first launch simple:
+This keeps the first launch simple and avoids split-host frontend/API routing:
 
-- Pages owns static frontend hosting and the custom domain.
-- Worker owns API routes, D1, R2, admin/report logic, and Turnstile validation.
-- The frontend sets `window.RWMOD_API_BASE = "https://api.rwmod.net"` before
-  loading `assets/rwmod.js`.
-- Same-origin API routing can be revisited later, but it is not required for
-  Phase 4.
+- One Worker owns the custom domain, static frontend assets, API routes, D1,
+  R2, admin/report logic, and Turnstile validation.
+- `web/rwmod-frontier` is configured as the Worker's static assets directory.
+- The frontend uses same-origin `/api/v1/*` routes, so
+  `window.RWMOD_API_BASE` is not required for production.
+- Workers Assets serve matching static files directly. The Worker script is
+  invoked first only for `/api/*` through `assets.run_worker_first`.
+- Billing posture: static asset requests are free and unlimited under Workers
+  Static Assets. Requests that match `/api/*` still invoke the Worker script and
+  are billed according to Workers pricing.
 
 ## Domain Plan
 
 Primary launch:
 
-- `rwmod.net`: Pages production frontend.
+- `rwmod.net`: unified Worker custom domain serving frontend and API.
 - `www.rwmod.net`: redirect to `rwmod.net`.
-- `api.rwmod.net`: Worker custom domain.
+- `api.rwmod.net`: not required for the first launch.
 
-Why this is the conservative choice:
+Why this is the conservative choice after the Gate 6 architecture change:
 
-- It avoids route-order ambiguity between Pages and Workers at `/api/*`.
-- It makes API smoke tests independent from frontend deployments.
-- It lets us roll back Pages and Worker separately.
+- It removes split-host routing and CORS assumptions from the first launch.
+- It avoids Pages asset path mismatch issues; CSS, JS, and API routes are
+  validated under one Worker origin.
+- It keeps static files on Workers Assets while `/api/*` enters Worker code.
+- It leaves `api.rwmod.net` available as a future alias if needed, but not as a
+  required dependency.
 
 Before changing DNS, confirm:
 
 - The `rwmod.net` Cloudflare zone is active. Confirmed: yes.
 - The domain is using Cloudflare nameservers.
-- The Pages project exists and is attached to the desired production branch.
 - The Worker exists and has a stable production name.
-- The API host has a custom domain or route attached to the Worker.
+- The Worker has the `rwmod.net` custom domain or route attached.
 
 ## Cloudflare Resources
 
-### Pages
+### Unified Worker Assets
 
-Recommended project:
+Production project:
 
-- Project name: `rwmod-frontier`
-- Production branch: the branch chosen after Phase 3.5 review
-- Build command: none for direct static upload, or a no-op/static copy command
-- Output directory: `web/rwmod-frontier`
+- Worker name: `rwmod-api`
+- Worker script: `cloudflare/worker/worker-v2.js`
+- Static assets directory: `web/rwmod-frontier`
+- Static routing:
+  - `assets.not_found_handling = "single-page-application"`
+  - `assets.run_worker_first = ["/api/*"]`
+  - `assets.binding = "ASSETS"`
 
-Required production config injection:
+Expected Wrangler configuration:
 
-```html
-<script>
-  window.RWMOD_API_BASE = "https://api.rwmod.net";
-  window.RWMOD_TURNSTILE_SITE_KEY = "PUBLIC_TURNSTILE_SITE_KEY";
-</script>
+```toml
+[assets]
+directory = "../../web/rwmod-frontier"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*"]
 ```
 
-This script must load before:
+Production config injection:
 
-```html
-<script src="./assets/rwmod.js"></script>
-```
+- Do not set `window.RWMOD_API_BASE`; same-origin API is the default.
+- Set only `window.RWMOD_TURNSTILE_SITE_KEY` when public reports are enabled.
+- Until Turnstile exists, public report submission must remain disabled or
+  rejected by Worker-side validation.
 
 ### Worker
 
@@ -106,6 +115,7 @@ Worker source:
 
 Required bindings:
 
+- Static assets as `ASSETS`: `web/rwmod-frontier`
 - D1 database as `DB`: `atc-database`
   (`7d266a58-6690-45c5-a6f7-48eccf9c41e4`)
 - Translation R2 bucket as `BUCKET`: `rimworld-translation-hub`
@@ -234,13 +244,19 @@ Operator must provide or confirm:
   - `rwmod-report-uploads`: future private report attachments, not created for
     Phase 4.
 - Worker production name: `rwmod-api`.
-- Pages project name: `rwmod-frontier`.
+- Pages project: cancelled after the unified Worker Assets decision.
 - Turnstile site key and secret: deferred.
 - `www.rwmod.net`: redirect to `rwmod.net`.
 
 Gate 2 status: resource inventory complete except Turnstile, which is
 intentionally deferred. Public anonymous report submission must stay disabled
 until Turnstile is created and wired.
+
+Gate 2 update after unified Worker decision:
+
+- Cloudflare Pages project `rwmod-frontier` is no longer required.
+- `api.rwmod.net` is no longer required for the first launch.
+- `rwmod.net` should attach directly to Worker `rwmod-api`.
 
 ### Gate 3: Remote Read-Only Check
 
@@ -421,22 +437,50 @@ Post-seed verification:
 Gate 5 is complete. No R2 bucket was written during this seed; the first seed
 created relational catalog rows in D1 only.
 
-### Gate 6: Staging Frontend
+### Gate 6: Unified Worker Assets Staging
 
 Allowed after API is healthy:
 
-- Publish Pages preview or staging environment.
-- Inject `RWMOD_API_BASE` pointing at staging or production API.
-- Inject public Turnstile site key.
+- Configure Workers Static Assets on `rwmod-api`.
+- Verify `/`, `/assets/rwmod.css`, `/assets/rwmod.js`, SPA deep links, and
+  `/api/v1/*` routes under the same Worker origin.
+- Inject public Turnstile site key only after Turnstile exists.
 - Verify search, detail, analyzer, missing-mod report, and Cancel/X behavior.
+
+Gate 6 local unified-assets status: completed on 2026-06-09 without deployment.
+
+Configuration validated:
+
+- `cloudflare/worker/wrangler.toml` uses `[assets]`.
+- `directory = "../../web/rwmod-frontier"`.
+- `binding = "ASSETS"`.
+- `not_found_handling = "single-page-application"`.
+- `run_worker_first = ["/api/*"]`.
+
+Local verification:
+
+- `wrangler deploy --dry-run --keep-vars` read 7 frontend asset files and
+  exposed `env.ASSETS`.
+- `npm run rwmod:unified-assets-smoke` passed.
+- Local Worker+Assets smoke returned 200 for:
+  - `/`
+  - `/assets/rwmod.css`
+  - `/assets/rwmod.js`
+  - `/catalog/deep-link`
+  - `/?mod=owlchemist.cleanpathfinding`
+  - `/api/v1/health`
+  - `/api/v1/rwmod/mods?q=owlchemist.cleanpathfinding&limit=5`
+
+Gate 6 is stopped before any Cloudflare deployment.
 
 ### Gate 7: Production Cutover
 
 Allowed only after staging acceptance:
 
-- Attach `rwmod.net` to Pages.
-- Attach `api.rwmod.net` to Worker.
-- Verify TLS, custom domains, and health endpoints.
+- Deploy Worker `rwmod-api` with static assets.
+- Attach `rwmod.net` to Worker `rwmod-api`.
+- Keep `www.rwmod.net` redirected to `rwmod.net`.
+- Verify TLS, custom domain, static assets, and health endpoints.
 - Announce the first public preview as beta/data-preview, not a finished
   encyclopedia.
 
@@ -449,9 +493,11 @@ https://rwmod.net/
 https://rwmod.net/?q=harmony
 https://rwmod.net/?q=2009463077
 https://rwmod.net/?mod=brrainz.harmony
-https://api.rwmod.net/api/v1/health
-https://api.rwmod.net/api/v1/rwmod/mods?q=2009463077&limit=5
-https://api.rwmod.net/api/v1/rwmod/mods/brrainz.harmony
+https://rwmod.net/assets/rwmod.css
+https://rwmod.net/assets/rwmod.js
+https://rwmod.net/api/v1/health
+https://rwmod.net/api/v1/rwmod/mods?q=2009463077&limit=5
+https://rwmod.net/api/v1/rwmod/mods/brrainz.harmony
 ```
 
 Expected production smoke:
@@ -465,17 +511,13 @@ Expected production smoke:
 
 ## Rollback Plan
 
-Pages rollback:
-
-- Revert to the previous Pages deployment.
-- Remove or disable the `rwmod.net` custom domain if needed.
-- Keep `*.pages.dev` preview private or unadvertised.
-
 Worker rollback:
 
 - Roll back to the previous Worker deployment.
-- Remove the `api.rwmod.net` custom domain/route if needed.
+- Remove the `rwmod.net` custom domain/route if needed.
 - Keep D1 migrations in place if they only added RWMod tables and indexes.
+- If a Worker Assets deployment breaks frontend routing, roll back to the
+  previous Worker version instead of creating a Pages fallback.
 
 D1 rollback posture:
 
@@ -502,10 +544,14 @@ Phase 4 is ready to exit when:
 
 ## Official Reference Links
 
-- Cloudflare Pages custom domains:
-  <https://developers.cloudflare.com/pages/configuration/custom-domains/>
 - Cloudflare Workers custom domains:
   <https://developers.cloudflare.com/workers/configuration/routing/custom-domains/>
+- Cloudflare Workers Static Assets:
+  <https://developers.cloudflare.com/workers/static-assets/>
+- Cloudflare Workers Static Assets SPA routing:
+  <https://developers.cloudflare.com/workers/static-assets/routing/single-page-application/>
+- Cloudflare Workers Static Assets billing and limitations:
+  <https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/>
 - Cloudflare D1 Wrangler commands:
   <https://developers.cloudflare.com/d1/wrangler-commands/>
 - Cloudflare Workers secrets:

@@ -32,8 +32,9 @@ Not included yet:
 
 Phase 4 launch readiness is documented in
 `../../docs/RWMod_Phase4_Launch_Readiness.md`. It defines the recommended first
-production topology as Cloudflare Pages for `rwmod.net` plus a Worker API on
-`api.rwmod.net`; it is a preparation plan, not a completed deployment.
+production topology as a unified Cloudflare Worker for `rwmod.net`, using
+Workers Assets for this folder and same-origin `/api/v1/*` routes; it is a
+preparation plan, not a completed deployment.
 
 ## Local Preview
 
@@ -117,6 +118,17 @@ cd ../../cloudflare/worker
 npm run rwmod:frontier-worker-smoke
 ```
 
+Unified Worker Assets smoke test:
+
+```powershell
+cd ../../cloudflare/worker
+npm run rwmod:unified-assets-smoke
+```
+
+This validates the production-style topology locally: `/`,
+`/assets/rwmod.css`, `/assets/rwmod.js`, SPA fallback paths, and same-origin
+`/api/v1/*` routes are all served from one Worker configuration.
+
 Static fallback preview:
 
 ```powershell
@@ -140,7 +152,9 @@ By default the page calls same-origin Worker routes:
 The static preview intentionally falls back to `mock-api-data.json` because it
 does not serve API routes.
 
-For a separate Worker origin, set `window.RWMOD_API_BASE` before
+For production on the unified Worker, do not set `window.RWMOD_API_BASE`; the
+frontend uses same-origin `/api/v1/*` routes. For a separate Worker origin in a
+future split-host experiment, set `window.RWMOD_API_BASE` before
 `assets/rwmod.js` loads.
 
 For production report submission, also set the public Turnstile site key before
@@ -152,7 +166,7 @@ For production report submission, also set the public Turnstile site key before
 </script>
 ```
 
-Recommended first production injection:
+Optional split-origin injection:
 
 ```html
 <script>

@@ -13,7 +13,8 @@
     "d1:rwmod:seed": "wrangler d1 execute YOUR_D1_DATABASE_NAME --remote --file d1-tools/seed-rwmod-from-registry.sql",
     "rwmod:local-smoke": "node d1-tools/local-rwmod-smoke.mjs",
     "rwmod:frontier-worker-preview": "node ../../web/rwmod-frontier/preview-server.mjs --worker",
-    "rwmod:frontier-worker-smoke": "node d1-tools/frontier-worker-preview-smoke.mjs"
+    "rwmod:frontier-worker-smoke": "node d1-tools/frontier-worker-preview-smoke.mjs",
+    "rwmod:unified-assets-smoke": "node d1-tools/unified-worker-assets-smoke.mjs"
   },
   "devDependencies": {
     "wrangler": "^4.0.0"

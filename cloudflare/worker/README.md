@@ -203,13 +203,30 @@ Reviewer privilege codes should include:
 Before attaching `rwmod.net`, running remote D1 migrations, or enabling public
 RWMod reports, review `../../docs/RWMod_Phase4_Launch_Readiness.md`.
 
-The recommended first public topology is:
+The recommended first public topology is now a unified full-stack Worker:
 
-- `rwmod.net`: Cloudflare Pages serving `web/rwmod-frontier`.
-- `api.rwmod.net`: this Worker serving `/api/v1/*`.
+- `rwmod.net`: this Worker serving both `web/rwmod-frontier` static assets and
+  `/api/v1/*` routes.
+- `api.rwmod.net`: not required for the first launch.
 
-Production must bind D1 as `DB`, bind R2 as `BUCKET`, set
-`TURNSTILE_SECRET_KEY`, and avoid `RWMOD_LOCAL_PREVIEW=1`.
+Production must configure Workers Assets, bind D1 as `DB`, bind R2 as
+`BUCKET`, set `TURNSTILE_SECRET_KEY` before public report submission, and avoid
+`RWMOD_LOCAL_PREVIEW=1`.
+
+Workers Assets configuration:
+
+```toml
+[assets]
+directory = "../../web/rwmod-frontier"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*"]
+```
+
+This keeps the frontend and API same-origin. Static CSS/JS/HTML assets are
+served by Workers Assets, while `/api/*` enters `worker-v2.js`.
+Static asset requests are free and unlimited; `/api/*` requests still invoke
+the Worker script and follow Workers pricing.
 
 R2 should be split from the beginning:
 
@@ -219,13 +236,14 @@ R2 should be split from the beginning:
 - `rwmod-report-uploads`: future private report attachments, not needed for
   Phase 4.
 
-Confirmed Phase 4 names: Worker `rwmod-api`, D1 `atc-database`, Pages
-`rwmod-frontier`.
+Confirmed Phase 4 names: Worker `rwmod-api`, D1 `atc-database`, frontend
+assets folder `web/rwmod-frontier`.
 
 ## File-Based Deployment
 
 1. Copy `wrangler.toml.example` to `wrangler.toml`.
-2. Fill in `database_name`, `database_id`, and `bucket_name`.
+2. Confirm `database_name`, `database_id`, bucket names, and `[assets]`
+   directory.
 3. Install dependencies:
 
 ```powershell
@@ -237,6 +255,12 @@ npm install
 ```powershell
 npx wrangler login
 npx wrangler deploy
+```
+
+Unified local smoke test:
+
+```powershell
+npm run rwmod:unified-assets-smoke
 ```
 
 For D1 SQL files, use Wrangler's `d1 execute` command with `--file`. Add
