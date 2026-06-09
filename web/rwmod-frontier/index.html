@@ -213,7 +213,7 @@
             <p class="eyebrow">Player report</p>
             <h2>Submit issue</h2>
           </div>
-          <button class="icon-button" value="cancel" aria-label="Close report">X</button>
+          <button type="button" class="icon-button" value="cancel" formnovalidate aria-label="Close report">X</button>
         </div>
         <label>
           Type
@@ -266,8 +266,8 @@
         <div class="turnstile-box" id="turnstileSlot" aria-live="polite"></div>
         <p class="report-note" id="reportFormStatus" aria-live="polite">Reports stay in review before public conclusions change.</p>
         <div class="dialog-actions">
-          <button class="secondary-button" value="cancel">Cancel</button>
-          <button class="primary-button" value="submit">Queue report</button>
+          <button type="button" class="secondary-button" value="cancel" formnovalidate>Cancel</button>
+          <button type="submit" class="primary-button" value="submit">Queue report</button>
         </div>
       </form>
     </dialog>

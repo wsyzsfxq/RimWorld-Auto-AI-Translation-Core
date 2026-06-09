@@ -904,10 +904,23 @@ function resetTurnstile() {
 }
 
 function openReportDialog() {
-  if (typeof els.reportDialog.showModal !== "function") return;
   setReportStatus("Reports stay in review before public conclusions change.", "unknown");
   ensureTurnstileReady();
-  els.reportDialog.showModal();
+  if (typeof els.reportDialog.showModal === "function") {
+    els.reportDialog.showModal();
+  } else {
+    els.reportDialog.setAttribute("open", "");
+  }
+}
+
+function closeReportDialog() {
+  resetTurnstile();
+  setReportStatus("Reports stay in review before public conclusions change.", "unknown");
+  if (els.reportDialog.open && typeof els.reportDialog.close === "function") {
+    els.reportDialog.close("cancel");
+  } else {
+    els.reportDialog.removeAttribute("open");
+  }
 }
 
 function openMissingModReport(seedValue = "") {
@@ -1123,6 +1136,9 @@ els.openReportButton.addEventListener("click", () => {
 els.analyzeButton.addEventListener("click", analyzeModlist);
 
 document.getElementById("reportForm").addEventListener("submit", submitReport);
+document.querySelectorAll("#reportDialog button[value='cancel']").forEach((button) => {
+  button.addEventListener("click", closeReportDialog);
+});
 
 syncReportModeStatus();
 applyUrlState({ replace: true });
