@@ -385,12 +385,41 @@ Post-preview row check:
 - `RWModMods` row count: 0.
 - `RWModLocalizationStatus` row count: 0.
 
-Gate 5 is now stopped at the approval boundary. The real seed command remains
-unexecuted:
+Real seed status: completed on 2026-06-09 after operator approval.
+
+Executed seed command:
 
 ```powershell
 npx wrangler d1 execute atc-database --remote --file d1-tools/seed-rwmod-from-registry.sql
 ```
+
+Seed execution result:
+
+- 2 queries processed.
+- 5210 rows read.
+- 5064 rows written.
+- Reported changes: 845.
+- Database size after seed: 3.69 MB.
+- Seed bookmark:
+  `000004d8-00000008-00005085-fe96cb70ddf3e2799cd0b0733e26deeb`.
+
+Post-seed verification:
+
+- `RWModMods` row count: 422.
+- `RWModLocalizationStatus` row count: 422.
+- `TranslationRegistry` row count remains 916.
+- `RWModMods` status distribution:
+  - 422 rows are `partial` localization.
+  - 422 rows are `unknown` compatibility.
+  - 422 rows are `unknown` performance.
+  - 422 rows are `cloud_record` trust level.
+  - 422 rows are `low` confidence.
+- `RWModLocalizationStatus` language distribution:
+  - `ChineseSimplified`: 420 rows.
+  - `ChineseTraditional`: 2 rows.
+
+Gate 5 is complete. No R2 bucket was written during this seed; the first seed
+created relational catalog rows in D1 only.
 
 ### Gate 6: Staging Frontend
 
@@ -468,9 +497,8 @@ Phase 4 is ready to exit when:
 - The production topology is accepted.
 - The operator has confirmed the Cloudflare resource names.
 - Local Phase 3 smoke checks still pass.
-- Gate 5 seed preview is accepted.
-- A clear stop/go decision exists for production seed, staging deployment, and
-  production cutover.
+- Gate 5 seed preview and production D1 seed are complete.
+- A clear stop/go decision exists for staging deployment and production cutover.
 
 ## Official Reference Links
 
