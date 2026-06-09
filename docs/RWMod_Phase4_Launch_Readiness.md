@@ -341,6 +341,57 @@ Allowed after migration is clean:
 - Review row counts and sample PackageIds.
 - Run real seed only after approval.
 
+Gate 5 preview status: completed on 2026-06-09 against remote D1
+`atc-database` (`7d266a58-6690-45c5-a6f7-48eccf9c41e4`).
+
+Preview safety check:
+
+- `d1-tools/preview-rwmod-seed-from-registry.sql` uses CTE-backed `SELECT`
+  queries only.
+- No real seed SQL was executed.
+- No `RWMod*` catalog rows were written during preview.
+
+Preview SQL file result:
+
+- 3 queries processed.
+- 6772 rows read.
+- 0 rows written.
+- Latest observed preview bookmark:
+  `000004d3-00000004-00005085-623e5dfbea71ff297592ca8762bb3eb6`.
+
+Preview metrics:
+
+- `active_registry_records`: 422.
+- `distinct_seedable_packages`: 422.
+- `packages_with_verified_registry_record`: 0.
+- `packages_already_in_rwmod_catalog`: 0.
+- `registry_localization_rows_already_seeded`: 0.
+
+Sample package review:
+
+- A short read-only sample query returned recent registry candidates such as
+  `owlchemist.cleanpathfinding`, `kindseal.ufli`,
+  `vanillaexpanded.temperature`, `vr.missilegirl`,
+  `syrchalis.processor.framework`, and `smashphil.vehicleframework`.
+- All sampled rows had low confidence because no verified registry records were
+  present in the current preview set.
+- Some latest registry candidates include mature-content PackageIds. This is a
+  catalog policy concern, not a seed-blocking SQL issue. Public browse surfaces
+  should gain content classification, filtering, or moderation rules before
+  treating every seeded row as front-page eligible.
+
+Post-preview row check:
+
+- `RWModMods` row count: 0.
+- `RWModLocalizationStatus` row count: 0.
+
+Gate 5 is now stopped at the approval boundary. The real seed command remains
+unexecuted:
+
+```powershell
+npx wrangler d1 execute atc-database --remote --file d1-tools/seed-rwmod-from-registry.sql
+```
+
 ### Gate 6: Staging Frontend
 
 Allowed after API is healthy:
@@ -417,8 +468,9 @@ Phase 4 is ready to exit when:
 - The production topology is accepted.
 - The operator has confirmed the Cloudflare resource names.
 - Local Phase 3 smoke checks still pass.
-- A staging deployment plan is accepted.
-- A clear stop/go decision exists for remote D1 migration.
+- Gate 5 seed preview is accepted.
+- A clear stop/go decision exists for production seed, staging deployment, and
+  production cutover.
 
 ## Official Reference Links
 
