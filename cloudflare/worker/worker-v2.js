@@ -464,6 +464,11 @@ async function queryRWModCatalogRows(env, filters) {
 }
 
 async function queryRWModRegistryFallbackRows(env, filters) {
+  const registryColumns = await getTranslationRegistryColumnSet(env);
+  const downloadCountProjection = registryColumns.has("DownloadCount") ? "" : "0 AS DownloadCount,";
+  const totalDownloadCountProjection = registryColumns.has("DownloadCount")
+    ? "SUM(DownloadCount) OVER (PARTITION BY lower(PackageId)) AS TotalDownloadCount"
+    : "0 AS TotalDownloadCount";
   const where = ["IsDeleted IS NOT 1"];
   const values = [];
 
@@ -496,6 +501,7 @@ async function queryRWModRegistryFallbackRows(env, filters) {
     WITH ranked AS (
       SELECT
         *,
+        ${downloadCountProjection}
         lower(PackageId) AS PackageKey,
         ROW_NUMBER() OVER (
           PARTITION BY lower(PackageId)
@@ -503,7 +509,7 @@ async function queryRWModRegistryFallbackRows(env, filters) {
         ) AS rn,
         MAX(LastUpdated) OVER (PARTITION BY lower(PackageId)) AS LastRegistryUpdated,
         COUNT(*) OVER (PARTITION BY lower(PackageId)) AS RegistryRecordCount,
-        SUM(DownloadCount) OVER (PARTITION BY lower(PackageId)) AS TotalDownloadCount
+        ${totalDownloadCountProjection}
       FROM TranslationRegistry
       WHERE ${where.join(" AND ")}
     )
@@ -690,18 +696,29 @@ async function getRWModCatalogRow(env, packageId) {
 }
 
 async function getRWModLatestRegistryRow(env, packageId) {
+  const registryColumns = await getTranslationRegistryColumnSet(env);
+  const downloadCountProjection = registryColumns.has("DownloadCount") ? "" : "0 AS DownloadCount,";
+  const totalDownloadCountProjection = registryColumns.has("DownloadCount")
+    ? "SUM(DownloadCount) OVER (PARTITION BY lower(PackageId)) AS TotalDownloadCount"
+    : "0 AS TotalDownloadCount";
   return env.DB.prepare(`
     SELECT
       *,
+      ${downloadCountProjection}
       lower(PackageId) AS PackageKey,
       COUNT(*) OVER (PARTITION BY lower(PackageId)) AS RegistryRecordCount,
-      SUM(DownloadCount) OVER (PARTITION BY lower(PackageId)) AS TotalDownloadCount,
+      ${totalDownloadCountProjection},
       MAX(LastUpdated) OVER (PARTITION BY lower(PackageId)) AS LastRegistryUpdated
     FROM TranslationRegistry
     WHERE lower(PackageId) = ? AND IsDeleted IS NOT 1
     ORDER BY IsVerified DESC, LastUpdated DESC, TranslationDate DESC, RecordId DESC
     LIMIT 1
   `).bind(packageId).first();
+}
+
+async function getTranslationRegistryColumnSet(env) {
+  const { results } = await env.DB.prepare("PRAGMA table_info(TranslationRegistry)").all();
+  return new Set((results || []).map((row) => row.name).filter(Boolean));
 }
 
 async function rwmodPackageExists(env, packageId) {

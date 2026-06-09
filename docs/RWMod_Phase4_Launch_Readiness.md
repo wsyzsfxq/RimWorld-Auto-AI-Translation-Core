@@ -6,23 +6,27 @@ Date: 2026-06-09
 
 ## Summary
 
-Phase 4 prepares `rwmod.net` for production launch without deploying anything
-yet. It turns the Phase 3 local Worker-backed preview into a safe deployment
-plan with explicit operator gates for a unified Cloudflare Worker, Workers
-Static Assets, D1, R2, Turnstile, DNS, and rollback.
+Phase 4 prepares `rwmod.net` for production launch and records the first
+production cutover. It turns the Phase 3 local Worker-backed preview into a
+safe deployment plan with explicit operator gates for a unified Cloudflare
+Worker, Workers Static Assets, D1, R2, Turnstile, DNS, and rollback.
 
-Phase 4 is complete when the repository has a clear launch checklist and the
-operator knows exactly which Cloudflare actions are still manual.
+Phase 4 is complete when the repository has a clear launch checklist, the
+unified Worker production cutover is verified, and the operator knows exactly
+which Cloudflare actions are still manual.
 
 ## Non-Goals
 
-- Do not deploy the Worker during the Gate 6 architecture revision.
 - Do not create or publish a Cloudflare Pages project.
-- Do not change `rwmod.net` DNS.
 - Do not run additional remote D1 migrations.
 - Do not run additional production D1 seed steps.
 - Do not enable public report submission without Turnstile.
 - Do not set `RWMOD_LOCAL_PREVIEW=1` in production.
+
+Gate 7 exception after operator approval:
+
+- Deploy Worker `rwmod-api` to `rwmod.net`.
+- Attach `rwmod.net` as the unified Worker custom domain.
 
 ## Recommended Production Topology
 
@@ -483,6 +487,81 @@ Allowed only after staging acceptance:
 - Verify TLS, custom domain, static assets, and health endpoints.
 - Announce the first public preview as beta/data-preview, not a finished
   encyclopedia.
+
+Gate 7 status: completed on 2026-06-10 after operator approval.
+
+Production deployment:
+
+```powershell
+npx wrangler deploy --keep-vars --domain rwmod.net
+```
+
+Deployment results:
+
+- First unified production deployment succeeded on Worker `rwmod-api`.
+- First observed production version ID:
+  `fba51400-1326-4cf2-b402-c521821f4d04`.
+- A follow-up Worker compatibility fix was deployed after live RWMod catalog
+  API smoke exposed an old `TranslationRegistry` schema mismatch.
+- Current production version ID after the fix:
+  `dbaf1d10-b1ea-4e3e-898a-326178c10674`.
+- Custom domain attached by Wrangler: `rwmod.net`.
+- No Cloudflare Pages deployment was performed.
+
+Live issue found and fixed:
+
+- Symptom: `/api/v1/rwmod/mods` and
+  `/api/v1/rwmod/mods/{packageId}` returned HTTP 500 while the frontend,
+  static assets, and `/api/v1/health` were healthy.
+- Cause: the remote `TranslationRegistry` table does not currently include the
+  optional `DownloadCount` column. RWMod registry fallback SQL referenced it
+  directly for `TotalDownloadCount`.
+- Fix: `worker-v2.js` now inspects `TranslationRegistry` columns and projects
+  `0 AS DownloadCount` / `0 AS TotalDownloadCount` when the optional column is
+  absent. This preserves old D1 compatibility without running a production
+  `ALTER TABLE`.
+
+Local verification before redeploy:
+
+- `node --check worker-v2.js`: passed.
+- `node --check d1-tools/local-rwmod-smoke.mjs`: passed.
+- `node --check d1-tools/frontier-worker-preview-smoke.mjs`: passed.
+- `node --check d1-tools/unified-worker-assets-smoke.mjs`: passed.
+- `npm run rwmod:local-smoke`: passed.
+- `npm run rwmod:frontier-worker-smoke`: passed.
+- `npm run rwmod:unified-assets-smoke`: passed.
+- `wrangler deploy --dry-run --keep-vars`: passed and read 7 static asset
+  files from `web/rwmod-frontier`.
+
+Live smoke after redeploy:
+
+- `https://rwmod.net/`: HTTP 200, HTML.
+- `https://rwmod.net/assets/rwmod.css`: HTTP 200, CSS.
+- `https://rwmod.net/assets/rwmod.js`: HTTP 200, JavaScript.
+- `https://rwmod.net/?q=owlchemist.cleanpathfinding`: HTTP 200, SPA HTML.
+- `https://rwmod.net/api/v1/health`: HTTP 200, JSON.
+- `https://rwmod.net/api/v1/rwmod/mods?q=owlchemist.cleanpathfinding&limit=5`:
+  HTTP 200, first result `owlchemist.cleanpathfinding` from `rwmod_catalog`.
+- `https://rwmod.net/api/v1/rwmod/mods/owlchemist.cleanpathfinding`:
+  HTTP 200, above-the-fold status available.
+- `https://rwmod.net/api/v1/rwmod/mods/owlchemist.cleanpathfinding/localization`:
+  HTTP 200, status `partial`.
+- `https://rwmod.net/api/v1/rwmod/mods/owlchemist.cleanpathfinding/compatibility`:
+  HTTP 200, status `unknown`.
+- `https://rwmod.net/api/v1/rwmod/mods/owlchemist.cleanpathfinding/performance`:
+  HTTP 200, impact `unknown`.
+- `https://rwmod.net/api/v1/rwmod/mods?q=definitely.notindexed.999&limit=5`:
+  HTTP 200, empty result list.
+- `POST https://rwmod.net/api/v1/rwmod/reports`: rejected with HTTP 503 while
+  Turnstile is not configured. This is expected and keeps public report
+  submission closed.
+
+Current production data limitation:
+
+- `https://rwmod.net/api/v1/rwmod/mods?q=2009463077&limit=5` currently returns
+  an empty result list because the first D1 seed did not populate
+  `PrimaryWorkshopId` from Workshop metadata. This is a data enrichment task
+  for the next phase, not a Worker routing failure.
 
 ## Smoke URLs
 
