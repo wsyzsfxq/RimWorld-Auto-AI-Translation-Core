@@ -250,6 +250,46 @@ Allowed after operator confirmation:
 - Check `/api/v1/health` on a staging Worker.
 - Do not mutate D1 yet.
 
+Gate 3 status: completed on 2026-06-09 against remote D1 `atc-database`
+(`7d266a58-6690-45c5-a6f7-48eccf9c41e4`).
+
+Executed read-only SQL:
+
+- `PRAGMA table_info(TranslationRegistry);`
+- Translation registry count summary.
+- Translation registry language/type count summary.
+
+Observed D1 safety result:
+
+- First file-based inspect: 3 queries, 2749 rows read, 0 rows written.
+- Follow-up schema query: rows written 0.
+- Follow-up count query: rows written 0.
+- Follow-up language/type query: rows written 0.
+
+Observed `TranslationRegistry` shape:
+
+- 18 columns.
+- Primary key: `RecordId`.
+- Existing columns include `PackageId`, `Language`, `ModName`,
+  `LatestVersion`, `LastUpdated`, `ModLastUpdated`, `UploaderID`, `Author`,
+  `TranslationType`, `IsVerified`, `FileUrl`, `TargetModVersion`,
+  `TranslationDate`, `IsSmartMerged`, `MergedAiCount`, `UpdateLog`, and
+  `IsDeleted`.
+
+Observed registry counts:
+
+- Total records: 916.
+- Soft-deleted records: 494.
+- Active Simplified Chinese records: 420.
+
+Observed language/type distribution:
+
+- `ChineseSimplified` / `AI_Auto`: 908.
+- `ChineseTraditional` / `AI_Auto`: 5.
+- `ChineseSimplified` / `Manual`: 1.
+- `ChineseSimplified` / `Official_Group`: 1.
+- `ChineseTraditional` / `Official_Group`: 1.
+
 ### Gate 4: Remote Migration
 
 Allowed after inspect output is accepted:
