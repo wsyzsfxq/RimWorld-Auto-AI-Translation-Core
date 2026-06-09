@@ -298,6 +298,41 @@ Allowed after inspect output is accepted:
 - Re-run read-only table/index checks.
 - Do not run seed until the migration output is clean.
 
+Gate 4 status: completed on 2026-06-09 against remote D1 `atc-database`
+(`7d266a58-6690-45c5-a6f7-48eccf9c41e4`).
+
+Pre-migration SQL safety check:
+
+- `0004_add_rwmod_catalog_tables.sql` contains only
+  `CREATE TABLE IF NOT EXISTS` and `CREATE INDEX IF NOT EXISTS` statements.
+- No `DROP`, `DELETE`, `ALTER`, `UPDATE`, `INSERT`, `REPLACE`, or `TRUNCATE`
+  statements were present.
+
+Migration execution result:
+
+- 33 queries processed.
+- 57 rows read.
+- 51 rows written.
+- Database bookmark:
+  `000004d1-00000007-00005085-07d130c245b804e7e790c8f34a4b5827`.
+
+Post-migration verification:
+
+- 9 RWMod tables exist:
+  - `RWModAliases`
+  - `RWModCompatibilityReports`
+  - `RWModDependencies`
+  - `RWModGuideLinks`
+  - `RWModLocalizationStatus`
+  - `RWModModSources`
+  - `RWModModerationEvents`
+  - `RWModMods`
+  - `RWModPerformanceReports`
+- 24 `idx_rwmod*` indexes exist.
+- `RWModMods` row count: 0.
+- `TranslationRegistry` row count remains 916.
+- Verification queries wrote 0 rows.
+
 ### Gate 5: Seed Preview Then Seed
 
 Allowed after migration is clean:
