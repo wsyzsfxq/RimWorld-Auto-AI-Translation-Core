@@ -1,15 +1,21 @@
-name = "rimworld-auto-ai-translation-cloud"
+name = "rwmod-api"
 main = "worker-v2.js"
 compatibility_date = "2026-06-07"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "YOUR_D1_DATABASE_NAME"
-database_id = "YOUR_D1_DATABASE_ID"
+database_name = "atc-database"
+database_id = "7d266a58-6690-45c5-a6f7-48eccf9c41e4"
 
 [[r2_buckets]]
 binding = "BUCKET"
-bucket_name = "YOUR_R2_BUCKET_NAME"
+bucket_name = "rimworld-translation-hub"
+
+# Reserved for RWMod encyclopedia public media. The current Worker does not
+# write to this bucket yet; bind it only when asset ingestion starts.
+[[r2_buckets]]
+binding = "RWMOD_ASSETS"
+bucket_name = "rwmod-assets"
 
 # Secrets are set with:
 # npx wrangler secret put MASTER_SECRET

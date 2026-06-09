@@ -211,6 +211,17 @@ The recommended first public topology is:
 Production must bind D1 as `DB`, bind R2 as `BUCKET`, set
 `TURNSTILE_SECRET_KEY`, and avoid `RWMOD_LOCAL_PREVIEW=1`.
 
+R2 should be split from the beginning:
+
+- `rimworld-translation-hub`: translation ZIP/files, bound as `BUCKET`.
+- `rwmod-assets`: RWMod encyclopedia public images/media, reserved as
+  `RWMOD_ASSETS` when asset ingestion begins.
+- `rwmod-report-uploads`: future private report attachments, not needed for
+  Phase 4.
+
+Confirmed Phase 4 names: Worker `rwmod-api`, D1 `atc-database`, Pages
+`rwmod-frontier`.
+
 ## File-Based Deployment
 
 1. Copy `wrangler.toml.example` to `wrangler.toml`.

@@ -54,7 +54,7 @@ This keeps the first launch simple:
 Primary launch:
 
 - `rwmod.net`: Pages production frontend.
-- `www.rwmod.net`: optional redirect or second Pages custom domain.
+- `www.rwmod.net`: redirect to `rwmod.net`.
 - `api.rwmod.net`: Worker custom domain.
 
 Why this is the conservative choice:
@@ -65,7 +65,7 @@ Why this is the conservative choice:
 
 Before changing DNS, confirm:
 
-- The `rwmod.net` Cloudflare zone is active.
+- The `rwmod.net` Cloudflare zone is active. Confirmed: yes.
 - The domain is using Cloudflare nameservers.
 - The Pages project exists and is attached to the desired production branch.
 - The Worker exists and has a stable production name.
@@ -77,7 +77,7 @@ Before changing DNS, confirm:
 
 Recommended project:
 
-- Project name: `rwmod-frontier` or `rwmod-net`
+- Project name: `rwmod-frontier`
 - Production branch: the branch chosen after Phase 3.5 review
 - Build command: none for direct static upload, or a no-op/static copy command
 - Output directory: `web/rwmod-frontier`
@@ -102,17 +102,20 @@ This script must load before:
 Worker source:
 
 - `cloudflare/worker/worker-v2.js`
+- Production Worker name: `rwmod-api`
 
 Required bindings:
 
-- D1 database as `DB`
-- R2 bucket as `BUCKET`
+- D1 database as `DB`: `atc-database`
+  (`7d266a58-6690-45c5-a6f7-48eccf9c41e4`)
+- Translation R2 bucket as `BUCKET`: `rimworld-translation-hub`
+- RWMod public asset R2 bucket as `RWMOD_ASSETS`: `rwmod-assets`
 
 Required secrets:
 
 - `MASTER_SECRET`
 - `TOKEN_HASH_PEPPER`
-- `TURNSTILE_SECRET_KEY`
+- `TURNSTILE_SECRET_KEY` deferred until public report submission is enabled
 
 Optional transition secret:
 
@@ -156,13 +159,33 @@ brand-new database only.
 
 ### R2
 
-RWMod Phase 4 does not need new R2 objects. Keep the existing translation file
-storage policy:
+R2 storage must be split early so translation files, encyclopedia assets, and
+future player attachments do not collapse into one long-term storage bucket.
 
-- Existing cloud translation downloads may still use R2.
-- RWMod catalog pages must not mirror third-party localization packs.
-- Traditional localization groups should receive outbound links and attribution,
-  not duplicated downloads.
+Required bucket boundaries:
+
+- `rimworld-translation-hub`: existing cloud translation ZIP/files only. This
+  remains bound to the Worker as `BUCKET` for current mod-facing download
+  endpoints.
+- `rwmod-assets`: RWMod encyclopedia public assets such as mod thumbnails,
+  curated screenshots, generated preview images, guide images, and future
+  cached catalog media. Create this during Phase 4 even if the Worker does not
+  write to it yet.
+- `rwmod-report-uploads`: future private player report attachments. Do not
+  create or expose it until the report-attachment feature exists.
+
+RWMod catalog pages must not mirror third-party localization packs. Traditional
+localization groups should receive outbound links and attribution, not
+duplicated downloads.
+
+Phase 4 binding posture:
+
+- Keep `BUCKET = rimworld-translation-hub`.
+- Reserve `RWMOD_ASSETS = rwmod-assets`.
+- Do not add public write paths to `rwmod-assets` until Phase 5+ asset
+  ingestion rules exist.
+- Do not bind or create `rwmod-report-uploads` yet unless report attachments are
+  explicitly started.
 
 ### Turnstile
 
@@ -202,13 +225,22 @@ Expected behavior:
 
 Operator must provide or confirm:
 
-- Cloudflare account and zone ownership for `rwmod.net`
-- D1 database name and id
-- R2 bucket name
-- Worker production name
-- Pages project name
-- Turnstile site key and secret
-- Whether `www.rwmod.net` redirects to apex or serves the same Pages project
+- Cloudflare account and zone ownership for `rwmod.net`: confirmed active.
+- D1 database name and id: `atc-database`
+  / `7d266a58-6690-45c5-a6f7-48eccf9c41e4`.
+- R2 bucket names and intended boundaries:
+  - `rimworld-translation-hub`: existing translation files.
+  - `rwmod-assets`: RWMod public encyclopedia assets.
+  - `rwmod-report-uploads`: future private report attachments, not created for
+    Phase 4.
+- Worker production name: `rwmod-api`.
+- Pages project name: `rwmod-frontier`.
+- Turnstile site key and secret: deferred.
+- `www.rwmod.net`: redirect to `rwmod.net`.
+
+Gate 2 status: resource inventory complete except Turnstile, which is
+intentionally deferred. Public anonymous report submission must stay disabled
+until Turnstile is created and wired.
 
 ### Gate 3: Remote Read-Only Check
 
