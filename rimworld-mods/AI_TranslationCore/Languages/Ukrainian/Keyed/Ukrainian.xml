@@ -1,0 +1,465 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <ATC_ModTitle>Інтелектуальна мережа перекладу на основі штучного інтелекту (AI Translation Network) V3.0</ATC_ModTitle>
+  <ATC_TargetLang>Мова перекладу</ATC_TargetLang>
+  <ATC_Lang_Traditional>Традиційна китайська (Traditional Chinese)</ATC_Lang_Traditional>
+  <ATC_Lang_Simplified>Спрощена китайська (Simplified Chinese)</ATC_Lang_Simplified>
+  <ATC_Lang_Japanese>Японська (Japanese)</ATC_Lang_Japanese>
+  <ATC_Lang_Korean>Корейська (Korean)</ATC_Lang_Korean>
+  <ATC_Lang_Russian>Російська (Russian)</ATC_Lang_Russian>
+  <ATC_Lang_Ukrainian>Українська</ATC_Lang_Ukrainian>
+  <ATC_Lang_English>Англійська (English)</ATC_Lang_English>
+  <ATC_CurrentProvider>Поточний ШІ-провайдер</ATC_CurrentProvider>
+  <ATC_ApiKey>API-ключ (API Key)</ATC_ApiKey>
+  <ATC_CustomBaseUrl>Власний URL API (Base URL)</ATC_CustomBaseUrl>
+  <ATC_DefaultEmpty>Залиште порожнім за замовчуванням</ATC_DefaultEmpty>
+  <ATC_OnlyScanActive>Сканувати лише активні моди</ATC_OnlyScanActive>
+  <ATC_Tooltip_TargetLang>【Цільова мова】\nВказує, на яку мову ШІ має перекладати іноземні моди.</ATC_Tooltip_TargetLang>
+  <ATC_Tooltip_Provider>【Провайдер ШІ】\nОберіть постачальника ШІ-моделі. Настійно рекомендується Google (Gemini) або OpenAI.</ATC_Tooltip_Provider>
+  <ATC_TestConnection>Перевірити зв'язок</ATC_TestConnection>
+  <ATC_TestingPulse>Відправка тестового імпульсу...</ATC_TestingPulse>
+  <ATC_FetchModels>Отримати список моделей</ATC_FetchModels>
+  <ATC_RefetchModels>Оновити моделі</ATC_RefetchModels>
+  <ATC_Fetching>З'єднання...</ATC_Fetching>
+  <ATC_SelectModel>Вибрати модель</ATC_SelectModel>
+  <ATC_PlzFetchModel>Спочатку натисніть «Отримати список моделей»</ATC_PlzFetchModel>
+  <ATC_TranslateSingleMod>Перекласти вибраний мод окремо</ATC_TranslateSingleMod>
+  <ATC_StartTranslation>Запустити план автозаповнення</ATC_StartTranslation>
+  <ATC_StopTranslation>Екстрена зупинка конвеєра</ATC_StopTranslation>
+  <ATC_Tutorial_Btn>Посібник та FAQ</ATC_Tutorial_Btn>
+  <ATC_UpdateLog_Btn>Журнал оновлень моду</ATC_UpdateLog_Btn>
+  <ATC_CurrentTask>Поточна задача</ATC_CurrentTask>
+  <ATC_Idle>В очікуванні</ATC_Idle>
+  <ATC_TaskDone>Збірку завершено!</ATC_TaskDone>
+  <ATC_LogPanelTitle>--- Моніторинг конвеєра в реальному часі ---</ATC_LogPanelTitle>
+  <ATC_ErrorLogTitle>⚠ Звіт про аномальні файли</ATC_ErrorLogTitle>
+  <ATC_Msg_EmptyKey>Як перевірити зв'язок, якщо ключ не введений?!</ATC_Msg_EmptyKey>
+  <ATC_Log_TestPulse>[Test] Відправка мікроімпульсу для перевірки зв'язку з [{0}]...</ATC_Log_TestPulse>
+  <ATC_Testing>Тестування...</ATC_Testing>
+  <ATC_Log_TestSuccess>✅ Тест відгуку інтернет-вузла успішний. Лінія зв'язку працює в штатному режимі!</ATC_Log_TestSuccess>
+  <ATC_Log_TestFail>[Test] Тест провалено! Перевірте мережу або налаштування API.</ATC_Log_TestFail>
+  <ATC_Msg_TestSuccess>✅ Стабільний квантовий канал зв'язку з [{0}] успішно встановлено! Все готово!</ATC_Msg_TestSuccess>
+  <ATC_Msg_TestFailed>❌ Сбой підключення до [{0}]! Перевірте ключ передачі або мережу, детальний звіт див. у журналі.</ATC_Msg_TestFailed>
+  <ATC_Log_TestFailed_Detail>🔧 Тест підключення {0} не повернув результат. Можливо, ключ недійсний або цільова модель недоступна. Спробуйте оновити список моделей.</ATC_Log_TestFailed_Detail>
+  <ATC_Log_TestException>💥 Виключення при тестуванні {0}: {1}</ATC_Log_TestException>
+  <ATC_Error_TestConnectionTimeout>[{0}] Test connection timed out; stuck testing state was released. Please check network/model and retry.</ATC_Error_TestConnectionTimeout>
+  <ATC_Log_Init>[Init] Читання модів та створення загального глобального пулу перекладів...</ATC_Log_Init>
+  <ATC_Log_InitDone>[Init] Готово! Всього зібрано {0} записів перекладу Def.</ATC_Log_InitDone>
+  <ATC_Log_StartScan>Auto Translation Core запущено! Цільових модів: {0}</ATC_Log_StartScan>
+  <ATC_Log_ScanMod> [Start] Сканування моду: {0}</ATC_Log_ScanMod>
+  <ATC_Log_SkipMod> [Skip] Немає папок Languages та Defs. Чистий код-мод.</ATC_Log_SkipMod>
+  <ATC_Log_KeyedScan> [Keyed] Сканування...</ATC_Log_KeyedScan>
+  <ATC_Log_DefScan> [DefInjected] Глибоке сканування та глобальне зіставлення...</ATC_Log_DefScan>
+  <ATC_Log_FoundMissing> [{0}] Знайдено {1} пропусків! Запит підтримки ШІ...</ATC_Log_FoundMissing>
+  <ATC_Log_AIFinish> [{0}] Автозаповнення перекладу ШІ успішно завершено!</ATC_Log_AIFinish>
+  <ATC_Log_AIFail> [{0}] Збій автозаповнення перекладу ШІ.</ATC_Log_AIFail>
+  <ATC_Log_NoMissing> [{0}] Усі компоненти на місці, переклад не потрібен.</ATC_Log_NoMissing>
+  <ATC_Log_TaskDone> [Finish] Операція автозаповнення блискуче завершена!</ATC_Log_TaskDone>
+  <ATC_Log_TaskError>[Error] Конвеєр аварійно зупинено: {0}</ATC_Log_TaskError>
+  <ATC_Log_Clean>[Clean] Лінію зупинено, пам'ять очищено.</ATC_Log_Clean>
+  <ATC_CancelRequested>Отримано команду зупинки. Екстрене гальмування конвеєра...</ATC_CancelRequested>
+  <ATC_Log_FetchModelsSuccess>✅ Успішно отримано список моделей для [{0}]!</ATC_Log_FetchModelsSuccess>
+  <ATC_Log_FetchModelsFail>[System] Помилка отримання списку моделей, перевірте ключ.</ATC_Log_FetchModelsFail>
+  <ATC_Log_AllTranslationWritten>[Success] Усі переклади надійно збережено в !Translation_AI_Pack!</ATC_Log_AllTranslationWritten>
+  <ATC_Log_NetworkRetry>[System] Виявлено нестабільність мережі або перевантаження сервера, активовано механізм автоповтору...</ATC_Log_NetworkRetry>
+  <ATC_Log_MigrateSuccess>[Міграція] Успішно перенесено файли {1} з {0} на нову архітектуру безболісно!</ATC_Log_MigrateSuccess>
+  <ATC_Log_StartSingleMod>[System] Початок індивідуального перекладу моду: {0}</ATC_Log_StartSingleMod>
+  <ATC_Log_SingleModDone>Індивідуальний переклад завершено блискуче!</ATC_Log_SingleModDone>
+  <ATC_Log_ProcessAborted>[System] Конвеєр безпечно зупинено.</ATC_Log_ProcessAborted>
+  <ATC_Log_ProcessAbortedWithSave>[System] Конвеєр безпечно зупинено, готовий переклад збережено.</ATC_Log_ProcessAbortedWithSave>
+  <ATC_TaskAborted>Зупинено</ATC_TaskAborted>
+  <ATC_LogError_Format>[{0}] Помилка формату: {1}</ATC_LogError_Format>
+  <ATC_LogError_Unknown>[{0}] Невідоме виключення: {1}</ATC_LogError_Unknown>
+  <ATC_LogError_FileCorrupted>[Файл пошкоджено] Пропуск нечитабельного файлу: {0}</ATC_LogError_FileCorrupted>
+  <ATC_LogError_ApiConn>[API] Помилка зв'язку: {0}</ATC_LogError_ApiConn>
+  <ATC_FinishMessage_Title>Сповіщення про завершення</ATC_FinishMessage_Title>
+  <ATC_FinishMessage_OK>Зрозуміло! (OK)</ATC_FinishMessage_OK>
+  <ATC_FinishMessage_Text>Переклад успішно завершено!\n【🪂 Успішний еірдроп у пам'ять】\nСистема безпосередньо завантажила свіжий переклад у пам'ять гри через офіційні механізми!\nТепер ви можете спокійно закрити це вікно та панель налаштувань. Предмети та технології на екрані миттєво переклалися обраною вами мовою!\n(Примітка: Реальна копія XML згенерована в фоні, але вам 【абсолютно не потрібно】 вмикати її в списку модів! При наступному запуску система сама все непомітно підвантажить, позбавивши вас від конфліктів порядку завантаження! Приємної гри!)</ATC_FinishMessage_Text>
+  <ATC_Tutorial_FullText>【V3.0 Посібник користувача: Від халяви до співпраці】\n1. ☁️ 【Спочатку зазирніть у хмару, не вигадуйте велосипед】\nПеред початком перекладу настійно рекомендуємо зайти на вкладку 【Хмарна майстерня】! Можливо, інші гравці або команди перекладачів уже завантажили готовий якісний локалізатор. Завантаження в один клік дозволить миттєво насолодитися перекладеною грою!\n\n2. ⚙️ 【Налаштування API для перекладу】\nЯкщо потрібного моду немає в хмарі, виберіть 【Цільову мову】 (підтримуються українська, китайська, японська, англійська тощо) та 【Провайдера】 (рекомендуються безкоштовний Gemini або DeepSeek). Функція «Безлімітний магазин API» дозволяє додати кілька ключів по кнопці «+», і система буде автоматично чергувати їх, витискаючи безкоштовні ліміти до краплі!\n(Після вставки ключа натискати пошук не потрібно — система підвантажить моделі в фоновому режимі!)\n\n3. 🚀 【Переклад в один клік та еірдроп у пам'ять】\nВстановіть кількість потоків і натисніть 【🚀 Перекласти всі моди в один клік】 або використовуйте 【🎯 Переклад одного/кількох модів】 для точкового удару. Після завершення 【перезавантажувати гру абсолютно не потрібно】! Функція «Еірдроп у пам'ять» миттєво впровадить переклад прямо в процес. Закрийте панель, щоб побачити результат!\n\n4. 🔍 【Глобальний верстат та вивантаження в хмару】\nПомітили неточності в автоперекладі? Перейдіть на вкладку 【Глобальне редагування】, знайдіть друкарські помилки через потужний інструмент «Глобальний пошук тексту» та виправте їх! Після цього повертайтеся в хмарну майстерню та завантажте свої виправлення з тегом 【Ручний переклад (Manual)】, щоб допомогти спільноті!\n\n【Часто задавані питання (FAQ)】\nQ: Чому в мене немає кнопки «Видалити» в хмарній майстерні?\nA: Щоб захистити праці користувачів від випадкового стирання, функция видалення доступна лише адміністраторам та офіційним командам з майстер-кодом. Звичайні гравці можуть спокійно завантажувати свої файли — система дбайливо об'єднає версії та збереже найкращий варіант!\n\nQ: Що таке «Гаряче перезавантаження ін'єкції»?\nA: Якщо ви досвідчений гравець і любите правити XML-файли вручну, то після збереження змін просто натисніть цю кнопку. Система миттєво оновить кеш інтерфейсу та перезаллє дані в пам'ять — результат видно за секунду!\n\nQ: Чому в логах горить червоне попередження «Очікування повтору»?\nA: Сервер API перевантажений або тимчасово обмежив частоту запросов! У мод вбудований потужний механізм 【експоненціальної затримки повторних спроб】. Якщо переклад у підсумку триває успішно, просто наберіться терпіння~ (≧∀≦)ゞ\n\nQ: Локальний сервер (LM Studio / Ollama) виникає помилка підключення.\nA: 1. Перевірте правильність поля «Свій URL API» (наприклад, http://localhost:1234). За суфікси не переживайте — система сама додасть /v1!\n2. Поле API Key не повинно бути порожнім! Для локальних серверів введіть туди будь-які випадкові символи.\n\nQ: Чи не буде гальмувати динамічний перехоплювач інтерфейсу?\nA: Завдяки алгоритмам надшвидкого пошуку за O(1) та вбудованим запобіжникам, навіть при лавині помилок гра видаватиме стабільні 120 FPS. Однак пам'ятайте, що цей режим перехоплює взагалі всі неперекладені рядки на екрані. Якщо у вас 【платний API】, використовуйте його обережно, щоб уникнути величезних рахунків!</ATC_Tutorial_FullText>
+  <ATC_UpdateLog_FullText>--- V3.0 Хмарна майстерня та глобальний редактор ---\n• Нова 【Хмарна майстерня】：Завантаження та скачування локалізацій в один клік. Підтримуються три теги якості: «Професійний переклад», «Ручний переклад» та «ШІ-переклад». Вбудовано розумну версійність 3-2-1, м'яке видалення та журнал змін.\n• Покращений 【Глобальний верстат】：Додано фоновий несинхронний «Глобальний пошук тексту» з динамічною шкалою прогресу. Плавний пошук по кешу та вбудованих файлах навіть при сотнях модів, фільтрація мов та перехід до редагування в один клік.\n• Оновлення 【Мережевого рівня】：Перехід на мережевий двигун Unity (UnityWebRequest) з примусовим стисненням UTF-8. Повністю вирішено проблеми з кодуванням Windows, що викликали помилки читання та пошкодження ZIP-архівів.\n• Впровадження 【Розумної детоксикації】：Автоматична фільтрація небезпечних змінних нижнього рівня та модів на обличчя (наприклад, FaceDef). Покінчено з багами викривлення текстур персонажів! Автоочищення залишкових фейкових файлів перекладів при запуску.\n\n--- V2.2 Стабільність підключення та архітектура ---\n• Оптимізація 【API-запитів】：Переписано базову логіку для кращої сумісності з різними провайдерами ШІ та стабільного парсингу даних.\n• Впровадження 【Розумного автоповтору】：При перевантаженні серверів (HTTP 429) або збоях зв'язку (HTTP 500+) система автоматично витримує паузу перед повтором, запобігаючи зриву перекладу.\n• Нові 【Налаштування тайм-ауту та тестів】：Додано кнопку «Перевірити зв'язок» та повзунок часу очікування (при виборі важких міркувальних моделей ШІ час очікування збільшується автоматично).\n• Покращення 【Глобальних сповіщень】：Зв'язуюча технологія UI дозволяє виводити помилки підключення або невалідні ключі прямо на ігровий екран зліва вгорі. Більше не потрібно постійно відкривати логи.\n\n--- V2.1 Комфорт перекладу та оновлення ---\n• Впровадження 【Експорту пакета в один клік】：Можливість вивантажити готовий переклад моду на робочий стіл з водяним знаком машинного перекладу для передачі автору оригіналу або ручного доопрацювання.\n• Новий 【Радар оновлень】：Система автоматично виявляє застарілі або неперекладені моди.\n• Підтримка 【Автоматичної заміни】：При оновленні моду система сама зітре старі файли перекладу та запустить процес заново, зберігаючи актуальність текстів.\n• Виправлення 【Помилки перенесення рядків】：Усунено проблему, через яку символи \n не переносили рядок і ламали інтерфейс.\n\n--- V2.0 Оптимізація продуктивності та рендеринг ---\n• Впровадження 【Миттєвого впровадження в пам'ять】：Результати перекладу пишуться відразу в пам'ять гри. Мова змінюється миттєво без перезапуску та конфліктів порядку завантаження модів.\n• Оптимізація 【Динамічного перехоплювача UI】：Перероблено логіку перехоплення та кешування, значно знижено вплив на FPS.\n• Нове 【Гаряче оновлення】：Швидке оновлення кешу інтерфейсу після ручної правки XML без перезапуску гри.\n\n--- V1.0 Офіційний реліз ---\n• Впровадження 【Динамічного перехоплювача інтерфейсу】：Перехоплення в реальному часі та переклад рядків, пропущених у статичних файлах локалізації.\n• Впровадження 【Двомовного зіставлення】：Відображення оригіналу при наведенні миші для зручного порівняння текстів.</ATC_UpdateLog_FullText>
+  <ATC_ApiConfigTitle>Налаштування обойми API-інтерфейсів (Підтримка паралельного пулу запитів)</ATC_ApiConfigTitle>
+  <ATC_Provider>Провайдер</ATC_Provider>
+  <ATC_CustomUrlOptional>(Власний BaseUrl, залиште порожнім для значення за замовчуванням)</ATC_CustomUrlOptional>
+  <ATC_Delete>Видалити</ATC_Delete>
+  <ATC_PasteKey>(Вставте API-ключ)</ATC_PasteKey>
+  <ATC_FetchingModel>Пошук моделей...</ATC_FetchingModel>
+  <ATC_NoModelWaitKey>Модель не обрано (вставте ключ для автопошуку)</ATC_NoModelWaitKey>
+  <ATC_AddApiBtn>Додати інтерфейс API (Add API Interface)</ATC_AddApiBtn>
+  <ATC_EmergencyStop>Зупинити переклад (Emergency Stop)</ATC_EmergencyStop>
+  <ATC_StartFullScan>Перекласти всі моди (Start Full Scan)</ATC_StartFullScan>
+  <ATC_EmptyConfigWarning>Будь ласка, налаштуйте хоча б один валідний профіль API!</ATC_EmptyConfigWarning>
+  <ATC_MaxThreads>Кількість потоків (Max Threads)</ATC_MaxThreads>
+  <ATC_MaxThreadsTip>Рекомендується: Кількість активних інтерфейсів x 3</ATC_MaxThreadsTip>
+  <ATC_Log_ApiRecovered>[API] Зв'язок відновлено! Конвеєр запущено на високій швидкості.</ATC_Log_ApiRecovered>
+  <ATC_Log_ApiRetry>[API] Сервер зайнятий або закінчився час очікування. Повтор через {0} сек...</ATC_Log_ApiRetry>
+  <ATC_Log_ApiFallback>[API] Пакетний переклад провалився! Перехід у «режим дуелі» для построкового перекладу...</ATC_Log_ApiFallback>
+  <ATC_LogError_ApiCritical>[Критична помилка API] Не вдалося перекласти текст за шляхом 【{0}】! Збережено оригінал.</ATC_LogError_ApiCritical>
+  <ATC_TranslateMultiMod>Одиночний / Мультивибір</ATC_TranslateMultiMod>
+  <ATC_SkipCurrentMod>Пропустити поточний мод</ATC_SkipCurrentMod>
+  <ATC_MultiSelect_Title>Виберіть моди для перекладу (можна кілька)</ATC_MultiSelect_Title>
+  <ATC_MultiSelect_Search>Введіть назву моду для пошуку...</ATC_MultiSelect_Search>
+  <ATC_MultiSelect_Start>Почати переклад {0} обраних модів</ATC_MultiSelect_Start>
+  <ATC_SubTask_AnalyzingDict>Аналіз локальних текстів локалізації...</ATC_SubTask_AnalyzingDict>
+  <ATC_SubTask_BuildingDict>Збірка словника: {0}</ATC_SubTask_BuildingDict>
+  <ATC_SubTask_DictDone>Словник успішно зібрано!</ATC_SubTask_DictDone>
+  <ATC_SubTask_Scanning>Сканування текстів...</ATC_SubTask_Scanning>
+  <ATC_SubTask_TranslatingKeyed>Переклад Keyed рядків...</ATC_SubTask_TranslatingKeyed>
+  <ATC_SubTask_TranslatingDef>Переклад DefInjected рядків...</ATC_SubTask_TranslatingDef>
+  <ATC_Log_SkippedMod>Пропущено мод: {0}</ATC_Log_SkippedMod>
+  <ATC_Log_MultiScanStart>Підготовка до перекладу {0} обраних модів...</ATC_Log_MultiScanStart>
+  <ATC_Log_MultiScanDone>Усі обрані моди успішно перекладено!</ATC_Log_MultiScanDone>
+  <ATC_LogError_OldToxicFiles>【Увага】 Виявлено аномальні файли старих версій перекладів. Запущено примусове очищення для уникнення збоїв!</ATC_LogError_OldToxicFiles>
+  <ATC_Log_OldFilesDeleted>【System】 Старі аномальні файли успішно видалено!</ATC_Log_OldFilesDeleted>
+  <ATC_Log_AutoRebuildStart>【System】 Система автоматично перезбере чистий пакет перекладу!</ATC_Log_AutoRebuildStart>
+  <ATC_One_click_chaos>Випадковий вибір</ATC_One_click_chaos>
+  <ATC_Rickroll>Ні в якому разі не натискайте сюди...</ATC_Rickroll>
+  <ATC_SelectAll>Вибрати все</ATC_SelectAll>
+  <ATC_DeselectAll>Зняти виділення</ATC_DeselectAll>
+  <ATC_Log_UIInterceptorStarted>Динамічний перехоплювач інтерфейсу запущено! Ініціалізація кешу...</ATC_Log_UIInterceptorStarted>
+  <ATC_Log_UICacheLoaded>Успішно завантажено {0} рядків жорстко закодованого кешу UI!</ATC_Log_UICacheLoaded>
+  <ATC_LogError_UICacheLoadFailed>Помилка читання кешу UI: {0}</ATC_LogError_UICacheLoadFailed>
+  <ATC_LogError_UICacheSaveFailed>Помилка збереження кешу UI: {0}</ATC_LogError_UICacheSaveFailed>
+  <ATC_EnableUIInterceptor>Увімкнути динамічний перехоплювач UI 【Попередження: можлива втрата FPS】</ATC_EnableUIInterceptor>
+  <ATC_EnableUINewTranslation>Дозволити UI-перехоплювачу запитувати нові переклади ШІ (вимкнено = лише заміна з кешу)</ATC_EnableUINewTranslation>
+  <ATC_EnableUIErrorLogInterception>Увімкнути перехоплення UI журналу помилок (значно збільшує витрати токенів)</ATC_EnableUIErrorLogInterception>
+  <ATC_TranslateWorkbenchModNames>Translate mod names in the intelligent patch-up list (keeps original names)</ATC_TranslateWorkbenchModNames>
+  <ATC_Log_AdvancedDetoxSuccess>Глибока детоксикація завершена! Акуратно вирізано {0} некоректних тегів, ваші переклади в безпеці (виправлено {1} файлів)!</ATC_Log_AdvancedDetoxSuccess>
+  <ATC_DeleteModTrans_Btn>Видалити переклад</ATC_DeleteModTrans_Btn>
+  <ATC_DeleteModTrans_Title>Утилізатор перекладів (виберіть моди для очищення файлів перекладу)</ATC_DeleteModTrans_Title>
+  <ATC_ConfirmDelete_Btn>Підтвердити видалення перекладу для {0} модів (безповоротно!)</ATC_ConfirmDelete_Btn>
+  <ATC_Log_DeleteTransSuccess>🗑️ [ATC System] Успішно видалено файли перекладу для {0} модів (очищено {1} файлів)!</ATC_Log_DeleteTransSuccess>
+  <ATC_Message_DeleteTransSuccess>Успішно видалено {0} файлів перекладу! Рекомендується перезапустити гру для застосування змін.</ATC_Message_DeleteTransSuccess>
+  <ATC_Message_DeleteTransError>⚠️ Помилка при видаленні файлів перекладу: {0}</ATC_Message_DeleteTransError>
+  <ATC_InputOrSelectModel>Введіть або виберіть модель...</ATC_InputOrSelectModel>
+  <ATC_Msg_NoModelListManualInput>Список моделей порожній, введіть назву моделі вручну!</ATC_Msg_NoModelListManualInput>
+  <ATC_Stats_Session>Перекладено за сесію: {0} симв.</ATC_Stats_Session>
+  <ATC_Stats_Total>Всього перекладено: {0} симв.</ATC_Stats_Total>
+  <ATC_Stats_UIQueue>Черга UI: {0}</ATC_Stats_UIQueue>
+  <ATC_Stats_UICache>Кешовано UI-рядків: {0}</ATC_Stats_UICache>
+  <ATC_Log_AIFormatRetry>[API] Відповідь ШІ порожня або має неправильний JSON. Автоматично повторюємо переклад (спроба {0})...</ATC_Log_AIFormatRetry>
+  <ATC_Log_AIFormatRecovered>[API] Повторний переклад завершено. Формат відповіді ШІ коректний.</ATC_Log_AIFormatRecovered>
+  <ATC_Log_ValidationClean>[Перевірка] Перевірку структури перекладу завершено. Виправлення формату не потрібні.</ATC_Log_ValidationClean>
+  <ATC_Log_ValidationSummary>[Перевірка] Автовиправлення：переноси {0}, префікси правил {1}, захищені token {2}, відкат високого ризику {3}, пропущено неправильних XML key {4}.</ATC_Log_ValidationSummary>
+  <ATC_Profile_Current>Поточний профіль：{0} рядків у пакеті, повторів формату {1}, мінімум тайм-ауту {2} с</ATC_Profile_Current>
+  <ATC_Profile_DeepSeek>DeepSeek：консервативні пакети для зниження ризику порожнього або неправильного JSON.</ATC_Profile_DeepSeek>
+  <ATC_Profile_Google>Google/Gemini：стандартні пакети для стабільного масового перекладу.</ATC_Profile_Google>
+  <ATC_Profile_DeepL>DeepL：захист XML-тегів без повторного розбору LLM JSON.</ATC_Profile_DeepL>
+  <ATC_Profile_Custom>Custom OpenAI：консервативний тайм-аут для локальних або проксі API.</ATC_Profile_Custom>
+  <ATC_Profile_OpenRouter>OpenRouter：розмір пакета й тайм-аут залежать від типу моделі.</ATC_Profile_OpenRouter>
+  <ATC_Profile_Default>Загальний профіль：баланс швидкості та стабільності формату.</ATC_Profile_Default>
+  <ATC_Perf_Api>API активно {0}, середнє {1}ms, останнє {2}ms</ATC_Perf_Api>
+  <ATC_Perf_MemoryDrop>Останній скид {0}ms, Keyed {1}, Defs {2}</ATC_Perf_MemoryDrop>
+  <ATC_Perf_UI>Черга UI {0}, очікує {1}, кеш ігнорування {2}</ATC_Perf_UI>
+  <ATC_Btn_RestoreLatestBackup>Відновити останню резервну копію перекладу</ATC_Btn_RestoreLatestBackup>
+  <ATC_Msg_ConfirmRestoreLatestBackup>Буде відновлено переклади з останнього ZIP-бекапу для кожного активного мода, потім виконано один скид у пам’ять. Продовжити？</ATC_Msg_ConfirmRestoreLatestBackup>
+  <ATC_Msg_RestoreLatestBackupDone>Відновлено останні бекапи для {0} модів.</ATC_Msg_RestoreLatestBackupDone>
+  <ATC_Log_BatchDownloadSummary>[Cloud] Пакетне завантаження завершено：успішно {0}, помилок {1}, всього {2}.</ATC_Log_BatchDownloadSummary>
+  <ATC_Log_BatchDownloadFailedList>[Cloud] Помилки у модів：{0}</ATC_Log_BatchDownloadFailedList>
+  <ATC_ShowOriginalUI>Оригінал інтерфейсу (показувати англійський текст до перекладу при наведенні)</ATC_ShowOriginalUI>
+  <ATC_OriginalText>Оригінал</ATC_OriginalText>
+  <ATC_Log_MemoryDropSuccess>[Еірдроп у пам'ять] Успішно впроваджено {0} системних рядків та {1} визначень предметів!</ATC_Log_MemoryDropSuccess>
+  <ATC_LogError_MemoryDropFailed>[Збій еірдропу у пам'ять] {0}</ATC_LogError_MemoryDropFailed>
+  <ATC_Button_HotReload>Гаряча ін'єкція в один клік (миттєве оновлення екрана без перезапуску!)</ATC_Button_HotReload>
+  <ATC_Message_HotReloadSuccess>🪂 [Еірдроп у пам'ять] Дані перекладу успішно впроваджено, кеш вікон UI оновлено!</ATC_Message_HotReloadSuccess>
+  <ATC_Log_HotReloadSuccess>🪂 [Еірдроп у пам'ять] Дані перекладу впроваджено в ядро, кеш вікон UI повністю оновлено!</ATC_Log_HotReloadSuccess>
+  <ATC_LogError_InvalidXmlKey>[XML Захисник] ШІ повернув ключ із неприпустимими символами, рядок пропущено: {0}</ATC_LogError_InvalidXmlKey>
+  <ATC_LogError_AuthFailed>[Помилка авторизації API] Провайдер [{0}] повернув помилку 401. Перевірте правильність API-ключа.</ATC_LogError_AuthFailed>
+  <ATC_LogError_RateLimit>[Ліміт запитів API] Провайдер [{0}] повернув помилку 429. Час очікування автоматично збільшено.</ATC_LogError_RateLimit>
+  <ATC_Tag_FromSimplified>[Зі спрощеного кит.]</ATC_Tag_FromSimplified>
+  <ATC_Tag_FromTraditional>[З традиційного кит.]</ATC_Tag_FromTraditional>
+  <ATC_Log_SkipExistingTranslation>[Skip] Мод [{0}] вже містить {1} вбудованих рядків перекладу, пропуск повторного перекладу.</ATC_Log_SkipExistingTranslation>
+  <ATC_Lang_DeepL_FreeNote>DeepL Free (Автовизначення)</ATC_Lang_DeepL_FreeNote>
+  <ATC_Lang_DeepL_ProNote>DeepL Pro (Автовизначення)</ATC_Lang_DeepL_ProNote>
+  <ATC_LogError_DeepL_LangNotSupport>[DeepL] Цільова мова [{0}] не підтримується DeepL. Використовуйте іншого провайдера.</ATC_LogError_DeepL_LangNotSupport>
+  <ATC_Log_MemoryDropQueued>[Еірдроп у пам'ять] Поміщено в чергу головного потоку. Впровадження відбудеться на наступному тіку...</ATC_Log_MemoryDropQueued>
+  <ATC_Log_MemoryDropSkipMainThread>[Еірдроп у пам'ять] Помічено виклик з фонового потоку. Обробку перенаправлено в головний потік.</ATC_Log_MemoryDropSkipMainThread>
+  <ATC_ExportTrans_Btn>📦 Швидкий експорт збірки ⚠️ Обмеження ШІ</ATC_ExportTrans_Btn>
+  <ATC_ExportEula_Title>⚠️ Експорт локалізації та ліцензія (v{0})</ATC_ExportEula_Title>
+  <ATC_ExportEula_CountdownLabel>Будь ласка, уважно ознайомтеся (залишилося {0} сек.)</ATC_ExportEula_CountdownLabel>
+  <ATC_ExportEula_CountdownDone>Будь ласка, підтвердьте пункти угоди нижче</ATC_ExportEula_CountdownDone>
+  <ATC_ExportEula_Check1>Я уважно прочитав і повністю зрозумів зазначені умови</ATC_ExportEula_Check1>
+  <ATC_ExportEula_Check2>Я зобов'язуюсь використовувати це лише для особистої гри або як основу для ручної редактури</ATC_ExportEula_Check2>
+  <ATC_ExportEula_Check3>Я розумію, що несу повну відповідальність за будь-які наслідки публічного розповсюдження</ATC_ExportEula_Check3>
+  <ATC_ExportEula_ConfirmBtn>Підтвердити та експортувати</ATC_ExportEula_ConfirmBtn>
+  <ATC_ExportEula_CancelBtn>Скасувати</ATC_ExportEula_CancelBtn>
+  <ATC_ExportEula_NeedAllChecks>Необхідно позначити всі три пункти, щоб продовжити</ATC_ExportEula_NeedAllChecks>
+  <ATC_ExportEula_FullText>📜 Повага до авторських прав\nПрава на оригінальні тексти модів належать їхнім авторам. Результати роботи ШІ-перекладача є «похідними роботами (Derivative Work)». Згідно з міжнародним законодавством, для їхнього публічного розповсюдження потрібна пряма згода автора оригінального моду.\n\n🚫 Строго заборонено\n• Завантаження в Steam Workshop\n• Публікація на NEXUS / Mod.io / будь-яких інших публічних майданчиках\n• Відкритий доступ за хмарними посиланнями (Google Drive, Dropbox тощо)\n• Розповсюдження через торенти, Discord та подібні канали\n• Видавання машинного перекладу за офіційну локалізацію чи роботу перекладацьких груп\n• Будь-яке комерційне використання в будь-яких цілях\n\n✅ Дозволені варіанти використання\n• Гра на локальному комп'ютері в особистих цілях\n• Використання перекладацькими групами як чернетки для ручного полірування (навіть після цього публікація вимагає згоди автора моду)\n• Пряма відправка автору оригінального моду як допомога з перекладом\n• Закритий обмін файлами з близькими друзями без публічного доступу\n\n📋 Заява про нейтральність інструменту\nЦя утиліта призначена виключно для локального перекладу на вашому комп'ютері. Програма:\n• Не завантажує ваші переклади в мережу без вашого відома\n• Не збирає конфіденційні дані користувача\n• Не сприяє незаконному розповсюдженню похідних робіт\n• Не одобряє порушення авторських прав\n\n⚖️ Відмова від відповідальності\nРозробник програми не несе відповідальності за дії користувачів з розповсюдження файлів. Будь-які суперечки про авторські права, конфлікти в спільноті або судові позови, що виникли внаслідок експорту та передачі вами файлів, лягають виключно на вас.\n\n🚨 Юридичні наслідки\nПорушення цих умов може призвести до:\n• DMCA-скарг та видалення файлів\n• Блокування вашого акаунта Steam\n• Цивільних позовів про відшкодування збитків авторам модів\n• Кримінальної відповідальності згідно із законами про авторське право вашої країни\n\n⏰ Термін дії угоди\nЗгода діє 30 днів. Після закінчення цього терміну система попросить вас повторно вивчити та підтвердити правила, щоб ви залишалися в курсі змін.\n\n📝 Збереження логів згоди\nЛокально зберігається «запис згоди» (час, версія, дані пристрою) як доказ того, що ви ознайомлені з умовами. Не видаляйте цей файл.</ATC_ExportEula_FullText>
+  <ATC_ExportReminder_Title>📦 Попередження перед експортом</ATC_ExportReminder_Title>
+  <ATC_ExportReminder_AlreadyAccepted>Ви вже прийняли умови EULA v{1} від {0}</ATC_ExportReminder_AlreadyAccepted>
+  <ATC_ExportReminder_DaysLeft>Ця згода буде дійсною ще {0} дн.</ATC_ExportReminder_DaysLeft>
+  <ATC_ExportReminder_KeyPoints>⚠️ Нагадуємо ключові правила:</ATC_ExportReminder_KeyPoints>
+  <ATC_ExportReminder_Rule1>❌ Заборонено завантаження в Steam Workshop</ATC_ExportReminder_Rule1>
+  <ATC_ExportReminder_Rule2>❌ Заборонено будь-яке публічне розповсюдження</ATC_ExportReminder_Rule2>
+  <ATC_ExportReminder_Rule3>✅ Дозволено лише для особистої гри або ручного доопрацювання</ATC_ExportReminder_Rule3>
+  <ATC_ExportReminder_Continue>Я розумію, продовжити експорт</ATC_ExportReminder_Continue>
+  <ATC_ExportReminder_RereadEula>Прочитати угоду повністю</ATC_ExportReminder_RereadEula>
+  <ATC_ExportWindow_Title>📦 Виберіть моди для експорту</ATC_ExportWindow_Title>
+  <ATC_ExportWindow_SearchHint>Пошук за назвою моду...</ATC_ExportWindow_SearchHint>
+  <ATC_ExportWindow_DetectedCount>Виявлено {0} перекладених модів</ATC_ExportWindow_DetectedCount>
+  <ATC_ExportWindow_NoFullSelectNotice>⚠️ Будь ласка, вибирайте вручну (захист від зловживань: кнопка «вибрати все» навмисно заблокована)</ATC_ExportWindow_NoFullSelectNotice>
+  <ATC_ExportWindow_ModInfo_DefCount>Перекладено: {0} DefInjected + {1} Keyed рядків</ATC_ExportWindow_ModInfo_DefCount>
+  <ATC_ExportWindow_OutputPath>💾 Шлях збереження: {0}</ATC_ExportWindow_OutputPath>
+  <ATC_ExportWindow_WatermarkNotice>⚠️ В кожен XML-файл буде автоматично додано водяний знак машинного перекладу</ATC_ExportWindow_WatermarkNotice>
+  <ATC_ExportWindow_ConfirmBtn>Експортувати {0} обраних модів</ATC_ExportWindow_ConfirmBtn>
+  <ATC_ExportWindow_NoModSelected>Будь ласка, виберіть хоча б один мод</ATC_ExportWindow_NoModSelected>
+  <ATC_ExportWindow_NoTranslationFound>Перекладені моди не знайдені. Спочатку запустіть переклад.</ATC_ExportWindow_NoTranslationFound>
+  <ATC_Export_Success_Title>Експорт завершено</ATC_Export_Success_Title>
+  <ATC_Export_Success_Message>Успішно експортовано {0} модів (всього {1} файлів)!\n\nШлях: {2}</ATC_Export_Success_Message>
+  <ATC_Export_Failed_Message>Помилка експорту: {0}</ATC_Export_Failed_Message>
+  <ATC_Log_EulaAccepted>[EULA] Користувач прийняв умови угоди v{0}, запис внесено до реєстру пристрою.</ATC_Log_EulaAccepted>
+  <ATC_Log_ExportStart>📦 Підготовка експорту {0} модів...</ATC_Log_ExportStart>
+  <ATC_Log_ExportComplete>✅ Експорт завершено! Модів: {0}, файлів: {1}.</ATC_Log_ExportComplete>
+  <ATC_Log_ExportFailed>❌ Експорт провалено: {0}</ATC_Log_ExportFailed>
+  <ATC_Export_CooldownReady_Free>⏱️ Поточний стан: Готовий до експорту (для цієї сесії кулдаун пропущено)</ATC_Export_CooldownReady_Free>
+  <ATC_Export_CooldownReady_NextWillCooldown>⏱️ Поточний стан: Готовий до експорту (наступний експорт вимагатиме кулдауну {0} сек.)</ATC_Export_CooldownReady_NextWillCooldown>
+  <ATC_Export_CooldownWait>⏱️ Система охолоджується, будь ласка, зачекайте {0} сек...</ATC_Export_CooldownWait>
+  <ATC_Export_TodayCount>Експортів за сьогодні: {0} з 100</ATC_Export_TodayCount>
+  <ATC_Export_TooManyToday>⚠️ Ви вичерпали денний ліміт у {0} експортів. Будь ласка, спробуйте завтра.</ATC_Export_TooManyToday>
+  <ATC_Export_TooManyAtOnce>За один раз можна експортувати не більше 10 модів. Будь ласка, розділіть задачу. Вибрано зараз: {0} модів.</ATC_Export_TooManyAtOnce>
+  <ATC_Export_CooldownDialogTitle>⏱️ Система охолоджується</ATC_Export_CooldownDialogTitle>
+  <ATC_Export_CooldownDialogMsg>До наступного вивантаження залишилося почекати {0} сек.\n\nЗахисна затримка введена для запобігання парсингу баз даних. Звичайні гравці практично ніколи з нею не стикаються.</ATC_Export_CooldownDialogMsg>
+  <ATC_ContactAuthor_Title>💌 Хочете поділитися перекладом з автором оригіналу?</ATC_ContactAuthor_Title>
+  <ATC_ContactAuthor_JustExported>Ви щойно експортували локалізацію для {0} модів.</ATC_ContactAuthor_JustExported>
+  <ATC_ContactAuthor_DidYouKnow>🌟 А ви знали?</ATC_ContactAuthor_DidYouKnow>
+  <ATC_ContactAuthor_Intro>Передати переклад автору набагато крутіше, ніж просто заливати його у воркшоп:</ATC_ContactAuthor_Intro>
+  <ATC_ContactAuthor_Benefit1>✅ Автор може включити ваш переклад прямо в офіційний мод</ATC_ContactAuthor_Benefit1>
+  <ATC_ContactAuthor_Benefit2>✅ Ваше ім'я з'явиться в логах оновлення або титрах моду</ATC_ContactAuthor_Benefit2>
+  <ATC_ContactAuthor_Benefit3>✅ Ніяких порушень ліцензій та суперечок про авторське право</ATC_ContactAuthor_Benefit3>
+  <ATC_ContactAuthor_Benefit4>✅ Корисно для всієї ігрової спільноти</ATC_ContactAuthor_Benefit4>
+  <ATC_ContactAuthor_SelectMod>Виберіть мод для зв'язку з автором:</ATC_ContactAuthor_SelectMod>
+  <ATC_ContactAuthor_TemplateLabel>📧 Ми підготували зручний шаблон повідомлення:</ATC_ContactAuthor_TemplateLabel>
+  <ATC_ContactAuthor_CopyTemplate>📋 Скопіювати шаблон листа</ATC_ContactAuthor_CopyTemplate>
+  <ATC_ContactAuthor_OpenWorkshop>🌐 Відкрити сторінку моду в Steam Workshop</ATC_ContactAuthor_OpenWorkshop>
+  <ATC_ContactAuthor_TemplateCopied>✅ Шаблон скопійовано в буфер обміну!</ATC_ContactAuthor_TemplateCopied>
+  <ATC_ContactAuthor_CannotOpenWorkshop>Не вдалося викликати Steam Workshop (Steam не запущено або відсутнє посилання на сторінку)</ATC_ContactAuthor_CannotOpenWorkshop>
+  <ATC_ContactAuthor_Close>Закрити</ATC_ContactAuthor_Close>
+  <ATC_ContactAuthor_NoSteamMods>Не знайдено пов'язаних зі Steam Workshop модів (схоже, це локально встановлені папки)</ATC_ContactAuthor_NoSteamMods>
+  <ATC_EmailTemplate_Subject>Translation Contribution for {0}</ATC_EmailTemplate_Subject>
+  <ATC_EmailTemplate_Body>Hi {0},\n\nI'm a fan of your mod "{1}". I've drafted a {2} translation using AI tools as a starting point, and I'd love to contribute it back to your mod.\n\nThe translation includes:\n- {3} DefInjected entries\n- {4} Keyed entries\n\nI understand it's machine-generated and may need human polishing before being officially included. I'm sharing the files so you can:\n- Use them as a starting point for an official translation\n- Pass them to a community translator\n- Or simply have them as reference\n\nThe files were exported to my desktop using a tool called "Auto Translation Core". I have NOT and will NOT redistribute them publicly.\n\nWould you like me to send them to you? I can attach them in a reply, or send them via Discord / GitHub PR if you prefer.\n\nThank you for making such an amazing mod!\n\nBest regards,\nA Player</ATC_EmailTemplate_Body>
+  <ATC_Export_Success_ContactAuthorBtn>💌 Подарувати переклад автору оригіналу</ATC_Export_Success_ContactAuthorBtn>
+  <ATC_Export_Success_CloseBtn>Закрити</ATC_Export_Success_CloseBtn>
+  <ATC_Log_CooldownTriggered>⏱️ [Cooldown] Експорт №{0}. Встановлено захисну паузу на {1} сек.</ATC_Log_CooldownTriggered>
+  <ATC_Log_DailyLimitReached>🛑 [Limit] Досягнуто добового ліміту в 100 вивантажень файлів.</ATC_Log_DailyLimitReached>
+  <ATC_AutoClearOldOnUpdate>Максимальна точність: повністю стирати старі файли перекладу перед оновленням модів (рекомендується для уникнення багів)</ATC_AutoClearOldOnUpdate>
+  <ATC_AutoTranslateOnUpdate>Розумний фоновий запуск: автоматично запускати переклад у фоновому режимі при виявленні апдейтів при запуску гри (за замовчуванням вимк.)</ATC_AutoTranslateOnUpdate>
+  <ATC_SmartUpdateBtn>Доперекласти моди (знайдено {0} оновлень)</ATC_SmartUpdateBtn>
+  <ATC_ModUpdateStatusBtn>Доперекласти моди (знайдено {0} застарілих або неперекладених)</ATC_ModUpdateStatusBtn>
+  <ATC_ClearCacheSuccess>Старий кеш перекладів для {0} оновлених модів успішно видалено.</ATC_ClearCacheSuccess>
+  <ATC_Export_Readme_Full>
+		================================================================WARNING: AUTO-GENERATED MACHINE TRANSLATIONУВАГА: ЦЯ ПАПКА МІСТИТЬ АВТОМАТИЧНИЙ ШІ-ПЕРЕКЛАД================================================================Час генерації (Generation Time): {0}
+		Програма (Generator): Auto Translation Core
+		Кількість модів (Mod Count): {1}
+
+		Перекладені моди (Exported Mods):
+		{2}
+		================================================================
+		Строгі заборони (Strictly Prohibited)
+		================================================================
+
+		1. Категорично заборонено завантажувати ці файли безпосередньо в Steam Workshop
+		2. Категорично заборонено викладати збірку на NEXUS / Mod.io та інші публічні ресурси
+		3. Заборонено завантажувати на сторонні файлообмінники для загального доступу. Діліться перекладами через вбудовану систему «Хмарний хаб (Cloud Hub)»
+		4. Заборонено видавати цей переклад за повністю готову ручну або офіційну локалізацію
+		5. Будь-яка комерціалізація чи продаж перекладів строго заборонені
+
+		================================================================
+		Дозволені дії (Allowed Usage)
+		================================================================
+
+		1. Використання на особистому комп'ютері в офлайн-режимі
+		2. Публікація в загальній «Хмарній майстерні» моду для допомоги спільноті
+		3. Використання як чернетки перекладацькими групами (Upload_Workspace)
+		4. Передача файлів автору оригінального моду для інтеграції
+		5. Закритий дружній обмін без публікації у відкритих джерелах
+
+		================================================================
+		Юридична інформація (Legal Notice)
+		================================================================
+
+		Ця локалізація створена на базі технологій штучного інтелекту і класифікується як «похідна робота».
+		Відповідно до законодавства, розповсюдження таких файлів вимагає прямого дозволу автора оригінального моду.
+
+		Нелегальна дистрибуція може призвести до:
+		- Видалення файлів за DMCA-скаргами
+		- Довічного блокування акаунта Steam
+		- Цивільних та кримінальних позовів за порушення авторських прав
+
+		================================================================
+	</ATC_Export_Readme_Full>
+  <ATC_Export_ConsentRecord_Full>================================================================Підтвердження EULA користувачем (Consent Record)Час згоди (UTC+8): {0}Версія EULA (Version): {1}Лічильник підтверджень (Accept Count): {2}Ім'я ПК (Machine): {3}Система (OS): {4}Час вивантаження (Export Time): {5}Прийняті умови (Accepted Items):[O] Я уважно прочитав умови угоди та усвідомлюю правові аспекти[O] Я зобов'язуюсь використовувати файли тільки особисто або як базу для редактури[O] Я беру на себе повну відповідальність за наслідки будь-якого розповсюдження файлів================================================================Важливо! (Important)Це автоматичне підтвердження вашої згоди з правилами. Зберігайте цей файл.У разі спірних питань щодо авторських прав він служить доказом того, що ви були ознайомлені з умовами.================================================================</ATC_Export_ConsentRecord_Full>
+  <ATC_Tab_Main>Головний термінал</ATC_Tab_Main>
+  <ATC_Tab_Settings>Параметри та конфігурація API</ATC_Tab_Settings>
+  <ATC_Log_SkipRequested>[System] Користувач примусово пропустив поточний мод...</ATC_Log_SkipRequested>
+  <ATC_Error_Unknown>Невідома системна помилка</ATC_Error_Unknown>
+  <ATC_Error_Timeout>Тайм-аут запиту до API (Timeout). Сервер перевантажений або проблеми з вашою мережею.</ATC_Error_Timeout>
+  <ATC_Error_Connection>Не вдалося з'єднатися з сервером {0}. Перевірте мережу або роботу VPN/проксі.</ATC_Error_Connection>
+  <ATC_Error_Unauthorized>Невалідний ключ API або вичерпано ліміт коштів (HTTP 401/403).</ATC_Error_Unauthorized>
+  <ATC_Error_NetworkAbnormal>Нестабільний стан магістральної мережі, затримки передачі</ATC_Error_NetworkAbnormal>
+  <ATC_Warning_InvalidUrlFallback>Виявлено некоректний URL-адрес: {0}. Спроба жорсткого запуску...</ATC_Warning_InvalidUrlFallback>
+  <ATC_Error_ParseFailed>ШІ повернув неформатований текст (невалідний JSON). Переключіться на більш просунуту модель.</ATC_Error_ParseFailed>
+  <ATC_Error_RateLimit>Занадто часті запити до API (HTTP 429). Збільште інтервал затримки в налаштуваннях або зробіть паузу.</ATC_Error_RateLimit>
+  <ATC_Error_ServerError>Сервер ШІ відключений або на обслуговуванні (HTTP 500+). Спробуйте змінити модель або провайдера.</ATC_Error_ServerError>
+  <ATC_Error_HttpGeneric>Порушення протоколу мережі (HTTP {0}). Ознайомтеся з детальним логом помилок.</ATC_Error_HttpGeneric>
+  <ATC_Log_RetryAttempt>Отримано відповідь HTTP {0}. Спроба відновлення зв'язку №{1} (очікування {2} мс)...</ATC_Log_RetryAttempt>
+  <ATC_Log_RetryTimeout>Перевищено час очікування. Запуск відновлення №{0} (пауза {1} мс)...</ATC_Log_RetryTimeout>
+  <ATC_Setting_Timeout>Макс. час очікування API: {0} сек.</ATC_Setting_Timeout>
+  <ATC_Setting_Timeout_Tooltip>Якщо сервер не відповість за вказаний час, запит буде скинутий для повторної спроби. Рекомендується: 60-120\n(При використанні важких міркувальних моделей фоновий час очікування примусово збільшується до 300 сек.)</ATC_Setting_Timeout_Tooltip>
+  <ATC_FilteredCodeOnly>Відсіяно {0} модів без локалізації (містять тільки виконуваний код).</ATC_FilteredCodeOnly>
+  <ATC_FilteredModsCount>Відсіяно {0} модів, що не потребують перекладу (чистий код або чисто графічні асети)</ATC_FilteredModsCount>
+  <ATC_Log_DeepL_EndpointDetected>✅ Ендпоінт DeepL［{0}］успішно підключено.</ATC_Log_DeepL_EndpointDetected>
+  <ATC_Log_FetchModelsRetry>Помилка отримання списку моделей (HTTP {0}). Спроба відновлення №{1}…</ATC_Log_FetchModelsRetry>
+  <ATC_Log_FetchModelsAutoRetryQueued>[{0}] Model lookup failed. Auto retry in {1}s (attempt {2}).</ATC_Log_FetchModelsAutoRetryQueued>
+  <ATC_Error_FetchModelsFailed>❌ Не вдалося автоматично отримати моделі від провайдера ［{0}］! （HTTP {1}） Перевірте ключ.</ATC_Error_FetchModelsFailed>
+  <ATC_Error_FetchModelsException>⚠️ Сбой при зборі індексів моделей ［{0}］: {1}</ATC_Error_FetchModelsException>
+  <ATC_Log_FakeLanguageDetected>🕵️ [Система контролю лінощів] Виявлено хитрість розробника! Файл {0} є порожньою заглушкою. Його примусово відправлено на повний переклад ШІ!</ATC_Log_FakeLanguageDetected>
+  <ATC_Tab_Cloud>☁️ Хмарний хаб</ATC_Tab_Cloud>
+  <ATC_Cloud_Refresh>🔄 Оновити хмарний список</ATC_Cloud_Refresh>
+  <ATC_Cloud_Fetching>⏳ Підключення до Cloudflare мозку...</ATC_Cloud_Fetching>
+  <ATC_Cloud_FetchFailed>⚠️ Помилка завантаження хмарних даних. Перевірте стабільність з'єднання.</ATC_Cloud_FetchFailed>
+  <ATC_Cloud_Status_Official>👑 Якісний переклад команди</ATC_Cloud_Status_Official>
+  <ATC_Cloud_Status_UpdateAvailable>🟢 Є оновлення в хмарі</ATC_Cloud_Status_UpdateAvailable>
+  <ATC_Cloud_Status_Outdated>🟡 Версія перекладу під сумнівом</ATC_Cloud_Status_Outdated>
+  <ATC_Cloud_Status_NoCloud>🔘 У хмарі поки порожньо</ATC_Cloud_Status_NoCloud>
+  <ATC_Cloud_Status_Latest>🔵 Версія повністю збігається</ATC_Cloud_Status_Latest>
+  <ATC_Cloud_Btn_Download>☁️ Залити в гру</ATC_Cloud_Btn_Download>
+  <ATC_Cloud_Btn_Upload>⬆️ Поділитися перекладом</ATC_Cloud_Btn_Upload>
+  <ATC_Cloud_Btn_Uploading>⏳ Упаковка та зашифрована передача...</ATC_Cloud_Btn_Uploading>
+  <ATC_Cloud_LastUpdate>Дата оновлення</ATC_Cloud_LastUpdate>
+  <ATC_Cloud_Author>Автор перекладу</ATC_Cloud_Author>
+  <ATC_Cloud_Nickname>👤 Нікнейм автора</ATC_Cloud_Nickname>
+  <ATC_Cloud_AdminKey>🔑 Священний майстер-код</ATC_Cloud_AdminKey>
+  <ATC_Cloud_Btn_DeleteLocal>🗑️ Стерти з мого ПК</ATC_Cloud_Btn_DeleteLocal>
+  <ATC_Cloud_Btn_DeleteCloud>🔥 Спалити в хмарі</ATC_Cloud_Btn_DeleteCloud>
+  <ATC_Cloud_Deleting>⏳ Процес знищення даних...</ATC_Cloud_Deleting>
+  <ATC_Cloud_ConnectionNormal>☁️ Підключення до хмари стабільне. У базі даних міститься {0} записів.</ATC_Cloud_ConnectionNormal>
+  <ATC_Cloud_NoModsWarning>⚠️ Порівнянні моди для перекладу не виявлені!\n(Якщо у вас запущено тільки оригінальну гру, DLC та сам цей мод, список буде порожнім!)</ATC_Cloud_NoModsWarning>
+  <ATC_Cloud_Btn_BatchOfficial>👑 Скачати всі якісні переклади</ATC_Cloud_Btn_BatchOfficial>
+  <ATC_Cloud_Btn_BatchAI>🤖 Скачати всі ШІ-переклади</ATC_Cloud_Btn_BatchAI>
+  <ATC_Msg_DownloadStart>📥 Отримання хмарних файлів: {0}...</ATC_Msg_DownloadStart>
+  <ATC_Msg_DownloadSuccess>✅ Еірдроп виконано! Переклад {0} успішно залито в активну пам'ять!</ATC_Msg_DownloadSuccess>
+  <ATC_Msg_DownloadFailed>❌ Не вдалося підвантажити хмарний файл: {0}</ATC_Msg_DownloadFailed>
+  <ATC_Msg_UploadSuccess>🚀 Вивантаження завершено! Величезне спасибі за допомогу нашій спільноті: {0}</ATC_Msg_UploadSuccess>
+  <ATC_Msg_UploadFailed>❌ Помилка завантаження: {0} (відсутність файлів перекладу або блокування хмарної відповіді)</ATC_Msg_UploadFailed>
+  <ATC_Msg_DeleteCloudSuccess>🔥 Хмарні файли безповоротно стерті: {0}</ATC_Msg_DeleteCloudSuccess>
+  <ATC_Msg_DeleteCloudFailed>❌ Помилка видалення з хмари (перевірте майстер-ключ): {0}</ATC_Msg_DeleteCloudFailed>
+  <ATC_Msg_DeleteLocalSuccess>🗑️ Локальний кеш перекладу для моду {0} успішно очищено!</ATC_Msg_DeleteLocalSuccess>
+  <ATC_Msg_BatchNoMods>⚠️ Локальні об'єкти для оновлення чи нової обробки не виявлені.</ATC_Msg_BatchNoMods>
+  <ATC_Msg_BatchStart>📥 Запуск пакетного імпорту локалізації для {0} модів...</ATC_Msg_BatchStart>
+  <ATC_Msg_BatchSuccess>✅ Пакетне оновлення завершено! Локалізацію залито в {0} з {1} модів!</ATC_Msg_BatchSuccess>
+  <ATC_Cloud_Btn_OpenWorkspace>📂 Відкрити робочу зону</ATC_Cloud_Btn_OpenWorkspace>
+  <ATC_Cloud_Btn_BatchUpload>⬆️ Масове завантаження робочої зони</ATC_Cloud_Btn_BatchUpload>
+  <ATC_Msg_WorkspaceEmpty>⚠️ Робоча директорія порожня або не виявлена!</ATC_Msg_WorkspaceEmpty>
+  <ATC_Msg_BatchUploadStart>🚀 Запуск глибокого аналізу робочої зони та вивантаження {0} модів у хмару...</ATC_Msg_BatchUploadStart>
+  <ATC_Msg_BatchUploadSuccess>Пакетне завантаження завершено! Завантажено модів: {0}, тип: {1}.</ATC_Msg_BatchUploadSuccess>
+  <ATC_Cloud_BatchUploadLogLabel>Опис оновлення для пакетного завантаження:</ATC_Cloud_BatchUploadLogLabel>
+  <ATC_Cloud_BatchUploadLogHint>Обов'язково для пакетного завантаження. Коротко опишіть зміни.</ATC_Cloud_BatchUploadLogHint>
+  <ATC_Msg_BatchUploadLogRequired>Для пакетного завантаження потрібен опис оновлення щонайменше 5 символів.</ATC_Msg_BatchUploadLogRequired>
+  <ATC_Cloud_Type_Select>📝 Категорія публікованої локалізації:</ATC_Cloud_Type_Select>
+  <ATC_Cloud_Type_AI>🤖 Машинний (ШІ) переклад</ATC_Cloud_Type_AI>
+  <ATC_Cloud_Type_Manual>✍️ Ручне доопрацювання людиною</ATC_Cloud_Type_Manual>
+  <ATC_Cloud_Status_Manual>🟢 Користувацьке доопрацювання</ATC_Cloud_Status_Manual>
+  <ATC_EmergencyResetTitle>Аварійна аптечка (Небезпечна зона системи)</ATC_EmergencyResetTitle>
+  <ATC_Btn_FactoryReset>Скинути всі налаштування та стерти офлайн-кеш</ATC_Btn_FactoryReset>
+  <ATC_Msg_ConfirmFactoryReset>Увага: Очистить весь кеш локалізацій та обнулить UI-пам'ять. Дійсно скинути? (Скасувати цю дію неможливо)</ATC_Msg_ConfirmFactoryReset>
+  <ATC_Btn_Confirm>Примусово підтвердити скидання</ATC_Btn_Confirm>
+  <ATC_Btn_Cancel>Залишити все як є</ATC_Btn_Cancel>
+  <ATC_Log_FactoryResetSuccess>Пристрій успішно скинуто до заводських налаштувань, кеш очищено.</ATC_Log_FactoryResetSuccess>
+  <ATC_Msg_FactoryResetSuccess>Скидання завершено! Усі локальні файли перекладів видалено.</ATC_Msg_FactoryResetSuccess>
+  <ATC_Cloud_Downloading>Скачування з хмари: {0}</ATC_Cloud_Downloading>
+  <ATC_Cloud_Uploading>Вивантаження в хмару: {0}</ATC_Cloud_Uploading>
+  <ATC_LogError_DownloadCorrupted>Збій розпакування або пошкодження архіву! Пошкоджені порожні файли видалено. Мод: {0}, Помилка: {1}</ATC_LogError_DownloadCorrupted>
+  <ATC_Log_CloudPrefetchSuccess>Список актуальних файлів з хмарного хаба успішно отримано (синхронізовано {0} записів).</ATC_Log_CloudPrefetchSuccess>
+  <ATC_Error_FetchModels_NonJson>[{0}] Помилка пошуку моделей: сервер повернув невалідні дані ({1}). Прев'ю: {2}</ATC_Error_FetchModels_NonJson>
+  <ATC_Error_FetchModels_Unauthorized>[{0}] Збій авторизації (401): API-ключ не прийнятий сервером. Будь ласка, перевірте його.</ATC_Error_FetchModels_Unauthorized>
+  <ATC_Error_FetchModels_Forbidden>[{0}] Запит відхилено (403): недостатньо прав або блокування файрволом (перевірте баланс та регіональні ліміти).</ATC_Error_FetchModels_Forbidden>
+  <ATC_Error_FetchModels_RateLimit>[{0}] Відмова підключення (429): занадто багато запитів за короткий проміжок часу. Спробуйте пізніше.</ATC_Error_FetchModels_RateLimit>
+  <ATC_Error_FetchModels_ServerError>[{0}] Внутрішня помилка сервера ({1}). Нестабільний стан хоста. Детально: {2}</ATC_Error_FetchModels_ServerError>
+  <ATC_Error_FetchModels_Unknown>[{0}] Невідома помилка отримання моделей ({1}). Лог: {2}</ATC_Error_FetchModels_Unknown>
+  <ATC_Error_FetchModelsDispatchTimeout>[{0}] Model lookup did not start in time. Please close and reopen the settings panel, or try again after the game finishes loading.</ATC_Error_FetchModelsDispatchTimeout>
+  <ATC_Error_FetchModelsWatchdogReleased>[{0}] Model lookup timed out; stuck fetching state was released. Please retry later or click Refetch Models.</ATC_Error_FetchModelsWatchdogReleased>
+  <ATC_Lang_French>Французька (Français)</ATC_Lang_French>
+  <ATC_Lang_German>Німецька (Deutsch)</ATC_Lang_German>
+  <ATC_Lang_Spanish>Іспанська (Español)</ATC_Lang_Spanish>
+  <ATC_Lang_Italian>Італійська (Italiano)</ATC_Lang_Italian>
+  <ATC_Lang_Polish>Польська (Polski)</ATC_Lang_Polish>
+  <ATC_Lang_Portuguese>Португальська (Português)</ATC_Lang_Portuguese>
+  <ATC_Lang_Turkish>Турецька (Türkçe)</ATC_Lang_Turkish>
+  <ATC_Cloud_SmartMerged> [ШІ-Доопрацювання]</ATC_Cloud_SmartMerged>
+  <ATC_Cloud_UploadDate>Дата публікації в хмарі: {0}</ATC_Cloud_UploadDate>
+  <ATC_Cloud_TransType>Категорія тексту: {0}</ATC_Cloud_TransType>
+  <ATC_Cloud_IsSmartMerged>Інтелектуальне злиття: {0}</ATC_Cloud_IsSmartMerged>
+  <ATC_Cloud_YesWithCount>Застосовано (містить {0} автоматичних補填 рядків для закриття дірок)</ATC_Cloud_YesWithCount>
+  <ATC_Cloud_No>Ні</ATC_Cloud_No>
+  <ATC_Log_MetaUpdated>Метадані ліцензії оновлені (додано {0} розумних латок для закриття дірок перекладу)</ATC_Log_MetaUpdated>
+  <ATC_Log_BackupSuccess>Попередня версія перекладу успішно переміщена в резервне сховище: {0}</ATC_Log_BackupSuccess>
+  <ATC_Workbench_Title>📝 ATC Інтерактивний верстат: {0}</ATC_Workbench_Title>
+  <ATC_Workbench_SearchHint>🔍 Пошук оригінальних рядків або перекладу...</ATC_Workbench_SearchHint>
+  <ATC_Workbench_CategoryCount>📁 {0} ({1})</ATC_Workbench_CategoryCount>
+  <ATC_Workbench_CloseBtn>Закрити (без збереження)</ATC_Workbench_CloseBtn>
+  <ATC_Workbench_SaveBtn>💾 Зберегти та впровадити</ATC_Workbench_SaveBtn>
+  <ATC_Cloud_Btn_Dir>Папка моду</ATC_Cloud_Btn_Dir>
+  <ATC_Cloud_Btn_DirTooltip>Відкрити робочу папку для ручного копіювання XML-файлів перед відправкою в хмару</ATC_Cloud_Btn_DirTooltip>
+  <ATC_Cloud_Btn_WorkbenchTooltip>Запустити інтерактивний верстак (Translation Workbench)\nШвидка правка друкарських помилок та закриття дірок за 1 секунду!</ATC_Cloud_Btn_WorkbenchTooltip>
+  <ATC_Workbench_SaveSuccess>Виправлений переклад збережено та успішно залито прямо в гру!</ATC_Workbench_SaveSuccess>
+  <ATC_Log_WorkbenchSaved>Інтерактивний верстак зберіг {0} змін. Запущено гарячий релоад!</ATC_Log_WorkbenchSaved>
+  <ATC_Cloud_LogTitle>Список змін версії</ATC_Cloud_LogTitle>
+  <ATC_Cloud_NoLog>Автор не залишив опису змін для цієї версії.</ATC_Cloud_NoLog>
+  <ATC_UploadPreview_Title>Консоль верифікації пакета перед завантаженням - {0}</ATC_UploadPreview_Title>
+  <ATC_UploadPreview_Loading>Виконується перевірка кодування XML та аналіз безпеки даних. Будь ласка, зачекайте...</ATC_UploadPreview_Loading>
+  <ATC_Preview_ClickToSee>Виберіть елемент зліва для двомовного зіставлення виправлень</ATC_Preview_ClickToSee>
+  <ATC_Upload_LogLabel>Опис змін (для інформування користувачів про оновлення):</ATC_Upload_LogLabel>
+  <ATC_Upload_LogHint>Коротко опишіть, що було виправлено в цій версії (наприклад: виправлено шрифт зброї, прибрано друкарські помилки діалогів...)</ATC_Upload_LogHint>
+  <ATC_Upload_UnlockEdit>✍️ Розблокувати та змінити опис</ATC_Upload_UnlockEdit>
+  <ATC_Upload_EditingMode>⚠️ Режим редагування активний</ATC_Upload_EditingMode>
+  <ATC_Upload_ConfirmUploadBtn>✅ Помилок немає · Почати завантаження в хмару</ATC_Upload_ConfirmUploadBtn>
+  <ATC_Msg_UploadStart>🚀 Поїхали! Збірка перекладу [{0}] упаковується для відправки на сервери...</ATC_Msg_UploadStart>
+  <ATC_Type_Official>Професійний локалізатор</ATC_Type_Official>
+  <ATC_Type_Manual>Ручний переклад користувача</ATC_Type_Manual>
+  <ATC_Type_AI>ШІ-Машинний переклад</ATC_Type_AI>
+  <ATC_UploadPreview_NoTranslation>Придатні для завантаження файли перекладу не виявлені!\n(Спочатку запустіть автопереклад ШІ або помістіть ручні файли в папку Upload_Workspace)</ATC_UploadPreview_NoTranslation>
+  <ATC_Msg_UploadFailedNoFiles>Не вдалося завершити відправку: файли перекладу не знайдені!</ATC_Msg_UploadFailedNoFiles>
+  <ATC_Log_CleanedGhostTwins>[System] Щоб уникнути конфліктів перекладу, {0} старих залишкових фантомних файлів успішно відправлено в небуття!</ATC_Log_CleanedGhostTwins>
+  <ATC_Log_AutoStartUpdateScan>[System] Виявлено зміну версій у {0} модів. Відповідно до налаштувань, запущено фоновий перекладач!</ATC_Log_AutoStartUpdateScan>
+  <ATC_SubTask_TestingAPI>Перевірка стабільності підключення до API...</ATC_SubTask_TestingAPI>
+  <ATC_Log_PreflightCheck>Запущено глибоку діагностику каналів зв'язку перед початком роботи...</ATC_Log_PreflightCheck>
+  <ATC_LogError_ApiDeadAbort>API не відповідає! Переклад аварійно зупинено. Перевірте правильність ключа доступу та налаштування мережі.</ATC_LogError_ApiDeadAbort>
+  <ATC_TaskFailed>Задача відхилена / збій</ATC_TaskFailed>
+  <ATC_Cloud_FetchListFailed>Не вдалося отримати хмарний список (HTTP {0}). Пробуємо підключитися через резервний вузол зв'язку...</ATC_Cloud_FetchListFailed>
+  <ATC_Cloud_ConnectionFailedLog>Не вдалося увійти в ядро хмари: {0}</ATC_Cloud_ConnectionFailedLog>
+  <ATC_Log_AutoSyncLanguage>Виявлено зміну мови гри на [{0}]. Мовну схему перекладача синхронізовано!</ATC_Log_AutoSyncLanguage>
+  <ATC_Cloud_SelectLang>Цільова мова для хмарного обміну:</ATC_Cloud_SelectLang>
+  <ATC_Cloud_ConnectionFailed>Збій зв'язку з хмарою або перевищено час очікування. Рекомендуємо використовувати проксі або ігрові прискорювачі: {0}</ATC_Cloud_ConnectionFailed>
+  <ATC_Cloud_UploadFallback>Перевищено час очікування основної лінії, переключаємося на резервний обхідний канал зв'язку...</ATC_Cloud_UploadFallback>
+  <ATC_Cloud_UploadFailed>Збій хмарної передачі: {0}</ATC_Cloud_UploadFailed>
+  <ATC_Cloud_DeleteFallback>Основний канал видалення заблокований, запуск екстреного обхідного шлюзу стирання...</ATC_Cloud_DeleteFallback>
+  <ATC_Cloud_DeleteFailed>Сбой видалення: {0}</ATC_Cloud_DeleteFailed>
+  <ATC_Cloud_MainRouteCrashed>Зв'язок з сервером втрачено. Пошук та активація вільного підземного обхідного шляху передачі даних...</ATC_Cloud_MainRouteCrashed>
+  <ATC_Cloud_RequestRejected>Помилка підключення, хмарний хост відхилив запит (HTTP {0})</ATC_Cloud_RequestRejected>
+  <ATC_Cloud_RetryAttemptLog>Втрата пакетів при зв'язку з хмарою. Спроба високоенергетичного квантового відновлення зв'язку №{0}...</ATC_Cloud_RetryAttemptLog>
+  <ATC_Cloud_DownloadRetryFailed>Спроби скачування вичерпані, канал зв'язку розірвано: {0}</ATC_Cloud_DownloadRetryFailed>
+  <ATC_Tab_Editor>Глобальний редактор</ATC_Tab_Editor>
+  <ATC_Workbench_SearchMod>Назва моду або його унікальний ID...</ATC_Workbench_SearchMod>
+  <ATC_Workbench_ShowTranslatedOnly>Показувати тільки моди з готовим перекладом</ATC_Workbench_ShowTranslatedOnly>
+  <ATC_Workbench_SelectModHint>Будь ласка, виберіть цільовий мод для редагування в списку зліва</ATC_Workbench_SelectModHint>
+  <ATC_Workbench_BackToList>Повернутися до списку модів</ATC_Workbench_BackToList>
+  <ATC_Cloud_SearchHint>Пошук за назвою або ID моду...</ATC_Cloud_SearchHint>
+  <ATC_Btn_ClearUICache>Повністю очистити тимчасовий кеш та чорний список UI</ATC_Btn_ClearUICache>
+  <ATC_Msg_UICacheCleared>Кеш UI повністю очищено. Сирі (неперекладені) рядки знову відправлені на обробку!</ATC_Msg_UICacheCleared>
+  <ATC_LogError_DeleteUICacheFailed>Помилка фізичного видалення кешу UI з диска: {0}</ATC_LogError_DeleteUICacheFailed>
+  <ATC_Log_UICacheClearedFull>Тимчасовий кеш UI та список виключень повністю стерті з усіх накопичувачів пристрою!</ATC_Log_UICacheClearedFull>
+  <ATC_Workbench_GlobalSearchTitle>🔍 Надшвидкий глобальний офлайн-пошук (Global Search)</ATC_Workbench_GlobalSearchTitle>
+  <ATC_Lang_All>🌍 Усі доступні мови (All)</ATC_Lang_All>
+  <ATC_Workbench_GlobalSearching>🔄 Запущено фонове сканування локальних кешів гри...</ATC_Workbench_GlobalSearching>
+  <ATC_Workbench_GlobalSearchNoResult>Збігів у перекладених текстах не виявлено.</ATC_Workbench_GlobalSearchNoResult>
+  <ATC_Msg_UploadLogRequired>⚠️ Для підтримки порядку в хмарі вкажіть деталі вашої правки в лівому нижньому кутку (мінімум 5 символів)!</ATC_Msg_UploadLogRequired>
+  <ATC_Btn_RepairLegacyTranslations>&#x412;&#x438;&#x43F;&#x440;&#x430;&#x432;&#x438;&#x442;&#x438; &#x441;&#x442;&#x430;&#x440;&#x438;&#x439; &#x444;&#x43E;&#x440;&#x43C;&#x430;&#x442; &#x43F;&#x435;&#x440;&#x435;&#x43A;&#x43B;&#x430;&#x434;&#x443;</ATC_Btn_RepairLegacyTranslations>
+  <ATC_Msg_RepairLegacyTranslationsDone>&#x412;&#x438;&#x43F;&#x440;&#x430;&#x432;&#x43B;&#x435;&#x43D;&#x43D;&#x44F; &#x441;&#x442;&#x430;&#x440;&#x43E;&#x433;&#x43E; &#x444;&#x43E;&#x440;&#x43C;&#x430;&#x442;&#x443; &#x437;&#x430;&#x432;&#x435;&#x440;&#x448;&#x435;&#x43D;&#x43E;: &#x432;&#x438;&#x43F;&#x440;&#x430;&#x432;&#x43B;&#x435;&#x43D;&#x43E; {1} &#x437;&#x430;&#x43F;&#x438;&#x441;&#x456;&#x432; &#x443; {0} &#x444;&#x430;&#x439;&#x43B;&#x430;&#x445;; {2} &#x441;&#x43A;&#x43B;&#x430;&#x434;&#x43D;&#x438;&#x445; &#x441;&#x442;&#x440;&#x443;&#x43A;&#x442;&#x443;&#x440; &#x43F;&#x43E;&#x442;&#x440;&#x435;&#x431;&#x443;&#x44E;&#x442;&#x44C; &#x43F;&#x435;&#x440;&#x435;&#x432;&#x456;&#x440;&#x43A;&#x438;.</ATC_Msg_RepairLegacyTranslationsDone>
+  <ATC_ApiKeyNoteHint>Нотатка: Gemini free quota, DeepSeek backup, proxy тощо</ATC_ApiKeyNoteHint>
+  <ATC_ApiKeyEnabled>Увімкнути цей API Key</ATC_ApiKeyEnabled>
+  <ATC_Msg_ApiKeyDisabled>Цей API Key зараз вимкнено.</ATC_Msg_ApiKeyDisabled>
+  <ATC_ModStatus_Translated>Перекладено</ATC_ModStatus_Translated>
+  <ATC_ModStatus_Untranslated>Не перекладено</ATC_ModStatus_Untranslated>
+  <ATC_ModStatus_Outdated>Може бути застаріло</ATC_ModStatus_Outdated>
+  <ATC_Msg_CloudUploadPatchModBlocked>&#x0417;&#x0430;&#x0432;&#x0430;&#x043D;&#x0442;&#x0430;&#x0436;&#x0435;&#x043D;&#x043D;&#x044F; &#x0437;&#x0430;&#x0431;&#x043B;&#x043E;&#x043A;&#x043E;&#x0432;&#x0430;&#x043D;&#x043E;: {0} &#x0441;&#x0445;&#x043E;&#x0436;&#x0438;&#x0439; &#x043D;&#x0430; &#x043C;&#x043E;&#x0434; &#x043B;&#x043E;&#x043A;&#x0430;&#x043B;&#x0456;&#x0437;&#x0430;&#x0446;&#x0456;&#x0457; &#x0430;&#x0431;&#x043E; &#x043F;&#x0430;&#x0442;&#x0447; &#x043F;&#x0435;&#x0440;&#x0435;&#x043A;&#x043B;&#x0430;&#x0434;&#x0443;. &#x0425;&#x043C;&#x0430;&#x0440;&#x043D;&#x0438;&#x0439; &#x043E;&#x0431;&#x043C;&#x0456;&#x043D; &#x043F;&#x0440;&#x0438;&#x0439;&#x043C;&#x0430;&#x0454; &#x043B;&#x0438;&#x0448;&#x0435; &#x0456;&#x043D;&#x0454;&#x043A;&#x0446;&#x0456;&#x0439;&#x043D;&#x0456; &#x043F;&#x0435;&#x0440;&#x0435;&#x043A;&#x043B;&#x0430;&#x0434;&#x0438; &#x0434;&#x043B;&#x044F; &#x043E;&#x0440;&#x0438;&#x0433;&#x0456;&#x043D;&#x0430;&#x043B;&#x044C;&#x043D;&#x0438;&#x0445; &#x043C;&#x043E;&#x0434;&#x0456;&#x0432;.</ATC_Msg_CloudUploadPatchModBlocked>
+  <ATC_Msg_CloudBatchPatchModsSkipped>&#x041F;&#x0440;&#x043E;&#x043F;&#x0443;&#x0449;&#x0435;&#x043D;&#x043E; {0} &#x043C;&#x043E;&#x0434;&#x0456;&#x0432; &#x043B;&#x043E;&#x043A;&#x0430;&#x043B;&#x0456;&#x0437;&#x0430;&#x0446;&#x0456;&#x0457; &#x0430;&#x0431;&#x043E; &#x043F;&#x0430;&#x0442;&#x0447;&#x0456;&#x0432; &#x043F;&#x0435;&#x0440;&#x0435;&#x043A;&#x043B;&#x0430;&#x0434;&#x0443;. &#x0412;&#x043E;&#x043D;&#x0438; &#x043D;&#x0435; &#x0431;&#x0443;&#x0434;&#x0443;&#x0442;&#x044C; &#x0437;&#x0430;&#x0432;&#x0430;&#x043D;&#x0442;&#x0430;&#x0436;&#x0435;&#x043D;&#x0456; &#x0434;&#x043E; &#x0445;&#x043C;&#x0430;&#x0440;&#x043D;&#x043E;&#x0433;&#x043E; &#x043E;&#x0431;&#x043C;&#x0456;&#x043D;&#x0443;.</ATC_Msg_CloudBatchPatchModsSkipped>
+</LanguageData>

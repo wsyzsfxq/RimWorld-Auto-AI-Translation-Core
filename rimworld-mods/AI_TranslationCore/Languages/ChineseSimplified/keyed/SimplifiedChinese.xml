@@ -1,0 +1,495 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <ATC_ModTitle>AI 智能汉化网络 (AI Translation Network)V3.0</ATC_ModTitle>
+  <ATC_TargetLang>目标语系</ATC_TargetLang>
+  <ATC_Lang_Traditional>繁体中文</ATC_Lang_Traditional>
+  <ATC_Lang_Simplified>简体中文</ATC_Lang_Simplified>
+  <ATC_Lang_Japanese>日本语</ATC_Lang_Japanese>
+  <ATC_Lang_Korean>한국어</ATC_Lang_Korean>
+  <ATC_Lang_Russian>俄语</ATC_Lang_Russian>
+  <ATC_Lang_Ukrainian>乌克兰语</ATC_Lang_Ukrainian>
+  <ATC_Lang_English>英文 (English)</ATC_Lang_English>
+  <ATC_CurrentProvider>当前 AI 供应商</ATC_CurrentProvider>
+  <ATC_ApiKey>API 密钥 (API Key)</ATC_ApiKey>
+  <ATC_CustomBaseUrl>自订 API 网址 (Base URL)</ATC_CustomBaseUrl>
+  <ATC_DefaultEmpty>预设请留空</ATC_DefaultEmpty>
+  <ATC_OnlyScanActive>仅扫描已启用的模组</ATC_OnlyScanActive>
+  <ATC_Tooltip_TargetLang>【目标语言】\n设定 AI 要将外语模组翻译成什么语言。</ATC_Tooltip_TargetLang>
+  <ATC_Tooltip_Provider>【AI 服务商】\n选择你要使用的 AI 模型供应商。强烈推荐使用 Google (Gemini) 或 OpenAI。</ATC_Tooltip_Provider>
+  <ATC_TestConnection>测试连线</ATC_TestConnection>
+  <ATC_TestingPulse>测试脉冲发送中...</ATC_TestingPulse>
+  <ATC_FetchModels>获取模型清单</ATC_FetchModels>
+  <ATC_RefetchModels>重新获取模型</ATC_RefetchModels>
+  <ATC_Fetching>通讯中...</ATC_Fetching>
+  <ATC_SelectModel>选择模型</ATC_SelectModel>
+  <ATC_PlzFetchModel>请先点击获取模型清单</ATC_PlzFetchModel>
+  <ATC_TranslateSingleMod>单独翻译指定模组</ATC_TranslateSingleMod>
+  <ATC_StartTranslation>开始执行自动补位计画</ATC_StartTranslation>
+  <ATC_StopTranslation>紧急停止产线</ATC_StopTranslation>
+  <ATC_Tutorial_Btn>使用教学与 FAQ</ATC_Tutorial_Btn>
+  <ATC_UpdateLog_Btn>模组更新日誌</ATC_UpdateLog_Btn>
+  <ATC_CurrentTask>当前任务</ATC_CurrentTask>
+  <ATC_Idle>空闲中</ATC_Idle>
+  <ATC_TaskDone>产线完工！</ATC_TaskDone>
+  <ATC_LogPanelTitle>---  产线即时监控日誌 ---</ATC_LogPanelTitle>
+  <ATC_ErrorLogTitle>⚠ 异常档案检测报告</ATC_ErrorLogTitle>
+  <ATC_Msg_EmptyKey>Key 都没填怎么测啦！</ATC_Msg_EmptyKey>
+  <ATC_Log_TestPulse>[Test] 发送微量脉冲，测试 [{0}] 连线状态...</ATC_Log_TestPulse>
+  <!-- 测试连线相关 -->
+  <ATC_Testing>测试中...</ATC_Testing>
+  <ATC_Log_TestSuccess>✅ 网际端点回应测试成功，通讯产线运作正常！</ATC_Log_TestSuccess>
+  <ATC_Log_TestFail>[Test] 测试失败！请检查网路或 API 设置。</ATC_Log_TestFail>
+  <ATC_Msg_TestSuccess>✅ 已成功与 [{0}] 建立稳定量子通讯链结！准备就绪！</ATC_Msg_TestSuccess>
+  <ATC_Msg_TestFailed>❌ 与 [{0}] 的链结失败！请检查传输金钥或网路，并至日誌查看详细诊断报告。</ATC_Msg_TestFailed>
+  <ATC_Log_TestFailed_Detail>🔧 {0} 连线测试未回传结果，可能金钥无效或目标模型不可用，请尝试重新抓取模型清单。</ATC_Log_TestFailed_Detail>
+  <ATC_Log_TestException>💥 {0} 测试过程发生例外：{1}</ATC_Log_TestException>
+  <ATC_Error_TestConnectionTimeout>[{0}] 测试连线超时，已释放连线中状态。请检查网路、模型或稍后重试。</ATC_Error_TestConnectionTimeout>
+  <ATC_Log_Init>[Init] 正在读取模组，建立全域翻译共用池...</ATC_Log_Init>
+  <ATC_Log_InitDone>[Init] 完成！共收集到 {0} 条 Def 翻译。</ATC_Log_InitDone>
+  <ATC_Log_StartScan>Auto Translation Core 启动！目标模组数: {0}</ATC_Log_StartScan>
+  <ATC_Log_ScanMod> [Start] 扫描模组: {0}</ATC_Log_ScanMod>
+  <ATC_Log_SkipMod> [Skip] 无 Languages 也无 Defs，纯代码模组。</ATC_Log_SkipMod>
+  <ATC_Log_KeyedScan> [Keyed] 正在扫描...</ATC_Log_KeyedScan>
+  <ATC_Log_DefScan> [DefInjected] 启动深层扫描与全域比对...</ATC_Log_DefScan>
+  <ATC_Log_FoundMissing> [{0}] 发现 {1} 条缺失！呼叫 AI 支援中...</ATC_Log_FoundMissing>
+  <ATC_Log_AIFinish> [{0}] AI 翻译补位完成！</ATC_Log_AIFinish>
+  <ATC_Log_AIFail> [{0}] AI 翻译补位失败。</ATC_Log_AIFail>
+  <ATC_Log_NoMissing> [{0}] 零件齐全，无须翻译。</ATC_Log_NoMissing>
+  <ATC_Log_TaskDone> [Finish] 补位任务完美收工！</ATC_Log_TaskDone>
+  <ATC_Log_TaskError>[Error] 产线意外中断: {0}</ATC_Log_TaskError>
+  <ATC_Log_Clean>[Clean] 产线停机，记忆体已释放。</ATC_Log_Clean>
+  <ATC_CancelRequested>接收到停机指令，产线紧急煞车中...</ATC_CancelRequested>
+  <ATC_Log_FetchModelsSuccess>✅ 成功自动抓取［{0}］模型清单！</ATC_Log_FetchModelsSuccess>
+  <ATC_Log_FetchModelsFail>[System] 获取清单失败，请检查金钥。</ATC_Log_FetchModelsFail>
+  <ATC_Log_AllTranslationWritten>[Success] 所有翻译已安全写入 !Translation_AI_Pack！</ATC_Log_AllTranslationWritten>
+  <ATC_Log_NetworkRetry>[System] 网路波动或伺服器忙碌，已触发自动重试机制...</ATC_Log_NetworkRetry>
+  <ATC_Log_MigrateSuccess>[系统搬家] 已将 {0} 的 {1} 无痛转移至新架构！</ATC_Log_MigrateSuccess>
+  <ATC_Log_StartSingleMod>[System] 开始单独翻译模组: {0}</ATC_Log_StartSingleMod>
+  <ATC_Log_SingleModDone>单独翻译任务完美收工！</ATC_Log_SingleModDone>
+  <ATC_Log_ProcessAborted>[System] 产线已安全中断。</ATC_Log_ProcessAborted>
+  <ATC_Log_ProcessAbortedWithSave>[System] 产线已安全中断，已翻译的内容已保留。</ATC_Log_ProcessAbortedWithSave>
+  <ATC_TaskAborted>已中断</ATC_TaskAborted>
+  <ATC_LogError_Format>[{0}] 格式错误: {1}</ATC_LogError_Format>
+  <ATC_LogError_Unknown>[{0}] 未知异常: {1}</ATC_LogError_Unknown>
+  <ATC_LogError_FileCorrupted>[档案损坏] 略过无法解析的档案: {0}</ATC_LogError_FileCorrupted>
+  <ATC_LogError_ApiConn>[API] 通讯异常: {0}</ATC_LogError_ApiConn>
+  <ATC_FinishMessage_Title>翻译完成提示</ATC_FinishMessage_Title>
+  <ATC_FinishMessage_OK>了解！(OK)</ATC_FinishMessage_OK>
+  <ATC_FinishMessage_Text>翻译任务已顺利完成！\n【🪂 记忆体空投大成功】\n系统已透过官方合法通道，将最新的翻译直接注入游戏记忆体中！\n您现在可以直接关闭此视窗与设定面板，画面上的物品与科技已经瞬间变成您设定的语言囉！\n(註：实体 XML 备份已在背景自动生成，但您【完全不需要】去模组列表勾选它！下次开机系统也会自动隐形挂载，彻底告别排序冲突！祝您游戏愉快！)</ATC_FinishMessage_Text>
+  <ATC_Tutorial_FullText>【V3.0 使用教学：从白嫖到贡献】\n1. ☁️ 【先逛云端，拒绝重複造轮子】\n准备翻译前，强烈建议先前往【云端工坊】分页！看看是否有汉化组大佬或其他玩家已经上传了精翻包。支援一键批量下载，瞬间享受熟肉！\n\n2. ⚙️ 【设定 API 准备翻译】\n若云端没有你要的模组，请先至设定页选择【目标语系】(支援中、英、日、俄等多国语言) 与【供应商】(台湾推荐免费 Gemini，大陆推荐 DeepSeek)。支援「无限 API 弹匣」，点击「＋」号新增多组接口，系统会自动为你轮流分配任务，榨乾免费额度！\n(贴上金钥后，完全不需按搜寻，系统会在背景自动为你抓取模型！)\n\n3. 🚀 【一键翻译与记忆体空投】\n设定好线程数后，即可点击【🚀 一键翻译所有模组】或使用【🎯 翻译单/多重模组】进行精准打击。翻译完成后【完全不需要重开游戏】！系统会自动发动「记忆体空投」，瞬间将翻译注入游戏，关闭面板即可看见效果！\n\n4. 🔍 【全域工作台与上传分享】\n觉得机翻怪怪的？进入【全域编辑】分页，使用强大的「全域文本搜寻」一键揪出错字并修改！修改完成后，欢迎回到云端工坊将你的心血以【玩家精翻 (Manual)】的标籤上传，造福全世界的边缘人！\n\n【常见问题 Ｑ＆Ａ】\nQ: 为什么我在云端工坊没有「删除」按钮？\nA: 为了保护大家的心血，删除功能仅限拥有特权码的管理员或汉化组使用。一般玩家请放心上传，系统会智慧合併并自动保留最新的优质版本！\n\nQ: 什么是「一键注入热重载」？\nA: 如果你是硬核玩家，喜欢自己手动修改已生成的翻译 XML 档。存档后，只需点击这颗按钮，系统就会瞬间刷新前台 UI 快取并重新空投记忆体，改完秒看结果！\n\nQ: 为什么产线日誌一直跳出「等待重试」的红字警告？\nA: 这是因为 API 伺服器正在打瞌睡或遇到频率限制！模组内建超强的【指数退避重试】机制。只要后续有继续显示翻译成功，放着让子弹飞一会儿就好啦～(≧∀≦)ゞ\n\nQ: 使用本地端 (如 LM Studio / Ollama) 一直连线失败？\nA: 1. 请确保「自订 Base URL」有填写正确（如 http://localhost:1234），不用担心忘记打后缀，系统会自动帮你补上 /v1！\n2. 金钥 (API Key) 绝对不能留空！如果是本地端，请随便填几个字。\n\nQ: 动态 UI 拦截器会不会很卡？\nA: 本系统已导入「光速 O(1) 查表」与「防爆阀」机制，就算遇到报错海啸，游戏依旧稳锁 120FPS。但请注意，此功能会捕捉画面上所有未翻译外文，若使用【付费 API】请斟酌开启，以免帐单爆表！</ATC_Tutorial_FullText>
+  <ATC_UpdateLog_FullText>--- V3.0 云端工坊与全域编辑器上线 ---\n• 全新【云端共享工坊】：支援多语系翻译包一键上传与下载。具备「汉化组精翻」、「玩家精翻」与「AI 机翻」三种品质标籤，内建 3-2-1 智能版本控制、软删除防护与更新日誌功能。\n• 强化【全域翻译工作台】：新增非同步背景「全域文本搜寻」与动态进度条。即使安装数百个模组也能流畅搜寻所有快取与内建翻译，支援多语系过滤与一键跳转编辑。\n• 重构【网路传输底层】：全面升级为 Unity 原生网路引擎 (UnityWebRequest) 并强制 UTF-8 压缩，彻底根除过去因 Windows 系统编码冲突导致的报错与 ZIP 损毁问题。\n• 实装【智能微创排毒】：自动过滤底层高危变数与脸部模组 (如 FaceDef)，终结翻译后小人破图灾情；并在开机时自动清理旧版残留假翻译档。\n\n--- V2.2 底层架构与连线稳定性更新 ---\n• 优化【API 请求架构】：重构底层逻辑，提升不同 AI 供应商的相容性与资料解析稳定性。\n• 实装【自动退避重试】：当遇到伺服器拥挤 (HTTP 429) 或瞬间连线异常 (HTTP 500+) 时，系统将自动进行冷却并重试，减少翻译中断的机率。\n• 新增【自订超时与测试】：设定介面新增「测试连线」按钮与「超时秒数滑杆」。(若使用深度思考模型，系统将自动适配较长的等待时间)。\n• 改良【全局错误通知】：导入跨执行绪 UI 桥接技术，现在当 API 发生连线异常或金钥无效时，会即时于游戏画面左上角弹出提示，无须再频繁切换分页查看日誌。\n\n--- V2.1 翻译体验与智能升级 ---\n• 实装【一键打包导出】：支援将翻译好的模组独立提取至桌面，并附带声明浮水印，方便提交给原作者或汉化组润饰。\n• 新增【智能模组更新雷达】：系统现在能自动侦测出「有更新」或「未翻译」的模组。\n• 支援【自动汰旧换新】：开启后，在遇到模组更新时，系统将自动删除旧翻译档案并重新翻译，确保文本保持最新。\n• 修復【字串换行异常】：修正部分 `\n` 无法正常换行导致排版错误的底层问题。\n\n--- V2.0 效能优化与即时渲染 ---\n• 实装【即时记忆体注入】：翻译完成后，系统将翻译结果直接写入游戏记忆体，画面即刻切换为目标语系，下次开机自动生效，减少载入顺序冲突。\n• 优化【动态 UI 拦截效能】：重构底层拦截逻辑与快取设计，大幅降低游戏帧数 (FPS) 的效能消耗。\n• 新增【一键热重载】：手动修改 XML 翻译档后，可点击按钮瞬间刷新 UI 缓存，无须重新启动游戏。\n\n--- V1.0 正式版发布 ---\n• 实装【动态 UI 拦截系统】：支援即时拦截并自动翻译设定面板或静态 XML 遗漏的外文文本。\n• 实装【原文对照功能】：支援滑鼠悬停显示原文，方便进行双语对照。</ATC_UpdateLog_FullText>
+  <ATC_ApiConfigTitle>API 接口弹匣设定 (支援多组并发轮询)</ATC_ApiConfigTitle>
+  <ATC_Provider>供应商</ATC_Provider>
+  <ATC_CustomUrlOptional>(自定义 BaseUrl，留空使用预设)</ATC_CustomUrlOptional>
+  <ATC_Delete>删除</ATC_Delete>
+  <ATC_PasteKey>(贴上 API Key)</ATC_PasteKey>
+  <ATC_FetchingModel>搜寻模型中...</ATC_FetchingModel>
+  <ATC_NoModelWaitKey>尚未选择模型 (贴上Key自动获取)</ATC_NoModelWaitKey>
+  <ATC_AddApiBtn>新增 API 接口 (Add API Interface)</ATC_AddApiBtn>
+  <ATC_EmergencyStop>停止翻译 (Emergency Stop)</ATC_EmergencyStop>
+  <ATC_StartFullScan>一键翻译所有模组 (Start Full Scan)</ATC_StartFullScan>
+  <ATC_EmptyConfigWarning>请至少设定一组有效的 API 参数！</ATC_EmptyConfigWarning>
+  <ATC_MaxThreads>併发线程数 (Max Threads)</ATC_MaxThreads>
+  <ATC_MaxThreadsTip>强烈建议: 数字为有效接口数量 x 3</ATC_MaxThreadsTip>
+  <ATC_Log_ApiRecovered>[API] 重新连线成功！产线恢復高速运转。</ATC_Log_ApiRecovered>
+  <ATC_Log_ApiRetry>[API] 翻译繁忙或超时，等待 {0} 秒后重试...</ATC_Log_ApiRetry>
+  <ATC_Log_ApiFallback>[API] 区块翻译彻底失败，启动「降级单挑模式」逐句破解...</ATC_Log_ApiFallback>
+  <ATC_LogError_ApiCritical>[API严重错误] 位于 【{0}】 的文本翻译彻底失败！已保留原文。</ATC_LogError_ApiCritical>
+  <ATC_TranslateMultiMod>单独/多选翻译</ATC_TranslateMultiMod>
+  <ATC_SkipCurrentMod>跳过当前 Mod</ATC_SkipCurrentMod>
+  <ATC_MultiSelect_Title>选择要翻译的模组 (可多选)</ATC_MultiSelect_Title>
+  <ATC_MultiSelect_Search>在此输入模组名称来搜寻...</ATC_MultiSelect_Search>
+  <ATC_MultiSelect_Start>开始翻译已勾选的 {0} 个模组</ATC_MultiSelect_Start>
+  <ATC_SubTask_AnalyzingDict>正在分析本机汉化文本...</ATC_SubTask_AnalyzingDict>
+  <ATC_SubTask_BuildingDict>建构字典中: {0}</ATC_SubTask_BuildingDict>
+  <ATC_SubTask_DictDone>字典建置完成！</ATC_SubTask_DictDone>
+  <ATC_SubTask_Scanning>正在扫描文本...</ATC_SubTask_Scanning>
+  <ATC_SubTask_TranslatingKeyed>翻译 Keyed 中...</ATC_SubTask_TranslatingKeyed>
+  <ATC_SubTask_TranslatingDef>翻译 DefInjected 中...</ATC_SubTask_TranslatingDef>
+  <ATC_Log_SkippedMod>已跳过模组: {0}</ATC_Log_SkippedMod>
+  <ATC_Log_MultiScanStart>准备开始翻译 {0} 个勾选的模组...</ATC_Log_MultiScanStart>
+  <ATC_Log_MultiScanDone>多选模组翻译任务全部完成！</ATC_Log_MultiScanDone>
+  <ATC_LogError_OldToxicFiles>【警告】 发现旧版异常翻译档，为防止报错，将执行强制清理！</ATC_LogError_OldToxicFiles>
+  <ATC_Log_OldFilesDeleted>【System】 旧版异常档案已成功移除！</ATC_Log_OldFilesDeleted>
+  <ATC_Log_AutoRebuildStart>【System】 系统将自动为您重新建构乾淨的翻译包！</ATC_Log_AutoRebuildStart>
+  <ATC_One_click_chaos>一键乱选</ATC_One_click_chaos>
+  <ATC_Rickroll>千万不要按这里...</ATC_Rickroll>
+  <ATC_SelectAll>一键全选</ATC_SelectAll>
+  <ATC_DeselectAll>取消全选</ATC_DeselectAll>
+  <ATC_Log_UIInterceptorStarted>动态 UI 拦截器已上线！背景快取系统启动中...</ATC_Log_UIInterceptorStarted>
+  <ATC_Log_UICacheLoaded>成功载入 {0} 条硬编码 UI 快取！</ATC_Log_UICacheLoaded>
+  <ATC_LogError_UICacheLoadFailed>读取 UI 快取失败: {0}</ATC_LogError_UICacheLoadFailed>
+  <ATC_LogError_UICacheSaveFailed>储存 UI 快取失败: {0}</ATC_LogError_UICacheSaveFailed>
+  <ATC_EnableUIInterceptor>开启动态 UI 硬编码拦截 【警告：可能影响效能】</ATC_EnableUIInterceptor>
+  <ATC_EnableUINewTranslation>允许 UI 拦截器产生新的 AI 翻译（关闭后只保留缓存替换）</ATC_EnableUINewTranslation>
+  <ATC_EnableUIErrorLogInterception>开启错误日志 UI 拦截（会极大消耗 token）</ATC_EnableUIErrorLogInterception>
+  <ATC_TranslateWorkbenchModNames>在智能补翻清单翻译模组名称（保留原名）</ATC_TranslateWorkbenchModNames>
+  <ATC_Log_AdvancedDetoxSuccess>高级排毒完毕！精准切除 {0} 个违规标籤，保护了玩家的翻译资产 (共修復 {1} 个档案)！</ATC_Log_AdvancedDetoxSuccess>
+  <ATC_DeleteModTrans_Btn>删除翻译</ATC_DeleteModTrans_Btn>
+  <ATC_DeleteModTrans_Title>翻译档案焚化炉 (勾选要删除翻译的模组)</ATC_DeleteModTrans_Title>
+  <ATC_ConfirmDelete_Btn>确认删除 {0} 个模组的翻译档 (无法復原！)</ATC_ConfirmDelete_Btn>
+  <ATC_Log_DeleteTransSuccess>🗑️ [ATC System] 成功删除 {0} 个模组的翻译档 (共清理 {1} 个档案)！</ATC_Log_DeleteTransSuccess>
+  <ATC_Message_DeleteTransSuccess>成功删除 {0} 个翻译档案！建议重启游戏以套用变更。</ATC_Message_DeleteTransSuccess>
+  <ATC_Message_DeleteTransError>⚠️ 删除翻译档时发生错误: {0}</ATC_Message_DeleteTransError>
+  <ATC_InputOrSelectModel>输入或选取模型...</ATC_InputOrSelectModel>
+  <ATC_Msg_NoModelListManualInput>目前没有抓取到模型清单，请直接手动输入模型名称！</ATC_Msg_NoModelListManualInput>
+  <ATC_Stats_Session>本次翻译：{0} 字</ATC_Stats_Session>
+  <ATC_Stats_Total>累计翻译：{0} 字</ATC_Stats_Total>
+  <ATC_Stats_UIQueue>UI 排队中：{0}</ATC_Stats_UIQueue>
+  <ATC_Stats_UICache>UI 快取数：{0}</ATC_Stats_UICache>
+  <ATC_Log_AIFormatRetry>[API] AI 回传格式错误或空白，已自动重新送出翻译（第 {0} 次）...</ATC_Log_AIFormatRetry>
+  <ATC_Log_AIFormatRecovered>[API] 已重新翻译，AI 回传格式正确。</ATC_Log_AIFormatRecovered>
+  <ATC_Log_ValidationClean>[验证] 翻译结构检查完成，未发现需要修复的格式问题。</ATC_Log_ValidationClean>
+  <ATC_Log_ValidationSummary>[验证] 自动修复：换行 {0}、规则前缀 {1}、保护 token {2}、高风险回退 {3}、非法 XML key 跳过 {4}。</ATC_Log_ValidationSummary>
+  <ATC_Profile_Current>当前策略：每批 {0} 句，格式重试 {1} 次，超时下限 {2} 秒</ATC_Profile_Current>
+  <ATC_Profile_DeepSeek>DeepSeek：保守批量，优先降低空白/错误 JSON 风险。</ATC_Profile_DeepSeek>
+  <ATC_Profile_Google>Google/Gemini：标准批量，适合稳定的大量翻译。</ATC_Profile_Google>
+  <ATC_Profile_DeepL>DeepL：XML 标签保护，无 LLM JSON 解析重试。</ATC_Profile_DeepL>
+  <ATC_Profile_Custom>自定义 OpenAI：保守超时，适合本地或代理 API。</ATC_Profile_Custom>
+  <ATC_Profile_OpenRouter>OpenRouter：按模型类型调整批量与超时。</ATC_Profile_OpenRouter>
+  <ATC_Profile_Default>通用策略：平衡速度与格式稳定性。</ATC_Profile_Default>
+  <ATC_Perf_Api>API 活跃 {0}，平均 {1}ms，最近 {2}ms</ATC_Perf_Api>
+  <ATC_Perf_MemoryDrop>空投最近 {0}ms，Keyed {1}，Defs {2}</ATC_Perf_MemoryDrop>
+  <ATC_Perf_UI>UI 队列 {0}，待处理 {1}，忽略缓存 {2}</ATC_Perf_UI>
+  <ATC_Btn_RestoreLatestBackup>还原最近翻译备份</ATC_Btn_RestoreLatestBackup>
+  <ATC_Msg_ConfirmRestoreLatestBackup>将从每个已启用模组的最新备份 ZIP 还原翻译，并重新执行记忆体空投。要继续吗？</ATC_Msg_ConfirmRestoreLatestBackup>
+  <ATC_Msg_RestoreLatestBackupDone>已还原 {0} 个模组的最近备份。</ATC_Msg_RestoreLatestBackupDone>
+  <ATC_Log_BatchDownloadSummary>[云端] 批量下载完成：成功 {0}，失败 {1}，总数 {2}。</ATC_Log_BatchDownloadSummary>
+  <ATC_Log_BatchDownloadFailedList>[云端] 失败清单：{0}</ATC_Log_BatchDownloadFailedList>
+  <ATC_ShowOriginalUI>显示 UI 原文 (滑鼠悬停时显示机翻前的英文)</ATC_ShowOriginalUI>
+  <ATC_OriginalText>原文</ATC_OriginalText>
+  <ATC_Log_MemoryDropSuccess>[记忆体空投] 成功注入 {0} 个系统文本与 {1} 个物品定义！</ATC_Log_MemoryDropSuccess>
+  <ATC_LogError_MemoryDropFailed>[记忆体空投失败] {0}</ATC_LogError_MemoryDropFailed>
+  <ATC_Button_HotReload>一键注入热重载 (免重启，刷新画面！)</ATC_Button_HotReload>
+  <ATC_Message_HotReloadSuccess>🪂 [记忆体空投] 翻译已即时注入，UI 视窗快取已完全刷新！</ATC_Message_HotReloadSuccess>
+  <ATC_Log_HotReloadSuccess>🪂 [记忆体空投] 翻译数据已即时注入核心，UI 视窗快取已全面刷新！</ATC_Log_HotReloadSuccess>
+  <ATC_LogError_InvalidXmlKey>[XML 防禦] AI 回传的 key 含非法字元，已自动跳过: {0}</ATC_LogError_InvalidXmlKey>
+  <ATC_LogError_AuthFailed>[API 认证失败] 供应商 [{0}] 回报 401，请检查 API Key 是否正确。</ATC_LogError_AuthFailed>
+  <ATC_LogError_RateLimit>[API 限流] 供应商 [{0}] 回报 429，已自动延长等待时间。</ATC_LogError_RateLimit>
+  <ATC_Tag_FromSimplified>[来自简中]</ATC_Tag_FromSimplified>
+  <ATC_Tag_FromTraditional>[来自繁中]</ATC_Tag_FromTraditional>
+  <ATC_Log_SkipExistingTranslation>[Skip] 模组 [{0}] 已自带 {1} 条翻译，跳过重複翻译。</ATC_Log_SkipExistingTranslation>
+  <ATC_Lang_DeepL_FreeNote>DeepL Free (自动侦测)</ATC_Lang_DeepL_FreeNote>
+  <ATC_Lang_DeepL_ProNote>DeepL Pro (自动侦测)</ATC_Lang_DeepL_ProNote>
+  <ATC_LogError_DeepL_LangNotSupport>[DeepL] 目标语系 [{0}] DeepL 不支援，请改用其他 AI 供应商。</ATC_LogError_DeepL_LangNotSupport>
+  <ATC_Log_MemoryDropQueued>[记忆体空投] 已排入主执行绪伫列，等待下一个 Tick 注入...</ATC_Log_MemoryDropQueued>
+  <ATC_Log_MemoryDropSkipMainThread>[记忆体空投] 侦测到背景执行绪呼叫，已自动转交主执行绪处理。</ATC_Log_MemoryDropSkipMainThread>
+  <ATC_ExportTrans_Btn>📦 一键打包导出 ⚠️ 机翻警告</ATC_ExportTrans_Btn>
+  <ATC_ExportEula_Title>⚠️ 汉化导出与版权声明 (v{0})</ATC_ExportEula_Title>
+  <ATC_ExportEula_CountdownLabel>请仔细阅读（剩余 {0} 秒）</ATC_ExportEula_CountdownLabel>
+  <ATC_ExportEula_CountdownDone>请勾选下方三项声明</ATC_ExportEula_CountdownDone>
+  <ATC_ExportEula_Check1>我已仔细阅读以上条款并完全理解</ATC_ExportEula_Check1>
+  <ATC_ExportEula_Check2>我承诺仅用于个人游戏或人工润饰的底料</ATC_ExportEula_Check2>
+  <ATC_ExportEula_Check3>我了解散布行为的法律后果与我自己有关</ATC_ExportEula_Check3>
+  <ATC_ExportEula_ConfirmBtn>确认进入打包</ATC_ExportEula_ConfirmBtn>
+  <ATC_ExportEula_CancelBtn>取消</ATC_ExportEula_CancelBtn>
+  <ATC_ExportEula_NeedAllChecks>必须勾选全部三项才能继续</ATC_ExportEula_NeedAllChecks>
+  <ATC_ExportEula_FullText>📜 版权尊重\n模组的原始文本版权归原始模组作者所有。AI 翻译产物属于「衍生作品 (Derivative Work)」，依照各国着作权法，散布衍生作品需要取得原作者明确授权。\n\n🚫 严格禁止\n• 严禁上传至 Steam Workshop\n• 严禁上传至 NEXUS / Mod.io / 任何公开平台\n• 严禁透过云端连结（Google Drive、百度网盘等）公开分享\n• 严禁透过种子、Discord 等管道散布\n• 严禁假冒为官方翻译或汉化组作品\n• 严禁任何形式的商业使用\n\n✅ 允许用途\n• 个人本机游戏使用\n• 汉化组进行人工润饰的底料（润饰后仍需取得原作者授权才能发布）\n• 提交给原模组作者作为翻译贡献\n• 朋友间私下分享（不公开）\n\n📋 工具中立性声明\n本工具仅提供本地翻译辅助功能。本工具：\n• 不主动上传任何翻译内容\n• 不收集使用者翻译资料\n• 不协助散布衍生作品\n• 不背书任何上传行为\n\n⚖️ 免责声明\n本工具开发者不对使用者的散布行为负责。使用者使用本功能导出并传播档案所引发的任何版权纠纷、社群冲突或法律诉讼，由使用者自行承担，与本工具作者无关。\n\n🚨 法律后果\n违反本声明可能导致：\n• DMCA 下架通知\n• Steam 帐号封禁\n• 民事诉讼（赔偿原作者损失）\n• 刑事责任（依各国着作权法规定）\n\n⏰ 同意期效\n本同意有效期为 30 天。30 天后将再次要求重新阅读并同意，以确保你持续知悉条款变动。\n\n📝 纪录保存\n本机会保存「同意纪录」（包含同意时间、版本、设备资讯），作为使用者已知悉条款的证明。请勿删除此档案。</ATC_ExportEula_FullText>
+  <ATC_ExportReminder_Title>📦 导出前提醒</ATC_ExportReminder_Title>
+  <ATC_ExportReminder_AlreadyAccepted>你已于 {0} 同意 EULA v{1}</ATC_ExportReminder_AlreadyAccepted>
+  <ATC_ExportReminder_DaysLeft>此同意还剩 {0} 天有效</ATC_ExportReminder_DaysLeft>
+  <ATC_ExportReminder_KeyPoints>⚠️ 再次提醒重点：</ATC_ExportReminder_KeyPoints>
+  <ATC_ExportReminder_Rule1>❌ 不得上传至 Steam Workshop</ATC_ExportReminder_Rule1>
+  <ATC_ExportReminder_Rule2>❌ 不得公开散布</ATC_ExportReminder_Rule2>
+  <ATC_ExportReminder_Rule3>✅ 仅限个人或人工润饰用途</ATC_ExportReminder_Rule3>
+  <ATC_ExportReminder_Continue>我了解，继续导出</ATC_ExportReminder_Continue>
+  <ATC_ExportReminder_RereadEula>重新阅读完整 EULA</ATC_ExportReminder_RereadEula>
+  <ATC_ExportWindow_Title>📦 选择要导出的模组</ATC_ExportWindow_Title>
+  <ATC_ExportWindow_SearchHint>搜寻模组名称...</ATC_ExportWindow_SearchHint>
+  <ATC_ExportWindow_DetectedCount>共侦测到 {0} 个已翻译模组</ATC_ExportWindow_DetectedCount>
+  <ATC_ExportWindow_NoFullSelectNotice>⚠️ 请逐一勾选（防滥用机制：本工具刻意不提供全选）</ATC_ExportWindow_NoFullSelectNotice>
+  <ATC_ExportWindow_ModInfo_DefCount>已翻译：{0} 条 DefInjected + {1} 条 Keyed</ATC_ExportWindow_ModInfo_DefCount>
+  <ATC_ExportWindow_OutputPath>💾 导出位置：{0}</ATC_ExportWindow_OutputPath>
+  <ATC_ExportWindow_WatermarkNotice>⚠️ 每个 XML 档案会自动加上「机翻警告」水印</ATC_ExportWindow_WatermarkNotice>
+  <ATC_ExportWindow_ConfirmBtn>导出选取的 {0} 个模组</ATC_ExportWindow_ConfirmBtn>
+  <ATC_ExportWindow_NoModSelected>请至少选取一个模组</ATC_ExportWindow_NoModSelected>
+  <ATC_ExportWindow_NoTranslationFound>目前没有任何已翻译的模组。请先执行翻译任务。</ATC_ExportWindow_NoTranslationFound>
+  <ATC_Export_Success_Title>导出完成</ATC_Export_Success_Title>
+  <ATC_Export_Success_Message>成功导出 {0} 个模组（共 {1} 个档案）\n\n位置：{2}</ATC_Export_Success_Message>
+  <ATC_Export_Failed_Message>导出失败：{0}</ATC_Export_Failed_Message>
+  <ATC_Log_EulaAccepted>[EULA] 玩家已同意 v{0}，纪录已写入本机。</ATC_Log_EulaAccepted>
+  <ATC_Log_ExportStart>📦 开始导出 {0} 个模组...</ATC_Log_ExportStart>
+  <ATC_Log_ExportComplete>✅ 导出完成！{0} 个模组，{1} 个档案。</ATC_Log_ExportComplete>
+  <ATC_Log_ExportFailed>❌ 导出失败：{0}</ATC_Log_ExportFailed>
+  <ATC_Export_CooldownReady_Free>⏱️ 本次冷却状态：可立即导出 (本次免冷却)</ATC_Export_CooldownReady_Free>
+  <ATC_Export_CooldownReady_NextWillCooldown>⏱️ 本次冷却状态：可立即导出 (下次导出后需冷却 {0} 秒)</ATC_Export_CooldownReady_NextWillCooldown>
+  <ATC_Export_CooldownWait>⏱️ 冷却中，请等待 {0} 秒...</ATC_Export_CooldownWait>
+  <ATC_Export_TodayCount>今日已导出：{0} 次（每日上限 100）</ATC_Export_TodayCount>
+  <ATC_Export_TooManyToday>⚠️ 今日已导出 {0} 次，达到每日上限。请明日再试。</ATC_Export_TooManyToday>
+  <ATC_Export_TooManyAtOnce>单次最多导出 10 个模组，请分批导出。当前已选 {0} 个。</ATC_Export_TooManyAtOnce>
+  <ATC_Export_CooldownDialogTitle>⏱️ 冷却中</ATC_Export_CooldownDialogTitle>
+  <ATC_Export_CooldownDialogMsg>距离下次可导出还需等待 {0} 秒。\n\n智能冷却机制是为了防止滥用，合法使用情境（如翻译重试、模组对比）通常不会触发。</ATC_Export_CooldownDialogMsg>
+  <ATC_ContactAuthor_Title>💌 想要把翻译贡献给原作者吗？</ATC_ContactAuthor_Title>
+  <ATC_ContactAuthor_JustExported>你刚刚导出了 {0} 个模组的翻译。</ATC_ContactAuthor_JustExported>
+  <ATC_ContactAuthor_DidYouKnow>🌟 你知道吗？</ATC_ContactAuthor_DidYouKnow>
+  <ATC_ContactAuthor_Intro>比起上传到 Workshop，把翻译直接贡献给原作者更有意义：</ATC_ContactAuthor_Intro>
+  <ATC_ContactAuthor_Benefit1>✅ 原作者可以将翻译整合进官方版本</ATC_ContactAuthor_Benefit1>
+  <ATC_ContactAuthor_Benefit2>✅ 你的贡献会被列入模组更新日誌</ATC_ContactAuthor_Benefit2>
+  <ATC_ContactAuthor_Benefit3>✅ 完全合法，无版权争议</ATC_ContactAuthor_Benefit3>
+  <ATC_ContactAuthor_Benefit4>✅ 帮助整个社群</ATC_ContactAuthor_Benefit4>
+  <ATC_ContactAuthor_SelectMod>选择要联络作者的模组：</ATC_ContactAuthor_SelectMod>
+  <ATC_ContactAuthor_TemplateLabel>📧 已为你准备好联络范本：</ATC_ContactAuthor_TemplateLabel>
+  <ATC_ContactAuthor_CopyTemplate>📋 複製 Email 范本</ATC_ContactAuthor_CopyTemplate>
+  <ATC_ContactAuthor_OpenWorkshop>🌐 打开 Steam Workshop 联络作者</ATC_ContactAuthor_OpenWorkshop>
+  <ATC_ContactAuthor_TemplateCopied>✅ 范本已複製到剪贴簿！</ATC_ContactAuthor_TemplateCopied>
+  <ATC_ContactAuthor_CannotOpenWorkshop>无法开启 Steam Workshop（可能未安装 Steam 或模组无 Workshop 连结）</ATC_ContactAuthor_CannotOpenWorkshop>
+  <ATC_ContactAuthor_Close>关闭</ATC_ContactAuthor_Close>
+  <ATC_ContactAuthor_NoSteamMods>没有任何模组能透过 Steam Workshop 联络（可能都是本机 Mods 资料夹的模组）</ATC_ContactAuthor_NoSteamMods>
+  <ATC_EmailTemplate_Subject>Translation Contribution for {0}</ATC_EmailTemplate_Subject>
+  <ATC_EmailTemplate_Body>Hi {0},\n\nI'm a fan of your mod "{1}". I've drafted a {2} translation using AI tools as a starting point, and I'd love to contribute it back to your mod.\n\nThe translation includes:\n- {3} DefInjected entries\n- {4} Keyed entries\n\nI understand it's machine-generated and may need human polishing before being officially included. I'm sharing the files so you can:\n- Use them as a starting point for an official translation\n- Pass them to a community translator\n- Or simply have them as reference\n\nThe files were exported to my desktop using a tool called "Auto Translation Core". I have NOT and will NOT redistribute them publicly.\n\nWould you like me to send them to you? I can attach them in a reply, or send them via Discord / GitHub PR if you prefer.\n\nThank you for making such an amazing mod!\n\nBest regards,\nA Player</ATC_EmailTemplate_Body>
+  <ATC_Export_Success_ContactAuthorBtn>💌 我想把翻译贡献给原作者</ATC_Export_Success_ContactAuthorBtn>
+  <ATC_Export_Success_CloseBtn>关闭</ATC_Export_Success_CloseBtn>
+  <ATC_Log_CooldownTriggered>⏱️ [Cooldown] 第 {0} 次导出，套用 {1} 秒冷却。</ATC_Log_CooldownTriggered>
+  <ATC_Log_DailyLimitReached>🛑 [Limit] 今日已达 100 次导出上限。</ATC_Log_DailyLimitReached>
+  <!-- ========================================== -->
+  <!-- 🔄 模组更新检测与自动清理 -->
+  <!-- ========================================== -->
+  <ATC_AutoClearOldOnUpdate>确保准确性：翻译已更新的模组前，强制删除旧有翻译 (推荐开启以避免残留错误)</ATC_AutoClearOldOnUpdate>
+  <ATC_AutoTranslateOnUpdate>全自动排程：游戏启动时若发现模组更新，自动在背景启动翻译产线 (预设关闭)</ATC_AutoTranslateOnUpdate>
+  <ATC_SmartUpdateBtn>智能补译 (发现 {0} 个待更新)</ATC_SmartUpdateBtn>
+  <ATC_ModUpdateStatusBtn>智能补译 (发现 {0} 个模组更新或未翻译)</ATC_ModUpdateStatusBtn>
+  <ATC_ClearCacheSuccess>已自动清除 {0} 个已更新模组的旧翻译档案。</ATC_ClearCacheSuccess>
+  <!-- 导出资料夹内的 README 说明档 -->
+  <ATC_Export_Readme_Full>
+		================================================================
+		WARNING: AUTO-GENERATED MACHINE TRANSLATION
+		警告：本资料夹为 AI 机器翻译产物，请仔细阅读
+		================================================================
+
+		产生时间 (Generation Time): {0}
+		产生工具 (Generator): Auto Translation Core
+		模组数量 (Mod Count): {1}
+
+		汇出的模组清单 (Exported Mods):
+		{2}
+		================================================================
+		严禁行为 (Strictly Prohibited)
+		================================================================
+
+		1. 严禁直接上传至 Steam Workshop
+		2. 严禁直接上传至 NEXUS / Mod.io / 其他公开平台
+		3. 严禁私自打包上传至外部免空，分享请使用内建的「云端共享 (Cloud Hub)」
+		4. 严禁假冒为官方翻译或汉化组作品
+		5. 严禁商业使用
+
+		================================================================
+		允许用途 (Allowed Usage)
+		================================================================
+
+		1. 个人本机使用
+		2. 透过本模组的「云端共享」直接上传造福社群
+		3. 汉化组进行人工润饰的底料 (配合 Upload_Workspace)
+		4. 提交给原模组作者作为翻译贡献参考
+		5. 私下与朋友分享（不公开）
+
+		================================================================
+		法律提醒 (Legal Notice)
+		================================================================
+
+		本翻译为 AI 机器翻译产物，属于原作品的「衍生作品 (Derivative Work)」。
+		依照各国着作权法，散布衍生作品需要取得原作者明确授权。
+
+		未经授权散布可能导致：
+		- DMCA 下架通知
+		- Steam 帐号封禁
+		- 法律诉讼（最高可能涉及刑事责任）
+
+		================================================================
+	</ATC_Export_Readme_Full>
+  <!-- 导出资料夹内的 EULA 纪录档 -->
+  <ATC_Export_ConsentRecord_Full>
+		================================================================
+		EULA 同意纪录 (Consent Record)同意时间 (UTC+8): {0}EULA 版本 (Version): {1}累计同意次数 (Accept Count): {2}使用者本机名称 (Machine): {3}作业系统 (OS): {4}汇出时间 (Export Time): {5}同意项目 (Accepted Items):[O] 我已仔细阅读以上条款并完全理解[O] 我承诺仅用于个人游戏或人工润饰的底料[O] 我了解散布行为的法律后果与我自己有关================================================================
+		重要 (Important)此档案为使用者同意纪录，请勿删除。如有版权争议，此档案将作为使用者已知悉条款的证明。================================================================
+	</ATC_Export_ConsentRecord_Full>
+  <ATC_Tab_Main>终端控制台</ATC_Tab_Main>
+  <ATC_Tab_Settings>详细系统与 API 设定</ATC_Tab_Settings>
+  <ATC_Log_SkipRequested>[System] 玩家已主动请求跳过当前模组...</ATC_Log_SkipRequested>
+  <!-- 网路诊断关联 -->
+  <ATC_Error_Unknown>未知错误</ATC_Error_Unknown>
+  <ATC_Error_Timeout>API 请求超时 (Timeout)。可能模型过载或网路不稳。</ATC_Error_Timeout>
+  <ATC_Error_Connection>无法连线至 {0} 伺服器，请检查网路或节点是否被牆。</ATC_Error_Connection>
+  <ATC_Error_Unauthorized>API Key 无效或额度耗尽 (HTTP 401/403)。</ATC_Error_Unauthorized>
+  <ATC_Error_NetworkAbnormal>中枢网路矩阵异常，连线不稳定</ATC_Error_NetworkAbnormal>
+  <!-- 网址验证关联 -->
+  <ATC_Warning_InvalidUrlFallback>无效的自订网址: {0}，将尝试硬载入...</ATC_Warning_InvalidUrlFallback>
+  <!-- 解析错误关联 -->
+  <ATC_Error_ParseFailed>AI 回传格式错误 (非有效 JSON)。请检查提示词，或更换较聪明的模型。</ATC_Error_ParseFailed>
+  <ATC_Error_RateLimit>API 请求频率过高 (HTTP 429)。请调高中断延迟，或稍后再试。</ATC_Error_RateLimit>
+  <ATC_Error_ServerError>AI 伺服器崩溃或维护中 (HTTP 500+)。请换另一个模型或供应商。</ATC_Error_ServerError>
+  <ATC_Error_HttpGeneric>中枢网路协定错误 (HTTP {0})，请查看错误日誌。</ATC_Error_HttpGeneric>
+  <ATC_Log_RetryAttempt>遇到 HTTP {0}，准备进行第 {1} 次重试 (冷却 {2} 毫秒)...</ATC_Log_RetryAttempt>
+  <ATC_Log_RetryTimeout>请求超时，准备进行第 {0} 次重试 (冷却 {1} 毫秒)...</ATC_Log_RetryTimeout>
+  <!-- GUI 设定面板: API 超时关联 -->
+  <ATC_Setting_Timeout>API 请求超时上限: {0} 秒</ATC_Setting_Timeout>
+  <ATC_Setting_Timeout_Tooltip>当 AI 在这个时间内未回应，系统会自动中断并降温重试。建议设定 60~120\n(如果使用深度思考模型，后台会强制保底等待 300 秒)</ATC_Setting_Timeout_Tooltip>
+  <ATC_FilteredCodeOnly>已过滤 {0} 个纯代码模组，无需翻译。</ATC_FilteredCodeOnly>
+  <ATC_FilteredModsCount>已过滤 {0} 个非翻译模组（纯代码/纯素材）</ATC_FilteredModsCount>
+  <ATC_Log_DeepL_EndpointDetected>✅ DeepL［{0}］端点侦测完成。 </ATC_Log_DeepL_EndpointDetected>
+  <ATC_Log_FetchModelsRetry>Fetch Models 遇到 HTTP {0}，准备第 {1} 次重试…</ATC_Log_FetchModelsRetry>
+  <ATC_Log_FetchModelsAutoRetryQueued>[{0}] 模型获取失败，将于 {1} 秒后自动重试（第 {2} 次）。</ATC_Log_FetchModelsAutoRetryQueued>
+  <ATC_Error_FetchModelsFailed>❌ 自动抓取［{0}］模型失败！ （HTTP {1}）请检查 Key。 </ATC_Error_FetchModelsFailed>
+  <ATC_Error_FetchModelsException>⚠️ 抓取［{0}］模型异常：{1}</ATC_Error_FetchModelsException>
+  <!--  假语言档拦截系统 -->
+  <ATC_Log_FakeLanguageDetected>🕵️ [防伪系统] 抓到作者偷懒！档案 {0} 被判定为假语言档，已强制送交 AI 重新翻译！</ATC_Log_FakeLanguageDetected>
+  <!-- V3.0 / V3.1 云端共享 UI 与讯息 -->
+  <ATC_Tab_Cloud>☁️ 云端共享</ATC_Tab_Cloud>
+  <ATC_Cloud_Refresh>🔄 重新整理云端清单</ATC_Cloud_Refresh>
+  <ATC_Cloud_Fetching>⏳ 正在连线至 Cloudflare 大脑...</ATC_Cloud_Fetching>
+  <ATC_Cloud_FetchFailed>⚠️ 无法取得云端资料，请检查网路连线。</ATC_Cloud_FetchFailed>
+  <ATC_Cloud_Status_Official>👑 汉化组精翻</ATC_Cloud_Status_Official>
+  <ATC_Cloud_Status_UpdateAvailable>🟢 发现更新</ATC_Cloud_Status_UpdateAvailable>
+  <ATC_Cloud_Status_Outdated>🟡 翻译疑似过期</ATC_Cloud_Status_Outdated>
+  <ATC_Cloud_Status_NoCloud>🔘 尚未有翻译</ATC_Cloud_Status_NoCloud>
+  <ATC_Cloud_Status_Latest>🔵 已是最新版</ATC_Cloud_Status_Latest>
+  <ATC_Cloud_Btn_Download>☁️ 一键空投</ATC_Cloud_Btn_Download>
+  <ATC_Cloud_Btn_Upload>⬆️ 贡献翻译</ATC_Cloud_Btn_Upload>
+  <ATC_Cloud_Btn_Uploading>⏳ 封装上传中...</ATC_Cloud_Btn_Uploading>
+  <ATC_Cloud_LastUpdate>最后更新</ATC_Cloud_LastUpdate>
+  <ATC_Cloud_Author>贡献者</ATC_Cloud_Author>
+  <ATC_Cloud_Nickname>👤 贡献者暱称</ATC_Cloud_Nickname>
+  <ATC_Cloud_AdminKey>🔑 神圣特权码</ATC_Cloud_AdminKey>
+  <ATC_Cloud_Btn_DeleteLocal>🗑️ 删除本地</ATC_Cloud_Btn_DeleteLocal>
+  <ATC_Cloud_Btn_DeleteCloud>🔥 云端删除</ATC_Cloud_Btn_DeleteCloud>
+  <ATC_Cloud_Deleting>⏳ 正在删除...</ATC_Cloud_Deleting>
+  <!-- ✨ 新增的批量下载与系统提示标籤 -->
+  <ATC_Cloud_ConnectionNormal>☁️ 云端大脑连线正常：目前资料库共有 {0} 笔翻译纪录。</ATC_Cloud_ConnectionNormal>
+  <ATC_Cloud_NoModsWarning>⚠️ 找不到可翻译的第三方模组！\n(如果您的测试环境只有载入官方 DLC 与本模组，清单会是空的喔！)</ATC_Cloud_NoModsWarning>
+  <ATC_Cloud_Btn_BatchOfficial>👑 一键下载精翻</ATC_Cloud_Btn_BatchOfficial>
+  <ATC_Cloud_Btn_BatchAI>🤖 一键下载机翻(AI)</ATC_Cloud_Btn_BatchAI>
+  <ATC_Msg_DownloadStart>📥 正在请求空投：{0}...</ATC_Msg_DownloadStart>
+  <ATC_Msg_DownloadSuccess>✅ 空投成功！{0} 已载入记忆体！</ATC_Msg_DownloadSuccess>
+  <ATC_Msg_DownloadFailed>❌ 空投失败：{0}</ATC_Msg_DownloadFailed>
+  <ATC_Msg_UploadSuccess>🚀 上传成功！感谢您对生态系的贡献：{0}</ATC_Msg_UploadSuccess>
+  <ATC_Msg_UploadFailed>❌ 上传失败：{0} (可能无翻译档或网路错误)</ATC_Msg_UploadFailed>
+  <ATC_Msg_DeleteCloudSuccess>🔥 云端删除成功：{0}</ATC_Msg_DeleteCloudSuccess>
+  <ATC_Msg_DeleteCloudFailed>❌ 云端删除失败 (请检查特权码)：{0}</ATC_Msg_DeleteCloudFailed>
+  <ATC_Msg_DeleteLocalSuccess>🗑️ 已删除 {0} 的本地翻译快取！</ATC_Msg_DeleteLocalSuccess>
+  <ATC_Msg_BatchNoMods>⚠️ 本地没有需要更新的该类型翻译。</ATC_Msg_BatchNoMods>
+  <ATC_Msg_BatchStart>📥 开始批量空投 {0} 个模组翻译...</ATC_Msg_BatchStart>
+  <ATC_Msg_BatchSuccess>✅ 批量空投完成！成功载入 {0} / {1} 个翻译库！</ATC_Msg_BatchSuccess>
+  <ATC_Cloud_Btn_OpenWorkspace>📂 开启总工作区</ATC_Cloud_Btn_OpenWorkspace>
+  <ATC_Cloud_Btn_BatchUpload>⬆️ 批量上传工作区</ATC_Cloud_Btn_BatchUpload>
+  <ATC_Msg_WorkspaceEmpty>⚠️ 工作区不存在或没有任何模组资料夹！</ATC_Msg_WorkspaceEmpty>
+  <ATC_Msg_BatchUploadStart>🚀 开始批量扫描并上传 {0} 个模组...</ATC_Msg_BatchUploadStart>
+  <ATC_Msg_BatchUploadSuccess>批量上传完成！成功以“{1}”类型上传 {0} 个模组。</ATC_Msg_BatchUploadSuccess>
+  <ATC_Cloud_BatchUploadLogLabel>批量上传更新日志：</ATC_Cloud_BatchUploadLogLabel>
+  <ATC_Cloud_BatchUploadLogHint>批量上传必填。请简短描述这次更新内容。</ATC_Cloud_BatchUploadLogHint>
+  <ATC_Msg_BatchUploadLogRequired>批量上传需要填写至少 5 个字的更新日志。</ATC_Msg_BatchUploadLogRequired>
+  <!-- V3.5 翻译类型与状态扩充 -->
+  <ATC_Cloud_Type_Select>📝 您的翻译类型：</ATC_Cloud_Type_Select>
+  <ATC_Cloud_Type_AI>🤖 AI 机翻</ATC_Cloud_Type_AI>
+  <ATC_Cloud_Type_Manual>✍️ 手工精翻</ATC_Cloud_Type_Manual>
+  <ATC_Cloud_Status_Manual>🟢 玩家精翻</ATC_Cloud_Status_Manual>
+  <ATC_EmergencyResetTitle>终极急救箱 (危险区域)</ATC_EmergencyResetTitle>
+  <ATC_Btn_FactoryReset>一键清除所有翻译快取 (恢復原厂设定)</ATC_Btn_FactoryReset>
+  <ATC_Msg_ConfirmFactoryReset>警告：这将会删除所有本地的 AI翻译快取档案，并清空 UI 记忆体。确定要执行吗？（此操作不可逆）</ATC_Msg_ConfirmFactoryReset>
+  <ATC_Btn_Confirm>确定清除</ATC_Btn_Confirm>
+  <ATC_Btn_Cancel>取消</ATC_Btn_Cancel>
+  <ATC_Log_FactoryResetSuccess>系统已成功恢復原厂设定，所有快取已清空。</ATC_Log_FactoryResetSuccess>
+  <ATC_Msg_FactoryResetSuccess>系统重置成功！所有翻译快取已被清空。</ATC_Msg_FactoryResetSuccess>
+  <ATC_Cloud_Downloading>云端下载中: {0}</ATC_Cloud_Downloading>
+  <ATC_Cloud_Uploading>云端上传中: {0}</ATC_Cloud_Uploading>
+  <ATC_LogError_DownloadCorrupted>云端下载或解压失败！已自动清理损坏的残留档案。模组: {0}，原因: {1}</ATC_LogError_DownloadCorrupted>
+  <ATC_Log_CloudPrefetchSuccess>已成功在背景预先载入云端大脑清单 (共 {0} 笔纪录)。</ATC_Log_CloudPrefetchSuccess>
+  <ATC_Error_FetchModels_NonJson>[{0}] 获取模型失败：伺服器回传了非 JSON 格式 ({1})。预览: {2}</ATC_Error_FetchModels_NonJson>
+  <ATC_Error_FetchModels_Unauthorized>[{0}] 获取模型失败 (401)：API 金钥无效或未授权，请检查金钥是否正确。</ATC_Error_FetchModels_Unauthorized>
+  <ATC_Error_FetchModels_Forbidden>[{0}] 获取模型失败 (403)：权限不足或被防火牆阻挡 (可能是地区限制或额度耗尽)。</ATC_Error_FetchModels_Forbidden>
+  <ATC_Error_FetchModels_RateLimit>[{0}] 获取模型失败 (429)：请求太频繁，触发 API 速率限制，请稍后再试。</ATC_Error_FetchModels_RateLimit>
+  <ATC_Error_FetchModels_ServerError>[{0}] 获取模型失败 ({1})：伺服器内部错误，可能当前服务不稳定。细节: {2}</ATC_Error_FetchModels_ServerError>
+  <ATC_Error_FetchModels_Unknown>[{0}] 获取模型失败 ({1})：未知的错误。细节: {2}</ATC_Error_FetchModels_Unknown>
+  <ATC_Error_FetchModelsDispatchTimeout>[{0}] 获取模型尚未开始就超时。请关闭并重新打开设置页，或等游戏加载完成后再试。</ATC_Error_FetchModelsDispatchTimeout>
+  <ATC_Error_FetchModelsWatchdogReleased>[{0}] 模型获取超时，已释放卡住的搜索状态。请稍后重试或按重新获取模型。</ATC_Error_FetchModelsWatchdogReleased>
+  <ATC_Lang_French>法文 (Français)</ATC_Lang_French>
+  <ATC_Lang_German>德文 (Deutsch)</ATC_Lang_German>
+  <ATC_Lang_Spanish>西班牙文 (Español)</ATC_Lang_Spanish>
+  <ATC_Lang_Italian>义大利文 (Italiano)</ATC_Lang_Italian>
+  <ATC_Lang_Polish>波兰文 (Polski)</ATC_Lang_Polish>
+  <ATC_Lang_Portuguese>葡萄牙文 (Português)</ATC_Lang_Portuguese>
+  <ATC_Lang_Turkish>土耳其文 (Türkçe)</ATC_Lang_Turkish>
+  <ATC_Cloud_SmartMerged> [已缝合AI]</ATC_Cloud_SmartMerged>
+  <ATC_Cloud_UploadDate>上传日期: {0}</ATC_Cloud_UploadDate>
+  <ATC_Cloud_TransType>翻译类型: {0}</ATC_Cloud_TransType>
+  <ATC_Cloud_IsSmartMerged>智能缝合: {0}</ATC_Cloud_IsSmartMerged>
+  <ATC_Cloud_YesWithCount>是 (包含 {0} 条机翻补漏)</ATC_Cloud_YesWithCount>
+  <ATC_Cloud_No>否</ATC_Cloud_No>
+  <ATC_Log_MetaUpdated>已更新翻译身分证 (新增 {0} 条缝合补漏)</ATC_Log_MetaUpdated>
+  <ATC_Log_BackupSuccess>已自动备份旧版翻译：{0}</ATC_Log_BackupSuccess>
+  <!-- 内置编辑器 (Workbench) 介面 -->
+  <ATC_Workbench_Title>📝 ATC 翻译工作站: {0}</ATC_Workbench_Title>
+  <ATC_Workbench_SearchHint>🔍 搜寻原文或翻译...</ATC_Workbench_SearchHint>
+  <ATC_Workbench_CategoryCount>📁 {0} ({1})</ATC_Workbench_CategoryCount>
+  <ATC_Workbench_CloseBtn>关闭 (不储存)</ATC_Workbench_CloseBtn>
+  <ATC_Workbench_SaveBtn>💾 储存并应用</ATC_Workbench_SaveBtn>
+  <!-- 云端操作按钮与提示 -->
+  <ATC_Cloud_Btn_Dir>目录</ATC_Cloud_Btn_Dir>
+  <ATC_Cloud_Btn_DirTooltip>开启专属上传工作室 (方便大佬放入精翻 XML 后点击云端上传)</ATC_Cloud_Btn_DirTooltip>
+  <ATC_Cloud_Btn_WorkbenchTooltip>开启内置编辑器 (Translation Workbench)\n即时双向修改与补漏！</ATC_Cloud_Btn_WorkbenchTooltip>
+  <ATC_Workbench_SaveSuccess>翻译已储存并即时注入游戏！</ATC_Workbench_SaveSuccess>
+  <ATC_Log_WorkbenchSaved>内置编辑器储存了 {0} 条翻译修改，并已触发即时热重载！</ATC_Log_WorkbenchSaved>
+  <ATC_Cloud_LogTitle>更新日誌</ATC_Cloud_LogTitle>
+  <ATC_Cloud_NoLog>原作者未提供填写更新日誌。</ATC_Cloud_NoLog>
+  <ATC_UploadPreview_Title>上传前翻译包安全安检预览控制台 - {0}</ATC_UploadPreview_Title>
+  <ATC_UploadPreview_Loading>正在为您对要打包的所有 XML 进行无失真解码与安全性分析，请稍候...</ATC_UploadPreview_Loading>
+  <ATC_Preview_ClickToSee>点击左侧以检视条目内容</ATC_Preview_ClickToSee>
+  <ATC_Upload_LogLabel>新增上传说明或更新日誌（可选填，类似 Steam 游戏更新公告）：</ATC_Upload_LogLabel>
+  <ATC_Upload_LogHint>请在这里输入本次翻译包的修正内容（例如：修正了 XX 武器破图、修復简繁转换错字...）</ATC_Upload_LogHint>
+  <ATC_Upload_UnlockEdit>✍️ 更改内容 (解锁)</ATC_Upload_UnlockEdit>
+  <ATC_Upload_EditingMode>⚠️ 编辑模式中 (已开放)</ATC_Upload_EditingMode>
+  <ATC_Upload_ConfirmUploadBtn>✅ 检查完毕 ‧ 确定上传</ATC_Upload_ConfirmUploadBtn>
+  <ATC_Msg_UploadStart>🚀 准备发射！正在将 {0} 的翻译包打包并上传至云端...</ATC_Msg_UploadStart>
+  <ATC_Type_Official>汉化组精翻</ATC_Type_Official>
+  <ATC_Type_Manual>玩家精翻</ATC_Type_Manual>
+  <ATC_Type_AI>AI 机翻</ATC_Type_AI>
+  <ATC_UploadPreview_NoTranslation>暂无翻译档可以上传！\n(请先使用 AI 扫描翻译，或将自製翻译放入 Upload_Workspace)</ATC_UploadPreview_NoTranslation>
+  <ATC_Msg_UploadFailedNoFiles>上传失败：找不到对应的翻译档案！</ATC_Msg_UploadFailedNoFiles>
+  <!-- 系统自动清理与更新防护 -->
+  <ATC_Log_CleanedGhostTwins>[System] 已自动超渡 {0} 个幽灵汉化补丁的双胞胎残留档！</ATC_Log_CleanedGhostTwins>
+  <ATC_Log_AutoStartUpdateScan>[System] 侦测到 {0} 个模组更新，已根据玩家设定，自动启动背景翻译产线！</ATC_Log_AutoStartUpdateScan>
+  <!-- API 预检防呆系统 -->
+  <ATC_SubTask_TestingAPI>测试 API 连线状态...</ATC_SubTask_TestingAPI>
+  <ATC_Log_PreflightCheck>正在进行 API 启动前连线预检...</ATC_Log_PreflightCheck>
+  <ATC_LogError_ApiDeadAbort>API 连线失败！已强制中断翻译任务，请检查金钥或伺服器状态。</ATC_LogError_ApiDeadAbort>
+  <ATC_TaskFailed>任务失败</ATC_TaskFailed>
+  <!-- 云端连线与错误处理 -->
+  <ATC_Cloud_FetchListFailed>获取云端汉化清单失败 (HTTP {0})，正在尝试重连或切换备用节点...</ATC_Cloud_FetchListFailed>
+  <ATC_Cloud_ConnectionFailedLog>无法连线至云端伺服器：{0}</ATC_Cloud_ConnectionFailedLog>
+  <ATC_Log_AutoSyncLanguage>自动侦测到游戏语言切换为 {0}，模组目标语言已自动同步！</ATC_Log_AutoSyncLanguage>
+  <ATC_Cloud_SelectLang>云端操作语系：</ATC_Cloud_SelectLang>
+  <ATC_Cloud_ConnectionFailed>云端连线失败或超时 (被防火牆拦截或无回应)，请检查网路或尝试使用加速器：{0}</ATC_Cloud_ConnectionFailed>
+  <ATC_Cloud_UploadFallback>上传主线路超时或被阻断，正在切换备用偷渡通道...</ATC_Cloud_UploadFallback>
+  <ATC_Cloud_UploadFailed>上传失败：{0}</ATC_Cloud_UploadFailed>
+  <ATC_Cloud_DeleteFallback>删除主线路超时，正在切换备用偷渡通道...</ATC_Cloud_DeleteFallback>
+  <ATC_Cloud_DeleteFailed>删除失败：{0}</ATC_Cloud_DeleteFailed>
+  <ATC_Cloud_MainRouteCrashed>主线路连线崩溃，正在启动免费偷渡备用通道...</ATC_Cloud_MainRouteCrashed>
+  <ATC_Cloud_RequestRejected>请求失败，伺服器拒绝连线 (HTTP {0})</ATC_Cloud_RequestRejected>
+  <ATC_Cloud_RetryAttemptLog>云端大脑连线间歇性丢包，正在进行第 {0} 次核能重连...</ATC_Cloud_RetryAttemptLog>
+  <ATC_Cloud_DownloadRetryFailed>下载重试失败，连线被阻断：{0}</ATC_Cloud_DownloadRetryFailed>
+  <!-- V3.0 全域编辑器专属 -->
+  <ATC_Tab_Editor>全域编辑</ATC_Tab_Editor>
+  <ATC_Workbench_SearchMod>搜寻模组名称或 ID...</ATC_Workbench_SearchMod>
+  <ATC_Workbench_ShowTranslatedOnly>只显示已翻译的模组</ATC_Workbench_ShowTranslatedOnly>
+  <ATC_Workbench_SelectModHint>请在左侧选择要编辑的模组</ATC_Workbench_SelectModHint>
+  <ATC_Workbench_BackToList>返回模组列表</ATC_Workbench_BackToList>
+  <!-- V3.0 云端搜寻与快取清理 -->
+  <ATC_Cloud_SearchHint>搜寻模组名称或 ID...</ATC_Cloud_SearchHint>
+  <ATC_Btn_ClearUICache>一键清理 UI 拦截器快取与黑名单</ATC_Btn_ClearUICache>
+  <ATC_Msg_UICacheCleared>UI 拦截器快取已完全清空，生肉将重新送译！</ATC_Msg_UICacheCleared>
+  <ATC_LogError_DeleteUICacheFailed>删除 UI 快取实体档案失败：{0}</ATC_LogError_DeleteUICacheFailed>
+  <ATC_Log_UICacheClearedFull>UI 翻译快取 (包含实体字典档) 与忽略黑名单已完全物理清空！</ATC_Log_UICacheClearedFull>
+  <ATC_Workbench_GlobalSearchTitle>🔍 全域文本搜寻 (Global Search)</ATC_Workbench_GlobalSearchTitle>
+  <ATC_Lang_All>🌍 所有语言 (All)</ATC_Lang_All>
+  <ATC_Workbench_GlobalSearching>🔄 正在背景高速扫描快取...</ATC_Workbench_GlobalSearching>
+  <ATC_Workbench_GlobalSearchNoResult>找不到相符的翻译文本。</ATC_Workbench_GlobalSearchNoResult>
+  <ATC_Msg_UploadLogRequired>⚠️ 为了维护云端品质，请在左下方简述您的翻译修改内容（至少 5 个字）！</ATC_Msg_UploadLogRequired>
+  <ATC_Btn_RepairLegacyTranslations>&#x4FEE;&#x590D;&#x65E7;&#x7FFB;&#x8BD1;&#x683C;&#x5F0F;</ATC_Btn_RepairLegacyTranslations>
+  <ATC_Msg_RepairLegacyTranslationsDone>&#x65E7;&#x7FFB;&#x8BD1;&#x683C;&#x5F0F;&#x4FEE;&#x590D;&#x5B8C;&#x6210;&#xFF1A;&#x5DF2;&#x4FEE;&#x590D; {1} &#x6761;&#xFF0C;&#x6D89;&#x53CA; {0} &#x4E2A;&#x6587;&#x4EF6;&#xFF1B;&#x4ECD;&#x9700;&#x4EBA;&#x5DE5;&#x68C0;&#x67E5; {2} &#x6761;&#x9AD8;&#x98CE;&#x9669;&#x7ED3;&#x6784;&#x3002;</ATC_Msg_RepairLegacyTranslationsDone>
+  <ATC_ApiKeyNoteHint>备注：例如 Gemini 免费额度、DeepSeek 备用、公司代理</ATC_ApiKeyNoteHint>
+  <ATC_ApiKeyEnabled>启用此 API Key</ATC_ApiKeyEnabled>
+  <ATC_Msg_ApiKeyDisabled>这组 API Key 目前已停用。</ATC_Msg_ApiKeyDisabled>
+  <ATC_ModStatus_Translated>已翻译</ATC_ModStatus_Translated>
+  <ATC_ModStatus_Untranslated>未翻译</ATC_ModStatus_Untranslated>
+  <ATC_ModStatus_Outdated>可能过时</ATC_ModStatus_Outdated>
+  <ATC_Msg_CloudUploadPatchModBlocked>&#x5DF2;&#x963B;&#x6B62;&#x4E0A;&#x4F20;&#xFF1A;{0} &#x770B;&#x8D77;&#x6765;&#x662F;&#x6C49;&#x5316;&#x6216;&#x7FFB;&#x8BD1;&#x8865;&#x4E01;&#x6A21;&#x7EC4;&#xFF0C;&#x4E91;&#x7AEF;&#x5171;&#x4EAB;&#x53EA;&#x63A5;&#x53D7;&#x539F;&#x59CB;&#x6A21;&#x7EC4;&#x7684;&#x6CE8;&#x5165;&#x5F0F;&#x7FFB;&#x8BD1;&#x3002;</ATC_Msg_CloudUploadPatchModBlocked>
+  <ATC_Msg_CloudBatchPatchModsSkipped>&#x5DF2;&#x8DF3;&#x8FC7; {0} &#x4E2A;&#x6C49;&#x5316;&#x6216;&#x7FFB;&#x8BD1;&#x8865;&#x4E01;&#x6A21;&#x7EC4;&#xFF0C;&#x4E0D;&#x4F1A;&#x4E0A;&#x4F20;&#x5230;&#x4E91;&#x7AEF;&#x5171;&#x4EAB;&#x3002;</ATC_Msg_CloudBatchPatchModsSkipped>
+</LanguageData>

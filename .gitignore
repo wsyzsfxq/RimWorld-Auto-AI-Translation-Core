@@ -428,3 +428,6 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# RWMod local generated tooling output
+cloudflare/worker/d1-tools/generated/
