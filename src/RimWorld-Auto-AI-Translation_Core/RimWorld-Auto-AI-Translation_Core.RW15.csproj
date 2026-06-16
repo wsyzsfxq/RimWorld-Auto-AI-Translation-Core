@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{B6387A13-8155-46C3-B483-DBE5F49F5150}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <AppDesignerFolder>Properties</AppDesignerFolder>
+    <RootNamespace>RimWorld_Auto_AI_Translation_Core</RootNamespace>
+    <AssemblyName>RimWorld_Auto_AI_Translation_Core</AssemblyName>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug-RW15\</OutputPath>
+    <IntermediateOutputPath>obj\Debug-RW15\</IntermediateOutputPath>
+    <DefineConstants>DEBUG;TRACE;RIMWORLD_1_5</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release-RW15\</OutputPath>
+    <IntermediateOutputPath>obj\Release-RW15\</IntermediateOutputPath>
+    <DefineConstants>TRACE;RIMWORLD_1_5</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="0Harmony, Version=2.4.2.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Lib.Harmony.2.4.2\lib\net48\0Harmony.dll</HintPath>
+    </Reference>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>C:\Users\g1061\Documents\rimworld 1.5 data\RimWorldWin64_Data\Managed\Assembly-CSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="NAudio">
+      <HintPath>C:\Users\g1061\Documents\rimworld 1.5 data\RimWorldWin64_Data\Managed\NAudio.dll</HintPath>
+    </Reference>
+    <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>..\..\packages\Newtonsoft.Json.13.0.4\lib\net45\Newtonsoft.Json.dll</HintPath>
+    </Reference>
+    <Reference Include="NVorbis">
+      <HintPath>C:\Users\g1061\Documents\rimworld 1.5 data\RimWorldWin64_Data\Managed\NVorbis.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.ComponentModel.Composition" />
+    <Reference Include="System.Configuration" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.EnterpriseServices" />
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.IO.Compression.FileSystem" />
+    <Reference Include="System.Runtime" />
+    <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="System.Security" />
+    <Reference Include="System.ServiceModel.Internals, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>C:\Users\g1061\Documents\rimworld 1.5 data\RimWorldWin64_Data\Managed\System.ServiceModel.Internals.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Transactions" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Xml" />
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>C:\Users\g1061\Documents\rimworld 1.5 data\RimWorldWin64_Data\Managed\UnityEngine.CoreModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.IMGUIModule">
+      <HintPath>C:\Users\g1061\Documents\rimworld 1.5 data\RimWorldWin64_Data\Managed\UnityEngine.IMGUIModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.TextRenderingModule">
+      <HintPath>C:\Users\g1061\Documents\rimworld 1.5 data\RimWorldWin64_Data\Managed\UnityEngine.TextRenderingModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.UnityWebRequestAssetBundleModule">
+      <HintPath>C:\Users\g1061\Documents\rimworld 1.5 data\RimWorldWin64_Data\Managed\UnityEngine.UnityWebRequestAssetBundleModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.UnityWebRequestAudioModule">
+      <HintPath>C:\Users\g1061\Documents\rimworld 1.5 data\RimWorldWin64_Data\Managed\UnityEngine.UnityWebRequestAudioModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.UnityWebRequestModule">
+      <HintPath>C:\Users\g1061\Documents\rimworld 1.5 data\RimWorldWin64_Data\Managed\UnityEngine.UnityWebRequestModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.UnityWebRequestTextureModule">
+      <HintPath>C:\Users\g1061\Documents\rimworld 1.5 data\RimWorldWin64_Data\Managed\UnityEngine.UnityWebRequestTextureModule.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.UnityWebRequestWWWModule">
+      <HintPath>C:\Users\g1061\Documents\rimworld 1.5 data\RimWorldWin64_Data\Managed\UnityEngine.UnityWebRequestWWWModule.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="AI\AutoTranslatorAPI.ConnectionTest.cs" />
+    <Compile Include="AI\AutoTranslatorAPI.DeepL.cs" />
+    <Compile Include="AI\AutoTranslatorAPI.HttpSupport.cs" />
+    <Compile Include="AI\AutoTranslatorAPI.ModelFetch.cs" />
+    <Compile Include="AI\AutoTranslatorAPI.PromptRules.cs" />
+    <Compile Include="AI\AutoTranslatorAPI.ProviderCatalog.cs" />
+    <Compile Include="AI\AutoTranslatorAPI.ResponseParsing.cs" />
+    <Compile Include="AI\AutoTranslatorAPI.UnityWebRequestEngine.cs" />
+    <Compile Include="AI\LanguageDetector.cs" />
+    <Compile Include="AI\Translator.cs" />
+    <Compile Include="Cloud\AutoTranslatorCloudClient.Delete.cs" />
+    <Compile Include="Cloud\AutoTranslatorCloudClient.Download.cs" />
+    <Compile Include="Cloud\AutoTranslatorCloudClient.Logging.cs" />
+    <Compile Include="Cloud\AutoTranslatorCloudClient.Registry.cs" />
+    <Compile Include="Cloud\AutoTranslatorCloudClient.Upload.cs" />
+    <Compile Include="Cloud\CloudClient.cs" />
+    <Compile Include="Cloud\Models\CloudModRecord.cs" />
+    <Compile Include="Cloud\Models\LocalModMeta.cs" />
+    <Compile Include="Core\ApiKeyConfig.cs" />
+    <Compile Include="Core\AutoTranslatorMod.cs" />
+    <Compile Include="Core\AutoTranslatorPerf.cs" />
+    <Compile Include="Core\AutoTranslatorSettings.cs" />
+    <Compile Include="Core\Reflection\ReflectionHelper.cs" />
+    <Compile Include="Core\TargetLanguage.cs" />
+    <Compile Include="Core\Threading\ATC_Dispatcher.cs" />
+    <Compile Include="Core\TranslatorProvider.cs" />
+    <Compile Include="Export\Cooldown\CooldownState.cs" />
+    <Compile Include="Export\Cooldown\ExportCooldownManager.cs" />
+    <Compile Include="Export\Eula\ExportEulaVersion.cs" />
+    <Compile Include="Export\ExportFeature.cs" />
+    <Compile Include="Export\ExportFlowController.cs" />
+    <Compile Include="Export\ExportManager.cs" />
+    <Compile Include="Export\Models\ExportableModInfo.cs" />
+    <Compile Include="Export\Templates\ExportTemplates.cs" />
+    <Compile Include="Maintenance\LegacyRepairer.cs" />
+    <Compile Include="Maintenance\ModUpdateDetector.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Scanning\AutoTranslatorScanner.Backups.cs" />
+    <Compile Include="Scanning\AutoTranslatorScanner.cs" />
+    <Compile Include="Scanning\AutoTranslatorScanner.DefExtraction.cs" />
+    <Compile Include="Scanning\AutoTranslatorScanner.Detox.cs" />
+    <Compile Include="Scanning\AutoTranslatorScanner.ExternalPatchCleanup.cs" />
+    <Compile Include="Scanning\AutoTranslatorScanner.ExternalPatches.cs" />
+    <Compile Include="Scanning\AutoTranslatorScanner.LanguagePaths.cs" />
+    <Compile Include="Scanning\AutoTranslatorScanner.MemoryInjection.cs" />
+    <Compile Include="Scanning\AutoTranslatorScanner.PackMaintenance.cs" />
+    <Compile Include="Scanning\AutoTranslatorScanner.Sanitization.cs" />
+    <Compile Include="Scanning\AutoTranslatorScanner.ScanOrchestration.cs" />
+    <Compile Include="Scanning\AutoTranslatorScanner.TranslationProcessing.cs" />
+    <Compile Include="Scanning\AutoTranslatorScanner.XmlIO.cs" />
+    <Compile Include="Scanning\Runtime\AutoTranslator_MainThreadDispatcher.cs" />
+    <Compile Include="Scanning\Runtime\AutoTranslator_PumpBehaviour.cs" />
+    <Compile Include="Scanning\Runtime\AutoTranslator_StartupHook.cs" />
+    <Compile Include="UI\Cloud\AutoTranslatorMod.CloudActions.cs" />
+    <Compile Include="UI\Cloud\AutoTranslatorMod.CloudRenderers.cs" />
+    <Compile Include="UI\CloudTab.cs" />
+    <Compile Include="UI\Interception\UIInterceptor.Cache.cs" />
+    <Compile Include="UI\Interception\UIInterceptor.Patches.cs" />
+    <Compile Include="UI\Interception\UIInterceptor.Queue.cs" />
+    <Compile Include="UI\Interception\UIInterceptor.TextSafety.cs" />
+    <Compile Include="UI\Interception\UIInterceptorLifecycle.cs" />
+    <Compile Include="UI\MainTab.cs" />
+    <Compile Include="UI\ModNameTranslationCache.cs" />
+    <Compile Include="UI\SettingsTab.cs" />
+    <Compile Include="UI\UIInterceptor.cs" />
+    <Compile Include="UI\Windows\DeleteTranslationWindow.cs" />
+    <Compile Include="UI\Windows\Export\Dialog_ContactAuthor.cs" />
+    <Compile Include="UI\Windows\Export\Dialog_ExportEula.cs" />
+    <Compile Include="UI\Windows\Export\Dialog_ExportReminder.cs" />
+    <Compile Include="UI\Windows\Export\Window_Export.cs" />
+    <Compile Include="UI\Windows\ModSelectWindow.cs" />
+    <Compile Include="UI\Windows\TutorialWindow.cs" />
+    <Compile Include="UI\Windows\UpdateLogWindow.cs" />
+    <Compile Include="UI\Windows\UploadPreview\Window_UploadPreview.DataLoading.cs" />
+    <Compile Include="UI\Windows\UploadPreview\Window_UploadPreview.Persistence.cs" />
+    <Compile Include="UI\Windows\UploadPreview\Window_UploadPreview.Upload.cs" />
+    <Compile Include="UI\Windows\Window_UploadPreview.cs" />
+    <Compile Include="UI\Workbench\TranslationWorkbenchTab.DataLoading.cs" />
+    <Compile Include="UI\Workbench\TranslationWorkbenchTab.EditingRenderer.cs" />
+    <Compile Include="UI\Workbench\TranslationWorkbenchTab.ModSelectionRenderer.cs" />
+    <Compile Include="UI\Workbench\TranslationWorkbenchTab.Persistence.cs" />
+    <Compile Include="UI\Workbench\TranslationWorkbenchTab.Search.cs" />
+    <Compile Include="UI\WorkbenchTab.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>
