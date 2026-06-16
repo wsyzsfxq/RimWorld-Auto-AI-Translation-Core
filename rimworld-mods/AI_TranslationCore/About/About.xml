@@ -1,0 +1,14 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<ModMetaData>
+  <name>AI 智能漢化網絡(AI Translation Network)</name>
+  <author> anln9487</author>
+  <packageId>Auto.AITranslation.Core</packageId>
+  <supportedVersions>
+    <li>1.5</li>
+    <li>1.6</li>
+  </supportedVersions>
+  <description>
+這是一套具備 AI 自動補位與繁簡轉換功能的翻譯引擎。
+利用產線的最新技術，讓玩家玩遊戲再也不用看英文！
+  </description>
+</ModMetaData>

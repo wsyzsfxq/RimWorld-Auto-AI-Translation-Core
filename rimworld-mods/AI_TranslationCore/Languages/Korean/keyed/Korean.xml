@@ -1,0 +1,465 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <ATC_ModTitle>AI 지능형 번역 네트워크(AI Translation Network) V3.0</ATC_ModTitle>
+  <ATC_TargetLang>대상 언어</ATC_TargetLang>
+  <ATC_Lang_Traditional>번체 중국어 (Traditional Chinese)</ATC_Lang_Traditional>
+  <ATC_Lang_Simplified>간체 중국어 (Simplified Chinese)</ATC_Lang_Simplified>
+  <ATC_Lang_Japanese>일본어 (Japanese)</ATC_Lang_Japanese>
+  <ATC_Lang_Korean>한국어</ATC_Lang_Korean>
+  <ATC_Lang_Russian>러시아어 (Russian)</ATC_Lang_Russian>
+  <ATC_Lang_Ukrainian>우크라이나어 (Ukrainian)</ATC_Lang_Ukrainian>
+  <ATC_Lang_English>영어 (English)</ATC_Lang_English>
+  <ATC_CurrentProvider>현재 AI 제공업체</ATC_CurrentProvider>
+  <ATC_ApiKey>API 키 (API Key)</ATC_ApiKey>
+  <ATC_CustomBaseUrl>사용자 정의 API 주소 (Base URL)</ATC_CustomBaseUrl>
+  <ATC_DefaultEmpty>기본값은 비워두세요</ATC_DefaultEmpty>
+  <ATC_OnlyScanActive>활성화된 모드만 스캔</ATC_OnlyScanActive>
+  <ATC_Tooltip_TargetLang>【대상 언어】\nAI가 외국어 모드를 어떤 언어로 번역할지 설정합니다.</ATC_Tooltip_TargetLang>
+  <ATC_Tooltip_Provider>【AI 서비스 제공업체】\n사용할 AI 모델 제공업체를 선택합니다. Google (Gemini) 또는 OpenAI 사용을 강력히 권장합니다.</ATC_Tooltip_Provider>
+  <ATC_TestConnection>연결 테스트</ATC_TestConnection>
+  <ATC_TestingPulse>테스트 펄스 전송 중...</ATC_TestingPulse>
+  <ATC_FetchModels>모델 목록 가져오기</ATC_FetchModels>
+  <ATC_RefetchModels>모델 다시 가져오기</ATC_RefetchModels>
+  <ATC_Fetching>통신 중...</ATC_Fetching>
+  <ATC_SelectModel>모델 선택</ATC_SelectModel>
+  <ATC_PlzFetchModel>먼저 모델 목록 가져오기를 클릭하세요</ATC_PlzFetchModel>
+  <ATC_TranslateSingleMod>지정된 모드 단독 번역</ATC_TranslateSingleMod>
+  <ATC_StartTranslation>자동 백필(빈자리 채우기) 계획 시작</ATC_StartTranslation>
+  <ATC_StopTranslation>생산 라인 긴급 정지</ATC_StopTranslation>
+  <ATC_Tutorial_Btn>사용 가이드 및 FAQ</ATC_Tutorial_Btn>
+  <ATC_UpdateLog_Btn>모드 업데이트 로그</ATC_UpdateLog_Btn>
+  <ATC_CurrentTask>현재 작업</ATC_CurrentTask>
+  <ATC_Idle>대기 중</ATC_Idle>
+  <ATC_TaskDone>생산 라인 완공!</ATC_TaskDone>
+  <ATC_LogPanelTitle>--- 생산 라인 실시간 모니터링 로그 ---</ATC_LogPanelTitle>
+  <ATC_ErrorLogTitle>⚠ 이상 파일 검사 보고서</ATC_ErrorLogTitle>
+  <ATC_Msg_EmptyKey>Key도 안 입력했는데 뭘 테스트하나요!</ATC_Msg_EmptyKey>
+  <ATC_Log_TestPulse>[Test] 미세 펄스를 전송하여 [{0}] 연결 상태를 테스트 중...</ATC_Log_TestPulse>
+  <ATC_Testing>테스트 중...</ATC_Testing>
+  <ATC_Log_TestSuccess>✅ 인터넷 엔드포인트 응답 테스트 성공! 통신 생산 라인이 정상 작동합니다!</ATC_Log_TestSuccess>
+  <ATC_Log_TestFail>[Test] 테스트 실패! 네트워크 또는 API 설정을 확인하세요.</ATC_Log_TestFail>
+  <ATC_Msg_TestSuccess>✅ [{0}]와의 안정적인 양자 통신 링크 구축 성공! 준비 완료!</ATC_Msg_TestSuccess>
+  <ATC_Msg_TestFailed>❌ [{0}]와의 링크 실패! 전송 키 또는 네트워크를 확인하고 로그에서 상세 진단 보고서를 확인하세요.</ATC_Msg_TestFailed>
+  <ATC_Log_TestFailed_Detail>🔧 {0} 연결 테스트 결과가 반환되지 않았습니다. 키가 유효하지 않거나 대상 모델을 사용할 수 없을 수 있으니 모델 목록을 다시 가져와 보세요.</ATC_Log_TestFailed_Detail>
+  <ATC_Log_TestException>💥 {0} 테스트 과정 중 예외 발생: {1}</ATC_Log_TestException>
+  <ATC_Error_TestConnectionTimeout>[{0}] Test connection timed out; stuck testing state was released. Please check network/model and retry.</ATC_Error_TestConnectionTimeout>
+  <ATC_Log_Init>[Init] 모드를 읽고 전역 번역 공유 풀을 구축하는 중...</ATC_Log_Init>
+  <ATC_Log_InitDone>[Init] 완료! 총 {0}개의 Def 번역을 수집했습니다.</ATC_Log_InitDone>
+  <ATC_Log_StartScan>Auto Translation Core 시작! 대상 모드 수: {0}</ATC_Log_StartScan>
+  <ATC_Log_ScanMod> [Start] 모드 스캔: {0}</ATC_Log_ScanMod>
+  <ATC_Log_SkipMod> [Skip] Languages도 Defs도 없는 순수 코드 모드입니다.</ATC_Log_SkipMod>
+  <ATC_Log_KeyedScan> [Keyed] 스캔 중...</ATC_Log_KeyedScan>
+  <ATC_Log_DefScan> [DefInjected] 정밀 스캔 및 전역 비교 시작...</ATC_Log_DefScan>
+  <ATC_Log_FoundMissing> [{0}] {1}개의 누락 발견! AI 지원을 요청하는 중...</ATC_Log_FoundMissing>
+  <ATC_Log_AIFinish> [{0}] AI 번역 백필 완료!</ATC_Log_AIFinish>
+  <ATC_Log_AIFail> [{0}] AI 번역 백필 실패.</ATC_Log_AIFail>
+  <ATC_Log_NoMissing> [{0}] 부품이 모두 갖춰져 있어 번역이 필요 없습니다.</ATC_Log_NoMissing>
+  <ATC_Log_TaskDone> [Finish] 백필 작업 완벽하게 완료!</ATC_Log_TaskDone>
+  <ATC_Log_TaskError>[Error] 생산 라인이 예기치 않게 중단됨: {0}</ATC_Log_TaskError>
+  <ATC_Log_Clean>[Clean] 생산 라인 정지, 메모리가 해제되었습니다.</ATC_Log_Clean>
+  <ATC_CancelRequested>정지 명령 수신, 생산 라인 긴급 제동 중...</ATC_CancelRequested>
+  <ATC_Log_FetchModelsSuccess>✅ [{0}] 모델 목록 자동 가져오기 성공!</ATC_Log_FetchModelsSuccess>
+  <ATC_Log_FetchModelsFail>[System] 목록 가져오기 실패, 키를 확인하세요.</ATC_Log_FetchModelsFail>
+  <ATC_Log_AllTranslationWritten>[Success] 모든 번역이 !Translation_AI_Pack에 안전하게 기록되었습니다!</ATC_Log_AllTranslationWritten>
+  <ATC_Log_NetworkRetry>[System] 네트워크 지연 또는 서버 혼잡 감지, 자동 재시도 메커니즘 가동...</ATC_Log_NetworkRetry>
+  <ATC_Log_MigrateSuccess>[시스템 이전] {0}의 {1}을(를) 새 아키텍처로 매끄럽게 이전 완료!</ATC_Log_MigrateSuccess>
+  <ATC_Log_StartSingleMod>[System] 단독 모드 번역 시작: {0}</ATC_Log_StartSingleMod>
+  <ATC_Log_SingleModDone>단독 번역 작업 완벽하게 완료!</ATC_Log_SingleModDone>
+  <ATC_Log_ProcessAborted>[System] 생산 라인이 안전하게 중단되었습니다.</ATC_Log_ProcessAborted>
+  <ATC_Log_ProcessAbortedWithSave>[System] 생산 라인이 안전하게 중단되었으며, 번역된 내용은 저장되었습니다.</ATC_Log_ProcessAbortedWithSave>
+  <ATC_TaskAborted>중단됨</ATC_TaskAborted>
+  <ATC_LogError_Format>[{0}] 포맷 오류: {1}</ATC_LogError_Format>
+  <ATC_LogError_Unknown>[{0}] 알 수 없는 예외: {1}</ATC_LogError_Unknown>
+  <ATC_LogError_FileCorrupted>[파일 손상] 해석할 수 없는 파일 건너뜀: {0}</ATC_LogError_FileCorrupted>
+  <ATC_LogError_ApiConn>[API] 통신 예외: {0}</ATC_LogError_ApiConn>
+  <ATC_FinishMessage_Title>번역 완료 알림</ATC_FinishMessage_Title>
+  <ATC_FinishMessage_OK>확인! (OK)</ATC_FinishMessage_OK>
+  <ATC_FinishMessage_Text>번역 작업이 성공적으로 완료되었습니다!\n【🪂 메모리 에어드랍 대성공】\n시스템이 공식 경로를 통해 최신 번역을 게임 메모리에 직접 주입했습니다!\n이제 이 창과 설정 패널을 닫으셔도 됩니다. 화면상의 아이템과 기술 이름이 즉시 설정한 언어로 변경되었습니다!\n(참고: 실제 XML 백업은 백그라운드에서 자동으로 생성되지만, 모드 목록에서 체크할 필요는 【전혀 없습니다】! 다음 실행 시에도 시스템이 자동으로 보이지 않게 마운트하므로 로드 순서 충돌에서 완벽하게 해방됩니다! 즐거운 게임 되세요!)</ATC_FinishMessage_Text>
+  <ATC_Tutorial_FullText>【V3.0 사용 설명서: 무임승차부터 기여까지】\n1. ☁️ 【먼저 클라우드를 확인하여 바퀴의 재발명을 방지하세요】\n번역을 준비하기 전에 【클라우드 워크숍】 탭을 먼저 방문하시는 것을 강력히 추천합니다! 번역 연합의 고수나 다른 유저가 이미 정밀 번역본(식은 죽 먹기 패키지)을 업로드했을 수도 있습니다. 원클릭 일괄 다운로드를 지원하여 즉시 따끈따끈한 완성본을 즐길 수 있습니다!\n\n2. ⚙️ 【번역 준비를 위한 API 설정】\n클라우드에 원하는 모드가 없다면, 먼저 설정 페이지에서 【대상 언어】(한국어, 중국어, 영어, 러시아어 등 다국어 지원)와 【제공업체】(대만에서는 무료 Gemini, 대륙에서는 DeepSeek 추천)를 선택하세요. '무한 API 탄창'을 지원하므로 '+' 버튼을 눌러 여러 API 슬롯을 추가하면 시스템이 자동으로 작업을 분배하여 무료 사용량을 한계까지 쥐어짜냅니다!\n(API 키를 붙여넣은 후 따로 검색할 필요 없이 백그라운드에서 모델을 자동으로 가져옵니다!)\n\n3. 🚀 【원클릭 번역과 메모리 에어드랍】\n스레드 수를 설정한 후, 【🚀 모든 모드 원클릭 번역】을 클릭하거나 【🎯 단일/다중 모드 번역】을 사용하여 정밀 격추를 시도해 보세요. 번역이 완료된 후 【게임을 재시작할 필요가 전혀 없습니다】! 시스템이 자동으로 '메모리 에어드랍'을 작동시켜 번역을 게임에 실시간 주입하므로, 창을 닫으면 바로 효과를 볼 수 있습니다!\n\n4. 🔍 【전역 워크벤치와 업로드 공유】\n기계 번역이 어색하게 느껴지시나요? 【전역 편집】 탭으로 들어가 강력한 '전역 텍스트 검색'을 통해 오타를 즉시 찾아내고 수정해 보세요! 수정이 완료되면 클라우드 워크숍으로 돌아와 여러분의 노력을 【유저 정밀 번역 (Manual)】 태그를 달아 업로드하여 전 세계의 림월드 유저들을 구원해 주세요!\n\n【자주 묻는 질문 Ｑ＆Ａ】\nQ: 왜 클라우드 워크숍에 '삭제' 버튼이 없나요?\nA: 유저들의 소중한 번역을 보호하기 위해, 삭제 기능은 특권 코드를 가진 관리자 또는 번역 팀만 사용할 수 있습니다. 일반 유저분들은 안심하고 업로드해 주세요. 시스템이 스마트하게 병합하고 최신 고품질 버전을 자동으로 유지합니다!\n\nQ: '원클릭 주입 핫 리로드'가 무엇인가요?\nA: 여러분이 직접 생성된 번역 XML 파일을 수동으로 수정하는 것을 좋아하는 하드코어 유저라면, 저장 후 이 버튼을 클릭하기만 하면 시스템이 즉시 프론트엔드 UI 캐시를 새로 고치고 메모리에 에어드랍하여 수정 결과를 실시간으로 확인시켜 줍니다!\n\nQ: 왜 생산 로그에 '재시도 대기'라는 빨간색 경고가 계속 뜨나요?\nA: API 서버가 응답을 안 하거나 일시적으로 요청 제한에 걸렸기 때문입니다! 모드 내부에 초강력 【지수 백오프 재시도】 메커니즘이 탑재되어 있습니다. 이후에 계속 번역 성공이 표시된다면, 그냥 가만히 두고 잠시 기다리시면 알아서 해결됩니다~ (≧∀≦)ゞ\n\nQ: 로컬 환경(LM Studio / Ollama 등)을 사용 중인데 계속 연결에 실패합니다.\nA: 1. '사용자 정의 Base URL'이 올바르게 입력되었는지 확인하세요(예: http://localhost:1234). 주소 뒤의 접미사는 걱정하지 마세요. 시스템이 자동으로 /v1을 붙여줍니다!\n2. API 키(API Key)는 절대 비워둘 수 없습니다! 로컬 환경인 경우 아무 글자나 입력해 주세요.\n\nQ: 동적 UI 인터셉터는 렉이 걸리지 않나요?\nA: 본 시스템은 '초고속 O(1) 테이블 조회'와 '예외 방지 밸브' 메커니즘을 도입하여, 에러 쓰나미가 몰려와도 프레임이 120FPS로 부드럽게 유지됩니다. 다만, 이 기능은 화면의 모든 미번역 외국어를 포착하므로 【유료 API】를 사용하는 경우 요금 폭탄을 피하기 위해 켜기 전에 신중히 판단해 주세요!</ATC_Tutorial_FullText>
+  <ATC_UpdateLog_FullText>--- V3.0 클라우드 워크숍 및 전역 에디터 출시 ---\n• 새로운 【클라우드 공유 워크숍】: 다국어 번역 팩의 원클릭 업로드 및 다운로드 지원. '번역 팀 정밀 번역', '유저 정밀 번역', 'AI 기계 번역'의 3가지 품질 태그를 지원하며, 3-2-1 스마트 버전 관리, 소프트 딜리트 보호 및 업데이트 로그 내장.\n• 강화된 【전역 번역 워크벤치】: 비동기 백그라운드 '전역 텍스트 검색' 및 동적 진행률 표시줄 추가. 수백 개의 모드가 설치되어 있어도 모든 캐시 및 내장 번역을 매끄럽게 검색할 수 있으며, 다국어 필터링과 원클릭 이동 편집 지원.\n• 【네트워크 전송 레이어】 재구축: Unity 원시 네트워크 엔진 (UnityWebRequest)으로 전면 업그레이드하고 UTF-8 압축을 강제하여, 과거 Windows 시스템 인코딩 충돌로 발생하던 에러 및 ZIP 압축 손상 문제를 완전히 해결.\n• 【스마트 미세 디톡스】 구현: 하위 레이어의 위험 변수 및 얼굴 모드(예: FaceDef)를 자동으로 필터링하여 번역 후 캐릭터 그래픽이 깨지는 참사를 종식하고, 실행 시 구버전의 잔류 가짜 번역 파일을 자동 정리.\n\n--- V2.2 코어 아키텍처 및 연결 안정성 업데이트 ---\n• 최적화 【API 요청 아키텍처】: 하부 로직을 재구성하여 다양한 AI 제공업체와의 호환성 및 데이터 해석 안정성을 향상시켰습니다.\n• 구현 【자동 백오프 재시도】: 서버 혼잡(HTTP 429) 또는 일시적인 연결 예외(HTTP 500+)가 발생할 때 시스템이 자동으로 대기 시간을 가진 후 재시도하여 번역 중단 확률을 줄입니다.\n• 신기능 【시간 제한 사용자 정의 및 테스트】: 설정 인터페이스에 '연결 테스트' 버튼과 '시간 초과 슬라이더'를 추가했습니다. (심층 생각/추론 모델을 사용할 때 시스템은 자동으로 긴 대기 시간을 적용합니다).\n• 개선 【전역 에러 알림】: 스레드 간 UI 브리지 기술을 적용하여 API 연결 에러나 키 무효가 발생하면 게임 화면 좌측 상단에 실시간 팝업이 뜨도록 하여 로그 확인을 위해 자주 탭을 전환해야 하는 번거로움을 해결했습니다.\n\n--- V2.1 번역 체험 및 지능형 업그레이드 ---\n• 구현 【원클릭 패키징 내보내기】: 번역된 모드를 데스크톱으로 독립적으로 내보낼 수 있는 기능을 지원합니다. 원작자나 번역 팀에 전달 및 피드백 시 유용한 '기계 번역 경고' 워터마크가 포함됩니다.\n• 신기능 【스마트 모드 업데이트 레이더】: 시스템이 '업데이트 필요' 또는 '미번역' 모드를 자동으로 감지합니다.\n• 지원 【자동 업데이트 교체】: 활성화하면 모드가 업데이트될 때 시스템이 자동으로 이전 번역 파일을 삭제하고 새로 번역하여 텍스트가 항상 최신 상태를 유지하도록 보장합니다.\n• 수정 【문자열 줄바꿈 에러】: 일부 \n 문자가 정상적으로 줄바꿈되지 않아 레이아웃이 깨지던 하부 문제를 해결했습니다.\n\n--- V2.0 성능 최적화 및 실시간 렌더링 ---\n• 구현 【실시간 메모리 주입】: 번역 완료 후 결과를 게임 메모리에 직접 입력하여 화면이 즉시 대상 언어로 전환되며, 다음 실행 시에도 자동 적용되어 로드 순서 충돌을 줄여줍니다.\n• 최적화 【동적 UI 인터셉터 성능】: 하부 인터셉트 로직과 캐시 설정을 개선하여 프레임 레이트(FPS) 소모를 크게 줄였습니다.\n• 신기능 【원클릭 핫 리로드】: XML 번역 파일을 직접 수정한 후 버튼만 누르면 게임을 끌 필요 없이 즉시 UI 캐시를 리프레시할 수 있습니다.\n\n--- V1.0 정식 버전 출시 ---\n• 구현 【동적 UI 인터셉터 시스템】: 설정 패널이나 정적 XML에서 누락된 외국어 텍스트를 실시간으로 인터셉트하여 자동 번역하는 기능을 지원합니다.\n• 구현 【원문 대조 기능】: 마우스 호버 시 원문을 보여주는 기능을 탑재하여 대조 및 수정을 용이하게 만들었습니다.</ATC_UpdateLog_FullText>
+  <ATC_ApiConfigTitle>API 인터페이스 탄창 설정 (다중 동시 스레드 폴링 지원)</ATC_ApiConfigTitle>
+  <ATC_Provider>제공업체</ATC_Provider>
+  <ATC_CustomUrlOptional>(사용자 정의 BaseUrl, 비워둘 시 기본값 사용)</ATC_CustomUrlOptional>
+  <ATC_Delete>삭제</ATC_Delete>
+  <ATC_PasteKey>(API Key 붙여넣기)</ATC_PasteKey>
+  <ATC_FetchingModel>모델 검색 중...</ATC_FetchingModel>
+  <ATC_NoModelWaitKey>모델 미선택 (Key 붙여넣기 시 자동 획득)</ATC_NoModelWaitKey>
+  <ATC_AddApiBtn>API 인터페이스 추가 (Add API Interface)</ATC_AddApiBtn>
+  <ATC_EmergencyStop>번역 중지 (Emergency Stop)</ATC_EmergencyStop>
+  <ATC_StartFullScan>모든 모드 일괄 번역 (Start Full Scan)</ATC_StartFullScan>
+  <ATC_EmptyConfigWarning>최소한 하나의 유효한 API 구성을 설정해 주세요!</ATC_EmptyConfigWarning>
+  <ATC_MaxThreads>동시 스레드 수 (Max Threads)</ATC_MaxThreads>
+  <ATC_MaxThreadsTip>강력 추천: 활성화된 인터페이스 수 x 3</ATC_MaxThreadsTip>
+  <ATC_Log_ApiRecovered>[API] 재연결 성공! 생산 라인이 다시 고속 가동됩니다.</ATC_Log_ApiRecovered>
+  <ATC_Log_ApiRetry>[API] 번역 서버가 바쁘거나 시간 초과되었습니다. {0}초 후 재시도합니다...</ATC_Log_ApiRetry>
+  <ATC_Log_ApiFallback>[API] 블록 번역이 완전히 실패했습니다! '강등 1대1 모드'를 활성화하여 한 문장씩 독파 중...</ATC_Log_ApiFallback>
+  <ATC_LogError_ApiCritical>[API 치명적 에러] 【{0}】 경로의 텍스트 번역이 완전히 실패했습니다! 원문으로 유지됩니다.</ATC_LogError_ApiCritical>
+  <ATC_TranslateMultiMod>단일 / 다중 선택 번역</ATC_TranslateMultiMod>
+  <ATC_SkipCurrentMod>현재 모드 건너뛰기</ATC_SkipCurrentMod>
+  <ATC_MultiSelect_Title>번역할 모드 선택 (다중 선택 가능)</ATC_MultiSelect_Title>
+  <ATC_MultiSelect_Search>여기에 모드 이름을 입력하여 검색...</ATC_MultiSelect_Search>
+  <ATC_MultiSelect_Start>선택한 {0}개의 모드 번역 시작</ATC_MultiSelect_Start>
+  <ATC_SubTask_AnalyzingDict>로컬 번역 텍스트 분석 중...</ATC_SubTask_AnalyzingDict>
+  <ATC_SubTask_BuildingDict>사전 빌드 중: {0}</ATC_SubTask_BuildingDict>
+  <ATC_SubTask_DictDone>사전 구축 완료!</ATC_SubTask_DictDone>
+  <ATC_SubTask_Scanning>텍스트 스캔 중...</ATC_SubTask_Scanning>
+  <ATC_SubTask_TranslatingKeyed>Keyed 번역 중...</ATC_SubTask_TranslatingKeyed>
+  <ATC_SubTask_TranslatingDef>DefInjected 번역 중...</ATC_SubTask_TranslatingDef>
+  <ATC_Log_SkippedMod>건너뛴 모드: {0}</ATC_Log_SkippedMod>
+  <ATC_Log_MultiScanStart>선택한 {0}개의 모드 번역 시작 준비 중...</ATC_Log_MultiScanStart>
+  <ATC_Log_MultiScanDone>선택 모드 번역 작업 완료!</ATC_Log_MultiScanDone>
+  <ATC_LogError_OldToxicFiles>【경고】 이전 버전의 비정상 번역 파일 감지됨. 오류 방지를 위해 강제 정리 작업을 수행합니다!</ATC_LogError_OldToxicFiles>
+  <ATC_Log_OldFilesDeleted>【System】 구버전의 비정상 파일이 정상적으로 제거되었습니다!</ATC_Log_OldFilesDeleted>
+  <ATC_Log_AutoRebuildStart>【System】 시스템이 깨끗한 번역 패키지를 자동으로 재구축합니다!</ATC_Log_AutoRebuildStart>
+  <ATC_One_click_chaos>원클릭 아무거나 선택</ATC_One_click_chaos>
+  <ATC_Rickroll>절대로 여기를 누르지 마세요...</ATC_Rickroll>
+  <ATC_SelectAll>전체 선택</ATC_SelectAll>
+  <ATC_DeselectAll>선택 해제</ATC_DeselectAll>
+  <ATC_Log_UIInterceptorStarted>동적 UI 인터셉터 작동 시작! 백그라운드 캐시 시스템 가동 중...</ATC_Log_UIInterceptorStarted>
+  <ATC_Log_UICacheLoaded>{0}개의 하드코드 UI 캐시 로드 완료!</ATC_Log_UICacheLoaded>
+  <ATC_LogError_UICacheLoadFailed>UI 캐시 로드 실패: {0}</ATC_LogError_UICacheLoadFailed>
+  <ATC_LogError_UICacheSaveFailed>UI 캐시 저장 실패: {0}</ATC_LogError_UICacheSaveFailed>
+  <ATC_EnableUIInterceptor>동적 UI 하드코드 인터셉트 활성화 【경고: 프레임 드랍이 발생할 수 있음】</ATC_EnableUIInterceptor>
+  <ATC_EnableUINewTranslation>UI 인터셉터의 새 AI 번역 요청 허용 (끄면 캐시 교체만 유지)</ATC_EnableUINewTranslation>
+  <ATC_EnableUIErrorLogInterception>오류 로그 UI 인터셉트 활성화 (토큰 사용량이 크게 증가합니다)</ATC_EnableUIErrorLogInterception>
+  <ATC_TranslateWorkbenchModNames>Translate mod names in the intelligent patch-up list (keeps original names)</ATC_TranslateWorkbenchModNames>
+  <ATC_Log_AdvancedDetoxSuccess>고급 디톡스 완료! {0}개의 부적격 태그를 정밀 절제하여 유저의 소중한 번역 자산을 보호했습니다 (총 {1}개 파일 복구 완료)!</ATC_Log_AdvancedDetoxSuccess>
+  <ATC_DeleteModTrans_Btn>번역 삭제</ATC_DeleteModTrans_Btn>
+  <ATC_DeleteModTrans_Title>번역 파일 소각로 (번역을 삭제할 모드를 선택해 주세요)</ATC_DeleteModTrans_Title>
+  <ATC_ConfirmDelete_Btn>선택한 {0}개 모드의 번역 파일 삭제 (복구 불가능!)</ATC_ConfirmDelete_Btn>
+  <ATC_Log_DeleteTransSuccess>🗑️ [ATC System] {0}개 모드의 번역 파일을 성공적으로 삭제했습니다 (총 {1}개 파일 정리 완료)!</ATC_Log_DeleteTransSuccess>
+  <ATC_Message_DeleteTransSuccess>{0}개의 번역 파일을 정상적으로 삭제했습니다! 변경 사항 적용을 위해 게임 재시작을 권장합니다.</ATC_Message_DeleteTransSuccess>
+  <ATC_Message_DeleteTransError>⚠️ 번역 파일 삭제 중 에러 발생: {0}</ATC_Message_DeleteTransError>
+  <ATC_InputOrSelectModel>모델을 입력하거나 선택해 주세요...</ATC_InputOrSelectModel>
+  <ATC_Msg_NoModelListManualInput>현재 가져온 모델 목록이 없습니다. 모델 이름을 직접 수동으로 입력해 주세요!</ATC_Msg_NoModelListManualInput>
+  <ATC_Stats_Session>이번 번역: {0}자</ATC_Stats_Session>
+  <ATC_Stats_Total>누적 번역: {0}자</ATC_Stats_Total>
+  <ATC_Stats_UIQueue>UI 대기열: {0}</ATC_Stats_UIQueue>
+  <ATC_Stats_UICache>UI 캐시 수: {0}</ATC_Stats_UICache>
+  <ATC_Log_AIFormatRetry>[API] AI 응답 형식이 잘못되었거나 비어 있습니다. 번역을 자동으로 다시 요청합니다（{0}번째）...</ATC_Log_AIFormatRetry>
+  <ATC_Log_AIFormatRecovered>[API] 재번역이 완료되었고 AI 응답 형식이 정상입니다.</ATC_Log_AIFormatRecovered>
+  <ATC_Log_ValidationClean>[검증] 번역 구조 검사가 완료되었습니다. 수정할 형식 문제가 없습니다.</ATC_Log_ValidationClean>
+  <ATC_Log_ValidationSummary>[검증] 자동 수정：줄바꿈 {0}, 규칙 접두사 {1}, 보호 token {2}, 고위험 되돌림 {3}, 잘못된 XML key 건너뜀 {4}.</ATC_Log_ValidationSummary>
+  <ATC_Profile_Current>현재 전략：배치당 {0}개, 형식 재시도 {1}회, 타임아웃 하한 {2}초</ATC_Profile_Current>
+  <ATC_Profile_DeepSeek>DeepSeek：빈 응답 또는 잘못된 JSON을 줄이기 위해 보수적인 배치를 사용합니다.</ATC_Profile_DeepSeek>
+  <ATC_Profile_Google>Google/Gemini：안정적인 대량 번역용 표준 배치입니다.</ATC_Profile_Google>
+  <ATC_Profile_DeepL>DeepL：XML 태그 보호, LLM JSON 파싱 재시도 없음.</ATC_Profile_DeepL>
+  <ATC_Profile_Custom>사용자 지정 OpenAI：로컬 또는 프록시 API용 보수적 타임아웃.</ATC_Profile_Custom>
+  <ATC_Profile_OpenRouter>OpenRouter：모델 유형에 따라 배치와 타임아웃을 조정합니다.</ATC_Profile_OpenRouter>
+  <ATC_Profile_Default>일반 전략：속도와 형식 안정성을 균형 있게 조정합니다.</ATC_Profile_Default>
+  <ATC_Perf_Api>API 활성 {0}, 평균 {1}ms, 최근 {2}ms</ATC_Perf_Api>
+  <ATC_Perf_MemoryDrop>최근 공중 투하 {0}ms, Keyed {1}, Defs {2}</ATC_Perf_MemoryDrop>
+  <ATC_Perf_UI>UI 큐 {0}, 대기 {1}, 무시 캐시 {2}</ATC_Perf_UI>
+  <ATC_Btn_RestoreLatestBackup>최신 번역 백업 복원</ATC_Btn_RestoreLatestBackup>
+  <ATC_Msg_ConfirmRestoreLatestBackup>활성화된 각 Mod의 최신 백업 ZIP에서 번역을 복원하고 메모리 공중 투하를 한 번 실행합니다. 계속하시겠습니까?</ATC_Msg_ConfirmRestoreLatestBackup>
+  <ATC_Msg_RestoreLatestBackupDone>{0}개 Mod의 최신 백업을 복원했습니다.</ATC_Msg_RestoreLatestBackupDone>
+  <ATC_Log_BatchDownloadSummary>[클라우드] 일괄 다운로드 완료：성공 {0}, 실패 {1}, 총 {2}.</ATC_Log_BatchDownloadSummary>
+  <ATC_Log_BatchDownloadFailedList>[클라우드] 실패한 Mod：{0}</ATC_Log_BatchDownloadFailedList>
+  <ATC_ShowOriginalUI>UI 원문 보기 (마우스 오버 시 번역 전 영어 노출)</ATC_ShowOriginalUI>
+  <ATC_OriginalText>원문</ATC_OriginalText>
+  <ATC_Log_MemoryDropSuccess>[메모리 에어드랍] {0}개의 시스템 텍스트 및 {1}개의 아이템 정의 주입 성공!</ATC_Log_MemoryDropSuccess>
+  <ATC_LogError_MemoryDropFailed>[메모리 에어드랍 실패] {0}</ATC_LogError_MemoryDropFailed>
+  <ATC_Button_HotReload>원클릭 메모리 주입 핫 리로드 (재부팅 불필요, 화면 즉시 갱신!)</ATC_Button_HotReload>
+  <ATC_Message_HotReloadSuccess>🪂 [메모리 에어드랍] 번역 데이터가 즉시 주입되었으며 UI 캐시가 완벽히 갱신되었습니다!</ATC_Message_HotReloadSuccess>
+  <ATC_Log_HotReloadSuccess>🪂 [메모리 에어드랍] 번역 데이터가 코어에 즉시 주입되었으며 UI 윈도우 캐시가 완전히 리프레시되었습니다!</ATC_Log_HotReloadSuccess>
+  <ATC_LogError_InvalidXmlKey>[XML 수비수] AI가 반환한 Key에 잘못된 문자가 포함되어 자동으로 스킵되었습니다: {0}</ATC_LogError_InvalidXmlKey>
+  <ATC_LogError_AuthFailed>[API 인증 실패] 제공업체 [{0}]가 401을 반환했습니다. API Key가 올바른지 확인해 주세요.</ATC_LogError_AuthFailed>
+  <ATC_LogError_RateLimit>[API 요청 제한] 제공업체 [{0}]가 429를 반환했습니다. 대기 시간을 자동으로 연장합니다.</ATC_LogError_RateLimit>
+  <ATC_Tag_FromSimplified>[간체로부터]</ATC_Tag_FromSimplified>
+  <ATC_Tag_FromTraditional>[번체로부터]</ATC_Tag_FromTraditional>
+  <ATC_Log_SkipExistingTranslation>[Skip] 모드 [{0}]에 이미 {1}개의 번역이 내장되어 있어 중복 번역을 건너뜁니다.</ATC_Log_SkipExistingTranslation>
+  <ATC_Lang_DeepL_FreeNote>DeepL Free (자동 감지)</ATC_Lang_DeepL_FreeNote>
+  <ATC_Lang_DeepL_ProNote>DeepL Pro (자동 감지)</ATC_Lang_DeepL_ProNote>
+  <ATC_LogError_DeepL_LangNotSupport>[DeepL] 대상 언어 [{0}]는 DeepL에서 지원하지 않습니다. 다른 AI 제공업체를 이용해 주세요.</ATC_LogError_DeepL_LangNotSupport>
+  <ATC_Log_MemoryDropQueued>[메모리 에어드랍] 메인 스레드 대기열에 배치되었습니다. 다음 틱(Tick)에서 주입됩니다...</ATC_Log_MemoryDropQueued>
+  <ATC_Log_MemoryDropSkipMainThread>[메모리 에어드랍] 백그라운드 스레드의 호출이 감지되었습니다. 메인 스레드로 처리를 인계했습니다.</ATC_Log_MemoryDropSkipMainThread>
+  <ATC_ExportTrans_Btn>📦 원클릭 패키징 내보내기 ⚠️ 기계 번역 경고</ATC_ExportTrans_Btn>
+  <ATC_ExportEula_Title>⚠️ 라이선스 내보내기 및 저작권 선언 (v{0})</ATC_ExportEula_Title>
+  <ATC_ExportEula_CountdownLabel>내용을 신중하게 읽어주세요 ({0}초 남음)</ATC_ExportEula_CountdownLabel>
+  <ATC_ExportEula_CountdownDone>아래의 세 가지 선언사항을 체크해 주세요</ATC_ExportEula_CountdownDone>
+  <ATC_ExportEula_Check1>나는 위 조항들을 신중히 읽었으며 완전히 이해했습니다</ATC_ExportEula_Check1>
+  <ATC_ExportEula_Check2>개인 게임 플레이 또는 수동 가공을 위한 자료(초안)로만 사용할 것을 약속합니다</ATC_ExportEula_Check2>
+  <ATC_ExportEula_Check3>유포 행위로 발생하는 모든 법적 책임은 본인에게 있음을 인지합니다</ATC_ExportEula_Check3>
+  <ATC_ExportEula_ConfirmBtn>확인 및 내보내기 진행</ATC_ExportEula_ConfirmBtn>
+  <ATC_ExportEula_CancelBtn>취소</ATC_ExportEula_CancelBtn>
+  <ATC_ExportEula_NeedAllChecks>계속 진행하려면 세 항목에 모두 체크해야 합니다</ATC_ExportEula_NeedAllChecks>
+  <ATC_ExportEula_FullText>📜 저작권 존중\n모드의 원본 텍스트 저작권은 모드 원작자에게 있습니다. AI 번역 결과물은 '2차적 저작물 (Derivative Work)'에 해당하며, 각국의 저작권법에 의거하여 이를 배포하려면 원작자의 명시적인 동의를 얻어야 합니다.\n\n🚫 절대 엄금\n• Steam Workshop에 무단 업로드 금지\n• NEXUS / Mod.io 및 공용 공유 플랫폼 업로드 금지\n• 클라우드 링크(구글 드라이브, 바이두 클라우드 등)를 통한 전체 공개 배포 금지\n• 토렌트, Discord 등을 통한 불특정 다수 배포 금지\n• 공식 번역 또는 전문 번역 팀의 결과물로 사칭하는 행위 금지\n• 어떠한 형태로든 상업적 이용 금지\n\n✅ 허용되는 용도\n• 개인 로컬 환경에서의 게임 이용\n• 수동 교정/피드백 작업을 위한 초안용 자료 (가공 이후에도 원작자 허가 필요)\n• 번역 기여를 목적으로 모드 원작자에게 직접 제출하는 행위\n• 친구 간의 사적인 공유 (비공개 조건)\n\n📋 도구의 중립성 표명\n이 프로그램은 로컬 환경에서의 번역 보조 시스템을 제공하는 것뿐입니다. 당 프로그램은:\n• 번역 내용을 임의로 업로드하지 않습니다\n• 유저의 번역 데이터를 수집하지 않습니다\n• 2차 창작 번역물의 무단 배포를 조장하지 않습니다\n• 어떠한 공유 행위도 대변하지 않습니다\n\n⚖️ 면책 조항\n당 프로그램 개발자는 사용자의 유포 및 전송 행위에 일체 책임을 지지 않습니다. 사용자가 해당 기능을 이용해 파일을 반출 및 배포하는 과정에서 유발한 저작권 분쟁, 유저 분쟁 또는 민형사상의 소송 책임은 사용자 본인에게 있으며 프로그램 개발자와는 일절 무관합니다.\n\n🚨 법적 책임\n이 선언을 위반할 경우 다음과 같은 불이익이 발생할 수 있습니다:\n• DMCA 게시 중단 제재\n• Steam 계정 이용 제한\n• 손해 배상을 위한 민사 소송\n• 각국 저작권법에 의거한 형사 처벌\n\n⏰ 동의 유효 기한\n이 동의는 30일간 유효합니다. 규정 변경을 지속적으로 알리기 위해 30일이 지난 후 재독해 및 동의를 요구할 수 있습니다.\n\n📝 동의 이력 보관\n로컬에 '동의 이력'(동의 시간, 버전, 기기 정보 포함)이 기록되며, 사용자가 해당 선언을 분명히 인지하고 있었음을 증명하는 서류로 사용될 수 있습니다. 이 파일을 강제로 삭제하지 마십시오.</ATC_ExportEula_FullText>
+  <ATC_ExportReminder_Title>📦 내보내기 전 알림</ATC_ExportReminder_Title>
+  <ATC_ExportReminder_AlreadyAccepted>귀하는 이미 {0}에 EULA v{1}에 동의하셨습니다</ATC_ExportReminder_AlreadyAccepted>
+  <ATC_ExportReminder_DaysLeft>이 동의의 유효 기간이 {0}일 남아 있습니다</ATC_ExportReminder_DaysLeft>
+  <ATC_ExportReminder_KeyPoints>⚠️ 다시 한 번 중요 포인트를 확인하세요:</ATC_ExportReminder_KeyPoints>
+  <ATC_ExportReminder_Rule1>❌ Steam Workshop에 배포 금지</ATC_ExportReminder_Rule1>
+  <ATC_ExportReminder_Rule2>❌ 공개적인 무단 유포 절대 금지</ATC_ExportReminder_Rule2>
+  <ATC_ExportReminder_Rule3>✅ 개인 플레이 및 유저 피드백/가공 초안 용도로만 제한</ATC_ExportReminder_Rule3>
+  <ATC_ExportReminder_Continue>이해했습니다, 계속 내보내기</ATC_ExportReminder_Continue>
+  <ATC_ExportReminder_RereadEula>EULA 전문 다시 읽기</ATC_ExportReminder_RereadEula>
+  <ATC_ExportWindow_Title>📦 내보낼 모드 선택</ATC_ExportWindow_Title>
+  <ATC_ExportWindow_SearchHint>모드 이름 검색...</ATC_ExportWindow_SearchHint>
+  <ATC_ExportWindow_DetectedCount>총 {0}개의 번역 완료 모드 감지됨</ATC_ExportWindow_DetectedCount>
+  <ATC_ExportWindow_NoFullSelectNotice>⚠️ 수동으로 개별 선택해 주세요 (남용 방지를 위해 전체 선택 기능은 고의로 지원하지 않습니다)</ATC_ExportWindow_NoFullSelectNotice>
+  <ATC_ExportWindow_ModInfo_DefCount>번역 완료: {0}개 DefInjected + {1}개 Keyed</ATC_ExportWindow_ModInfo_DefCount>
+  <ATC_ExportWindow_OutputPath>💾 저장 경로: {0}</ATC_ExportWindow_OutputPath>
+  <ATC_ExportWindow_WatermarkNotice>⚠️ 각각의 XML 파일 내에 자동으로 '기계 번역' 워터마크가 기입됩니다</ATC_ExportWindow_WatermarkNotice>
+  <ATC_ExportWindow_ConfirmBtn>선택한 {0}개의 모드 내보내기</ATC_ExportWindow_ConfirmBtn>
+  <ATC_ExportWindow_NoModSelected>최소한 하나의 모드를 선택해 주셔야 합니다</ATC_ExportWindow_NoModSelected>
+  <ATC_ExportWindow_NoTranslationFound>현재 번역된 모드가 존재하지 않습니다. 먼저 번역 작업을 수행해 주세요.</ATC_ExportWindow_NoTranslationFound>
+  <ATC_Export_Success_Title>내보내기 완료</ATC_Export_Success_Title>
+  <ATC_Export_Success_Message>{0}개의 모드 (총 {1}개 파일) 내보내기에 성공했습니다!\n\n위치: {2}</ATC_Export_Success_Message>
+  <ATC_Export_Failed_Message>내보내기 실패: {0}</ATC_Export_Failed_Message>
+  <ATC_Log_EulaAccepted>[EULA] 사용자가 v{0} 조항에 동의했습니다. 이력이 기기에 저장되었습니다.</ATC_Log_EulaAccepted>
+  <ATC_Log_ExportStart>📦 {0}개 모드의 내보내기 작업을 준비합니다...</ATC_Log_ExportStart>
+  <ATC_Log_ExportComplete>✅ 내보내기 성공! 모드 {0}개, 파일 {1}개 완료.</ATC_Log_ExportComplete>
+  <ATC_Log_ExportFailed>❌ 내보내기 실패: {0}</ATC_Log_ExportFailed>
+  <ATC_Export_CooldownReady_Free>⏱️ 이번 쿨다운 상태: 즉시 반출 가능 (이번 전송에 한해 대기 면제)</ATC_Export_CooldownReady_Free>
+  <ATC_Export_CooldownReady_NextWillCooldown>⏱️ 이번 쿨다운 상태: 즉시 반출 가능 (다음 반출 시 {0}초 동안 쿨다운 적용)</ATC_Export_CooldownReady_NextWillCooldown>
+  <ATC_Export_CooldownWait>⏱️ 시스템 냉각 중, {0}초간 대기해 주세요...</ATC_Export_CooldownWait>
+  <ATC_Export_TodayCount>오늘 반출 횟수: {0}회 (하루 최대 100회)</ATC_Export_TodayCount>
+  <ATC_Export_TooManyToday>⚠️ 오늘 가능한 {0}번의 전송 한도를 초과했습니다. 내일 다시 시도해 주세요.</ATC_Export_TooManyToday>
+  <ATC_Export_TooManyAtOnce>한 번에 내보낼 수 있는 최대 모드 개수는 10개입니다. 나누어 처리해 주세요. 현재 지정됨: {0}개.</ATC_Export_TooManyAtOnce>
+  <ATC_Export_CooldownDialogTitle>⏱️ 쿨다운 적용 중</ATC_Export_CooldownDialogTitle>
+  <ATC_Export_CooldownDialogMsg>다음 전송까지 앞으로 {0}초 기다리셔야 합니다.\n\n이 안전 대기 장치는 비정상적인 대량 반출을 차단하기 위함입니다. 일반적인 가벼운 사용에서는 웬만해서 제한에 걸리지 않습니다.</ATC_Export_CooldownDialogMsg>
+  <ATC_ContactAuthor_Title>💌 모드 번역을 원래 제작자에게 공헌해 볼까요?</ATC_ContactAuthor_Title>
+  <ATC_ContactAuthor_JustExported>방금 {0}개 모드의 번역본 전송을 마쳤습니다.</ATC_ContactAuthor_JustExported>
+  <ATC_ContactAuthor_DidYouKnow>🌟 그거 아세요?</ATC_ContactAuthor_DidYouKnow>
+  <ATC_ContactAuthor_Intro>무작정 Workshop에 올리기보다 원작자에게 수정을 위해 제공하는 것이 여러모로 이롭습니다:</ATC_ContactAuthor_Intro>
+  <ATC_ContactAuthor_Benefit1>✅ 원작자가 향후 공식 한국어 지원으로 통합해 줄 수 있습니다</ATC_ContactAuthor_Benefit1>
+  <ATC_ContactAuthor_Benefit2>✅ 기여자 명단(Credit)이나 업데이트 로그에 내 이름이 실릴 수 있습니다</ATC_ContactAuthor_Benefit2>
+  <ATC_ContactAuthor_Benefit3>✅ 저작권 분쟁에서 완전히 완벽하게 떳떳합니다</ATC_ContactAuthor_Benefit3>
+  <ATC_ContactAuthor_Benefit4>✅ 커뮤니티 플레이어 전체에 유익한 영향을 줍니다</ATC_ContactAuthor_Benefit4>
+  <ATC_ContactAuthor_SelectMod>연락할 원작자의 모드를 고르세요:</ATC_ContactAuthor_SelectMod>
+  <ATC_ContactAuthor_TemplateLabel>📧 간단한 전송 양식 템플릿을 준비해 드렸어요:</ATC_ContactAuthor_TemplateLabel>
+  <ATC_ContactAuthor_CopyTemplate>📋 Email 서식 복사</ATC_ContactAuthor_CopyTemplate>
+  <ATC_ContactAuthor_OpenWorkshop>🌐 Steam Workshop 페이지를 열어 제작자에게 질문하기</ATC_ContactAuthor_OpenWorkshop>
+  <ATC_ContactAuthor_TemplateCopied>✅ 템플릿 양식을 클립보드에 복사 완료!</ATC_ContactAuthor_TemplateCopied>
+  <ATC_ContactAuthor_CannotOpenWorkshop>Steam Workshop을 호출할 수 없습니다 (스팀 미설치 또는 워크숍 주소 에러)</ATC_ContactAuthor_CannotOpenWorkshop>
+  <ATC_ContactAuthor_Close>닫기</ATC_ContactAuthor_Close>
+  <ATC_ContactAuthor_NoSteamMods>Steam Workshop과 직접 연계된 모드가 없습니다 (수동 로컬 설치 전용 폴더의 모드인 것 같습니다)</ATC_ContactAuthor_NoSteamMods>
+  <ATC_EmailTemplate_Subject>Translation Contribution for {0}</ATC_EmailTemplate_Subject>
+  <ATC_EmailTemplate_Body>Hi {0},\n\nI'm a fan of your mod "{1}". I've drafted a {2} translation using AI tools as a starting point, and I'd love to contribute it back to your mod.\n\nThe translation includes:\n- {3} DefInjected entries\n- {4} Keyed entries\n\nI understand it's machine-generated and may need human polishing before being officially included. I'm sharing the files so you can:\n- Use them as a starting point for an official translation\n- Pass them to a community translator\n- Or simply have them as reference\n\nThe files were exported to my desktop using a tool called "Auto Translation Core". I have NOT and will NOT redistribute them publicly.\n\nWould you like me to send them to you? I can attach them in a reply, or send them via Discord / GitHub PR if you prefer.\n\nThank you for making such an amazing mod!\n\nBest regards,\nA Player</ATC_EmailTemplate_Body>
+  <ATC_Export_Success_ContactAuthorBtn>💌 번역 결과물을 원작자에게 선물하기</ATC_Export_Success_ContactAuthorBtn>
+  <ATC_Export_Success_CloseBtn>닫기</ATC_Export_Success_CloseBtn>
+  <ATC_Log_CooldownTriggered>⏱️ [Cooldown] 제 {0}회차 내보내기, {1}초의 쿨다운이 강제 설정되었습니다.</ATC_Log_CooldownTriggered>
+  <ATC_Log_DailyLimitReached>🛑 [Limit] 금일 처리 가능한 100회 허용 범위를 달성했습니다.</ATC_Log_DailyLimitReached>
+  <ATC_AutoClearOldOnUpdate>정확도 향상: 업데이트된 모드를 재번역하기 전에 구버전 잔류 파일 강제 소거 (에러 예방에 적극 추천)</ATC_AutoClearOldOnUpdate>
+  <ATC_AutoTranslateOnUpdate>전자동 스마트 예약: 게임 구동 시 업그레이드 모드가 포착되면 백그라운드 번역 스케줄 강제 시작 (기본값 꺼짐)</ATC_AutoTranslateOnUpdate>
+  <ATC_SmartUpdateBtn>지능형 재번역 ({0}개의 모드 업데이트 감지)</ATC_SmartUpdateBtn>
+  <ATC_ModUpdateStatusBtn>지능형 재번역 ({0}개의 업데이트 혹은 번역 누락 모드 포착)</ATC_ModUpdateStatusBtn>
+  <ATC_ClearCacheSuccess>새로 업데이트된 {0}개 모드의 이전 구형 번역 캐시를 자동 정리 완료했습니다.</ATC_ClearCacheSuccess>
+  <ATC_Export_Readme_Full>
+		================================================================WARNING: AUTO-GENERATED MACHINE TRANSLATION경고: 이 폴더는 AI 자동 번역 결과물입니다. 필독 요망================================================================생성 일자 (Generation Time): {0}
+		생성 툴 (Generator): Auto Translation Core
+		모드 수량 (Mod Count): {1}
+
+		완료된 모드 목록 (Exported Mods):
+		{2}
+		================================================================
+		금지 조항 (Strictly Prohibited)
+		================================================================
+
+		1. Steam Workshop 플랫폼에 무단 직접 업로드 일체 엄금
+		2. NEXUS / Mod.io 및 공용 해외 웹사이트 아카이브 등록 엄금
+		3. 사설 클라우드 자료실 배포를 금지하며 전용 시스템인 '클라우드 공유 (Cloud Hub)'로만 유통해 주세요
+		4. 수작업 고품질 번역 혹은 메이저 번역 팀의 파일로 날조 및 사칭 엄금
+		5. 어떠한 종류의 영업 행위나 대가 요구 등 상업적 활용 불가
+
+		================================================================
+		허용되는 권한 (Allowed Usage)
+		================================================================
+
+		1. 오프라인 로컬 환경에서 단독으로 본인 게임에 사용
+		2. 이 모드의 통합 '클라우드 공유'를 이용한 시스템 배포 및 커뮤니티 전파 기여
+		3. 한글화 번역 단체에서 가공하기 위한 번역 초안 원자료 활용 (Upload_Workspace 연동)
+		4. 번역 누락 기여를 위해 원작자에게 전송하는 행위
+		5. 소수의 아는 사람들끼리 개인적인 통로로 은밀하게 공유
+
+		================================================================
+		법률 유의 사항 (Legal Notice)
+		================================================================
+
+		본 텍스트는 AI 기술에 기초한 기계 번역물이며 원본 저작자의 동의 없이 무단 상업 배포 시 법적 제재를 받습니다.
+		저작권 준수를 위해 2차 저작물의 외부 전파 전 무조건 모드 주인의 사전 확인 절차를 거치세요.
+
+		적절치 않은 불법 공유는 다음을 초래합니다:
+		- DMCA 무단 사용 위반 신고 수령
+		- Steam ID 정지 조치 처분
+		- 저작권 손실에 따른 민형사상 법적 제소
+
+		================================================================
+	</ATC_Export_Readme_Full>
+  <ATC_Export_ConsentRecord_Full>================================================================EULA 사용자 확인 증빙 (Consent Record)동의 시각 (UTC+8): {0}EULA 버전 명시 (Version): {1}누적 확인 횟수 (Accept Count): {2}사용자 PC 정보 (Machine): {3}운영 체제 환경 (OS): {4}완료 일시 (Export Time): {5}체크한 동의 사항 (Accepted Items):[O] 나는 상기 명시된 이용약관을 유심히 검토하고 모든 법률을 인지했습니다[O] 나는 단독 로컬 이용 혹은 추가 번역 가공을 위해서만 사용할 것을 약속합니다[O] 무단 불법 배포에 기인한 일체의 사후 문제는 본인이 직접 수습할 것을 약속합니다================================================================중요 (Important)사용자 본인의 자발적 약관 동의 이력입니다. 영구 보존하세요.저작권 분쟁 발발 시 본 약관 고지 확인 유무를 체크하는 중대한 소명 자료로 채택될 수 있습니다.================================================================</ATC_Export_ConsentRecord_Full>
+  <ATC_Tab_Main>터미널 컨트롤러</ATC_Tab_Main>
+  <ATC_Tab_Settings>시스템 상세 및 API 구성</ATC_Tab_Settings>
+  <ATC_Log_SkipRequested>[System] 사용자가 활성화 모드 건너뛰기를 명령했습니다...</ATC_Log_SkipRequested>
+  <ATC_Error_Unknown>미상의 시스템 장애</ATC_Error_Unknown>
+  <ATC_Error_Timeout>API 네트워크 요청 시간 초과 (Timeout). 서버 병목이나 네트워크 지연 상태를 점검하세요.</ATC_Error_Timeout>
+  <ATC_Error_Connection>{0} 서버와 연동할 수 없습니다. 망 상태나 VPN 작동 유무를 판단하세요.</ATC_Error_Connection>
+  <ATC_Error_Unauthorized>API Key 권한 거부 또는 크레딧 잔액 부족 에러 (HTTP 401/403).</ATC_Error_Unauthorized>
+  <ATC_Error_NetworkAbnormal>중추 네트워크 매트릭스 불안정, 전송 지연 발생 중</ATC_Error_NetworkAbnormal>
+  <ATC_Warning_InvalidUrlFallback>올바르지 않은 사용자 정의 링크: {0}를 감지했습니다. 하드 로드를 적용합니다...</ATC_Warning_InvalidUrlFallback>
+  <ATC_Error_ParseFailed>AI가 비정상 규격의 문장을 회신했습니다 (올바른 JSON 규격이 아님). 모델 파라미터나 지능이 더 뛰어난 대형 모델로 전환하세요.</ATC_Error_ParseFailed>
+  <ATC_Error_RateLimit>API 단시간 초과 요구 발생 (HTTP 429). 전송 유휴 지연 수치를 넓히거나 잠시 휴식을 취하세요.</ATC_Error_RateLimit>
+  <ATC_Error_ServerError>AI 전송 서버 다운 혹은 정기 검진 돌입 (HTTP 500+). 대체 모델 및 공급회사로 교정해 보세요.</ATC_Error_ServerError>
+  <ATC_Error_HttpGeneric>네트워크 중추 프로토콜 위반 (HTTP {0}). 오류 로그 정보를 정밀 분석해 주세요.</ATC_Error_HttpGeneric>
+  <ATC_Log_RetryAttempt>HTTP {0} 피드백 수신. 제 {1}차 재접속 기동 중 (대기 시간 {2}ms)...</ATC_Log_RetryAttempt>
+  <ATC_Log_RetryTimeout>응답 주기 경과. 제 {0}차 복구 시도 작동 (대기 {1}ms)...</ATC_Log_RetryTimeout>
+  <ATC_Setting_Timeout>API 최대 허용 초과 시간: {0}초</ATC_Setting_Timeout>
+  <ATC_Setting_Timeout_Tooltip>설정한 초 동안 답신이 지체되면 처리를 파기하고 복구 재검토를 진행합니다. 권장치 60~120\n(단, 추론/심층 생각 모델을 지정 시 내부적으로 강제 300초가 동시 가산 적용됩니다)</ATC_Setting_Timeout_Tooltip>
+  <ATC_FilteredCodeOnly>{0}개의 순수 구동 장치 전용 모드를 걸러냈습니다. 번역 데이터가 불필요합니다.</ATC_FilteredCodeOnly>
+  <ATC_FilteredModsCount>{0}개의 미번역 속성 모드 선별 차단 완료 (순수 코드/순수 디자인 에셋 리소스)</ATC_FilteredModsCount>
+  <ATC_Log_DeepL_EndpointDetected>✅ DeepL［{0}］엔드포인트 연동이 완료되었습니다.</ATC_Log_DeepL_EndpointDetected>
+  <ATC_Log_FetchModelsRetry>모델 목록 탐색 과정 중 HTTP {0} 수신. 제 {1}차 복원을 시도합니다…</ATC_Log_FetchModelsRetry>
+  <ATC_Log_FetchModelsAutoRetryQueued>[{0}] Model lookup failed. Auto retry in {1}s (attempt {2}).</ATC_Log_FetchModelsAutoRetryQueued>
+  <ATC_Error_FetchModelsFailed>❌ ［{0}］ 서비스사로부터 자동 모델 호출을 이루지 못했습니다! （HTTP {1}）키 유효성을 체크하세요.</ATC_Error_FetchModelsFailed>
+  <ATC_Error_FetchModelsException>⚠️ ［{0}］의 모델 색인 수집 단계 에러 발생: {1}</ATC_Error_FetchModelsException>
+  <ATC_Log_FakeLanguageDetected>🕵️ [사기 방지 모니터링] 개발자의 꼼수 포착! {0} 파일은 빈 가짜 영문/구조 파일로 감지되었으며, 즉시 무조건 AI 강제 번역 파이프라인으로 이송했습니다!</ATC_Log_FakeLanguageDetected>
+  <ATC_Tab_Cloud>☁️ 클라우드 공유</ATC_Tab_Cloud>
+  <ATC_Cloud_Refresh>🔄 클라우드 현황 갱신</ATC_Cloud_Refresh>
+  <ATC_Cloud_Fetching>⏳ Cloudflare 클라우드 허브 연동 중...</ATC_Cloud_Fetching>
+  <ATC_Cloud_FetchFailed>⚠️ 클라우드 데이터를 다운로드할 수 없습니다. 회선 품질을 확인하세요.</ATC_Cloud_FetchFailed>
+  <ATC_Cloud_Status_Official>👑 번역 팀의 수제 정밀본</ATC_Cloud_Status_Official>
+  <ATC_Cloud_Status_UpdateAvailable>🟢 업데이트 발견됨</ATC_Cloud_Status_UpdateAvailable>
+  <ATC_Cloud_Status_Outdated>🟡 버전 불일치 의심됨</ATC_Cloud_Status_Outdated>
+  <ATC_Cloud_Status_NoCloud>🔘 클라우드에 자료 없음</ATC_Cloud_Status_NoCloud>
+  <ATC_Cloud_Status_Latest>🔵 최신 사양 일치</ATC_Cloud_Status_Latest>
+  <ATC_Cloud_Btn_Download>☁️ 원클릭 에어드랍</ATC_Cloud_Btn_Download>
+  <ATC_Cloud_Btn_Upload>⬆️ 번역 기여하기</ATC_Cloud_Btn_Upload>
+  <ATC_Cloud_Btn_Uploading>⏳ 파일 암호화 전송 중...</ATC_Cloud_Btn_Uploading>
+  <ATC_Cloud_LastUpdate>최근 갱신일</ATC_Cloud_LastUpdate>
+  <ATC_Cloud_Author>기여자 명단</ATC_Cloud_Author>
+  <ATC_Cloud_Nickname>👤 기여자 닉네임</ATC_Cloud_Nickname>
+  <ATC_Cloud_AdminKey>🔑 신성한 마스터 키</ATC_Cloud_AdminKey>
+  <ATC_Cloud_Btn_DeleteLocal>🗑️ 내 컴퓨터에서 지우기</ATC_Cloud_Btn_DeleteLocal>
+  <ATC_Cloud_Btn_DeleteCloud>🔥 클라우드 서버에서 소각</ATC_Cloud_Btn_DeleteCloud>
+  <ATC_Cloud_Deleting>⏳ 소각 처리 진행 중...</ATC_Cloud_Deleting>
+  <ATC_Cloud_ConnectionNormal>☁️ 클라우드 서버 연동 안정: 현 데이터베이스 내 보관 이력 총 {0}건입니다.</ATC_Cloud_ConnectionNormal>
+  <ATC_Cloud_NoModsWarning>⚠️ 대조 가능한 타사 추가 모드를 발견하지 못했습니다!\n(구동 중인 환경에 순수 오리지널 DLC와 핵심 시스템 파일만 있다면 검색 결과는 누락됩니다!)</ATC_Cloud_NoModsWarning>
+  <ATC_Cloud_Btn_BatchOfficial>👑 정밀번역 일괄 에어드랍</ATC_Cloud_Btn_BatchOfficial>
+  <ATC_Cloud_Btn_BatchAI>🤖 기계번역 일괄 에어드랍</ATC_Cloud_Btn_BatchAI>
+  <ATC_Msg_DownloadStart>📥 클라우드 공유 데이터 반입 중: {0}...</ATC_Msg_DownloadStart>
+  <ATC_Msg_DownloadSuccess>✅ 에어드랍 완료! {0} 번역이 활성 메모리에 무사 배치되었습니다!</ATC_Msg_DownloadSuccess>
+  <ATC_Msg_DownloadFailed>❌ 클라우드 파일 반입 실패: {0}</ATC_Msg_DownloadFailed>
+  <ATC_Msg_UploadSuccess>🚀 공유 완료! 유저 생태계 활성화에 도움을 주셔서 대단히 감사드립니다: {0}</ATC_Msg_UploadSuccess>
+  <ATC_Msg_UploadFailed>❌ 업로드 실패: {0} (전송할 번역 데이터 파일의 결여 혹은 클라우드 응답 차단)</ATC_Msg_UploadFailed>
+  <ATC_Msg_DeleteCloudSuccess>🔥 클라우드 자료 영구 파기 완수: {0}</ATC_Msg_DeleteCloudSuccess>
+  <ATC_Msg_DeleteCloudFailed>❌ 클라우드 자료 파기 실패 (마스터 인증 코드를 검토하세요): {0}</ATC_Msg_DeleteCloudFailed>
+  <ATC_Msg_DeleteLocalSuccess>🗑️ {0} 모드의 오프라인 보관 캐시가 무사 청소되었습니다!</ATC_Msg_DeleteLocalSuccess>
+  <ATC_Msg_BatchNoMods>⚠️ 기기 내부에 교정이나 신규 처리를 해야 할 번역 대상이 전무합니다.</ATC_Msg_BatchNoMods>
+  <ATC_Msg_BatchStart>📥 대량 {0}개 모드의 번역 패키지 일괄 반입 시작...</ATC_Msg_BatchStart>
+  <ATC_Msg_BatchSuccess>✅ 일괄 데이터 갱신 완료! 총 {0} / {1}개의 모드에 번역을 주입했습니다!</ATC_Msg_BatchSuccess>
+  <ATC_Cloud_Btn_OpenWorkspace>📂 토탈 작업장 위치 열기</ATC_Cloud_Btn_OpenWorkspace>
+  <ATC_Cloud_Btn_BatchUpload>⬆️ 임시 폴더 일괄 기여 전송</ATC_Cloud_Btn_BatchUpload>
+  <ATC_Msg_WorkspaceEmpty>⚠️ 작업 구역 디렉토리가 생성되지 않았거나 하부 폴더를 식별할 수 없습니다!</ATC_Msg_WorkspaceEmpty>
+  <ATC_Msg_BatchUploadStart>🚀 대량 정밀 분석 시작, {0}개 모드의 일괄 클라우드 등록 진행 중...</ATC_Msg_BatchUploadStart>
+  <ATC_Msg_BatchUploadSuccess>일괄 업로드 완료! {0}개 모드를 {1} 유형으로 업로드했습니다.</ATC_Msg_BatchUploadSuccess>
+  <ATC_Cloud_BatchUploadLogLabel>일괄 업로드 업데이트 설명:</ATC_Cloud_BatchUploadLogLabel>
+  <ATC_Cloud_BatchUploadLogHint>일괄 업로드에는 필수입니다. 이번 변경 내용을 간단히 적어 주세요.</ATC_Cloud_BatchUploadLogHint>
+  <ATC_Msg_BatchUploadLogRequired>일괄 업로드에는 5자 이상의 업데이트 설명이 필요합니다.</ATC_Msg_BatchUploadLogRequired>
+  <ATC_Cloud_Type_Select>📝 공유할 번역 양식 정보:</ATC_Cloud_Type_Select>
+  <ATC_Cloud_Type_AI>🤖 기계(AI) 번역</ATC_Cloud_Type_AI>
+  <ATC_Cloud_Type_Manual>✍️ 사람의 수동 정밀수정</ATC_Cloud_Type_Manual>
+  <ATC_Cloud_Status_Manual>🟢 유저의 수제 번역</ATC_Cloud_Status_Manual>
+  <ATC_EmergencyResetTitle>최후의 응급 처치 도구 상자 (시스템 영역 위험)</ATC_EmergencyResetTitle>
+  <ATC_Btn_FactoryReset>모든 로컬 번역 흔적 청소 및 초기화 (원상 복구)</ATC_Btn_FactoryReset>
+  <ATC_Msg_ConfirmFactoryReset>주의: 실행 시 지금까지 기기 내부에 수집된 오프라인 번역 흔적이 증발하며 UI 메모리 또한 공백화됩니다. 진짜 시동할까요? (경고: 번복 불가능)</ATC_Msg_ConfirmFactoryReset>
+  <ATC_Btn_Confirm>초기화 무조건 승인</ATC_Btn_Confirm>
+  <ATC_Btn_Cancel>보류</ATC_Btn_Cancel>
+  <ATC_Log_FactoryResetSuccess>장치가 공장 초기화 규격으로 무사 환원되었으며 임시 번역이 전부 지워졌습니다.</ATC_Log_FactoryResetSuccess>
+  <ATC_Msg_FactoryResetSuccess>초기화 처리 종결! 모든 로컬 번역 데이터가 무로 돌아갔습니다.</ATC_Msg_FactoryResetSuccess>
+  <ATC_Cloud_Downloading>클라우드 다운로드 수행 중: {0}</ATC_Cloud_Downloading>
+  <ATC_Cloud_Uploading>클라우드 업로드 전송 중: {0}</ATC_Cloud_Uploading>
+  <ATC_LogError_DownloadCorrupted>클라우드 패키지 가공 혹은 압축 유실 발생! 손상된 미사용 더미 파일을 정리했습니다. 대상 모드: {0}, 정보: {1}</ATC_LogError_DownloadCorrupted>
+  <ATC_Log_CloudPrefetchSuccess>클라우드 허브의 최신 데이터 목록 수집이 무사 완료되었습니다 (실시간 {0}건 대조 목록 취득).</ATC_Log_CloudPrefetchSuccess>
+  <ATC_Error_FetchModels_NonJson>[{0}] 모델 탐지 누락: 연동 서버가 규격 이외의 데이터 ({1})를 전송했습니다. 파싱: {2}</ATC_Error_FetchModels_NonJson>
+  <ATC_Error_FetchModels_Unauthorized>[{0}] 모델 갱신 불가 (401): 인증 수단 혹은 전송 키 승인이 불가합니다. 입력값을 판단해 주세요.</ATC_Error_FetchModels_Unauthorized>
+  <ATC_Error_FetchModels_Forbidden>[{0}] 모델 탐색 불가 (403): 인증 제한 상태거나 방화벽 가동으로 서버 접근이 거절되었습니다 (한도 잔액을 점검해 주세요).</ATC_Error_FetchModels_Forbidden>
+  <ATC_Error_FetchModels_RateLimit>[{0}] 모델 연결 거부 (429): 짧은 주기에 다량 접속 요구 발생. 트래픽 보호 장치가 작동했으니 텀을 두고 요청하세요.</ATC_Error_FetchModels_RateLimit>
+  <ATC_Error_FetchModels_ServerError>[{0}] 모델 취득 무산 ({1}): 대상 회사의 전송 시스템 연동 파탄. 서버 에러 의심. 내역: {2}</ATC_Error_FetchModels_ServerError>
+  <ATC_Error_FetchModels_Unknown>[{0}] 모델 취득 실패 ({1}): 식별 불가 장애. 로그 내역: {2}</ATC_Error_FetchModels_Unknown>
+  <ATC_Error_FetchModelsDispatchTimeout>[{0}] Model lookup did not start in time. Please close and reopen the settings panel, or try again after the game finishes loading.</ATC_Error_FetchModelsDispatchTimeout>
+  <ATC_Error_FetchModelsWatchdogReleased>[{0}] Model lookup timed out; stuck fetching state was released. Please retry later or click Refetch Models.</ATC_Error_FetchModelsWatchdogReleased>
+  <ATC_Lang_French>프랑스어 (Français)</ATC_Lang_French>
+  <ATC_Lang_German>독일어 (Deutsch)</ATC_Lang_German>
+  <ATC_Lang_Spanish>스페인어 (Español)</ATC_Lang_Spanish>
+  <ATC_Lang_Italian>이탈리아어 (Italiano)</ATC_Lang_Italian>
+  <ATC_Lang_Polish>폴란드어 (Polski)</ATC_Lang_Polish>
+  <ATC_Lang_Portuguese>포르투갈어 (Português)</ATC_Lang_Portuguese>
+  <ATC_Lang_Turkish>터키어 (Türkçe)</ATC_Lang_Turkish>
+  <ATC_Cloud_SmartMerged> [AI 봉합 번역]</ATC_Cloud_SmartMerged>
+  <ATC_Cloud_UploadDate>서버 공유 등록일: {0}</ATC_Cloud_UploadDate>
+  <ATC_Cloud_TransType>작성 성격: {0}</ATC_Cloud_TransType>
+  <ATC_Cloud_IsSmartMerged>자동 AI 땜빵 교정 적용: {0}</ATC_Cloud_IsSmartMerged>
+  <ATC_Cloud_YesWithCount>적용됨 (부족한 번역기 땜질 보충 데이터 {0}건 내장)</ATC_Cloud_YesWithCount>
+  <ATC_Cloud_No>아니오</ATC_Cloud_No>
+  <ATC_Log_MetaUpdated>번역 라이선스 ID 정보를 갱신했습니다 (미번역 땜질 보완 {0}건 연계 완료)</ATC_Log_MetaUpdated>
+  <ATC_Log_BackupSuccess>오래된 이전 번역본을 비상 보관함에 보관했습니다: {0}</ATC_Log_BackupSuccess>
+  <ATC_Workbench_Title>📝 ATC 전용 번역 공방: {0}</ATC_Workbench_Title>
+  <ATC_Workbench_SearchHint>🔍 원문이나 교정할 부분 탐색...</ATC_Workbench_SearchHint>
+  <ATC_Workbench_CategoryCount>📁 {0} ({1})</ATC_Workbench_CategoryCount>
+  <ATC_Workbench_CloseBtn>닫기 (교정 기록 파기)</ATC_Workbench_CloseBtn>
+  <ATC_Workbench_SaveBtn>💾 가공 및 즉각 교정 주입</ATC_Workbench_SaveBtn>
+  <ATC_Cloud_Btn_Dir>공용 작업대</ATC_Cloud_Btn_Dir>
+  <ATC_Cloud_Btn_DirTooltip>자체 제작 파일 이송용 폴더 오픈 (원하는 수정 번역 XML 파일을 옮긴 후 업로드 명령을 내리기 최적의 환경 제공)</ATC_Cloud_Btn_DirTooltip>
+  <ATC_Cloud_Btn_WorkbenchTooltip>실시간 교정 워크벤치 (Translation Workbench) 실행\n즉석에서 1초 만에 원문 수동 맞춤 땜방 및 즉석 교정!</ATC_Cloud_Btn_WorkbenchTooltip>
+  <ATC_Workbench_SaveSuccess>수작업 교정 번역이 저장되어 즉시 게임 세계로 주입되었습니다!</ATC_Workbench_SaveSuccess>
+  <ATC_Log_WorkbenchSaved>수작업 교정대에서 {0}건의 오타 수정을 완수했으며 실시간 핫 리로드를 발동했습니다!</ATC_Log_WorkbenchSaved>
+  <ATC_Cloud_LogTitle>버전 수정 목록</ATC_Cloud_LogTitle>
+  <ATC_Cloud_NoLog>작성자분이 제공한 수정 정보 사항이 비어 있습니다.</ATC_Cloud_NoLog>
+  <ATC_UploadPreview_Title>클라우드 기여 전 최종 패키지 모니터링 콘솔 - {0}</ATC_UploadPreview_Title>
+  <ATC_UploadPreview_Loading>패키징할 모든 대상 XML의 인코딩 점검 및 데이터 악성 코드 정밀 수비 분석 중. 잠시만 기다려 주세요...</ATC_UploadPreview_Loading>
+  <ATC_Preview_ClickToSee>왼쪽 항목을 고르면 실제 수정된 번역을 대조합니다</ATC_Preview_ClickToSee>
+  <ATC_Upload_LogLabel>신규 업로드 설명 정보 기록 (유저 패키지 갱신 내역 고지용):</ATC_Upload_LogLabel>
+  <ATC_Upload_LogHint>이번 수정본의 세부 특이점을 간략히 기재해 주세요 (예: 폰트 깨짐 보완, 인물 대화 오역 땜질 완료...)</ATC_Upload_LogHint>
+  <ATC_Upload_UnlockEdit>✍️ 잠금 해제 후 내용 쓰기</ATC_Upload_UnlockEdit>
+  <ATC_Upload_EditingMode>⚠️ 기록 갱신 모드 가동 중</ATC_Upload_EditingMode>
+  <ATC_Upload_ConfirmUploadBtn>✅ 이상 무 ‧ 클라우드 기여 전송 실시</ATC_Upload_ConfirmUploadBtn>
+  <ATC_Msg_UploadStart>🚀 발사대 기동! [{0}]의 수정 번역을 패키징하여 안전 지대로 사출하는 중...</ATC_Msg_UploadStart>
+  <ATC_Type_Official>전문 번역단 번역</ATC_Type_Official>
+  <ATC_Type_Manual>유저 개별 정밀번역</ATC_Type_Manual>
+  <ATC_Type_AI>AI 기계번역</ATC_Type_AI>
+  <ATC_UploadPreview_NoTranslation>클라우드로 보낼 타당한 번역 내역을 발견하지 못했습니다!\n(먼저 번역 파이프라인을 작동시키거나 수동 작업용 폴더 내에 수제 번역본을 위치시키세요)</ATC_UploadPreview_NoTranslation>
+  <ATC_Msg_UploadFailedNoFiles>전송 처리를 종결하지 못함: 업로드해야 할 가치 있는 번역본 흔적 미포착!</ATC_Msg_UploadFailedNoFiles>
+  <ATC_Log_CleanedGhostTwins>[System] 번역 패키지 무력화 간섭을 피하고자 {0}개의 가짜 더미 유령 번역 흔적을 우주 너머로 완벽하게 승천시켰습니다!</ATC_Log_CleanedGhostTwins>
+  <ATC_Log_AutoStartUpdateScan>[System] {0}개 모드의 사양 갱신 감지. 옵션 정의에 준거하여 백그라운드 번역 기동 장치를 실행합니다!</ATC_Log_AutoStartUpdateScan>
+  <ATC_SubTask_TestingAPI>API 통신 활성 테스트 진행 중...</ATC_SubTask_TestingAPI>
+  <ATC_Log_PreflightCheck>본 번역 기공소 작동 전 회선 정밀 진단 시스템 온...</ATC_Log_PreflightCheck>
+  <ATC_LogError_ApiDeadAbort>API 연결 거부 판정! 번역 파이프라인 작동을 즉시 긴급 중단합니다. 전송 키 유효성 및 망 상태를 즉시 재평가하세요.</ATC_LogError_ApiDeadAbort>
+  <ATC_TaskFailed>작업 거부 및 실패</ATC_TaskFailed>
+  <ATC_Cloud_FetchListFailed>클라우드 수집 실패 (HTTP {0}). 비상용 보조 게이트 노드로 통로 우회를 시도하는 중...</ATC_Cloud_FetchListFailed>
+  <ATC_Cloud_ConnectionFailedLog>클라우드 메인 프레임에 진입 불가: {0}</ATC_Cloud_ConnectionFailedLog>
+  <ATC_Log_AutoSyncLanguage>게임 가동 언어가 {0}로 전환된 사실을 감지했습니다. 번역 파이프라인의 언어 체계가 동기화되었습니다!</ATC_Log_AutoSyncLanguage>
+  <ATC_Cloud_SelectLang>클라우드 허브 연동 목표 언어:</ATC_Cloud_SelectLang>
+  <ATC_Cloud_ConnectionFailed>클라우드 통로 차단 및 시간 주기 만료 (전송 차단 혹은 핑 불능). 로컬 방화벽이나 보조 가속 툴 사용을 권고합니다: {0}</ATC_Cloud_ConnectionFailed>
+  <ATC_Cloud_UploadFallback>메인 라인의 전송 지연 한도 돌파, 백업 암시장 밀수 루트로 통신망을 복구합니다...</ATC_Cloud_UploadFallback>
+  <ATC_Cloud_UploadFailed>클라우드 전송 불가: {0}</ATC_Cloud_UploadFailed>
+  <ATC_Cloud_DeleteFallback>자료 파괴 전송 채널 장애 발생, 비상 파괴 우회 통로를 긴급 활성화합니다...</ATC_Cloud_DeleteFallback>
+  <ATC_Cloud_DeleteFailed>소각 실패: {0}</ATC_Cloud_DeleteFailed>
+  <ATC_Cloud_MainRouteCrashed>메인 통신 게이트 완전 붕괴. 무상 비상 지하 전송 우회로를 확보 및 구동합니다...</ATC_Cloud_MainRouteCrashed>
+  <ATC_Cloud_RequestRejected>접속 실패, 클라우드 호스트에서 접속 요구 기각 (HTTP {0})</ATC_Cloud_RequestRejected>
+  <ATC_Cloud_RetryAttemptLog>클라우드 메인 컴퓨터와의 싱크 패킷 드랍 발생. 제 {0}차 고에너지 양자 통신 복구 개시...</ATC_Cloud_RetryAttemptLog>
+  <ATC_Cloud_DownloadRetryFailed>다운로드 재수집 시도 불능, 회선이 단절되었습니다: {0}</ATC_Cloud_DownloadRetryFailed>
+  <ATC_Tab_Editor>전역 번역 편집</ATC_Tab_Editor>
+  <ATC_Workbench_SearchMod>모드 타이틀 혹은 고유 ID...</ATC_Workbench_SearchMod>
+  <ATC_Workbench_ShowTranslatedOnly>번역 처리가 끝난 모드 정보만 필터링</ATC_Workbench_ShowTranslatedOnly>
+  <ATC_Workbench_SelectModHint>원하는 편집 타깃 모드를 왼쪽에서 선택해 주시기 바랍니다</ATC_Workbench_SelectModHint>
+  <ATC_Workbench_BackToList>모드 리스트 구역으로 회귀</ATC_Workbench_BackToList>
+  <ATC_Cloud_SearchHint>모드 이름이나 번호 검색...</ATC_Cloud_SearchHint>
+  <ATC_Btn_ClearUICache>동적 UI 임시 캐시 및 필터링 블랙리스트 완전 제거</ATC_Btn_ClearUICache>
+  <ATC_Msg_UICacheCleared>UI 임시 캐시 기록이 말끔히 소거되었습니다. 생고기(미번역 원문)들이 다시 재번역 이송 구역으로 운반됩니다!</ATC_Msg_UICacheCleared>
+  <ATC_LogError_DeleteUICacheFailed>오프라인 UI 수집 파일 삭제 중 에러 발발: {0}</ATC_LogError_DeleteUICacheFailed>
+  <ATC_Log_UICacheClearedFull>오프라인 UI 임시 데이터 및 수동 배제 항목들이 디바이스 영구 스토리지에서 완벽히 소멸 청소되었습니다!</ATC_Log_UICacheClearedFull>
+  <ATC_Workbench_GlobalSearchTitle>🔍 전역 번역 고속 색인 서치 (Global Search)</ATC_Workbench_GlobalSearchTitle>
+  <ATC_Lang_All>🌍 전 세계 모든 공용어 (All)</ATC_Lang_All>
+  <ATC_Workbench_GlobalSearching>🔄 비상 초고속 오프라인 로컬 저장소 스캔 가동...</ATC_Workbench_GlobalSearching>
+  <ATC_Workbench_GlobalSearchNoResult>대조해 낼 번역 텍스트 성분이 검출되지 않았습니다.</ATC_Workbench_GlobalSearchNoResult>
+  <ATC_Msg_UploadLogRequired>⚠️ 업로드 데이터 관리 및 클라우드 정제 유지를 위해, 좌측 하단에 이번 교정 내역의 세부 요점을 간략히 기재해 주셔야 합니다 (최소 5글자 이상)!</ATC_Msg_UploadLogRequired>
+  <ATC_Btn_RepairLegacyTranslations>&#xC774;&#xC804; &#xBC88;&#xC5ED; &#xD615;&#xC2DD; &#xBCF5;&#xAD6C;</ATC_Btn_RepairLegacyTranslations>
+  <ATC_Msg_RepairLegacyTranslationsDone>&#xC774;&#xC804; &#xBC88;&#xC5ED; &#xD615;&#xC2DD; &#xBCF5;&#xAD6C; &#xC644;&#xB8CC;: {0}&#xAC1C; &#xD30C;&#xC77C;&#xC5D0;&#xC11C; {1}&#xAC1C; &#xD56D;&#xBAA9;&#xC744; &#xC218;&#xC815;&#xD588;&#xC2B5;&#xB2C8;&#xB2E4;. &#xACE0;&#xC704;&#xD5D8; &#xAD6C;&#xC870; {2}&#xAC1C;&#xB294; &#xD655;&#xC778;&#xC774; &#xD544;&#xC694;&#xD569;&#xB2C8;&#xB2E4;.</ATC_Msg_RepairLegacyTranslationsDone>
+  <ATC_ApiKeyNoteHint>메모: Gemini 무료 한도, DeepSeek 예비, 프록시 등</ATC_ApiKeyNoteHint>
+  <ATC_ApiKeyEnabled>이 API Key 사용</ATC_ApiKeyEnabled>
+  <ATC_Msg_ApiKeyDisabled>이 API Key는 현재 비활성화되어 있습니다.</ATC_Msg_ApiKeyDisabled>
+  <ATC_ModStatus_Translated>번역됨</ATC_ModStatus_Translated>
+  <ATC_ModStatus_Untranslated>미번역</ATC_ModStatus_Untranslated>
+  <ATC_ModStatus_Outdated>오래되었을 수 있음</ATC_ModStatus_Outdated>
+  <ATC_Msg_CloudUploadPatchModBlocked>&#xC5C5;&#xB85C;&#xB4DC;&#xAC00; &#xCC28;&#xB2E8;&#xB418;&#xC5C8;&#xC2B5;&#xB2C8;&#xB2E4;: {0}&#xC740; &#xD604;&#xC9C0;&#xD654; &#xB610;&#xB294; &#xBC88;&#xC5ED; &#xD328;&#xCE58; &#xBAA8;&#xB4DC;&#xB85C; &#xBCF4;&#xC785;&#xB2C8;&#xB2E4;. &#xD074;&#xB77C;&#xC6B0;&#xB4DC; &#xACF5;&#xC720;&#xB294; &#xC6D0;&#xBCF8; &#xBAA8;&#xB4DC;&#xC6A9; &#xC8FC;&#xC785;&#xC2DD; &#xBC88;&#xC5ED;&#xB9CC; &#xBC1B;&#xC2B5;&#xB2C8;&#xB2E4;.</ATC_Msg_CloudUploadPatchModBlocked>
+  <ATC_Msg_CloudBatchPatchModsSkipped>&#xD604;&#xC9C0;&#xD654; &#xB610;&#xB294; &#xBC88;&#xC5ED; &#xD328;&#xCE58; &#xBAA8;&#xB4DC; {0}&#xAC1C;&#xB97C; &#xAC74;&#xB108;&#xB6F0;&#xC5C8;&#xC2B5;&#xB2C8;&#xB2E4;. &#xD074;&#xB77C;&#xC6B0;&#xB4DC; &#xACF5;&#xC720;&#xC5D0; &#xC5C5;&#xB85C;&#xB4DC;&#xB418;&#xC9C0; &#xC54A;&#xC2B5;&#xB2C8;&#xB2E4;.</ATC_Msg_CloudBatchPatchModsSkipped>
+</LanguageData>

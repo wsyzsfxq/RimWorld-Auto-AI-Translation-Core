@@ -1,0 +1,465 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <ATC_ModTitle>Réseau de traduction intelligent (IA Translation Network) V3.0</ATC_ModTitle>
+  <ATC_TargetLang>Langue cible</ATC_TargetLang>
+  <ATC_Lang_Traditional>Chinois traditionnel (Traditional Chinese)</ATC_Lang_Traditional>
+  <ATC_Lang_Simplified>Chinois simplifié (Simplified Chinese)</ATC_Lang_Simplified>
+  <ATC_Lang_Japanese>Japonais (Japanese)</ATC_Lang_Japanese>
+  <ATC_Lang_Korean>Coréen (Korean)</ATC_Lang_Korean>
+  <ATC_Lang_Russian>Russe (Russian)</ATC_Lang_Russian>
+  <ATC_Lang_Ukrainian>Ukrainien (Ukrainian)</ATC_Lang_Ukrainian>
+  <ATC_Lang_English>Anglais (English)</ATC_Lang_English>
+  <ATC_CurrentProvider>Fournisseur d'IA actuel</ATC_CurrentProvider>
+  <ATC_ApiKey>Clé API (API Key)</ATC_ApiKey>
+  <ATC_CustomBaseUrl>URL API personnalisée (Base URL)</ATC_CustomBaseUrl>
+  <ATC_DefaultEmpty>Laisser vide par défaut</ATC_DefaultEmpty>
+  <ATC_OnlyScanActive>Scanner uniquement les mods actifs</ATC_OnlyScanActive>
+  <ATC_Tooltip_TargetLang>【Langue cible】\nDéfinit la langue dans laquelle l'IA doit traduire les mods étrangers.</ATC_Tooltip_TargetLang>
+  <ATC_Tooltip_Provider>【Fournisseur d'IA】\nChoisissez le fournisseur du modèle d'IA. Hautement recommandé : Google (Gemini) ou OpenAI.</ATC_Tooltip_Provider>
+  <ATC_TestConnection>Tester la connexion</ATC_TestConnection>
+  <ATC_TestingPulse>Envoi d'une impulsion de test...</ATC_TestingPulse>
+  <ATC_FetchModels>Récupérer la liste des modèles</ATC_FetchModels>
+  <ATC_RefetchModels>Récupérer les modèles</ATC_RefetchModels>
+  <ATC_Fetching>Connexion...</ATC_Fetching>
+  <ATC_SelectModel>Sélectionner un modèle</ATC_SelectModel>
+  <ATC_PlzFetchModel>Veuillez d'abord cliquer sur « Récupérer la liste des modèles »</ATC_PlzFetchModel>
+  <ATC_TranslateSingleMod>Traduire le mod sélectionné individuellement</ATC_TranslateSingleMod>
+  <ATC_StartTranslation>Lancer le plan de remplissage automatique</ATC_StartTranslation>
+  <ATC_StopTranslation>Arrêt d'urgence de la chaîne</ATC_StopTranslation>
+  <ATC_Tutorial_Btn>Guide d'utilisation ＆ FAQ</ATC_Tutorial_Btn>
+  <ATC_UpdateLog_Btn>Journal des mises à jour du mod</ATC_UpdateLog_Btn>
+  <ATC_CurrentTask>Tâche actuelle</ATC_CurrentTask>
+  <ATC_Idle>En attente</ATC_Idle>
+  <ATC_TaskDone>Chaîne de production terminée !</ATC_TaskDone>
+  <ATC_LogPanelTitle>--- Surveillance en temps réel de la chaîne de production ---</ATC_LogPanelTitle>
+  <ATC_ErrorLogTitle>⚠ Rapport de fichiers anormaux</ATC_ErrorLogTitle>
+  <ATC_Msg_EmptyKey>Comment tester la connexion si la clé n'est pas saisie ?!</ATC_Msg_EmptyKey>
+  <ATC_Log_TestPulse>[Test] Envoi d'une micro-impulsion pour tester la connexion avec [{0}]...</ATC_Log_TestPulse>
+  <ATC_Testing>Test en cours...</ATC_Testing>
+  <ATC_Log_TestSuccess>✅ Test de réponse du nœud Internet réussi ! La chaîne de communication fonctionne normalement.</ATC_Log_TestSuccess>
+  <ATC_Log_TestFail>[Test] Échec du test ! Vérifiez votre réseau ou vos paramètres API.</ATC_Log_TestFail>
+  <ATC_Msg_TestSuccess>✅ Liaison de communication quantique stable établie avec [{0}] ! Tout est prêt !</ATC_Msg_TestSuccess>
+  <ATC_Msg_TestFailed>❌ Échec de la liaison avec [{0}] ! Vérifiez votre clé de transmission ou votre réseau, et consultez le journal pour un rapport de diagnostic détaillé.</ATC_Msg_TestFailed>
+  <ATC_Log_TestFailed_Detail>🔧 Le test de connexion {0} n'a renvoyé aucun résultat. Il est possible que la clé soit invalide ou que le modèle cible soit indisponible. Essayez de récupérer à nouveau la liste des modèles.</ATC_Log_TestFailed_Detail>
+  <ATC_Log_TestException>💥 Exception lors du test de {0} : {1}</ATC_Log_TestException>
+  <ATC_Error_TestConnectionTimeout>[{0}] Test connection timed out; stuck testing state was released. Please check network/model and retry.</ATC_Error_TestConnectionTimeout>
+  <ATC_Log_Init>[Init] Lecture des mods et création du pool mondial de traduction partagée...</ATC_Log_Init>
+  <ATC_Log_InitDone>[Init] Terminé ! {0} entrées de traduction Def ont été collectées.</ATC_Log_InitDone>
+  <ATC_Log_StartScan>Auto Translation Core démarré ! Mods cibles : {0}</ATC_Log_StartScan>
+  <ATC_Log_ScanMod> [Start] Analyse du mod : {0}</ATC_Log_ScanMod>
+  <ATC_Log_SkipMod> [Skip] Aucun dossier Languages ni Defs. Mod de code pur.</ATC_Log_SkipMod>
+  <ATC_Log_KeyedScan> [Keyed] Analyse en cours...</ATC_Log_KeyedScan>
+  <ATC_Log_DefScan> [DefInjected] Analyse approfondie et comparaison globale...</ATC_Log_DefScan>
+  <ATC_Log_FoundMissing> [{0}] {1} entrées manquantes trouvées ! Demande d'assistance IA...</ATC_Log_FoundMissing>
+  <ATC_Log_AIFinish> [{0}] Remplissage automatique de la traduction par l'IA réussi !</ATC_Log_AIFinish>
+  <ATC_Log_AIFail> [{0}] Échec du remplissage automatique de la traduction par l'IA.</ATC_Log_AIFail>
+  <ATC_Log_NoMissing> [{0}] Tous les composants sont présents, aucune traduction requise.</ATC_Log_NoMissing>
+  <ATC_Log_TaskDone> [Finish] Tâche de remplissage automatique accomplie de main de maître !</ATC_Log_TaskDone>
+  <ATC_Log_TaskError>[Error] Interruption inattendue de la chaîne de production : {0}</ATC_Log_TaskError>
+  <ATC_Log_Clean>[Clean] Chaîne de production arrêtée, mémoire libérée.</ATC_Log_Clean>
+  <ATC_CancelRequested>Commande d'arrêt reçue, freinage d'urgence de la chaîne de production...</ATC_CancelRequested>
+  <ATC_Log_FetchModelsSuccess>✅ Liste des modèles pour [{0}] récupérée automatiquement avec succès !</ATC_Log_FetchModelsSuccess>
+  <ATC_Log_FetchModelsFail>[System] Échec de la récupération de la liste, veuillez vérifier la clé.</ATC_Log_FetchModelsFail>
+  <ATC_Log_AllTranslationWritten>[Success] Toutes les traductions ont été écrites en toute sécurité dans !Translation_AI_Pack !</ATC_Log_AllTranslationWritten>
+  <ATC_Log_NetworkRetry>[System] Instabilité réseau ou surcharge du serveur détectée, mécanisme de réessai automatique activé...</ATC_Log_NetworkRetry>
+  <ATC_Log_MigrateSuccess>[Migration] Les fichiers {1} de {0} ont été migrés avec succès vers la nouvelle architecture sans douleur !</ATC_Log_MigrateSuccess>
+  <ATC_Log_StartSingleMod>[System] Début de la traduction individuelle du mod : {0}</ATC_Log_StartSingleMod>
+  <ATC_Log_SingleModDone>Traduction individuelle accomplie de main de maître !</ATC_Log_SingleModDone>
+  <ATC_Log_ProcessAborted>[System] La chaîne de production a été interrompue en toute sécurité.</ATC_Log_ProcessAborted>
+  <ATC_Log_ProcessAbortedWithSave>[System] La chaîne de production a été interrompue en toute sécurité, le contenu traduit a été conservé.</ATC_Log_ProcessAbortedWithSave>
+  <ATC_TaskAborted>Interrompu</ATC_TaskAborted>
+  <ATC_LogError_Format>[{0}] Erreur de format : {1}</ATC_LogError_Format>
+  <ATC_LogError_Unknown>[{0}] Exception inconnue : {1}</ATC_LogError_Unknown>
+  <ATC_LogError_FileCorrupted>[Fichier corrompu] Fichier illisible ignoré : {0}</ATC_LogError_FileCorrupted>
+  <ATC_LogError_ApiConn>[API] Anomalie de communication : {0}</ATC_LogError_ApiConn>
+  <ATC_FinishMessage_Title>Notification de fin de traduction</ATC_FinishMessage_Title>
+  <ATC_FinishMessage_OK>Compris ! (OK)</ATC_FinishMessage_OK>
+  <ATC_FinishMessage_Text>La tâche de traduction a été accomplie avec succès !\n【🪂 Parachutage en mémoire réussi】\nLe système a injecté la traduction fraîche directement dans la mémoire du jeu via les canaux officiels !\nVous pouvez maintenant fermer cette fenêtre et le panneau de configuration en toute sérénité. Les objets et technologies à l'écran ont instantanément été traduits dans la langue choisie !\n(Remarque : Une copie physique XML a été générée en arrière-plan, mais vous n'avez 【absolument pas besoin】 de l'activer dans la liste des mods ! Au prochain démarrage, le système chargera le tout de manière invisible, vous libérant totalement des conflits d'ordre de chargement ! Bon jeu !)</ATC_FinishMessage_Text>
+  <ATC_Tutorial_FullText>【Guide d'utilisation V3.0 : Du profiteur au contributeur】\n1. ☁️ 【Explorez d'abord le cloud, ne réinventez pas la roue】\nAvant de commencer à traduire, nous vous recommandons vivement de vous rendre sur l'onglet 【Atelier Cloud】 ! Il se peut que des équipes de traduction professionnelles ou d'autres joueurs aient déjà mis en ligne un pack de traduction de haute qualité. Le téléchargement en un clic vous permettra de profiter instantanément du jeu traduit !\n\n2. ⚙️ 【Configuration de l'API pour la traduction】\nSi le mod souhaité n'est pas dans le cloud, sélectionnez votre 【Langue cible】 (français, chinois, japonais, anglais, russe, etc.) et votre 【Fournisseur】 (Gemini gratuit ou DeepSeek sont recommandés). La fonction « Chargeur API illimité » vous permet d'ajouter plusieurs clés via le bouton « + », et le système répartira automatiquement les tâches à tour de rôle pour exploiter vos quotas gratuits jusqu'à la dernière goutte !\n(Après avoir collé la clé, pas besoin d'appuyer sur rechercher : le système chargera les modèles en arrière-plan !)\n\n3. 🚀 【Traduction en un clic et parachutage en mémoire】\nDéfinissez le nombre de threads, puis cliquez sur 【🚀 Traduire tous les mods en un clic】 ou utilisez 【🎯 Traduction d'un ou plusieurs mods】 pour un ciblage précis. Une fois terminé, 【il n'est absolument pas nécessaire de redémarrer le jeu】 ! Le système déclenchera automatiquement le « parachutage en mémoire » pour injecter instantanément la traduction dans le jeu. Fermez le panneau pour voir le résultat !\n\n4. 🔍 【Atelier global et partage sur le cloud】\nVous trouvez la traduction automatique un peu étrange ? Allez dans l'onglet 【Édition globale】, utilisez le puissant outil de « Recherche globale de texte » pour débusquer les fautes et les corriger en un clic ! Une fois les modifications faites, retournez sur l'atelier cloud et partagez votre travail avec le tag 【Traduction manuelle (Manual)】 pour aider la communauté !\n\n【Foire Aux Questions (FAQ)】\nQ : Pourquoi n'ai-je pas de bouton « Supprimer » dans l'atelier cloud ?\nR : Afin de protéger le travail des utilisateurs contre toute suppression accidentelle, la fonction de suppression est réservée aux administrateurs et aux équipes de traduction officielles disposant d'un code maître. Les joueurs ordinaires peuvent téléverser leurs fichiers l'esprit tranquille : le système fusionnera intelligemment les versions et conservera la meilleure !\n\nQ : Qu'est-ce que la « Réinjection à chaud (Hot Reload) » ?\nR : Si vous êtes un joueur chevronné qui aime modifier manuellement les fichiers XML de traduction générés : après avoir sauvegardé vos modifications, cliquez simplement sur ce bouton. Le système actualisera instantanément le cache de l'interface utilisateur et réinjectera les données en mémoire. Le résultat est visible en une seconde !\n\nQ : Pourquoi le journal de production affiche-t-il une alerte rouge « En attente de réessai » ?\nR : Le serveur de l'API est surchargé ou a temporairement limité la fréquence des requêtes ! Le mod intègre un puissant mécanisme de 【réessai avec recul exponentiel】. Si la traduction finit par réussir, laissez simplement faire les choses et patientez un instant~ (≧∀≦)ゞ\n\nQ : Erreur de connexion avec un serveur local (LM Studio / Ollama, etc.).\nR : 1. Vérifiez l'exactitude du champ « URL API personnalisée » (par exemple, http://localhost:1234). Ne vous souciez pas du suffixe, le système ajoutera lui-même /v1 !\n2. Le champ API Key ne doit pas être vide ! Pour les serveurs locaux, saisissez simplement quelques caractères au hasard.\n\nQ : L'intercepteur dynamique d'interface utilisateur va-t-il ralentir le jeu ?\nR : Grâce à nos algorithmes de recherche ultra-rapides en O(1) et à nos soupapes de sécurité intégrées, même en cas d'avalanche d'erreurs, le jeu tournera à un stable 120 FPS. Cependant, gardez à l'esprit que ce mode capture absolument toutes les chaînes non traduites à l'écran. Si vous utilisez une 【API payante】, activez-le avec prudence pour éviter des factures exorbitantes !</ATC_Tutorial_FullText>
+  <ATC_UpdateLog_FullText>--- V3.0 Atelier Cloud et Éditeur Global en ligne ---\n• Nouvel 【Atelier Cloud partagé】 : Permet le téléversement et le téléchargement en un clic de packs de traduction multilingues. Comprend trois tags de qualité : « Traduction pro », « Traduction manuelle » et « Traduction IA ». Gestion de version intelligente 3-2-1, protection par suppression logique et journal des modifications intégrés.\n• 【Atelier Global】 amélioré : Ajout d'une « Recherche globale de texte » asynchrone en arrière-plan avec barre de progression dynamique. Recherche fluide dans tous les caches et traductions intégrées, même avec des centaines de mods. Filtrage linguistique et édition rapide en un clic.\n• Réécriture de la 【Couche réseau】 : Mise à niveau complète vers le moteur réseau natif de Unity (UnityWebRequest) avec compression UTF-8 forcée. Résolution définitive des erreurs de lecture et de corruption de fichiers ZIP causées par les conflits d'encodage système de Windows.\n• Intégration de la 【Détoxification intelligente】 : Filtrage automatique des variables système à risque et des mods de visage (comme FaceDef), mettant fin aux bugs de textures de personnages après traduction ! Nettoyage automatique des faux fichiers de traduction résiduels au démarrage du jeu.\n\n--- V2.2 Architecture de base et stabilité de connexion ---\n• Optimisation de la 【Structure des requêtes API】 : Refonte de la logique sous-jacente pour améliorer la compatibilité avec différents fournisseurs d'IA et la stabilité de l'analyse des données.\n• Intégration du 【Recul exponentiel automatique】 : En cas d'encombrement du serveur (HTTP 429) ou d'anomalie de connexion temporaire (HTTP 500+), le système applique automatiquement un temps de refroidissement et réessaie, réduisant les interruptions de traduction.\n• Nouveaux 【Paramètres de délai d'attente et tests】 : Ajout d'un bouton « Tester la connexion » et d'un curseur de réglage du délai d'attente. (Lors de l'utilisation de modèles de réflexion approfondie, le système adapte automatiquement un délai d'attente plus long).\n• Amélioration des 【Notifications d'erreurs globales】 : Technologie de pont UI inter-threads. Désormais, en cas d'anomalie de connexion API ou de clé invalide, une notification apparaît instantanément en haut à gauche de l'écran de jeu, évitant de devoir ouvrir constamment les journaux.\n\n--- V2.1 Expérience de traduction et mise à niveau intelligente ---\n• Intégration de l'【Export de pack en un clic】 : Possibilité d'extraire de manière autonome un mod traduit vers le bureau, avec filigrane d'avertissement de traduction automatique, parfait pour soumettre à l'auteur original ou pour relecture manuelle.\n• Nouveau 【Radar de mise à jour des mods】 : Détection automatique des mods obsolètes ou non traduits.\n• Prise en charge du 【Remplacement automatique】 : En cas de mise à jour d'un mod, le système supprime automatiquement les anciens fichiers de traduction et relance le processus pour garder les textes à jour.\n• Correction des 【Sauts de ligne anormaux】 : Résolution du bug où certains caractères \n ne provoquaient pas de saut de ligne, brisant la mise en page.\n\n--- V2.0 Optimisation des performances et rendu en temps réel ---\n• Intégration de l'【Injection immédiate en mémoire】 : Les résultats traduits sont écrits directement dans la mémoire du jeu. L'affichage bascule instantanément, réduisant les conflits d'ordre de chargement des mods.\n• Optimisation de l'【Intercepteur dynamique d'interface】 : Refonte de la logique d'interception et du cache de l'interface utilisateur pour réduire considérablement la perte d'images par seconde (FPS).\n• Nouveau 【Rechargement à chaud en un clic】 : Après modification manuelle d'un fichier XML de traduction, actualisez instantanément le cache de l'interface utilisateur sans redémarrer le jeu.\n\n--- V1.0 Sortie officielle ---\n• Intégration de l'【Intercepteur dynamique d'interface】 : Interception en temps réel et traduction automatique des textes oubliés dans les fichiers XML statiques ou les panneaux de configuration.\n• Intégration de la 【Comparaison bilingue】 : Affichage du texte original au survol de la souris pour faciliter la relecture.</ATC_UpdateLog_FullText>
+  <ATC_ApiConfigTitle>Configuration du chargeur d'API (Prend en charge le requêtage parallèle multiple)</ATC_ApiConfigTitle>
+  <ATC_Provider>Fournisseur</ATC_Provider>
+  <ATC_CustomUrlOptional>(BaseUrl personnalisée, laisser vide pour la valeur par défaut)</ATC_CustomUrlOptional>
+  <ATC_Delete>Supprimer</ATC_Delete>
+  <ATC_PasteKey>(Collez la clé API)</ATC_PasteKey>
+  <ATC_FetchingModel>Recherche de modèles en cours...</ATC_FetchingModel>
+  <ATC_NoModelWaitKey>Aucun modèle sélectionné (collez la clé pour détection automatique)</ATC_NoModelWaitKey>
+  <ATC_AddApiBtn>Ajouter une interface API (Add API Interface)</ATC_AddApiBtn>
+  <ATC_EmergencyStop>Arrêter la traduction (Emergency Stop)</ATC_EmergencyStop>
+  <ATC_StartFullScan>Traduire tous les mods (Start Full Scan)</ATC_StartFullScan>
+  <ATC_EmptyConfigWarning>Veuillez configurer au moins un profil API valide !</ATC_EmptyConfigWarning>
+  <ATC_MaxThreads>Nombre de threads simultanés (Max Threads)</ATC_MaxThreads>
+  <ATC_MaxThreadsTip>Fortement recommandé : Nombre d'interfaces actives x 3</ATC_MaxThreadsTip>
+  <ATC_Log_ApiRecovered>[API] Reconnexion réussie ! La chaîne de production reprend à grande vitesse.</ATC_Log_ApiRecovered>
+  <ATC_Log_ApiRetry>[API] Serveur occupé ou délai d'attente dépassé. Nouvel essai dans {0} secondes...</ATC_Log_ApiRetry>
+  <ATC_Log_ApiFallback>[API] Échec total de la traduction par blocs ! Passage en « mode duel » pour traduire phrase par phrase...</ATC_Log_ApiFallback>
+  <ATC_LogError_ApiCritical>[Erreur API critique] Échec complet de la traduction du texte situé dans 【{0}】 ! Texte original conservé.</ATC_LogError_ApiCritical>
+  <ATC_TranslateMultiMod>Individuel / Sélection multiple</ATC_TranslateMultiMod>
+  <ATC_SkipCurrentMod>Passer ce Mod</ATC_SkipCurrentMod>
+  <ATC_MultiSelect_Title>Sélectionner les mods à traduire (plusieurs choix possibles)</ATC_MultiSelect_Title>
+  <ATC_MultiSelect_Search>Saisissez le nom d'un mod à rechercher...</ATC_MultiSelect_Search>
+  <ATC_MultiSelect_Start>Lancer la traduction des {0} mods sélectionnés</ATC_MultiSelect_Start>
+  <ATC_SubTask_AnalyzingDict>Analyse des textes de localisation locale...</ATC_SubTask_AnalyzingDict>
+  <ATC_SubTask_BuildingDict>Construction du dictionnaire en cours : {0}</ATC_SubTask_BuildingDict>
+  <ATC_SubTask_DictDone>Dictionnaire construit avec succès !</ATC_SubTask_DictDone>
+  <ATC_SubTask_Scanning>Analyse des textes en cours...</ATC_SubTask_Scanning>
+  <ATC_SubTask_TranslatingKeyed>Traduction des entrées Keyed en cours...</ATC_SubTask_TranslatingKeyed>
+  <ATC_SubTask_TranslatingDef>Traduction des entrées DefInjected en cours...</ATC_SubTask_TranslatingDef>
+  <ATC_Log_SkippedMod>Mod ignoré : {0}</ATC_Log_SkippedMod>
+  <ATC_Log_MultiScanStart>Préparation de la traduction de {0} mods sélectionnés...</ATC_Log_MultiScanStart>
+  <ATC_Log_MultiScanDone>Traduction des mods sélectionnés entièrement terminée !</ATC_Log_MultiScanDone>
+  <ATC_LogError_OldToxicFiles>【Attention】 Fichiers anormaux d'anciennes versions détectés. Nettoyage forcé en cours pour éviter les erreurs !</ATC_LogError_OldToxicFiles>
+  <ATC_Log_OldFilesDeleted>【System】 Fichiers anormaux obsolètes supprimés avec succès !</ATC_Log_OldFilesDeleted>
+  <ATC_Log_AutoRebuildStart>【System】 Le système va automatiquement régénérer un pack de traduction propre !</ATC_Log_AutoRebuildStart>
+  <ATC_One_click_chaos>Sélection aléatoire</ATC_One_click_chaos>
+  <ATC_Rickroll>Ne cliquez surtout pas ici...</ATC_Rickroll>
+  <ATC_SelectAll>Tout sélectionner</ATC_SelectAll>
+  <ATC_DeselectAll>Tout désélectionner</ATC_DeselectAll>
+  <ATC_Log_UIInterceptorStarted>Intercepteur dynamique d'interface activé ! Initialisation du cache en arrière-plan...</ATC_Log_UIInterceptorStarted>
+  <ATC_Log_UICacheLoaded>{0} lignes de cache d'interface câblées chargées avec succès !</ATC_Log_UICacheLoaded>
+  <ATC_LogError_UICacheLoadFailed>Échec de lecture du cache d'interface : {0}</ATC_LogError_UICacheLoadFailed>
+  <ATC_LogError_UICacheSaveFailed>Échec d'enregistrement du cache d'interface : {0}</ATC_LogError_UICacheSaveFailed>
+  <ATC_EnableUIInterceptor>Activer l'interception dynamique de l'interface 【Attention : impact possible sur les performances】</ATC_EnableUIInterceptor>
+  <ATC_EnableUINewTranslation>Autoriser l'intercepteur UI a demander de nouvelles traductions IA (desactive = remplacement en cache uniquement)</ATC_EnableUINewTranslation>
+  <ATC_EnableUIErrorLogInterception>Activer l'interception UI du journal d'erreurs (consomme beaucoup plus de tokens)</ATC_EnableUIErrorLogInterception>
+  <ATC_TranslateWorkbenchModNames>Translate mod names in the intelligent patch-up list (keeps original names)</ATC_TranslateWorkbenchModNames>
+  <ATC_Log_AdvancedDetoxSuccess>Détoxification avancée terminée ! Retrait chirurgical de {0} balises non conformes pour protéger vos traductions (réparation de {1} fichiers) !</ATC_Log_AdvancedDetoxSuccess>
+  <ATC_DeleteModTrans_Btn>Supprimer la traduction</ATC_DeleteModTrans_Btn>
+  <ATC_DeleteModTrans_Title>Incinérateur de traductions (sélectionnez les mods à vider de leurs traductions)</ATC_DeleteModTrans_Title>
+  <ATC_ConfirmDelete_Btn>Confirmer la suppression de la traduction de {0} mods (irréversible !)</ATC_ConfirmDelete_Btn>
+  <ATC_Log_DeleteTransSuccess>🗑️ [ATC System] Fichiers de traduction supprimés avec succès pour {0} mods (nettoyage de {1} fichiers) !</ATC_Log_DeleteTransSuccess>
+  <ATC_Message_DeleteTransSuccess>{0} fichiers de traduction supprimés avec succès ! Redémarrage du jeu conseillé pour appliquer les changements.</ATC_Message_DeleteTransSuccess>
+  <ATC_Message_DeleteTransError>⚠️ Erreur lors de la suppression des fichiers de traduction : {0}</ATC_Message_DeleteTransError>
+  <ATC_InputOrSelectModel>Saisissez ou sélectionnez un modèle...</ATC_InputOrSelectModel>
+  <ATC_Msg_NoModelListManualInput>La liste des modèles est vide, saisissez le nom du modèle manuellement !</ATC_Msg_NoModelListManualInput>
+  <ATC_Stats_Session>Traduit cette session : {0} caractères</ATC_Stats_Session>
+  <ATC_Stats_Total>Cumul des traductions : {0} caractères</ATC_Stats_Total>
+  <ATC_Stats_UIQueue>File d'attente UI : {0}</ATC_Stats_UIQueue>
+  <ATC_Stats_UICache>Lignes UI en cache : {0}</ATC_Stats_UICache>
+  <ATC_Log_AIFormatRetry>[API] AI returned empty or invalid JSON. Retrying translation automatically (attempt {0})...</ATC_Log_AIFormatRetry>
+  <ATC_Log_AIFormatRecovered>[API] Retranslation completed. AI response format is correct.</ATC_Log_AIFormatRecovered>
+  <ATC_Log_ValidationClean>[Validation] Translation structure check completed. No format fixes were needed.</ATC_Log_ValidationClean>
+  <ATC_Log_ValidationSummary>[Validation] Auto fixes: newline {0}, rule prefix {1}, protected token {2}, high-risk fallback {3}, invalid XML keys skipped {4}.</ATC_Log_ValidationSummary>
+  <ATC_Profile_Current>Current profile: {0} strings per batch, {1} format retries, {2}s timeout floor</ATC_Profile_Current>
+  <ATC_Profile_DeepSeek>DeepSeek: conservative batches to reduce empty or invalid JSON responses.</ATC_Profile_DeepSeek>
+  <ATC_Profile_Google>Google/Gemini: standard batches for stable high-volume translation.</ATC_Profile_Google>
+  <ATC_Profile_DeepL>DeepL: XML tag protection with no LLM JSON parse retry.</ATC_Profile_DeepL>
+  <ATC_Profile_Custom>Custom OpenAI: conservative timeout for local or proxy APIs.</ATC_Profile_Custom>
+  <ATC_Profile_OpenRouter>OpenRouter: batch size and timeout adapt to model type.</ATC_Profile_OpenRouter>
+  <ATC_Profile_Default>General profile: balances speed and format stability.</ATC_Profile_Default>
+  <ATC_Perf_Api>API active {0}, avg {1}ms, last {2}ms</ATC_Perf_Api>
+  <ATC_Perf_MemoryDrop>Last airdrop {0}ms, Keyed {1}, Defs {2}</ATC_Perf_MemoryDrop>
+  <ATC_Perf_UI>UI queue {0}, pending {1}, ignored cache {2}</ATC_Perf_UI>
+  <ATC_Btn_RestoreLatestBackup>Restore Latest Translation Backup</ATC_Btn_RestoreLatestBackup>
+  <ATC_Msg_ConfirmRestoreLatestBackup>This will restore translations from the latest backup ZIP for each active mod, then run one memory airdrop. Continue?</ATC_Msg_ConfirmRestoreLatestBackup>
+  <ATC_Msg_RestoreLatestBackupDone>Restored latest backups for {0} mods.</ATC_Msg_RestoreLatestBackupDone>
+  <ATC_Log_BatchDownloadSummary>[Cloud] Batch download complete: {0} succeeded, {1} failed, total {2}.</ATC_Log_BatchDownloadSummary>
+  <ATC_Log_BatchDownloadFailedList>[Cloud] Failed mods: {0}</ATC_Log_BatchDownloadFailedList>
+  <ATC_ShowOriginalUI>Afficher l'original de l'interface (affiche l'anglais d'origine au survol)</ATC_ShowOriginalUI>
+  <ATC_OriginalText>Original</ATC_OriginalText>
+  <ATC_Log_MemoryDropSuccess>[Parachutage en mémoire] {0} lignes système et {1} définitions d'objets injectées avec succès !</ATC_Log_MemoryDropSuccess>
+  <ATC_LogError_MemoryDropFailed>[Échec du parachutage en mémoire] {0}</ATC_LogError_MemoryDropFailed>
+  <ATC_Button_HotReload>Réinjection à chaud en un clic (pas besoin de redémarrer !)</ATC_Button_HotReload>
+  <ATC_Message_HotReloadSuccess>🪂 [Parachutage en mémoire] Données de traduction injectées avec succès, le cache de l'interface a été actualisé !</ATC_Message_HotReloadSuccess>
+  <ATC_Log_HotReloadSuccess>🪂 [Parachutage en mémoire] Traduction injectée au cœur du système, cache de l'interface entièrement actualisé !</ATC_Log_HotReloadSuccess>
+  <ATC_LogError_InvalidXmlKey>[XML Defender] L'IA a renvoyé une clé avec des caractères invalides, ligne ignorée : {0}</ATC_LogError_InvalidXmlKey>
+  <ATC_LogError_AuthFailed>[Erreur d'authentification API] Le fournisseur [{0}] a renvoyé l'erreur 401. Veuillez vérifier votre clé API.</ATC_LogError_AuthFailed>
+  <ATC_LogError_RateLimit>[Limite de requêtes API] Le fournisseur [{0}] a renvoyé l'erreur 429. Le délai d'attente a été automatiquement augmenté.</ATC_LogError_RateLimit>
+  <ATC_Tag_FromSimplified>[Depuis le chin. simpl.]</ATC_Tag_FromSimplified>
+  <ATC_Tag_FromTraditional>[Depuis le chin. trad.]</ATC_Tag_FromTraditional>
+  <ATC_Log_SkipExistingTranslation>[Skip] Le mod [{0}] intègre déjà {1} lignes traduites, traduction ignorée pour éviter les doublons.</ATC_Log_SkipExistingTranslation>
+  <ATC_Lang_DeepL_FreeNote>DeepL Free (Détection automatique)</ATC_Lang_DeepL_FreeNote>
+  <ATC_Lang_DeepL_ProNote>DeepL Pro (Détection automatique)</ATC_Lang_DeepL_ProNote>
+  <ATC_LogError_DeepL_LangNotSupport>[DeepL] La langue cible [{0}] n'est pas supportée par DeepL. Veuillez utiliser un autre fournisseur.</ATC_LogError_DeepL_LangNotSupport>
+  <ATC_Log_MemoryDropQueued>[Parachutage en mémoire] Placé dans la file d'attente du thread principal. Injection au prochain tick...</ATC_Log_MemoryDropQueued>
+  <ATC_Log_MemoryDropSkipMainThread>[Parachutage en mémoire] Appel détecté depuis un thread d'arrière-plan. Traitement redirigé vers le thread principal.</ATC_Log_MemoryDropSkipMainThread>
+  <ATC_ExportTrans_Btn>📦 Exportation rapide du pack ⚠️ Limites de l'IA</ATC_ExportTrans_Btn>
+  <ATC_ExportEula_Title>⚠️ Licence d'exportation et droits d'auteur (v{0})</ATC_ExportEula_Title>
+  <ATC_ExportEula_CountdownLabel>Veuillez lire attentivement (encore {0} secondes restantes)</ATC_ExportEula_CountdownLabel>
+  <ATC_ExportEula_CountdownDone>Veuillez cocher les trois clauses ci-dessous</ATC_ExportEula_CountdownDone>
+  <ATC_ExportEula_Check1>J'ai lu attentivement et compris l'intégralité des clauses ci-dessus</ATC_ExportEula_Check1>
+  <ATC_ExportEula_Check2>Je m'engage à utiliser ces fichiers uniquement pour mon jeu personnel ou comme base de travail pour une relecture manuelle</ATC_ExportEula_Check2>
+  <ATC_ExportEula_Check3>Je reconnais être seul responsable de toutes les conséquences juridiques d'une éventuelle diffusion publique</ATC_ExportEula_Check3>
+  <ATC_ExportEula_ConfirmBtn>Confirmer et exporter</ATC_ExportEula_ConfirmBtn>
+  <ATC_ExportEula_CancelBtn>Annuler</ATC_ExportEula_CancelBtn>
+  <ATC_ExportEula_NeedAllChecks>Vous devez cocher les trois cases pour continuer</ATC_ExportEula_NeedAllChecks>
+  <ATC_ExportEula_FullText>📜 Respect du droit d'auteur\nLes droits d'auteur des textes d'origine appartiennent exclusivement aux auteurs des mods originaux. Les traductions générées par l'IA sont considérées comme des « œuvres dérivées (Derivative Work) ». Conformément à la législation internationale, leur diffusion publique requiert le consentement explicite de l'auteur du mod original.\n\n🚫 Clauses strictement interdites\n• Interdiction formelle d'importer directement ces fichiers sur le Steam Workshop\n• Interdiction de publier ces packs sur NEXUS / Mod.io ou tout autre espace public\n• Interdiction de partager publiquement ces fichiers par lien cloud (Google Drive, Dropbox, Yandex, etc.)\n• Interdiction de distribuer ces fichiers via torrent, Discord ou autres canaux similaires\n• Interdiction de faire passer cette traduction automatique pour une localisation officielle ou le travail d'un groupe de traduction humain\n• Interdiction de toute utilisation commerciale, sous quelque forme que ce soit\n\n✅ Usages autorisés\n• Utilisation locale sur votre ordinateur personnel à des fins de jeu privé\n• Utilisation comme brouillon de base par des traducteurs humains pour polissage (même après cela, la publication requiert l'autorisation de l'auteur du mod)\n• Envoi direct à l'auteur du mod original comme contribution linguistique d'aide\n• Partage privé et restreint avec des proches sans aucun accès public\n\n📋 Déclaration de neutralité de l'outil\nCette application est conçue uniquement comme un outil d'assistance à la traduction locale sur votre ordinateur. Le programme :\n• Ne téléversera jamais vos fichiers sur internet à votre insu\n• Ne collecte aucune donnée utilisateur confidentielle\n• Ne facilite ni n'encourage la diffusion illégale d'œuvres dérivées\n• Ne cautionne aucune violation des droits d'auteur\n\n⚖️ Clause de non-responsabilité\nLe développeur de cette application n'est pas responsable des actes de diffusion ou de partage effectués par les utilisateurs. Tout litige lié au droit d'auteur, conflit de communauté ou poursuite judiciaire résultant de l'exportation et du partage de vos fichiers relève de votre seule responsabilité.\n\n🚨 Conséquences juridiques\nLa violation de ces conditions peut entraîner :\n• Des demandes de retrait DMCA et la suppression des fichiers concernés\n• Le bannissement permanent de votre compte Steam\n• Des poursuites civiles en dommages et intérêts de la part des auteurs de mods\n• Des sanctions pénales conformément aux lois sur le droit d'auteur de votre pays\n\n⏰ Validité de l'accord\nCe consentement est valide pendant 30 jours. Passé ce délai, le système vous demandera de prendre connaissance et de confirmer à nouveau les règles afin de vous tenir informé des éventuels changements.\n\n📝 Enregistrement du consentement\nUn « enregistrement de consentement » (horodatage, version, identifiants système anonymes) est conservé localement comme preuve de votre acceptation. Veuillez ne pas supprimer ce fichier.</ATC_ExportEula_FullText>
+  <ATC_ExportReminder_Title>📦 Avertissement avant exportation</ATC_ExportReminder_Title>
+  <ATC_ExportReminder_AlreadyAccepted>Vous avez déjà accepté l'EULA v{1} le {0}</ATC_ExportReminder_AlreadyAccepted>
+  <ATC_ExportReminder_DaysLeft>Ce consentement reste valide encore {0} jours</ATC_ExportReminder_DaysLeft>
+  <ATC_ExportReminder_KeyPoints>⚠️ Rappel des règles fondamentales :</ATC_ExportReminder_KeyPoints>
+  <ATC_ExportReminder_Rule1>❌ Interdiction d'importer sur le Steam Workshop</ATC_ExportReminder_Rule1>
+  <ATC_ExportReminder_Rule2>❌ Interdiction de toute diffusion publique</ATC_ExportReminder_Rule2>
+  <ATC_ExportReminder_Rule3>✅ Autorisé uniquement pour un usage personnel ou relecture manuelle</ATC_ExportReminder_Rule3>
+  <ATC_ExportReminder_Continue>Je comprends, continuer l'exportation</ATC_ExportReminder_Continue>
+  <ATC_ExportReminder_RereadEula>Relire l'EULA en entier</ATC_ExportReminder_RereadEula>
+  <ATC_ExportWindow_Title>📦 Choisir les mods à exporter</ATC_ExportWindow_Title>
+  <ATC_ExportWindow_SearchHint>Rechercher un mod par nom...</ATC_ExportWindow_SearchHint>
+  <ATC_ExportWindow_DetectedCount>{0} mods traduits détectés</ATC_ExportWindow_DetectedCount>
+  <ATC_ExportWindow_NoFullSelectNotice>⚠️ Veuillez sélectionner manuellement (protection contre les abus : le bouton « Tout sélectionner » est volontairement désactivé)</ATC_ExportWindow_NoFullSelectNotice>
+  <ATC_ExportWindow_ModInfo_DefCount>Traduit : {0} DefInjected + {1} lignes Keyed</ATC_ExportWindow_ModInfo_DefCount>
+  <ATC_ExportWindow_OutputPath>💾 Chemin d'enregistrement : {0}</ATC_ExportWindow_OutputPath>
+  <ATC_ExportWindow_WatermarkNotice>⚠️ Un filigrane de traduction automatique sera ajouté dans chaque fichier XML</ATC_ExportWindow_WatermarkNotice>
+  <ATC_ExportWindow_ConfirmBtn>Exporter les {0} mods sélectionnés</ATC_ExportWindow_ConfirmBtn>
+  <ATC_ExportWindow_NoModSelected>Veuillez sélectionner au moins un mod</ATC_ExportWindow_NoModSelected>
+  <ATC_ExportWindow_NoTranslationFound>Aucun mod traduit trouvé. Veuillez d'abord lancer une traduction.</ATC_ExportWindow_NoTranslationFound>
+  <ATC_Export_Success_Title>Exportation réussie</ATC_Export_Success_Title>
+  <ATC_Export_Success_Message>Exportation réussie de {0} mods (soit {1} fichiers total) !\n\nChemin d'accès : {2}</ATC_Export_Success_Message>
+  <ATC_Export_Failed_Message>Échec de l'exportation : {0}</ATC_Export_Failed_Message>
+  <ATC_Log_EulaAccepted>[EULA] L'utilisateur a accepté les termes de la version {0}, enregistrement inscrit au registre de l'appareil.</ATC_Log_EulaAccepted>
+  <ATC_Log_ExportStart>📦 Préparation de l'exportation de {0} mods...</ATC_Log_ExportStart>
+  <ATC_Log_ExportComplete>✅ Exportation terminée ! Mods : {0}, fichiers : {1}.</ATC_Log_ExportComplete>
+  <ATC_Log_ExportFailed>❌ Échec de l'exportation : {0}</ATC_Log_ExportFailed>
+  <ATC_Export_CooldownReady_Free>⏱️ État actuel : Prêt à exporter (le temps d'attente a été ignoré pour cette session)</ATC_Export_CooldownReady_Free>
+  <ATC_Export_CooldownReady_NextWillCooldown>⏱️ État actuel : Prêt à exporter (la prochaine exportation nécessitera un temps de refroidissement de {0} s)</ATC_Export_CooldownReady_NextWillCooldown>
+  <ATC_Export_CooldownWait>⏱️ Le système refroidit, veuillez patienter {0} secondes...</ATC_Export_CooldownWait>
+  <ATC_Export_TodayCount>Exportations aujourd'hui : {0} sur 100</ATC_Export_TodayCount>
+  <ATC_Export_TooManyToday>⚠️ Vous avez épuisé votre limite quotidienne de {0} exportations. Veuillez réessayer demain.</ATC_Export_TooManyToday>
+  <ATC_Export_TooManyAtOnce>Vous ne pouvez pas exporter plus de 10 mods à la fois. Veuillez diviser votre tâche. Sélection actuelle : {0} mods.</ATC_Export_TooManyAtOnce>
+  <ATC_Export_CooldownDialogTitle>⏱️ Refroidissement du système en cours</ATC_Export_CooldownDialogTitle>
+  <ATC_Export_CooldownDialogMsg>Veuillez patienter encore {0} s avant le prochain export.\n\nCe délai de sécurité est mis en place pour éviter le siphonnage massif des bases de données. Les joueurs ordinaires ne le rencontrent pratiquement jamais.</ATC_Export_CooldownDialogMsg>
+  <ATC_ContactAuthor_Title>💌 Souhaitez-vous partager votre traduction avec l'auteur original ?</ATC_ContactAuthor_Title>
+  <ATC_ContactAuthor_JustExported>Vous venez d'exporter la localisation de {0} mods.</ATC_ContactAuthor_JustExported>
+  <ATC_ContactAuthor_DidYouKnow>🌟 Le saviez-vous ?</ATC_ContactAuthor_DidYouKnow>
+  <ATC_ContactAuthor_Intro>Envoyer votre traduction directement à l'auteur original est bien plus gratifiant que de la téléverser de façon sauvage sur le Workshop :</ATC_ContactAuthor_Intro>
+  <ATC_ContactAuthor_Benefit1>✅ L'auteur pourra l'intégrer directement à son mod officiel</ATC_ContactAuthor_Benefit1>
+  <ATC_ContactAuthor_Benefit2>✅ Votre nom figurera dans les crédits ou le journal de mise à jour du mod</ATC_ContactAuthor_Benefit2>
+  <ATC_ContactAuthor_Benefit3>✅ C'est légal et vous évitez tout litige de droits d'auteur</ATC_ContactAuthor_Benefit3>
+  <ATC_ContactAuthor_Benefit4>✅ C'est bénéfique pour toute la communauté de joueurs</ATC_ContactAuthor_Benefit4>
+  <ATC_ContactAuthor_SelectMod>Sélectionner le mod pour contacter son auteur :</ATC_ContactAuthor_SelectMod>
+  <ATC_ContactAuthor_TemplateLabel>📧 Nous vous avons préparé un modèle de message pratique :</ATC_ContactAuthor_TemplateLabel>
+  <ATC_ContactAuthor_CopyTemplate>📋 Copier le modèle d'email</ATC_ContactAuthor_CopyTemplate>
+  <ATC_ContactAuthor_OpenWorkshop>🌐 Ouvrir la page du mod sur le Steam Workshop</ATC_ContactAuthor_OpenWorkshop>
+  <ATC_ContactAuthor_TemplateCopied>✅ Modèle copié dans le presse-papiers !</ATC_ContactAuthor_TemplateCopied>
+  <ATC_ContactAuthor_CannotOpenWorkshop>Impossible d'ouvrir le Steam Workshop (Steam n'est pas lancé ou aucun lien n'est associé au mod)</ATC_ContactAuthor_CannotOpenWorkshop>
+  <ATC_ContactAuthor_Close>Fermer</ATC_ContactAuthor_Close>
+  <ATC_ContactAuthor_NoSteamMods>Aucun mod lié au Steam Workshop trouvé (ce sont probablement des dossiers de mods installés localement)</ATC_ContactAuthor_NoSteamMods>
+  <ATC_EmailTemplate_Subject>Contribution linguistique pour le mod {0}</ATC_EmailTemplate_Subject>
+  <ATC_EmailTemplate_Body>Bonjour {0},\n\nJe suis un joueur de votre mod "{1}". J'ai préparé un brouillon de traduction en {2} à l'aide d'outils d'intelligence artificielle, et je serais ravi de vous l'envoyer pour contribuer à votre travail.\n\nCette traduction comprend :\n- {3} entrées DefInjected\n- {4} entrées Keyed\n\nJe suis bien conscient qu'il s'agit d'une traduction machine qui pourrait nécessiter quelques corrections humaines avant d'être intégrée officiellement. Je souhaite vous partager ces fichiers afin que vous puissiez :\n- Les utiliser comme point de départ pour une traduction officielle\n- Les confier à un traducteur de votre communauté\n- Ou simplement vous en servir comme référence\n\nCes fichiers ont été exportés sur mon bureau via un outil appelé "Auto Translation Core". Je n'ai pas et je ne vais pas distribuer ces fichiers publiquement.\n\nSouhaitez-vous que je vous les envoie ? Je peux les joindre à ce message, ou vous les envoyer via Discord / une PR GitHub, selon votre préférence.\n\nUn grand merci pour ce mod fantastique !\n\nCordialement,\nUn joueur</ATC_EmailTemplate_Body>
+  <ATC_Export_Success_ContactAuthorBtn>💌 Offrir la traduction à l'auteur original</ATC_Export_Success_ContactAuthorBtn>
+  <ATC_Export_Success_CloseBtn>Fermer</ATC_Export_Success_CloseBtn>
+  <ATC_Log_CooldownTriggered>⏱️ [Cooldown] Exportation n°{0}. Pause de sécurité de {1} secondes activée.</ATC_Log_CooldownTriggered>
+  <ATC_Log_DailyLimitReached>🛑 [Limit] Limite quotidienne de 100 exports de fichiers atteinte.</ATC_Log_DailyLimitReached>
+  <ATC_AutoClearOldOnUpdate>Précision maximale : Effacer complètement les anciens fichiers de traduction avant la mise à jour des mods (recommandé pour éviter les bugs résiduels)</ATC_AutoClearOldOnUpdate>
+  <ATC_AutoTranslateOnUpdate>Démarrage intelligent en arrière-plan : Lancer automatiquement la traduction en arrière-plan lorsque des mises à jour sont détectées au lancement du jeu (désactivé par défaut)</ATC_AutoTranslateOnUpdate>
+  <ATC_SmartUpdateBtn>Compléter la traduction ({0} mises à jour détectées)</ATC_SmartUpdateBtn>
+  <ATC_ModUpdateStatusBtn>Compléter la traduction ({0} mods obsolètes ou non traduits trouvés)</ATC_ModUpdateStatusBtn>
+  <ATC_ClearCacheSuccess>Ancien cache de traduction effacé avec succès pour {0} mods mis à jour.</ATC_ClearCacheSuccess>
+  <ATC_Export_Readme_Full>
+		================================================================WARNING: AUTO-GENERATED MACHINE TRANSLATIONATTENTION : CE DOSSIER CONTIENT UNE TRADUCTION AUTOMATIQUE PAR IA================================================================Date de génération (Generation Time) : {0}
+		Logiciel générateur (Generator) : Auto Translation Core
+		Nombre de mods concernés (Mod Count) : {1}
+
+		Mods traduits et exportés (Exported Mods) :
+		{2}
+		================================================================
+		Clauses strictes d'interdiction (Strictly Prohibited)
+		================================================================
+
+		1. Il est formellement interdit de téléverser directement ces fichiers sur le Steam Workshop.
+		2. Il est formellement interdit de publier ces fichiers sur NEXUS, Mod.io ou d'autres ressources publiques.
+		3. Interdiction de les héberger sur des sites de partage tiers publics. Veuillez partager vos créations uniquement via le système intégré de « Hub Cloud (Cloud Hub) ».
+		4. Interdiction de faire passer ce travail pour une traduction manuelle polie ou une localisation officielle.
+		5. Tout usage commercial ou revente de ces traductions est strictement interdit.
+
+		================================================================
+		Usages et actions autorisés (Allowed Usage)
+		================================================================
+
+		1. Utilisation personnelle sur votre propre machine en mode hors-ligne.
+		2. Partage au sein du « Hub Cloud » du mod pour aider la communauté de joueurs.
+		3. Utilisation comme premier jet de travail par des équipes de traduction humaine (Upload_Workspace).
+		4. Envoi direct des fichiers à l'auteur original du mod pour intégration officielle.
+		5. Partage amical privé sans aucune mise à disposition sur un espace public.
+
+		================================================================
+		Informations juridiques (Legal Notice)
+		================================================================
+
+		Cette localisation a été générée grâce à des technologies d'intelligence artificielle et est classée comme « œuvre dérivée ».
+		Conformément aux lois internationales, la distribution de ces fichiers exige le consentement direct de l'auteur du mod original.
+
+		Toute distribution non autorisée peut entraîner :
+		- La suppression des fichiers sur plainte DMCA
+		- Le bannissement permanent de votre compte Steam
+		- Des poursuites civiles et pénales pour violation des droits d'auteur
+
+		================================================================
+	</ATC_Export_Readme_Full>
+  <ATC_Export_ConsentRecord_Full>================================================================Acceptation de l'EULA par l'utilisateur (Consent Record)Date du consentement (UTC+8) : {0}Version de l'EULA (Version) : {1}Compteur d'acceptations (Accept Count) : {2}Nom de la machine (Machine) : {3}Système d'exploitation (OS) : {4}Date d'exportation (Export Time) : {5}Clauses acceptées (Accepted Items) :[O] J'ai lu attentivement les conditions d'utilisation et je comprends les aspects juridiques[O] Je m'engage à utiliser ces fichiers uniquement à titre personnel ou comme base de travail[O] J'assume l'entière responsabilité des conséquences d'une éventuelle diffusion================================================================Important !Ceci est une confirmation automatique de votre acceptation des conditions. Veuillez conserver ce fichier.En cas de litige relatif aux droits d'auteur, il sert de preuve montrant que vous aviez connaissance des termes.================================================================</ATC_Export_ConsentRecord_Full>
+  <ATC_Tab_Main>Terminal principal</ATC_Tab_Main>
+  <ATC_Tab_Settings>Paramètres et configuration API</ATC_Tab_Settings>
+  <ATC_Log_SkipRequested>[System] L'utilisateur a forcé le passage du mod actuel...</ATC_Log_SkipRequested>
+  <ATC_Error_Unknown>Erreur système inconnue</ATC_Error_Unknown>
+  <ATC_Error_Timeout>Délai d'attente de la requête API dépassé (Timeout). Le serveur est surchargé ou votre réseau est ralenti.</ATC_Error_Timeout>
+  <ATC_Error_Connection>Impossible de se connecter au serveur {0}. Veuillez vérifier votre connexion ou vos réglages VPN/proxy.</ATC_Error_Connection>
+  <ATC_Error_Unauthorized>Clé API invalide ou solde insuffisant (HTTP 401/403).</ATC_Error_Unauthorized>
+  <ATC_Error_NetworkAbnormal>État instable de la liaison réseau principale, latence de transmission détectée</ATC_Error_NetworkAbnormal>
+  <ATC_Warning_InvalidUrlFallback>URL invalide détectée : {0}. Tentative de lancement forcé...</ATC_Warning_InvalidUrlFallback>
+  <ATC_Error_ParseFailed>L'IA a renvoyé des données non formatées (JSON invalide). Essayez de basculer vers un modèle plus performant.</ATC_Error_ParseFailed>
+  <ATC_Error_RateLimit>Fréquence de requêtes API trop élevée (HTTP 429). Augmentez l'intervalle d'attente ou faites une pause.</ATC_Error_RateLimit>
+  <ATC_Error_ServerError>Le serveur d'IA est éteint ou en maintenance (HTTP 500+). Essayez de changer de modèle ou de fournisseur.</ATC_Error_ServerError>
+  <ATC_Error_HttpGeneric>Violation du protocole réseau (HTTP {0}). Consultez le journal des erreurs détaillé.</ATC_Error_HttpGeneric>
+  <ATC_Log_RetryAttempt>Réponse HTTP {0} reçue. Tentative de rétablissement de la liaison n°{1} (attente de {2} ms)...</ATC_Log_RetryAttempt>
+  <ATC_Log_RetryTimeout>Délai d'attente dépassé. Lancement de la récupération n°{0} (pause de {1} ms)...</ATC_Log_RetryTimeout>
+  <ATC_Setting_Timeout>Délai d'attente max de l'API : {0} s</ATC_Setting_Timeout>
+  <ATC_Setting_Timeout_Tooltip>Si le serveur ne répond pas dans le temps imparti, la requête sera annulée pour une nouvelle tentative. Recommandé : 60-120\n(Lors de l'utilisation de modèles de réflexion complexes, le délai d'attente en arrière-plan est automatiquement augmenté à 300 s)</ATC_Setting_Timeout_Tooltip>
+  <ATC_FilteredCodeOnly>{0} mods sans localisation filtrés (ne contiennent que du code exécutable).</ATC_FilteredCodeOnly>
+  <ATC_FilteredModsCount>{0} mods ne nécessitant pas de traduction filtrés (code pur ou ressources graphiques seules)</ATC_FilteredModsCount>
+  <ATC_Log_DeepL_EndpointDetected>✅ Point de terminaison DeepL［{0}］connecté avec succès.</ATC_Log_DeepL_EndpointDetected>
+  <ATC_Log_FetchModelsRetry>Erreur lors de la récupération des modèles (HTTP {0}). Tentative de récupération n°{1}…</ATC_Log_FetchModelsRetry>
+  <ATC_Log_FetchModelsAutoRetryQueued>[{0}] Model lookup failed. Auto retry in {1}s (attempt {2}).</ATC_Log_FetchModelsAutoRetryQueued>
+  <ATC_Error_FetchModelsFailed>❌ Impossible de récupérer automatiquement les modèles auprès du fournisseur ［{0}］ ! （HTTP {1}） Veuillez vérifier la clé.</ATC_Error_FetchModelsFailed>
+  <ATC_Error_FetchModelsException>⚠️ Erreur lors de l'indexation des modèles de ［{0}］ : {1}</ATC_Error_FetchModelsException>
+  <ATC_Log_FakeLanguageDetected>🕵️ [Contrôle anti-paresse] Ruse de développeur détectée ! Le fichier {0} est une coquille vide de traduction. Il est envoyé de force sur notre ligne de traduction IA !</ATC_Log_FakeLanguageDetected>
+  <ATC_Tab_Cloud>☁️ Hub Cloud</ATC_Tab_Cloud>
+  <ATC_Cloud_Refresh>🔄 Actualiser la liste cloud</ATC_Cloud_Refresh>
+  <ATC_Cloud_Fetching>⏳ Connexion au cerveau Cloudflare...</ATC_Cloud_Fetching>
+  <ATC_Cloud_FetchFailed>⚠️ Impossible de charger les données du cloud. Vérifiez votre connexion Internet.</ATC_Cloud_FetchFailed>
+  <ATC_Cloud_Status_Official>👑 Traduction de qualité par équipe officielle</ATC_Cloud_Status_Official>
+  <ATC_Cloud_Status_UpdateAvailable>🟢 Mise à jour disponible sur le cloud</ATC_Cloud_Status_UpdateAvailable>
+  <ATC_Cloud_Status_Outdated>🟡 Version de traduction incertaine</ATC_Cloud_Status_Outdated>
+  <ATC_Cloud_Status_NoCloud>🔘 Le cloud est actuellement vide</ATC_Cloud_Status_NoCloud>
+  <ATC_Cloud_Status_Latest>🔵 La version correspond parfaitement</ATC_Cloud_Status_Latest>
+  <ATC_Cloud_Btn_Download>☁️ Parachuter en jeu</ATC_Cloud_Btn_Download>
+  <ATC_Cloud_Btn_Upload>⬆️ Partager une traduction</ATC_Cloud_Btn_Upload>
+  <ATC_Cloud_Btn_Uploading>⏳ Empaquetage et transmission sécurisée...</ATC_Cloud_Btn_Uploading>
+  <ATC_Cloud_LastUpdate>Date de mise à jour</ATC_Cloud_LastUpdate>
+  <ATC_Cloud_Author>Auteur de la traduction</ATC_Cloud_Author>
+  <ATC_Cloud_Nickname>👤 Pseudonyme de l'auteur</ATC_Cloud_Nickname>
+  <ATC_Cloud_AdminKey>🔑 Code d'administration sacré</ATC_Cloud_AdminKey>
+  <ATC_Cloud_Btn_DeleteLocal>🗑️ Supprimer de mon PC</ATC_Cloud_Btn_DeleteLocal>
+  <ATC_Cloud_Btn_DeleteCloud>🔥 Brûler du cloud</ATC_Cloud_Btn_DeleteCloud>
+  <ATC_Cloud_Deleting>⏳ Processus d'élimination des données...</ATC_Cloud_Deleting>
+  <ATC_Cloud_ConnectionNormal>☁️ Connexion au hub cloud stable. La base contient actuellement {0} enregistrements.</ATC_Cloud_ConnectionNormal>
+  <ATC_Cloud_NoModsWarning>⚠️ Aucun mod tiers correspondant n'a été trouvé !\n(Si vous n'utilisez que le jeu d'origine, les DLC et ce mod système, la liste sera vide !)</ATC_Cloud_NoModsWarning>
+  <ATC_Cloud_Btn_BatchOfficial>👑 Télécharger toutes les traductions officielles</ATC_Cloud_Btn_BatchOfficial>
+  <ATC_Cloud_Btn_BatchAI>🤖 Télécharger toutes les traductions IA</ATC_Cloud_Btn_BatchAI>
+  <ATC_Msg_DownloadStart>📥 Récupération des fichiers cloud : {0}...</ATC_Msg_DownloadStart>
+  <ATC_Msg_DownloadSuccess>✅ Parachutage réussi ! La traduction {0} est injectée en jeu !</ATC_Msg_DownloadSuccess>
+  <ATC_Msg_DownloadFailed>❌ Impossible de charger le fichier cloud : {0}</ATC_Msg_DownloadFailed>
+  <ATC_Msg_UploadSuccess>🚀 Téléversement réussi ! Un grand merci pour votre aide à la communauté : {0}</ATC_Msg_UploadSuccess>
+  <ATC_Msg_UploadFailed>❌ Échec de l'envoi : {0} (absence de fichiers de traduction ou blocage du cloud)</ATC_Msg_UploadFailed>
+  <ATC_Msg_DeleteCloudSuccess>🔥 Fichiers supprimés définitivement du cloud : {0}</ATC_Msg_DeleteCloudSuccess>
+  <ATC_Msg_DeleteCloudFailed>❌ Échec de la suppression du cloud (vérifiez votre code d'administration) : {0}</ATC_Msg_DeleteCloudFailed>
+  <ATC_Msg_DeleteLocalSuccess>🗑️ Le cache local de traduction pour le mod {0} a été nettoyé !</ATC_Msg_DeleteLocalSuccess>
+  <ATC_Msg_BatchNoMods>⚠️ Aucun mod local nécessitant une mise à jour ou un traitement n'a été détecté.</ATC_Msg_BatchNoMods>
+  <ATC_Msg_BatchStart>📥 Lancement de l'importation par lot pour {0} mods...</ATC_Msg_BatchStart>
+  <ATC_Msg_BatchSuccess>✅ Mise à jour par lot terminée ! Localisation injectée dans {0} sur {1} mods !</ATC_Msg_BatchSuccess>
+  <ATC_Cloud_Btn_OpenWorkspace>📂 Ouvrir l'espace de travail</ATC_Cloud_Btn_OpenWorkspace>
+  <ATC_Cloud_Btn_BatchUpload>⬆️ Envoi par lot de l'espace de travail</ATC_Cloud_Btn_BatchUpload>
+  <ATC_Msg_WorkspaceEmpty>⚠️ L'espace de travail est vide ou introuvable !</ATC_Msg_WorkspaceEmpty>
+  <ATC_Msg_BatchUploadStart>🚀 Analyse de l'espace de travail et envoi de {0} mods vers le cloud...</ATC_Msg_BatchUploadStart>
+  <ATC_Msg_BatchUploadSuccess>Envoi par lot termine ! {0} mods envoyes avec le type {1}.</ATC_Msg_BatchUploadSuccess>
+  <ATC_Cloud_BatchUploadLogLabel>Description de mise a jour pour l'envoi par lot :</ATC_Cloud_BatchUploadLogLabel>
+  <ATC_Cloud_BatchUploadLogHint>Obligatoire pour l'envoi par lot. Decrivez brievement les changements.</ATC_Cloud_BatchUploadLogHint>
+  <ATC_Msg_BatchUploadLogRequired>L'envoi par lot necessite une description de mise a jour d'au moins 5 caracteres.</ATC_Msg_BatchUploadLogRequired>
+  <ATC_Cloud_Type_Select>📝 Catégorie de la localisation publiée :</ATC_Cloud_Type_Select>
+  <ATC_Cloud_Type_AI>🤖 Traduction automatique (IA)</ATC_Cloud_Type_AI>
+  <ATC_Cloud_Type_Manual>✍️ Traduction corrigée par un humain</ATC_Cloud_Type_Manual>
+  <ATC_Cloud_Status_Manual>🟢 Traduction manuelle d'utilisateur</ATC_Cloud_Status_Manual>
+  <ATC_EmergencyResetTitle>Boîte à pharmacie d'urgence (Zone système à haut risque)</ATC_EmergencyResetTitle>
+  <ATC_Btn_FactoryReset>Réinitialiser tous les paramètres et effacer le cache local</ATC_Btn_FactoryReset>
+  <ATC_Msg_ConfirmFactoryReset>Attention : Cela effacera l'ensemble de votre cache de traduction local et videra la mémoire de l'interface. Confirmer la réinitialisation ? (Cette action est irréversible)</ATC_Msg_ConfirmFactoryReset>
+  <ATC_Btn_Confirm>Confirmer la réinitialisation de force</ATC_Btn_Confirm>
+  <ATC_Btn_Cancel>Laisser en l'état</ATC_Btn_Cancel>
+  <ATC_Log_FactoryResetSuccess>L'application a été réinitialisée avec succès aux paramètres d'usine, cache vidé.</ATC_Log_FactoryResetSuccess>
+  <ATC_Msg_FactoryResetSuccess>Réinitialisation terminée ! Tous les fichiers de traduction locaux ont été supprimés.</ATC_Msg_FactoryResetSuccess>
+  <ATC_Cloud_Downloading>Téléchargement du cloud : {0}</ATC_Cloud_Downloading>
+  <ATC_Cloud_Uploading>Envoi vers le cloud : {0}</ATC_Cloud_Uploading>
+  <ATC_LogError_DownloadCorrupted>Échec d'extraction ou archive corrompue ! Les fichiers vides ou endommagés ont été retirés. Mod : {0}, Erreur : {1}</ATC_LogError_DownloadCorrupted>
+  <ATC_Log_CloudPrefetchSuccess>Liste des fichiers à jour récupérée avec succès depuis le hub cloud (synchronisation de {0} entrées).</ATC_Log_CloudPrefetchSuccess>
+  <ATC_Error_FetchModels_NonJson>[{0}] Erreur lors de la recherche des modèles : le serveur a renvoyé des données invalides ({1}). Aperçu : {2}</ATC_Error_FetchModels_NonJson>
+  <ATC_Error_FetchModels_Unauthorized>[{0}] Échec d'authentification (401) : la clé API est rejetée par le serveur. Veuillez la vérifier.</ATC_Error_FetchModels_Unauthorized>
+  <ATC_Error_FetchModels_Forbidden>[{0}] Requête rejetée (403) : droits insuffisants ou bloqué par un pare-feu (vérifiez votre solde et les restrictions géographiques).</ATC_Error_FetchModels_Forbidden>
+  <ATC_Error_FetchModels_RateLimit>[{0}] Connexion refusée (429) : trop de requêtes sur une courte période. Veuillez réessayer plus tard.</ATC_Error_FetchModels_RateLimit>
+  <ATC_Error_FetchModels_ServerError>[{0}] Erreur interne du serveur ({1}). État instable de l'hôte. Détails : {2}</ATC_Error_FetchModels_ServerError>
+  <ATC_Error_FetchModels_Unknown>[{0}] Erreur inconnue lors de la récupération des modèles ({1}). Rapport : {2}</ATC_Error_FetchModels_Unknown>
+  <ATC_Error_FetchModelsDispatchTimeout>[{0}] Model lookup did not start in time. Please close and reopen the settings panel, or try again after the game finishes loading.</ATC_Error_FetchModelsDispatchTimeout>
+  <ATC_Error_FetchModelsWatchdogReleased>[{0}] Model lookup timed out; stuck fetching state was released. Please retry later or click Refetch Models.</ATC_Error_FetchModelsWatchdogReleased>
+  <ATC_Lang_French>Français (Français)</ATC_Lang_French>
+  <ATC_Lang_German>Allemand (Deutsch)</ATC_Lang_German>
+  <ATC_Lang_Spanish>Espagnol (Español)</ATC_Lang_Spanish>
+  <ATC_Lang_Italian>Italien (Italiano)</ATC_Lang_Italian>
+  <ATC_Lang_Polish>Polonais (Polski)</ATC_Lang_Polish>
+  <ATC_Lang_Portuguese>Portugais (Português)</ATC_Lang_Portuguese>
+  <ATC_Lang_Turkish>Turc (Türkçe)</ATC_Lang_Turkish>
+  <ATC_Cloud_SmartMerged> [Ajustement IA]</ATC_Cloud_SmartMerged>
+  <ATC_Cloud_UploadDate>Date de publication sur le cloud : {0}</ATC_Cloud_UploadDate>
+  <ATC_Cloud_TransType>Catégorie linguistique : {0}</ATC_Cloud_TransType>
+  <ATC_Cloud_IsSmartMerged>Fusion intelligente : {0}</ATC_Cloud_IsSmartMerged>
+  <ATC_Cloud_YesWithCount>Appliqué (contient {0} lignes générées par IA pour combler les manques)</ATC_Cloud_YesWithCount>
+  <ATC_Cloud_No>Non</ATC_Cloud_No>
+  <ATC_Log_MetaUpdated>Métadonnées de licence mises à jour (ajout de {0} correctifs intelligents pour combler les vides)</ATC_Log_MetaUpdated>
+  <ATC_Log_BackupSuccess>L'ancienne version de votre traduction a été déplacée vers l'espace de sauvegarde : {0}</ATC_Log_BackupSuccess>
+  <ATC_Workbench_Title>📝 Atelier interactif ATC : {0}</ATC_Workbench_Title>
+  <ATC_Workbench_SearchHint>🔍 Rechercher par texte d'origine ou traduction...</ATC_Workbench_SearchHint>
+  <ATC_Workbench_CategoryCount>📁 {0} ({1})</ATC_Workbench_CategoryCount>
+  <ATC_Workbench_CloseBtn>Fermer (sans enregistrer)</ATC_Workbench_CloseBtn>
+  <ATC_Workbench_SaveBtn>💾 Enregistrer et injecter</ATC_Workbench_SaveBtn>
+  <ATC_Cloud_Btn_Dir>Dossier du mod</ATC_Cloud_Btn_Dir>
+  <ATC_Cloud_Btn_DirTooltip>Ouvrir le dossier local pour copier manuellement des fichiers XML avant envoi sur le cloud</ATC_Cloud_Btn_DirTooltip>
+  <ATC_Cloud_Btn_WorkbenchTooltip>Lancer l'atelier de correction interactif (Translation Workbench)\nModifiez les coquilles et comblez les manques en 1 seconde !</ATC_Cloud_Btn_WorkbenchTooltip>
+  <ATC_Workbench_SaveSuccess>Vos corrections de traduction ont été sauvegardées et injectées directement en jeu !</ATC_Workbench_SaveSuccess>
+  <ATC_Log_WorkbenchSaved>L'atelier interactif a sauvegardé {0} modifications. Rechargement à chaud en cours !</ATC_Log_WorkbenchSaved>
+  <ATC_Cloud_LogTitle>Journal des modifications de version</ATC_Cloud_LogTitle>
+  <ATC_Cloud_NoLog>L'auteur n'a pas laissé de description de mise à jour pour cette version.</ATC_Cloud_NoLog>
+  <ATC_UploadPreview_Title>Console de vérification de pack avant envoi - {0}</ATC_UploadPreview_Title>
+  <ATC_UploadPreview_Loading>Vérification de l'encodage XML et analyse de sécurité des données en cours. Veuillez patienter...</ATC_UploadPreview_Loading>
+  <ATC_Preview_ClickToSee>Sélectionnez un élément à gauche pour afficher la comparaison bilingue</ATC_Preview_ClickToSee>
+  <ATC_Upload_LogLabel>Description des changements (pour informer les utilisateurs des nouveautés) :</ATC_Upload_LogLabel>
+  <ATC_Upload_LogHint>Décrivez brièvement les modifications apportées dans cette version (ex: correction d'affichage d'arme, résolution de coquilles...)</ATC_Upload_LogHint>
+  <ATC_Upload_UnlockEdit>✍️ Déverrouiller et modifier la description</ATC_Upload_UnlockEdit>
+  <ATC_Upload_EditingMode>⚠️ Mode édition actif</ATC_Upload_EditingMode>
+  <ATC_Upload_ConfirmUploadBtn>✅ Aucune erreur · Envoyer sur le cloud</ATC_Upload_ConfirmUploadBtn>
+  <ATC_Msg_UploadStart>🚀 C'est parti ! Le pack de traduction pour [{0}] est empaqueté pour être expédié vers nos serveurs...</ATC_Msg_UploadStart>
+  <ATC_Type_Official>Traducteur professionnel</ATC_Type_Official>
+  <ATC_Type_Manual>Traduction manuelle utilisateur</ATC_Type_Manual>
+  <ATC_Type_AI>Traduction automatique par IA</ATC_Type_AI>
+  <ATC_UploadPreview_NoTranslation>Aucun fichier traduisible trouvé pour téléversement !\n(Lancez d'abord l'analyse automatique par IA ou placez vos fichiers manuels dans le dossier Upload_Workspace)</ATC_UploadPreview_NoTranslation>
+  <ATC_Msg_UploadFailedNoFiles>Envoi impossible : aucun fichier de traduction trouvé !</ATC_Msg_UploadFailedNoFiles>
+  <ATC_Log_CleanedGhostTwins>[System] Afin d'éviter tout conflit linguistique, {0} anciens correctifs fantômes résiduels ont été renvoyés au néant !</ATC_Log_CleanedGhostTwins>
+  <ATC_Log_AutoStartUpdateScan>[System] Version modifiée détectée pour {0} mods. Conformément à vos préférences, la traduction en arrière-plan démarre !</ATC_Log_AutoStartUpdateScan>
+  <ATC_SubTask_TestingAPI>Vérification de la stabilité de la connexion avec l'API...</ATC_SubTask_TestingAPI>
+  <ATC_Log_PreflightCheck>Diagnostic approfondi des canaux de communication avant démarrage...</ATC_Log_PreflightCheck>
+  <ATC_LogError_ApiDeadAbort>L'API ne répond pas ! Traduction interrompue d'urgence. Veuillez vérifier votre clé d'accès et vos réglages réseau.</ATC_LogError_ApiDeadAbort>
+  <ATC_TaskFailed>Tâche rejetée / Échec</ATC_TaskFailed>
+  <ATC_Cloud_FetchListFailed>Impossible de récupérer la liste du cloud (HTTP {0}). Essai de connexion via un nœud de communication de secours...</ATC_Cloud_FetchListFailed>
+  <ATC_Cloud_ConnectionFailedLog>Connexion impossible au noyau cloud : {0}</ATC_Cloud_ConnectionFailedLog>
+  <ATC_Log_AutoSyncLanguage>Changement de langue du jeu détecté : [{0}]. Schéma linguistique du traducteur synchronisé !</ATC_Log_AutoSyncLanguage>
+  <ATC_Cloud_SelectLang>Langue cible pour les échanges cloud :</ATC_Cloud_SelectLang>
+  <ATC_Cloud_ConnectionFailed>Connexion au cloud impossible ou délai d'attente dépassé. Nous vous recommandons d'utiliser un proxy ou un accélérateur réseau : {0}</ATC_Cloud_ConnectionFailed>
+  <ATC_Cloud_UploadFallback>Délai dépassé sur la ligne principale de téléversement, basculement vers le canal de secours...</ATC_Cloud_UploadFallback>
+  <ATC_Cloud_UploadFailed>Échec de l'envoi cloud : {0}</ATC_Cloud_UploadFailed>
+  <ATC_Cloud_DeleteFallback>Le canal principal de suppression est bloqué, lancement de la procédure de secours pour effacement...</ATC_Cloud_DeleteFallback>
+  <ATC_Cloud_DeleteFailed>Échec de la suppression : {0}</ATC_Cloud_DeleteFailed>
+  <ATC_Cloud_MainRouteCrashed>Connexion au serveur perdue. Recherche et activation d'une voie de communication alternative disponible...</ATC_Cloud_MainRouteCrashed>
+  <ATC_Cloud_RequestRejected>Erreur de connexion, l'hôte cloud a rejeté la requête (HTTP {0})</ATC_Cloud_RequestRejected>
+  <ATC_Cloud_RetryAttemptLog>Pertes de paquets lors de la connexion au cloud. Tentative de reconnexion quantique n°{0}...</ATC_Cloud_RetryAttemptLog>
+  <ATC_Cloud_DownloadRetryFailed>Tentatives de téléchargement épuisées, liaison réseau interrompue : {0}</ATC_Cloud_DownloadRetryFailed>
+  <ATC_Tab_Editor>Éditeur global</ATC_Tab_Editor>
+  <ATC_Workbench_SearchMod>Nom du mod ou ID unique...</ATC_Workbench_SearchMod>
+  <ATC_Workbench_ShowTranslatedOnly>Afficher uniquement les mods disposant d'une traduction complète</ATC_Workbench_ShowTranslatedOnly>
+  <ATC_Workbench_SelectModHint>Veuillez sélectionner le mod cible à éditer dans la liste de gauche</ATC_Workbench_SelectModHint>
+  <ATC_Workbench_BackToList>Retourner à la liste des mods</ATC_Workbench_BackToList>
+  <ATC_Cloud_SearchHint>Rechercher par nom ou ID de mod...</ATC_Cloud_SearchHint>
+  <ATC_Btn_ClearUICache>Effacer complètement le cache temporaire et la liste d'exclusion de l'interface</ATC_Btn_ClearUICache>
+  <ATC_Msg_UICacheCleared>Le cache d'interface a été entièrement vidé, les lignes non traduites sont renvoyées pour traitement !</ATC_Msg_UICacheCleared>
+  <ATC_LogError_DeleteUICacheFailed>Échec de la suppression physique du cache d'interface sur le disque : {0}</ATC_LogError_DeleteUICacheFailed>
+  <ATC_Log_UICacheClearedFull>Le cache temporaire de l'interface ainsi que la liste d'exclusion ont été totalement purgés de l'ensemble de l'appareil !</ATC_Log_UICacheClearedFull>
+  <ATC_Workbench_GlobalSearchTitle>🔍 Recherche hors-ligne globale ultra-rapide (Global Search)</ATC_Workbench_GlobalSearchTitle>
+  <ATC_Lang_All>🌍 Toutes les langues disponibles (All)</ATC_Lang_All>
+  <ATC_Workbench_GlobalSearching>🔄 Balayage asynchrone des caches locaux du jeu en cours...</ATC_Workbench_GlobalSearching>
+  <ATC_Workbench_GlobalSearchNoResult>Aucune correspondance trouvée dans les textes de traduction.</ATC_Workbench_GlobalSearchNoResult>
+  <ATC_Msg_UploadLogRequired>⚠️ Pour préserver l'organisation de l'atelier, veuillez détailler vos modifications en bas à gauche (5 caractères minimum) !</ATC_Msg_UploadLogRequired>
+  <ATC_Btn_RepairLegacyTranslations>Repair Legacy Translation Format</ATC_Btn_RepairLegacyTranslations>
+  <ATC_Msg_RepairLegacyTranslationsDone>Legacy translation repair complete: fixed {1} entries across {0} files; {2} high-risk structure entries still need review.</ATC_Msg_RepairLegacyTranslationsDone>
+  <ATC_ApiKeyNoteHint>Note : quota gratuit Gemini, secours DeepSeek, proxy, etc.</ATC_ApiKeyNoteHint>
+  <ATC_ApiKeyEnabled>Activer cette clé API</ATC_ApiKeyEnabled>
+  <ATC_Msg_ApiKeyDisabled>Cette clé API est actuellement désactivée.</ATC_Msg_ApiKeyDisabled>
+  <ATC_ModStatus_Translated>Traduit</ATC_ModStatus_Translated>
+  <ATC_ModStatus_Untranslated>Non traduit</ATC_ModStatus_Untranslated>
+  <ATC_ModStatus_Outdated>Peut être obsolète</ATC_ModStatus_Outdated>
+  <ATC_Msg_CloudUploadPatchModBlocked>Envoi bloque : {0} ressemble a un mod de localisation ou de correctif de traduction. Le partage cloud accepte uniquement les traductions injectees pour les mods originaux.</ATC_Msg_CloudUploadPatchModBlocked>
+  <ATC_Msg_CloudBatchPatchModsSkipped>{0} mods de localisation ou correctifs de traduction ignores. Ils ne seront pas envoyes au partage cloud.</ATC_Msg_CloudBatchPatchModsSkipped>
+</LanguageData>

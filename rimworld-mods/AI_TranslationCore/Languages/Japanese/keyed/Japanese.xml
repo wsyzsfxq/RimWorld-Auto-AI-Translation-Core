@@ -1,0 +1,488 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <ATC_ModTitle>AIインテリジェント翻訳ネットワーク（AI翻訳ネットワーク）V3.0</ATC_ModTitle>
+  <ATC_TargetLang>対象言語</ATC_TargetLang>
+  <ATC_Lang_Traditional>繁体字中国語 (Traditional Chinese)</ATC_Lang_Traditional>
+  <ATC_Lang_Simplified>簡体字中国語 (Simplified Chinese)</ATC_Lang_Simplified>
+  <ATC_Lang_Japanese>日本語</ATC_Lang_Japanese>
+  <ATC_Lang_Korean>韓国語</ATC_Lang_Korean>
+  <ATC_Lang_Russian>ロシア語</ATC_Lang_Russian>
+  <ATC_Lang_Ukrainian>ウクライナ語</ATC_Lang_Ukrainian>
+  <ATC_Lang_English>英語 (English)</ATC_Lang_English>
+  <ATC_CurrentProvider>現在のAIプロバイダー</ATC_CurrentProvider>
+  <ATC_ApiKey>APIキー (API Key)</ATC_ApiKey>
+  <ATC_CustomBaseUrl>カスタムAPI URL (Base URL)</ATC_CustomBaseUrl>
+  <ATC_DefaultEmpty>デフォルトは空欄にしてください</ATC_DefaultEmpty>
+  <ATC_OnlyScanActive>有効なモジュールのみスキャン</ATC_OnlyScanActive>
+  <ATC_Tooltip_TargetLang>【対象言語】\nAIが外部モジュールをどの言語に翻訳するかを設定します。</ATC_Tooltip_TargetLang>
+  <ATC_Tooltip_Provider>【AIサービスプロバイダー】\n使用するAIモデルのプロバイダーを選択します。Google (Gemini) または OpenAI の使用を強く推奨します。</ATC_Tooltip_Provider>
+  <ATC_TestConnection>接続テスト</ATC_TestConnection>
+  <ATC_TestingPulse>テストパルス送信中...</ATC_TestingPulse>
+  <ATC_FetchModels>モデルリスト取得</ATC_FetchModels>
+  <ATC_RefetchModels>モデル再取得</ATC_RefetchModels>
+  <ATC_Fetching>通信中...</ATC_Fetching>
+  <ATC_SelectModel>モデル選択</ATC_SelectModel>
+  <ATC_PlzFetchModel>先に「モデルリスト取得」をクリックしてください</ATC_PlzFetchModel>
+  <ATC_TranslateSingleMod>指定モジュールを単独翻訳</ATC_TranslateSingleMod>
+  <ATC_StartTranslation>自動補完計画、始動！</ATC_StartTranslation>
+  <ATC_StopTranslation>ライン緊急停止</ATC_StopTranslation>
+  <ATC_Tutorial_Btn>チュートリアル ＆ FAQ</ATC_Tutorial_Btn>
+  <ATC_UpdateLog_Btn>モジュール更新履歴</ATC_UpdateLog_Btn>
+  <ATC_CurrentTask>現在のタスク</ATC_CurrentTask>
+  <ATC_Idle>待機中</ATC_Idle>
+  <ATC_TaskDone>ライン作業完了！</ATC_TaskDone>
+  <ATC_LogPanelTitle>--- 生産ラインリアルタイム監視ログ ---</ATC_LogPanelTitle>
+  <ATC_ErrorLogTitle>⚠ 異常ファイル検出レポート</ATC_ErrorLogTitle>
+  <ATC_Msg_EmptyKey>キーが未入力ではテストできません！</ATC_Msg_EmptyKey>
+  <ATC_Log_TestPulse>[Test] 微量パルスを送信、[{0}] の接続状態をテスト中...</ATC_Log_TestPulse>
+  <ATC_Testing>テスト中...</ATC_Testing>
+  <ATC_Log_TestSuccess>✅ インターネットエンドポイントの応答テストに成功。通信ラインは正常に動作しています！</ATC_Log_TestSuccess>
+  <ATC_Log_TestFail>[Test] テスト失敗！ネットワークまたはAPI設定を確認してください。</ATC_Log_TestFail>
+  <ATC_Msg_TestSuccess>✅ [{0}] との安定した量子通信リンクの確立に成功！準備完了！</ATC_Msg_TestSuccess>
+  <ATC_Msg_TestFailed>❌ [{0}] とのリンクに失敗しました！転送キーまたはネットワークを確認し、ログで詳細な診断レポートを確認してください。</ATC_Msg_TestFailed>
+  <ATC_Log_TestFailed_Detail>🔧 {0} 接続テストの結果が返されませんでした。キーが無効か、対象モデルが利用不可能な可能性があります。モデルリストの再取得を試してください。</ATC_Log_TestFailed_Detail>
+  <ATC_Log_TestException>💥 {0} テスト中に例外が発生しました：{1}</ATC_Log_TestException>
+  <ATC_Error_TestConnectionTimeout>[{0}] Test connection timed out; stuck testing state was released. Please check network/model and retry.</ATC_Error_TestConnectionTimeout>
+  <ATC_Log_Init>[Init] モジュールを読み込み中、グローバル翻訳共有プールを構築しています...</ATC_Log_Init>
+  <ATC_Log_InitDone>[Init] 完了！計 {0} 件の Def 翻訳を収集しました。</ATC_Log_InitDone>
+  <ATC_Log_StartScan>Auto Translation Core 起動！対象モジュール数: {0}</ATC_Log_StartScan>
+  <ATC_Log_ScanMod> [Start] モジュールスキャン: {0}</ATC_Log_ScanMod>
+  <ATC_Log_SkipMod> [Skip] Languages も Defs もありません。純粋なコードモジュールです。</ATC_Log_SkipMod>
+  <ATC_Log_KeyedScan> [Keyed] スキャン中...</ATC_Log_KeyedScan>
+  <ATC_Log_DefScan> [DefInjected] ディープスキャンおよびグローバル照合を開始...</ATC_Log_DefScan>
+  <ATC_Log_FoundMissing> [{0}] {1} 件の未翻訳箇所を発見！AI支援を要請中...</ATC_Log_FoundMissing>
+  <ATC_Log_AIFinish> [{0}] AI翻訳による補完が完了しました！</ATC_Log_AIFinish>
+  <ATC_Log_AIFail> [{0}] AI翻訳による補完に失敗しました。</ATC_Log_AIFail>
+  <ATC_Log_NoMissing> [{0}] パーツが揃っています。翻訳の必要はありません。</ATC_Log_NoMissing>
+  <ATC_Log_TaskDone> [Finish] 補完タスク、見事に完了しました！</ATC_Log_TaskDone>
+  <ATC_Log_TaskError>[Error] 生産ラインが予期せず中断されました: {0}</ATC_Log_TaskError>
+  <ATC_Log_Clean>[Clean] 生産ラインを停止し、メモリを解放しました。</ATC_Log_Clean>
+  <ATC_CancelRequested>停止命令を受信。生産ラインを緊急ブレーキ中...</ATC_CancelRequested>
+  <ATC_Log_FetchModelsSuccess>✅ [{0}] のモデルリストを自動取得しました！</ATC_Log_FetchModelsSuccess>
+  <ATC_Log_FetchModelsFail>[System] リスト取得に失敗しました。キーを確認してください。</ATC_Log_FetchModelsFail>
+  <ATC_Log_AllTranslationWritten>[Success] すべての翻訳が !Translation_AI_Pack に安全に書き込まれました！</ATC_Log_AllTranslationWritten>
+  <ATC_Log_NetworkRetry>[System] ネットワークの変動またはサーバーの混雑を検出。自動再試行メカニズムが作動しました...</ATC_Log_NetworkRetry>
+  <ATC_Log_MigrateSuccess>[システム引っ越し] {0} の {1} を新しいアーキテクチャへシームレスに移行しました！</ATC_Log_MigrateSuccess>
+  <ATC_Log_StartSingleMod>[System] モジュールの単独翻訳を開始: {0}</ATC_Log_StartSingleMod>
+  <ATC_Log_SingleModDone>単独翻訳タスク、見事に完了しました！</ATC_Log_SingleModDone>
+  <ATC_Log_ProcessAborted>[System] 生産ラインは安全に中断されました。</ATC_Log_ProcessAborted>
+  <ATC_Log_ProcessAbortedWithSave>[System] 生産ラインは安全に中断され、翻訳済みの内容は保存されました。</ATC_Log_ProcessAbortedWithSave>
+  <ATC_TaskAborted>中断されました</ATC_TaskAborted>
+  <ATC_LogError_Format>[{0}] フォーマットエラー: {1}</ATC_LogError_Format>
+  <ATC_LogError_Unknown>[{0}] 未知の異常: {1}</ATC_LogError_Unknown>
+  <ATC_LogError_FileCorrupted>[ファイル破損] 解析不可能なファイルをスキップ: {0}</ATC_LogError_FileCorrupted>
+  <ATC_LogError_ApiConn>[API] 通信異常: {0}</ATC_LogError_ApiConn>
+  <ATC_FinishMessage_Title>翻訳完了のお知らせ</ATC_FinishMessage_Title>
+  <ATC_FinishMessage_OK>了解！(OK)</ATC_FinishMessage_OK>
+  <ATC_FinishMessage_Text>翻訳タスクが正常に完了しました！\n【🪂 メモリエアドロップ大成功】\nシステムは公式の正規ルートを通じて、最新の翻訳をゲームメモリに直接注入しました！\nこのウィンドウと設定パネルは今すぐ閉じて構いません。画面上のアイテムや技術は瞬時に設定した言語に変わっています！\n(注：実体の XML バックアップはバックグラウンドで自動生成されていますが、モジュールリストでチェックを入れる必要は【一切ありません】！次回の起動時もシステムが自動的にステルスマウントするため、並び順の競合とは完全に決別できます！快適なゲームライフを！)</ATC_FinishMessage_Text>
+  <ATC_Tutorial_FullText>【V3.0 チュートリアル：フリーライドから貢献まで】\n1. ☁️ 【まずはクラウドをチェック、車輪の再発明は無用】\n翻訳を準備する前に、まずは「クラウドワークショップ」タブに足を運ぶことを強くお勧めします！翻訳有志の大おやびんや他のプレイヤーが、すでに精緻な翻訳パックをアップロードしているかもしれません。ワンクリックでの一括ダウンロードに対応しており、瞬時に完成された翻訳を楽しめます！\n\n2. ⚙️ 【APIを設定して翻訳を準備】\nクラウドに対象のモジュールがない場合は、まず設定ページで「対象言語」(日本語、中国語、英語、ロシア語などの多言語に対応) と「プロバイダー」(台湾では無料の Gemini、大陸では DeepSeek を推奨) を選択してください。「無限APIマガジン」に対応しており、「＋」ボタンをクリックして複数のインターフェースを追加すると、システムが自動的にタスクをローテーション分配し、無料枠を限界まで搾り取ります！\n(キーを貼り付けた後は、検索を押す必要は全くありません。システムがバックグラウンドで自動的にモデルを取得します！)\n\n3. 🚀 【ワンクリック翻訳とメモリエアドロップ】\nスレッド数を設定後、「🚀 すべてのモジュールをワンクリック翻訳」をクリックするか、「🎯 単一/複数モジュールの翻訳」を使用してピンポイント爆撃を行えます。翻訳完了後は【ゲームを再起動する必要は一切ありません】！システムが自動的に「メモリエアドロップ」を発動し、翻訳をゲームに瞬時に注入します。パネルを閉じれば効果を確認できます！\n\n4. 🔍 【グローバルワークベンチとアップロード共有】\n機械翻訳が少し不自然だと感じましたか？「グローバル編集」タブに入り、強力な「グローバルテキスト検索」を使って誤字を一発で炙り出し、修正しましょう！修正完了後は、ぜひクラウドワークショップに戻り、あなたの努力の結晶を「手動精翻 (Manual)」タグを付けてアップロードし、世界中のボッチプレイヤーを救ってください！\n\n【よくある質問 Ｑ＆Ａ】\nQ: なぜクラウドワークショップに「削除」ボタンがないのですか？\nA: 皆さんの努力の結晶を保護するため、削除機能は特権コードを持つ管理者または翻訳グループのみに制限されています。一般のプレイヤーは安心してアップロードしてください。システムが賢くマージし、最新の高品質バージョンを自動的に保持します！\n\nQ: 「ワンクリック注入ホットリロード」とは何ですか？\nA: あなたがハードコアなプレイヤーで、生成された翻訳 XML ファイルを手動で修正するのが好きな場合。保存後、このボタンをクリックするだけで、システムが瞬時にフロントエンドのUIキャッシュをリフレッシュしてメモリに再エドロップし、修正結果を秒速で確認できます！\n\nQ: なぜ生産ラインのログに「再試行待ち」という赤字の警告が出続けるのですか？\nA: これはAPIサーバーが居眠りしているか、レートリミット（頻度制限）に達しているためです！モジュールには超強力な【指数バックオフ再試行】メカニズムが内蔵されています。その後に翻訳成功が表示されていれば、そのまま弾をしばらく飛ばしておけば（放置しておけば）大丈夫です～(≧∀≦)ゞ\n\nQ: ローカル環境（LM Studio / Ollama など）を使用すると接続に失敗し続けます。\nA: 1.「カスタム Base URL」が正しく入力されているか確認してください（例：http://localhost:1234）。サフィックスを忘れても、システムが自動的に /v1 を補完するのでご安心ください！\n2. APIキー (API Key) は絶対に空欄にしないでください！ローカル環境の場合は、適当に数文字入力してください。\n\nQ: 動的UIインターセプターは重くなりませんか？\nA: 本システムには「光速の O(1) テーブル参照」と「防爆弁」メカニズムが導入されており、エラーの津波に遭遇してもゲームは 120FPS を維持します。ただし、この機能は画面上の未翻訳の外国語をすべて捕捉するため、【有料API】を使用している場合は、請求額が爆発しないよう、有効化を慎重に検討してください！</ATC_Tutorial_FullText>
+  <ATC_UpdateLog_FullText>--- V3.0 クラウドワークショップ ＆ グローバルエディタ実装 ---\n• 新機能【クラウド共有ワークショップ】：多言語翻訳パックのワンクリックアップロード・ダウンロードに対応。「翻訳組精翻」「プレイヤー精翻」「AI機翻」の3つの品質タグを備え、3-2-1インテリジェントバージョン管理、論理削除保護、更新履歴機能を内蔵。\n• 強化【グローバル翻訳ワークベンチ】：非同期バックグラウンド「グローバルテキスト検索」と動的プログレスバーを追加。数百個のモジュールがインストールされていても、すべてのキャッシュと内蔵翻訳をスムーズに検索可能。多言語フィルタリングとワンクリックジャンプ編集をサポート。\n• リファクタリング【ネットワーク転送コア】：Unityネイティブのネットワークエンジン (UnityWebRequest) に全面的にアップグレードし、UTF-8圧縮を強制。過去にWindowsのシステムエンコーディングの競合によって発生していたエラーやZIP破損の問題を根本から根絶。\n• 実装【インテリジェント微小デトックス】：低層の危険な変数や顔モジュール (例: FaceDef) を自動的にフィルタリングし、翻訳後のポーンのグラフィック崩壊災害を終息。起動時に旧バージョンの残存した偽翻訳ファイルを自動的にクリーンアップ。\n\n--- V2.2 コアアーキテクチャ ＆ 接続安定性アップデート ---\n• 最適化【APIリクエストアーキテクチャ】：低層ロジックを再構築し、異なるAIプロバイダーとの互換性とデータ解析の安定性を向上。\n• 実装【自動バックオフ再試行】：サーバーの混雑 (HTTP 429) や一時的な接続異常 (HTTP 500+) に遭遇した際、システムは自動的に冷却（インターバルを設置）して再試行し、翻訳が中断される確率を低減。\n• 新機能【タイムアウトカスタム ＆ テスト】：設定インターフェースに「接続テスト」ボタンと「タイムアウト秒数スライダー」を追加。(ディープシンキングモデルを使用する場合、バックグラウンドは強制的に長めの待ち時間を適応します)。\n• 改良【グローバルエラー通知】：スレッド間UIブリッジ技術を導入。API接続異常やキー無効が発生した場合、ゲーム画面の左上にリアルタイムでポップアップ通知が表示されるようになり、ログ確認のために頻繁にタブを切り替える必要がなくなりました。\n\n--- V2.1 翻訳体験と知能のアップグレード ---\n• 実装【ワンクリックパックエクスポート】：翻訳済みのモジュールをデスクトップへ独立して抽出する機能をサポート。原作者や翻訳グループへの提出・ブラッシュアップに便利な「機械翻訳警告」の透かし入り。\n• 新機能【インテリジェントモジュール更新レーダー】：システムが「更新あり」または「未翻訳」のモジュールを自動検出できるようになりました。\n• サポート【自動温故知新】：有効にすると、モジュールの更新時にシステムが古い翻訳ファイルを自動的に削除して再翻訳し、テキストが常に最新であることを保証します。\n• 修正【文字列改行異常】：一部の `\n` が正常に改行されず、レイアウト崩れを引き起こしていた低層の問題を修正。\n\n--- V2.0 パフォーマンス最適化 ＆ 即時レンダリング ---\n• 実裝【即時メモリ注入】：翻訳完了後、システムは翻訳結果をゲームメモリに直接書き込み、画面が即座に対象言語に切り替わります。次回起動時にも自動的に有効になり、読み込み順序の競合を減少させます。\n• 最適化【動的UIインターセプト性能】：低層のインターセプト演奏ロジックとキャッシュ設計を再構築し、ゲームのフレームレート (FPS) へのパフォーマンス消費を大幅に削減。\n• 新機能【ワンクリックホットリロード】：XML翻訳ファイルを手動で修正した後、ボタンをクリックするだけで瞬時にUIキャッシュをリフレッシュでき、ゲームを再起動する必要がありません。\n\n--- V1.0 正式版リリース ---\n• 実装【動的UIインターセプトシステム】：設定パネルや静的XMLで翻訳が漏れた外国語テキストをリアルタイムでインターセプトし、自動翻訳する機能をサポート。\n• 実装【原文対照機能】：マウスホバーで原文を表示する機能をサポートし、バイリンガルでの対照を容易にしました。</ATC_UpdateLog_FullText>
+  <ATC_ApiConfigTitle>APIインターフェース マガジン設定 (複数同時並行ラウンドロビン対応)</ATC_ApiConfigTitle>
+  <ATC_Provider>プロバイダー</ATC_Provider>
+  <ATC_CustomUrlOptional>(カスタム BaseUrl、空欄時はデフォルトを使用)</ATC_CustomUrlOptional>
+  <ATC_Delete>削除</ATC_Delete>
+  <ATC_PasteKey>(APIキーを貼り付け)</ATC_PasteKey>
+  <ATC_FetchingModel>モデル検索中...</ATC_FetchingModel>
+  <ATC_NoModelWaitKey>モデル未選択 (Key貼り付けで自動取得)</ATC_NoModelWaitKey>
+  <ATC_AddApiBtn>APIインターフェースを追加 (Add API Interface)</ATC_AddApiBtn>
+  <ATC_EmergencyStop>翻訳停止 (Emergency Stop)</ATC_EmergencyStop>
+  <ATC_StartFullScan>全モジュール一括翻訳 (Start Full Scan)</ATC_StartFullScan>
+  <ATC_EmptyConfigWarning>有効なAPIパラメータを少なくとも1組設定してください！</ATC_EmptyConfigWarning>
+  <ATC_MaxThreads>同時実行スレッド数 (Max Threads)</ATC_MaxThreads>
+  <ATC_MaxThreadsTip>強力な推奨: 有効なインターフェース数 x 3 の数字</ATC_MaxThreadsTip>
+  <ATC_Log_ApiRecovered>[API] 再接続成功！生産ラインが高速運転を再開しました。</ATC_Log_ApiRecovered>
+  <ATC_Log_ApiRetry>[API] 翻訳ビジーまたはタイムアウト。{0} 秒後に再試行します...</ATC_Log_ApiRetry>
+  <ATC_Log_ApiFallback>[API] ブロック翻訳が完全に失敗しました。「格下げタイマンモード」を起動し、一文ずつ解読します...</ATC_Log_ApiFallback>
+  <ATC_LogError_ApiCritical>[API致命的エラー] 【{0}】 にあるテキストの翻訳に完全に失敗しました！原文を保持します。</ATC_LogError_ApiCritical>
+  <ATC_TranslateMultiMod>単一/複数選択翻訳</ATC_TranslateMultiMod>
+  <ATC_SkipCurrentMod>現在のModをスキップ</ATC_SkipCurrentMod>
+  <ATC_MultiSelect_Title>翻訳するモジュールを選択 (複数選択可)</ATC_MultiSelect_Title>
+  <ATC_MultiSelect_Search>ここにモジュール名を入力して検索...</ATC_MultiSelect_Search>
+  <ATC_MultiSelect_Start>チェックされた {0} 個のモジュールの翻訳を開始</ATC_MultiSelect_Start>
+  <ATC_SubTask_AnalyzingDict>ローカルの翻訳テキストを分析中...</ATC_SubTask_AnalyzingDict>
+  <ATC_SubTask_BuildingDict>辞書を構築中: {0}</ATC_SubTask_BuildingDict>
+  <ATC_SubTask_DictDone>辞書の構築が完了しました！</ATC_SubTask_DictDone>
+  <ATC_SubTask_Scanning>テキストをスキャン中...</ATC_SubTask_Scanning>
+  <ATC_SubTask_TranslatingKeyed>Keyed を翻訳中...</ATC_SubTask_TranslatingKeyed>
+  <ATC_SubTask_TranslatingDef>DefInjected を翻訳中...</ATC_SubTask_TranslatingDef>
+  <ATC_Log_SkippedMod>スキップされたモジュール: {0}</ATC_Log_SkippedMod>
+  <ATC_Log_MultiScanStart>チェックされた {0} 個のモジュールの翻訳準備中...</ATC_Log_MultiScanStart>
+  <ATC_Log_MultiScanDone>複数選択モジュールの翻訳タスクがすべて完了しました！</ATC_Log_MultiScanDone>
+  <ATC_LogError_OldToxicFiles>【警告】 旧バージョンの異常な翻訳ファイルを発見。エラー防止のため、強制クリーンアップを実行します！</ATC_LogError_OldToxicFiles>
+  <ATC_Log_OldFilesDeleted>【System】 旧バージョンの異常なファイルが正常に削除されました！</ATC_Log_OldFilesDeleted>
+  <ATC_Log_AutoRebuildStart>【System】 システムがクリーンな翻訳パックを自動的に再構築します！</ATC_Log_AutoRebuildStart>
+  <ATC_One_click_chaos>一発ランダム選択</ATC_One_click_chaos>
+  <ATC_Rickroll>ここだけは絶対に押すなよ...</ATC_Rickroll>
+  <ATC_SelectAll>すべて選択</ATC_SelectAll>
+  <ATC_DeselectAll>選択をすべて解除</ATC_DeselectAll>
+  <ATC_Log_UIInterceptorStarted>動的UIインターセプターがオンラインになりました！バックグラウンドキャッシュシステムを起動中...</ATC_Log_UIInterceptorStarted>
+  <ATC_Log_UICacheLoaded>{0} 件のハードコードUIキャッシュの読み込みに成功！</ATC_Log_UICacheLoaded>
+  <ATC_LogError_UICacheLoadFailed>UIキャッシュの読み込みに失敗しました: {0}</ATC_LogError_UICacheLoadFailed>
+  <ATC_LogError_UICacheSaveFailed>UIキャッシュの保存に失敗しました: {0}</ATC_LogError_UICacheSaveFailed>
+  <ATC_EnableUIInterceptor>動的UIハードコードインターセプトを有効化 【警告：パフォーマンスに影響する可能性があります】</ATC_EnableUIInterceptor>
+  <ATC_EnableUINewTranslation>UIインターセプターによる新規AI翻訳を許可（オフにするとキャッシュ置換のみ）</ATC_EnableUINewTranslation>
+  <ATC_EnableUIErrorLogInterception>エラーログUIインターセプトを有効化（トークン消費が大幅に増えます）</ATC_EnableUIErrorLogInterception>
+  <ATC_TranslateWorkbenchModNames>Translate mod names in the intelligent patch-up list (keeps original names)</ATC_TranslateWorkbenchModNames>
+  <ATC_Log_AdvancedDetoxSuccess>高度なデトックスが完了しました！{0} 個の違反タグを正確に切除し、プレイヤーの翻訳資産を保護しました (計 {1} 個のファイルを修復)！</ATC_Log_AdvancedDetoxSuccess>
+  <ATC_DeleteModTrans_Btn>翻訳を削除</ATC_DeleteModTrans_Btn>
+  <ATC_DeleteModTrans_Title>翻訳ファイル焼却炉 (翻訳を削除するモジュールにチェック)</ATC_DeleteModTrans_Title>
+  <ATC_ConfirmDelete_Btn>{0} 個のモジュールの翻訳ファイルを削除する (復元不可！)</ATC_ConfirmDelete_Btn>
+  <ATC_Log_DeleteTransSuccess>🗑️ [ATC System] {0} 個のモジュールの翻訳ファイルを正常に削除しました (計 {1} 個のファイルをクリーンアップ)！</ATC_Log_DeleteTransSuccess>
+  <ATC_Message_DeleteTransSuccess>{0} 個の翻訳ファイルを削除しました！変更を適用するにはゲームの再起動をお勧めします。</ATC_Message_DeleteTransSuccess>
+  <ATC_Message_DeleteTransError>⚠️ 翻訳ファイルの削除中にエラーが発生しました: {0}</ATC_Message_DeleteTransError>
+  <ATC_InputOrSelectModel>モデルを入力または選択...</ATC_InputOrSelectModel>
+  <ATC_Msg_NoModelListManualInput>現在モデルリストが取得できていません。モデル名を直接手動で入力してください！</ATC_Msg_NoModelListManualInput>
+  <ATC_Stats_Session>今回の翻訳：{0} 文字</ATC_Stats_Session>
+  <ATC_Stats_Total>累計の翻訳：{0} 文字</ATC_Stats_Total>
+  <ATC_Stats_UIQueue>UI待機中：{0}</ATC_Stats_UIQueue>
+  <ATC_Stats_UICache>UIキャッシュ数：{0}</ATC_Stats_UICache>
+  <ATC_Log_AIFormatRetry>[API] AI の返答形式が不正、または空です。翻訳を自動で再送信します（第 {0} 回）...</ATC_Log_AIFormatRetry>
+  <ATC_Log_AIFormatRecovered>[API] 再翻訳が完了し、AI の返答形式は正常です。</ATC_Log_AIFormatRecovered>
+  <ATC_Log_ValidationClean>[検証] 翻訳構造チェックが完了しました。修復が必要な形式問題はありません。</ATC_Log_ValidationClean>
+  <ATC_Log_ValidationSummary>[検証] 自動修復：改行 {0}、ルール接頭辞 {1}、保護 token {2}、高リスク回退 {3}、不正 XML key スキップ {4}。</ATC_Log_ValidationSummary>
+  <ATC_Profile_Current>現在の戦略：1 バッチ {0} 件、形式再試行 {1} 回、タイムアウト下限 {2} 秒</ATC_Profile_Current>
+  <ATC_Profile_DeepSeek>DeepSeek：空または不正 JSON を減らすため、保守的なバッチを使用します。</ATC_Profile_DeepSeek>
+  <ATC_Profile_Google>Google/Gemini：安定した大量翻訳向けの標準バッチです。</ATC_Profile_Google>
+  <ATC_Profile_DeepL>DeepL：XML タグを保護し、LLM JSON 解析再試行は行いません。</ATC_Profile_DeepL>
+  <ATC_Profile_Custom>カスタム OpenAI：ローカルまたはプロキシ API 向けにタイムアウトを保守的にします。</ATC_Profile_Custom>
+  <ATC_Profile_OpenRouter>OpenRouter：モデル種別に応じてバッチとタイムアウトを調整します。</ATC_Profile_OpenRouter>
+  <ATC_Profile_Default>汎用戦略：速度と形式安定性のバランスを取ります。</ATC_Profile_Default>
+  <ATC_Perf_Api>API 稼働中 {0}、平均 {1}ms、直近 {2}ms</ATC_Perf_Api>
+  <ATC_Perf_MemoryDrop>直近の空投 {0}ms、Keyed {1}、Defs {2}</ATC_Perf_MemoryDrop>
+  <ATC_Perf_UI>UI キュー {0}、保留 {1}、無視キャッシュ {2}</ATC_Perf_UI>
+  <ATC_Btn_RestoreLatestBackup>最新翻訳バックアップを復元</ATC_Btn_RestoreLatestBackup>
+  <ATC_Msg_ConfirmRestoreLatestBackup>有効な各 Mod の最新バックアップ ZIP から翻訳を復元し、記憶体空投を 1 回実行します。続行しますか？</ATC_Msg_ConfirmRestoreLatestBackup>
+  <ATC_Msg_RestoreLatestBackupDone>{0} 個の Mod の最新バックアップを復元しました。</ATC_Msg_RestoreLatestBackupDone>
+  <ATC_Log_BatchDownloadSummary>[クラウド] 一括ダウンロード完了：成功 {0}、失敗 {1}、合計 {2}。</ATC_Log_BatchDownloadSummary>
+  <ATC_Log_BatchDownloadFailedList>[クラウド] 失敗した Mod：{0}</ATC_Log_BatchDownloadFailedList>
+  <ATC_ShowOriginalUI>UI原文を表示 (マウスホバー時に翻訳前の英語を表示)</ATC_ShowOriginalUI>
+  <ATC_OriginalText>原文</ATC_OriginalText>
+  <ATC_Log_MemoryDropSuccess>[メモリエアドロップ] {0} 件のシステムテキストと {1} 件のアイテム定義の注入に成功！</ATC_Log_MemoryDropSuccess>
+  <ATC_LogError_MemoryDropFailed>[メモリエアドロップ失敗] {0}</ATC_LogError_MemoryDropFailed>
+  <ATC_Button_HotReload>一クリック注入ホットリロード (再起動不要、画面リフレッシュ！)</ATC_Button_HotReload>
+  <ATC_Message_HotReloadSuccess>🪂 [メモリエアドロップ] 翻訳が即座に注入され、UIウィンドウのキャッシュが完全にリフレッシュされました！</ATC_Message_HotReloadSuccess>
+  <ATC_Log_HotReloadSuccess>🪂 [メモリエアドロップ] 翻訳データが即座にコアに注入され、UIウィンドウのキャッシュが全面的にリフレッシュされました！</ATC_Log_HotReloadSuccess>
+  <ATC_LogError_InvalidXmlKey>[XMLディフェンス] AIが返したキーに不正な文字が含まれているため、自動的にスキップしました: {0}</ATC_LogError_InvalidXmlKey>
+  <ATC_LogError_AuthFailed>[API認証失敗] プロバイダー [{0}] が 401 を返しました。APIキーが正しいか確認してください。</ATC_LogError_AuthFailed>
+  <ATC_LogError_RateLimit>[APIレートリミット] プロバイダー [{0}] が 429 を返しました。待ち時間を自動的に延長しました。</ATC_LogError_RateLimit>
+  <ATC_Tag_FromSimplified>[簡体字から]</ATC_Tag_FromSimplified>
+  <ATC_Tag_FromTraditional>[繁体字から]</ATC_Tag_FromTraditional>
+  <ATC_Log_SkipExistingTranslation>[Skip] モジュール [{0}] にはすでに {1} 件の翻訳が含まれているため、重複翻訳をスキップします。</ATC_Log_SkipExistingTranslation>
+  <ATC_Lang_DeepL_FreeNote>DeepL Free (自動検出)</ATC_Lang_DeepL_FreeNote>
+  <ATC_Lang_DeepL_ProNote>DeepL Pro (自動検出)</ATC_Lang_DeepL_ProNote>
+  <ATC_LogError_DeepL_LangNotSupport>[DeepL] 対象言語 [{0}] は DeepL でサポートされていません。他のAIプロバイダーを使用してください。</ATC_LogError_DeepL_LangNotSupport>
+  <ATC_Log_MemoryDropQueued>[メモリエアドロップ] メインスレッドのキューに配置されました。次の Tick で注入を待機中...</ATC_Log_MemoryDropQueued>
+  <ATC_Log_MemoryDropSkipMainThread>[メモリエアドロップ] バックグラウンドスレッドからの呼び出しを検出。メインスレッドの処理に自動的に転送されました。</ATC_Log_MemoryDropSkipMainThread>
+  <ATC_ExportTrans_Btn>📦 ワンクリックパック出力 ⚠️ 機械翻訳警告</ATC_ExportTrans_Btn>
+  <ATC_ExportEula_Title>⚠️ 翻訳出力および著作権声明 (v{0})</ATC_ExportEula_Title>
+  <ATC_ExportEula_CountdownLabel>よくお読みください（残り {0} 秒）</ATC_ExportEula_CountdownLabel>
+  <ATC_ExportEula_CountdownDone>以下の3つの声明にチェックを入れてください</ATC_ExportEula_CountdownDone>
+  <ATC_ExportEula_Check1>私は上記の条項を注意深く読み、完全に理解しました</ATC_ExportEula_Check1>
+  <ATC_ExportEula_Check2>個人でのゲームプレイ、または人力ブラッシュアップのベースデータとしてのみ使用することを約束します</ATC_ExportEula_Check2>
+  <ATC_ExportEula_Check3>配布行為によって生じる法的結果は、私自身に帰属することを理解しています</ATC_ExportEula_Check3>
+  <ATC_ExportEula_ConfirmBtn>確認して出力へ進む</ATC_ExportEula_ConfirmBtn>
+  <ATC_ExportEula_CancelBtn>キャンセル</ATC_ExportEula_CancelBtn>
+  <ATC_ExportEula_NeedAllChecks>進むには3つの項目すべてにチェックを入れる必要があります</ATC_ExportEula_NeedAllChecks>
+  <ATC_ExportEula_FullText>📜 著作権の尊重\nモジュールのオリジナルテキストの著作権は、元のモジュール作者に帰属します。AI翻訳の産物は「二次的著作物 (Derivative Work)」に該当し、各国の著作権法に基づき、二次的著作物を配布するには原作者の明示的な許諾が必要です。\n\n🚫 厳格禁止\n• Steam ワークショップへのアップロードは厳禁です\n• NEXUS / Mod.io / その他の公開プラットフォームへのアップロードは厳禁です\n• クラウドリンク（Google ドライブ、百度網盤など）を介した公開共有は厳禁です\n• Torrent、Discord などのチャンネルを通じた配布は厳禁です\n• 公式翻訳または翻訳グループの作品と偽る行為は厳禁です\n• いかなる形式の商用利用も厳禁です\n\n✅ 許可される用途\n• 個人のローカル環境でのゲームプレイ利用\n• 翻訳グループが人力でブラッシュアップするためのベースデータ（修正後も配布には原作者の許諾が必要です）\n• 翻訳貢献として元のモジュール作者へ提出する行為\n• 友人同士の間での私的な共有（非公開）\n\n📋 ツールの完全中立性声明\n本ツールはローカルでの翻訳補助機能を提供するだけです。本ツールは：\n• 翻訳内容を主体的にアップロードしません\n• ユーザーの翻訳データを収集しません\n• 二次的著作物の配布を支援しません\n• いかなるアップロード行為も保証しません\n\n⚖️ 免責事項\n本ツールの開発者は、ユーザーの配布行為について一切の責任を負いません。ユーザーが本機能を使ってファイルをエクスポート・拡散したことにより生じた著作権紛争、コミュニティの衝突、または法的訴訟は、ユーザーが自己責任で負担するものとし、本ツールの作者とは一切関係がありません。\n\n🚨 法的結果\n本声明に違反した場合、以下を招く可能性があります：\n• DMCA テイクダウン通知\n• Steam アカウントの凍結\n• 民事訴訟（原作者の損害賠償）\n• 刑事責任（各国の著作権法の規定に基づく）\n\n⏰ 同意の有効期限\n本同意の有効期限は30日間です。条項の変更を継続的に周知するため、30日後に再度読み込みと同意が求められます。\n\n📝 同意記録の保存\nローカルに「同意記録」（同意時間、バージョン、デバイス情報を含む）が保存され、ユーザーが条項を認知している証明として扱われます。このファイルを削除しないでください。</ATC_ExportEula_FullText>
+  <ATC_ExportReminder_Title>📦 出力前のリマインダー</ATC_ExportReminder_Title>
+  <ATC_ExportReminder_AlreadyAccepted>あなたは {0} に EULA v{1} に同意しています</ATC_ExportReminder_AlreadyAccepted>
+  <ATC_ExportReminder_DaysLeft>この同意の有効期限は残り {0} 日です</ATC_ExportReminder_DaysLeft>
+  <ATC_ExportReminder_KeyPoints>⚠️ 再度重要事項の確認：</ATC_ExportReminder_KeyPoints>
+  <ATC_ExportReminder_Rule1>❌ Steam ワークショップへアップロードしないでください</ATC_ExportReminder_Rule1>
+  <ATC_ExportReminder_Rule2>❌ 公開配布しないでください</ATC_ExportReminder_Rule2>
+  <ATC_ExportReminder_Rule3>✅ 個人利用または人力での修正用途に限定してください</ATC_ExportReminder_Rule3>
+  <ATC_ExportReminder_Continue>理解しました、出力を続行します</ATC_ExportReminder_Continue>
+  <ATC_ExportReminder_RereadEula>EULAの全文を再読する</ATC_ExportReminder_RereadEula>
+  <ATC_ExportWindow_Title>📦 出力するモジュールの選択</ATC_ExportWindow_Title>
+  <ATC_ExportWindow_SearchHint>モジュール名で検索...</ATC_ExportWindow_SearchHint>
+  <ATC_ExportWindow_DetectedCount>計 {0} 個の翻訳済みモジュールを検出</ATC_ExportWindow_DetectedCount>
+  <ATC_ExportWindow_NoFullSelectNotice>⚠️ 1つずつチェックを入れてください（乱用防止メカニズム：このツールは意図的に「すべて選択」を提供していません）</ATC_ExportWindow_NoFullSelectNotice>
+  <ATC_ExportWindow_ModInfo_DefCount>翻訳済み：{0} 件の DefInjected + {1} 件の Keyed</ATC_ExportWindow_ModInfo_DefCount>
+  <ATC_ExportWindow_OutputPath>💾 出力先：{0}</ATC_ExportWindow_OutputPath>
+  <ATC_ExportWindow_WatermarkNotice>⚠️ 各 XML ファイルには自動的に「機械翻訳警告」の透かしが追加されます</ATC_ExportWindow_WatermarkNotice>
+  <ATC_ExportWindow_ConfirmBtn>選択した {0} 個のモジュールを出力</ATC_ExportWindow_ConfirmBtn>
+  <ATC_ExportWindow_NoModSelected>モジュールを少なくとも1つ選択してください</ATC_ExportWindow_NoModSelected>
+  <ATC_ExportWindow_NoTranslationFound>現在、翻訳済みのモジュールはありません。先に翻訳タスクを実行してください。</ATC_ExportWindow_NoTranslationFound>
+  <ATC_Export_Success_Title>出力完了</ATC_Export_Success_Title>
+  <ATC_Export_Success_Message>{0} 個のモジュール（計 {1} 個のファイル）の出力に成功しました\n\n場所：{2}</ATC_Export_Success_Message>
+  <ATC_Export_Failed_Message>出力に失敗しました：{0}</ATC_Export_Failed_Message>
+  <ATC_Log_EulaAccepted>[EULA] プレイヤーが v{0} に同意しました。記録がローカルに書き込まれました。</ATC_Log_EulaAccepted>
+  <ATC_Log_ExportStart>📦 {0} 個のモジュールの出力を開始...</ATC_Log_ExportStart>
+  <ATC_Log_ExportComplete>✅ 出力完了！{0} 個のモジュール、{1} 個のファイル。</ATC_Log_ExportComplete>
+  <ATC_Log_ExportFailed>❌ 出力失敗：{0}</ATC_Log_ExportFailed>
+  <ATC_Export_CooldownReady_Free>⏱️ 今回のクールダウン状態：すぐに出力可能 (今回はクールダウン免除)</ATC_Export_CooldownReady_Free>
+  <ATC_Export_CooldownReady_NextWillCooldown>⏱️ 今回のクールダウン状態：すぐに出力可能 (次回の出力後は {0} 秒のクールダウンが必要です)</ATC_Export_CooldownReady_NextWillCooldown>
+  <ATC_Export_CooldownWait>⏱️ クールダウン中、{0} 秒お待ちください...</ATC_Export_CooldownWait>
+  <ATC_Export_TodayCount>本日出力回数：{0} 回（1日上限 100回）</ATC_Export_TodayCount>
+  <ATC_Export_TooManyToday>⚠️ 本日はすでに {0} 回出力しており、1日の上限に達しました。明日またお試しください。</ATC_Export_TooManyToday>
+  <ATC_Export_TooManyAtOnce>一度に出力できるのは最大 10 個のモジュールです。分けて出力してください。現在選択中：{0} 個。</ATC_Export_TooManyAtOnce>
+  <ATC_Export_CooldownDialogTitle>⏱️ クールダウン中</ATC_Export_CooldownDialogTitle>
+  <ATC_Export_CooldownDialogMsg>次に出力可能になるまで、あと {0} 秒待つ必要があります。\n\nインテリジェント・クールダウン機能は乱用を防ぐためのものです。通常の利用シーン（翻訳の再試行やモジュールの比較など）では基本的にトリガーされません。</ATC_Export_CooldownDialogMsg>
+  <ATC_ContactAuthor_Title>💌 翻訳を原作者に貢献してみませんか？</ATC_ContactAuthor_Title>
+  <ATC_ContactAuthor_JustExported>たった今、{0} 個のモジュールの翻訳を出力しました。</ATC_ContactAuthor_JustExported>
+  <ATC_ContactAuthor_DidYouKnow>🌟 ご存知ですか？</ATC_ContactAuthor_DidYouKnow>
+  <ATC_ContactAuthor_Intro>ワークショップに単独で上げるより、翻訳を原作者に直接提供する方がはるかに有意義です：</ATC_ContactAuthor_Intro>
+  <ATC_ContactAuthor_Benefit1>✅ 原作者が公式バージョンに翻訳を統合してくれます</ATC_ContactAuthor_Benefit1>
+  <ATC_ContactAuthor_Benefit2>✅ あなたの貢献がモジュールの更新履歴に記載されます</ATC_ContactAuthor_Benefit2>
+  <ATC_ContactAuthor_Benefit3>✅ 完全に合法であり、著作権の紛争がありません</ATC_ContactAuthor_Benefit3>
+  <ATC_ContactAuthor_Benefit4>✅ コミュニティ全体を助けることになります</ATC_ContactAuthor_Benefit4>
+  <ATC_ContactAuthor_SelectMod>作者に連絡するモジュールを選択：</ATC_ContactAuthor_SelectMod>
+  <ATC_ContactAuthor_TemplateLabel>📧 連絡用テンプレートを用意しました：</ATC_ContactAuthor_TemplateLabel>
+  <ATC_ContactAuthor_CopyTemplate>📋 Email テンプレートをコピー</ATC_ContactAuthor_CopyTemplate>
+  <ATC_ContactAuthor_OpenWorkshop>🌐 Steam ワークショップを開いて作者に連絡</ATC_ContactAuthor_OpenWorkshop>
+  <ATC_ContactAuthor_TemplateCopied>✅ テンプレートをクリップボードにコピーしました！</ATC_ContactAuthor_TemplateCopied>
+  <ATC_ContactAuthor_CannotOpenWorkshop>Steam ワークショップを開けません（Steamが未インストールか、モジュールにワークショップリンクがない可能性があります）</ATC_ContactAuthor_CannotOpenWorkshop>
+  <ATC_ContactAuthor_Close>閉じる</ATC_ContactAuthor_Close>
+  <ATC_ContactAuthor_NoSteamMods>Steam ワークショップを通じて連絡できるモジュールがありません（すべてローカルの Mods フォルダにあるモジュールの可能性があります）</ATC_ContactAuthor_NoSteamMods>
+  <ATC_EmailTemplate_Subject>Translation Contribution for {0}</ATC_EmailTemplate_Subject>
+  <ATC_EmailTemplate_Body>Hi {0},\n\nI'm a fan of your mod "{1}". I've drafted a {2} translation using AI tools as a starting point, and I'd love to contribute it back to your mod.\n\nThe translation includes:\n- {3} DefInjected entries\n- {4} Keyed entries\n\nI understand it's machine-generated and may need human polishing before being officially included. I'm sharing the files so you can:\n- Use them as a starting point for an official translation\n- Pass them to a community translator\n- Or simply have them as reference\n\nThe files were exported to my desktop using a tool called "Auto Translation Core". I have NOT and will NOT redistribute them publicly.\n\nWould you like me to send them to you? I can attach them in a reply, or send them via Discord / GitHub PR if you prefer.\n\nThank you for making such an amazing mod!\n\nBest regards,\nA Player</ATC_EmailTemplate_Body>
+  <ATC_Export_Success_ContactAuthorBtn>💌 翻訳を原作者に提供したい</ATC_Export_Success_ContactAuthorBtn>
+  <ATC_Export_Success_CloseBtn>閉じる</ATC_Export_Success_CloseBtn>
+  <ATC_Log_CooldownTriggered>⏱️ [Cooldown] 第 {0} 回目の出力、{1} 秒のクールダウンを適用します。</ATC_Log_CooldownTriggered>
+  <ATC_Log_DailyLimitReached>🛑 [Limit] 本日の出力上限（100回）に達しました。</ATC_Log_DailyLimitReached>
+  <ATC_AutoClearOldOnUpdate>正確性の保証：更新されたモジュールを翻訳する前に、古い翻訳を強制削除する (残存エラーを防ぐため推奨)</ATC_AutoClearOldOnUpdate>
+  <ATC_AutoTranslateOnUpdate>完全自動スケジュール：ゲーム起動時にモジュールの更新を検知した場合、バックグラウンドで自動的に翻訳ラインを起動する (デフォルトはオフ)</ATC_AutoTranslateOnUpdate>
+  <ATC_SmartUpdateBtn>インテリジェント補完翻訳 ({0} 個の更新待機を発見)</ATC_SmartUpdateBtn>
+  <ATC_ModUpdateStatusBtn>インテリジェント補完翻訳 ({0} 個のモジュール更新または未翻訳を発見)</ATC_ModUpdateStatusBtn>
+  <ATC_ClearCacheSuccess>更新された {0} 個のモジュールの古い翻訳ファイルを自動的に削除しました。</ATC_ClearCacheSuccess>
+  <ATC_Export_Readme_Full>
+		================================================================
+		WARNING: AUTO-GENERATED MACHINE TRANSLATION
+		警告：本フォルダは AI 機械翻訳によって生成されたものです。よくお読みください
+		================================================================
+
+		生成時間 (Generation Time): {0}
+		生成ツール (Generator): Auto Translation Core
+		モジュール数 (Mod Count): {1}
+
+		出力されたモジュールリスト (Exported Mods):
+		{2}
+		================================================================
+		厳禁行為 (Strictly Prohibited)
+		================================================================
+
+		1. Steam ワークショップへの直接アップロードは厳禁
+		2. NEXUS / Mod.io / その他の公開プラットフォームへの直接アップロードは厳禁
+		3. 外部の無料ストレージへ勝手にパックしてアップロードすることは厳禁、共有には内蔵の「クラウド共有 (Cloud Hub)」を使用してください
+		4. 公式翻訳や翻訳グループの作品と偽る行為は厳禁
+		5. 商業利用は厳禁
+
+		================================================================
+		許可される用途 (Allowed Usage)
+		================================================================
+
+		1. 個人のローカル環境での使用
+		2. 本モジュールの「クラウド共有」を介して直接アップロードし、コミュニティに貢献する行為
+		3. 翻訳グループが人力でブラッシュアップするためのベースデータ (Upload_Workspaceを併用)
+		4. 翻訳貢献の参考として元のモジュール作者に提出する行為
+		5. 友人と個人的に共有する行為（非公開）
+
+		================================================================
+		法的注意 (Legal Notice)
+		================================================================
+
+		本翻訳は AI 機械翻訳による産物であり、原著作物の「二次的著作物 (Derivative Work)」に該当します。
+		各国の著作権法に基づき、二次的著作物を配布するには原作者の明示的な許諾が必要です。
+
+		未許諾での配布は以下を招く可能性があります：
+		- DMCA テイクダウン通知
+		- Steam アカウントの凍結
+		- 法的訴訟（最高で刑事責任に発展する可能性があります）
+
+		================================================================
+	</ATC_Export_Readme_Full>
+  <ATC_Export_ConsentRecord_Full>
+		================================================================
+		EULA 同意記録 (Consent Record)
+		同意時間 (UTC+8): {0}
+		EULA バージョン (Version): {1}
+		累計同意回数 (Accept Count): {2}
+		ユーザーローカル名 (Machine): {3}
+		オペレーティングシステム (OS): {4}
+		出力時間 (Export Time): {5}
+		同意項目 (Accepted Items):
+		[O] 私は上記の条項を注意深く読み、完全に理解しました
+		[O] 私は個人でのゲームプレイ、または人力修正のベースデータとしてのみ使用することを約束します
+		[O] 私は配布行為によって生じる法的結果が私自身に帰属することを理解しています
+		================================================================
+		重要 (Important)
+		このファイルはユーザーの同意記録です。削除しないでください。
+		著作権紛争が生じた場合、このファイルはユーザーが条項を認知していた証明として扱われます。
+		================================================================
+	</ATC_Export_ConsentRecord_Full>
+  <ATC_Tab_Main>端末コントロールパネル</ATC_Tab_Main>
+  <ATC_Tab_Settings>詳細システム ＆ API設定</ATC_Tab_Settings>
+  <ATC_Log_SkipRequested>[System] プレイヤーが現在のモジュールのスキップを能動的に要求しました...</ATC_Log_SkipRequested>
+  <ATC_Error_Unknown>未知のエラー</ATC_Error_Unknown>
+  <ATC_Error_Timeout>APIリクエストがタイムアウトしました (Timeout)。モデルの過負荷またはネットワークの不安定の可能性があります。</ATC_Error_Timeout>
+  <ATC_Error_Connection>{0} サーバーに接続できません。ネットワークまたはノードが遮断されていないか確認してください。</ATC_Error_Connection>
+  <ATC_Error_Unauthorized>APIキーが無効、またはクォータ（残高）が枯渇しています (HTTP 401/403)。</ATC_Error_Unauthorized>
+  <ATC_Error_NetworkAbnormal>中枢ネットワークマトリックスの異常、接続が不安定です</ATC_Error_NetworkAbnormal>
+  <ATC_Warning_InvalidUrlFallback>無效なカスタムURL: {0}。ハードロードを試行します...</ATC_Warning_InvalidUrlFallback>
+  <ATC_Error_ParseFailed>AIが返したフォーマットが不正です (有効な JSON ではありません)。プロンプトを確認するか、より賢いモデルに変更してください。</ATC_Error_ParseFailed>
+  <ATC_Error_RateLimit>APIリクエストの頻度が高すぎます (HTTP 429)。インターバル遅延を高く設定するか、しばらく経ってから再試行してください。</ATC_Error_RateLimit>
+  <ATC_Error_ServerError>AIサーバーがクラッシュしているか、メンテナンス中です (HTTP 500+)。別のモデルまたはプロバイダーに変更してください。</ATC_Error_ServerError>
+  <ATC_Error_HttpGeneric>中枢ネットワークプロトコルのエラー (HTTP {0})。エラーログを確認してください。</ATC_Error_HttpGeneric>
+  <ATC_Log_RetryAttempt>HTTP {0} に遭遇しました。第 {1} 回目の再試行を準備中 (クールダウン {2} ミリ秒)...</ATC_Log_RetryAttempt>
+  <ATC_Log_RetryTimeout>リクエストがタイムアウトしました。第 {0} 回目の再試行を準備中 (クールダウン {1} ミリ秒)...</ATC_Log_RetryTimeout>
+  <ATC_Setting_Timeout>APIリクエストタイムアウト上限: {0} 秒</ATC_Setting_Timeout>
+  <ATC_Setting_Timeout_Tooltip>AIがこの時間内に応答しない場合、システムは自動的に切断し、冷却して再試行します。推奨設定: 60~120\n(ディープシンキングモデルを使用する場合、バックグラウンドは強制的に最低300秒間待機します)</ATC_Setting_Timeout_Tooltip>
+  <ATC_FilteredCodeOnly>{0} 個の純粋なコードモジュールをフィルタリングしました。翻訳は不要です。</ATC_FilteredCodeOnly>
+  <ATC_FilteredModsCount>{0} 個の非翻訳モジュール（純コード/純素材）をフィルタリングしました</ATC_FilteredModsCount>
+  <ATC_Log_DeepL_EndpointDetected>✅ DeepL［{0}］エンドポイントの検出が完了しました。</ATC_Log_DeepL_EndpointDetected>
+  <ATC_Log_FetchModelsRetry>Fetch Models で HTTP {0} に遭遇しました。第 {1} 回目の再試行を準備中…</ATC_Log_FetchModelsRetry>
+  <ATC_Log_FetchModelsAutoRetryQueued>[{0}] Model lookup failed. Auto retry in {1}s (attempt {2}).</ATC_Log_FetchModelsAutoRetryQueued>
+  <ATC_Error_FetchModelsFailed>❌ ［{0}］のモデル自動取得に失敗しました！（HTTP {1}）Keyを確認してください。</ATC_Error_FetchModelsFailed>
+  <ATC_Error_FetchModelsException>⚠️ ［{0}］のモデル取得中に異常が発生しました：{1}</ATC_Error_FetchModelsException>
+  <ATC_Log_FakeLanguageDetected>🕵️ [アンチ手抜きシステム] 作者の手抜きをキャッチ！ファイル {0} は偽の言語ファイルと判定されたため、AIに強制転送して再翻訳します！</ATC_Log_FakeLanguageDetected>
+  <ATC_Tab_Cloud>☁️ クラウド共有</ATC_Tab_Cloud>
+  <ATC_Cloud_Refresh>🔄 クラウドリストを更新</ATC_Cloud_Refresh>
+  <ATC_Cloud_Fetching>⏳ Cloudflare ブレインに接続中...</ATC_Cloud_Fetching>
+  <ATC_Cloud_FetchFailed>⚠️ クラウドデータを取得できません。ネットワーク接続を確認してください。</ATC_Cloud_FetchFailed>
+  <ATC_Cloud_Status_Official>👑 翻訳グループ精翻</ATC_Cloud_Status_Official>
+  <ATC_Cloud_Status_UpdateAvailable>🟢 更新あり</ATC_Cloud_Status_UpdateAvailable>
+  <ATC_Cloud_Status_Outdated>🟡 翻訳が期限切れの可能性あり</ATC_Cloud_Status_Outdated>
+  <ATC_Cloud_Status_NoCloud>🔘 翻訳がまだありません</ATC_Cloud_Status_NoCloud>
+  <ATC_Cloud_Status_Latest>🔵 最新版です</ATC_Cloud_Status_Latest>
+  <ATC_Cloud_Btn_Download>☁️ ワンクリックエアドロップ</ATC_Cloud_Btn_Download>
+  <ATC_Cloud_Btn_Upload>⬆️ 翻訳を貢献する</ATC_Cloud_Btn_Upload>
+  <ATC_Cloud_Btn_Uploading>⏳ パッケージアップロード中...</ATC_Cloud_Btn_Uploading>
+  <ATC_Cloud_LastUpdate>最終更新</ATC_Cloud_LastUpdate>
+  <ATC_Cloud_Author>貢献者</ATC_Cloud_Author>
+  <ATC_Cloud_Nickname>👤 貢献者ニックネーム</ATC_Cloud_Nickname>
+  <ATC_Cloud_AdminKey>🔑 聖なる特權コード</ATC_Cloud_AdminKey>
+  <ATC_Cloud_Btn_DeleteLocal>🗑️ ローカルを削除</ATC_Cloud_Btn_DeleteLocal>
+  <ATC_Cloud_Btn_DeleteCloud>🔥 クラウドから削除</ATC_Cloud_Btn_DeleteCloud>
+  <ATC_Cloud_Deleting>⏳ 削除中...</ATC_Cloud_Deleting>
+  <ATC_Cloud_ConnectionNormal>☁️ クラウドブレイン接続正常：現在データベースに計 {0} 件の翻訳記録があります。</ATC_Cloud_ConnectionNormal>
+  <ATC_Cloud_NoModsWarning>⚠️ 翻訳可能なサードパーティ製モジュールが見つかりません！\n(テスト環境に公式DLCと本モジュールしかロードされていない場合、リストは空になります！)</ATC_Cloud_NoModsWarning>
+  <ATC_Cloud_Btn_BatchOfficial>👑 精翻を一括ダウンロード</ATC_Cloud_Btn_BatchOfficial>
+  <ATC_Cloud_Btn_BatchAI>🤖 機械翻訳(AI)を一括ダウンロード</ATC_Cloud_Btn_BatchAI>
+  <ATC_Msg_DownloadStart>📥 エアドロップをリクエスト中：{0}...</ATC_Msg_DownloadStart>
+  <ATC_Msg_DownloadSuccess>✅ エアドロップ成功！{0} がメモリにロードされました！</ATC_Msg_DownloadSuccess>
+  <ATC_Msg_DownloadFailed>❌ エアドロップ失敗：{0}</ATC_Msg_DownloadFailed>
+  <ATC_Msg_UploadSuccess>🚀 アップロード成功！エコシステムへの貢献に感謝します：{0}</ATC_Msg_UploadSuccess>
+  <ATC_Msg_UploadFailed>❌ アップロード失敗：{0} (翻訳ファイルがないか、ネットワークエラーの可能性があります)</ATC_Msg_UploadFailed>
+  <ATC_Msg_DeleteCloudSuccess>🔥 クラウドからの削除に成功：{0}</ATC_Msg_DeleteCloudSuccess>
+  <ATC_Msg_DeleteCloudFailed>❌ クラウドからの削除に失敗しました (特権コードを確認してください)：{0}</ATC_Msg_DeleteCloudFailed>
+  <ATC_Msg_DeleteLocalSuccess>🗑️ {0} のローカル翻訳キャッシュを削除しました！</ATC_Msg_DeleteLocalSuccess>
+  <ATC_Msg_BatchNoMods>⚠️ ローカルに更新が必要なこのタイプの翻訳はありません。</ATC_Msg_BatchNoMods>
+  <ATC_Msg_BatchStart>📥 {0} 個のモジュール翻訳の一括エアドロップを開始...</ATC_Msg_BatchStart>
+  <ATC_Msg_BatchSuccess>✅ 一括エアドロップ完了！{0} / {1} 個の翻訳ライブラリのロードに成功！</ATC_Msg_BatchSuccess>
+  <ATC_Cloud_Btn_OpenWorkspace>📂 総合ワークスペースを開く</ATC_Cloud_Btn_OpenWorkspace>
+  <ATC_Cloud_Btn_BatchUpload>⬆️ ワークスペースを一括アップロード</ATC_Cloud_Btn_BatchUpload>
+  <ATC_Msg_WorkspaceEmpty>⚠️ ワークスペースが存在しないか、モジュールフォルダがありません！</ATC_Msg_WorkspaceEmpty>
+  <ATC_Msg_BatchUploadStart>🚀 一括スキャンおよび {0} 個のモジュールのアップロードを開始...</ATC_Msg_BatchUploadStart>
+  <ATC_Msg_BatchUploadSuccess>一括アップロード完了！{0} 個のモジュールを「{1}」としてアップロードしました。</ATC_Msg_BatchUploadSuccess>
+  <ATC_Cloud_BatchUploadLogLabel>一括アップロード更新ログ：</ATC_Cloud_BatchUploadLogLabel>
+  <ATC_Cloud_BatchUploadLogHint>一括アップロードでは必須です。今回の変更内容を簡潔に入力してください。</ATC_Cloud_BatchUploadLogHint>
+  <ATC_Msg_BatchUploadLogRequired>一括アップロードには 5 文字以上の更新ログが必要です。</ATC_Msg_BatchUploadLogRequired>
+  <ATC_Cloud_Type_Select>📝 あなたの翻訳タイプ：</ATC_Cloud_Type_Select>
+  <ATC_Cloud_Type_AI>🤖 AI 機械翻訳</ATC_Cloud_Type_AI>
+  <ATC_Cloud_Type_Manual>✍️ 手動精翻</ATC_Cloud_Type_Manual>
+  <ATC_Cloud_Status_Manual>🟢 プレイヤー精翻</ATC_Cloud_Status_Manual>
+  <ATC_EmergencyResetTitle>究極の救急箱 (危険エリア)</ATC_EmergencyResetTitle>
+  <ATC_Btn_FactoryReset>すべての翻訳キャッシュをワンクリック削除 (工場出荷状態に戻す)</ATC_Btn_FactoryReset>
+  <ATC_Msg_ConfirmFactoryReset>警告：これによりローカルのすべてのAI翻訳キャッシュファイルが削除され、UIメモリがクリアされます。本当に実行しますか？（この操作は取り消せません）</ATC_Msg_ConfirmFactoryReset>
+  <ATC_Btn_Confirm>削除を確定</ATC_Btn_Confirm>
+  <ATC_Btn_Cancel>キャンセル</ATC_Btn_Cancel>
+  <ATC_Log_FactoryResetSuccess>システムは正常に工場出荷状態にリセットされ、すべてのキャッシュがクリアされました。</ATC_Log_FactoryResetSuccess>
+  <ATC_Msg_FactoryResetSuccess>システムのリセットに成功しました！すべての翻訳キャッシュがクリアされました。</ATC_Msg_FactoryResetSuccess>
+  <ATC_Cloud_Downloading>クラウドダウンロード中: {0}</ATC_Cloud_Downloading>
+  <ATC_Cloud_Uploading>クラウドアップロード中: {0}</ATC_Cloud_Uploading>
+  <ATC_LogError_DownloadCorrupted>クラウドからのダウンロードまたは解凍に失敗しました！破損した残存ファイルは自動的にクリーンアップされました。モジュール: {0}，原因: {1}</ATC_LogError_DownloadCorrupted>
+  <ATC_Log_CloudPrefetchSuccess>バックグラウンドでのクラウドブレインリストのプリロードに成功しました (計 {0} 件の記録)。</ATC_Log_CloudPrefetchSuccess>
+  <ATC_Error_FetchModels_NonJson>[{0}] モデル取得失敗：サーバーが JSON 以外の形式 ({1}) を返しました。プレビュー: {2}</ATC_Error_FetchModels_NonJson>
+  <ATC_Error_FetchModels_Unauthorized>[{0}] モデル取得失敗 (401)：API キーが無効であるか未認証です。キーを確認してください。</ATC_Error_FetchModels_Unauthorized>
+  <ATC_Error_FetchModels_Forbidden>[{0}] モデル取得失敗 (403)：権限が不足しているか、ファイアウォールにブロックされています (地域制限やクォータ枯渇の可能性があります)。</ATC_Error_FetchModels_Forbidden>
+  <ATC_Error_FetchModels_RateLimit>[{0}] モデル取得失敗 (429)：リクエストが頻繁すぎます。APIのレートリミットがトリガーされました。しばらく経ってから再試行してください。</ATC_Error_FetchModels_RateLimit>
+  <ATC_Error_FetchModels_ServerError>[{0}] モデル取得失敗 ({1})：サーバー内部エラー。現在のサービスが不安定な可能性があります。詳細: {2}</ATC_Error_FetchModels_ServerError>
+  <ATC_Error_FetchModels_Unknown>[{0}] モデル取得失敗 ({1})：未知のエラー。詳細: {2}</ATC_Error_FetchModels_Unknown>
+  <ATC_Error_FetchModelsDispatchTimeout>[{0}] Model lookup did not start in time. Please close and reopen the settings panel, or try again after the game finishes loading.</ATC_Error_FetchModelsDispatchTimeout>
+  <ATC_Error_FetchModelsWatchdogReleased>[{0}] Model lookup timed out; stuck fetching state was released. Please retry later or click Refetch Models.</ATC_Error_FetchModelsWatchdogReleased>
+  <ATC_Lang_French>フランス語 (Français)</ATC_Lang_French>
+  <ATC_Lang_German>ドイツ語 (Deutsch)</ATC_Lang_German>
+  <ATC_Lang_Spanish>スペイン語 (Español)</ATC_Lang_Spanish>
+  <ATC_Lang_Italian>イタリア語 (Italiano)</ATC_Lang_Italian>
+  <ATC_Lang_Polish>ポーランド語 (Polski)</ATC_Lang_Polish>
+  <ATC_Lang_Portuguese>ポルトガル語 (Português)</ATC_Lang_Portuguese>
+  <ATC_Lang_Turkish>トルコ語 (Türkçe)</ATC_Lang_Turkish>
+  <ATC_Cloud_SmartMerged> [AI縫合済み]</ATC_Cloud_SmartMerged>
+  <ATC_Cloud_UploadDate>アップロード日: {0}</ATC_Cloud_UploadDate>
+  <ATC_Cloud_TransType>翻訳タイプ: {0}</ATC_Cloud_TransType>
+  <ATC_Cloud_IsSmartMerged>スマートマージ: {0}</ATC_Cloud_IsSmartMerged>
+  <ATC_Cloud_YesWithCount>はい (機械翻訳による補漏 {0} 件を含む)</ATC_Cloud_YesWithCount>
+  <ATC_Cloud_No>いいえ</ATC_Cloud_No>
+  <ATC_Log_MetaUpdated>翻訳識別IDを更新しました ({0} 件の縫合補漏を追加)</ATC_Log_MetaUpdated>
+  <ATC_Log_BackupSuccess>旧バージョンの翻訳を自動バックアップしました：{0}</ATC_Log_BackupSuccess>
+  <ATC_Workbench_Title>📝 ATC 翻訳ワークステーション: {0}</ATC_Workbench_Title>
+  <ATC_Workbench_SearchHint>🔍 原文または翻訳を検索...</ATC_Workbench_SearchHint>
+  <ATC_Workbench_CategoryCount>📁 {0} ({1})</ATC_Workbench_CategoryCount>
+  <ATC_Workbench_CloseBtn>閉じる (保存しない)</ATC_Workbench_CloseBtn>
+  <ATC_Workbench_SaveBtn>💾 保存して適用</ATC_Workbench_SaveBtn>
+  <ATC_Cloud_Btn_Dir>ディレクトリ</ATC_Cloud_Btn_Dir>
+  <ATC_Cloud_Btn_DirTooltip>専用のアップロードスタジオを開く (おやびんが精翻 XML を入れた後にクラウドアップロードをクリックするのに便利です)</ATC_Cloud_Btn_DirTooltip>
+  <ATC_Cloud_Btn_WorkbenchTooltip>内蔵エディタ (Translation Workbench) を開く\nリアルタイムで双方向修正 ＆ 補完！</ATC_Cloud_Btn_WorkbenchTooltip>
+  <ATC_Workbench_SaveSuccess>翻訳が保存され、ゲームに即座に注入されました！</ATC_Workbench_SaveSuccess>
+  <ATC_Log_WorkbenchSaved>内蔵エディタが {0} 件の翻訳修正を保存し、リアルタイムホットリロードがトリガーされました！</ATC_Log_WorkbenchSaved>
+  <ATC_Cloud_LogTitle>更新履歴</ATC_Cloud_LogTitle>
+  <ATC_Cloud_NoLog>原作者による更新履歴の記入はありません。</ATC_Cloud_NoLog>
+  <ATC_UploadPreview_Title>アップロード前翻訳パック安全検査プレビューコンソール - {0}</ATC_UploadPreview_Title>
+  <ATC_UploadPreview_Loading>パッケージ化するすべての XML に対して、可逆デコードと安全性分析を実行しています。少々お待ちください...</ATC_UploadPreview_Loading>
+  <ATC_Preview_ClickToSee>左側をクリックして項目の内容を表示</ATC_Preview_ClickToSee>
+  <ATC_Upload_LogLabel>アップロード説明または更新履歴を追加（任意入力、Steamのゲーム更新アナウンスに類似）：</ATC_Upload_LogLabel>
+  <ATC_Upload_LogHint>今回の翻訳パックの修正内容をここに入力してください（例：XX武器のグラフィック崩れの修正、簡繁変換の誤字修正など...）</ATC_Upload_LogHint>
+  <ATC_Upload_UnlockEdit>✍️ 内容を変更 (ロック解除)</ATC_Upload_UnlockEdit>
+  <ATC_Upload_EditingMode>⚠️ 編集モード中 (開放済み)</ATC_Upload_EditingMode>
+  <ATC_Upload_ConfirmUploadBtn>✅ 検査完了 ‧ アップロードを確定</ATC_Upload_ConfirmUploadBtn>
+  <ATC_Msg_UploadStart>🚀 発射準備！{0} の翻訳パックをパッケージ化してクラウドにアップロード中...</ATC_Msg_UploadStart>
+  <ATC_Type_Official>翻訳グループ精翻</ATC_Type_Official>
+  <ATC_Type_Manual>プレイヤー精翻</ATC_Type_Manual>
+  <ATC_Type_AI>AI 機械翻訳</ATC_Type_AI>
+  <ATC_UploadPreview_NoTranslation>アップロード可能な翻訳ファイルがありません！\n(先に AI スキャン翻訳を実行するか、自作の翻訳を Upload_Workspace に入れてください)</ATC_UploadPreview_NoTranslation>
+  <ATC_Msg_UploadFailedNoFiles>アップロード失敗：対応する翻訳ファイルが見つかりません！</ATC_Msg_UploadFailedNoFiles>
+  <ATC_Log_CleanedGhostTwins>[System] ゴースト翻訳パッチの双子の残存ファイルを {0} 個自動的に成仏させました！</ATC_Log_CleanedGhostTwins>
+  <ATC_Log_AutoStartUpdateScan>[System] {0} 個のモジュール更新を検出。プレイヤーの設定に基づき、バックグラウンド翻訳ラインを自動起動しました！</ATC_Log_AutoStartUpdateScan>
+  <ATC_SubTask_TestingAPI>APIの接続状態をテスト中...</ATC_SubTask_TestingAPI>
+  <ATC_Log_PreflightCheck>API起動前の接続事前検査を実行中...</ATC_Log_PreflightCheck>
+  <ATC_LogError_ApiDeadAbort>API接続失敗！翻訳タスクを強制中断しました。キーまたはサーバーの状態を確認してください。</ATC_LogError_ApiDeadAbort>
+  <ATC_TaskFailed>タスク失敗</ATC_TaskFailed>
+  <ATC_Cloud_FetchListFailed>クラウド翻訳リストの取得に失敗しました (HTTP {0})。再接続またはバックアップノードへの切り替えを試みています...</ATC_Cloud_FetchListFailed>
+  <ATC_Cloud_ConnectionFailedLog>クラウドサーバーに接続できません：{0}</ATC_Cloud_ConnectionFailedLog>
+  <ATC_Log_AutoSyncLanguage>ゲーム言語が {0} に切り替わったことを自動検出しました。モジュールの対象言語が自動同期されました！</ATC_Log_AutoSyncLanguage>
+  <ATC_Cloud_SelectLang>クラウド操作言語：</ATC_Cloud_SelectLang>
+  <ATC_Cloud_ConnectionFailed>クラウドへの接続が失敗またはタイムアウトしました (ファイアウォールによる遮断、または応答なし)。ネットワークを確認するか、アクセラレータを試してください：{0}</ATC_Cloud_ConnectionFailed>
+  <ATC_Cloud_UploadFallback>アップロードのメイン回線がタイムアウトまたは遮断されました。バックアップの密輸ルートに切り替えています...</ATC_Cloud_UploadFallback>
+  <ATC_Cloud_UploadFailed>アップロード失敗：{0}</ATC_Cloud_UploadFailed>
+  <ATC_Cloud_DeleteFallback>削除のメイン回線がタイムアウトしました。バックアップの密輸ルートに切り替えています...</ATC_Cloud_DeleteFallback>
+  <ATC_Cloud_DeleteFailed>削除失敗：{0}</ATC_Cloud_DeleteFailed>
+  <ATC_Cloud_MainRouteCrashed>メイン回線の接続がクラッシュしました。無料の密輸用バックアップルートを起動しています...</ATC_Cloud_MainRouteCrashed>
+  <ATC_Cloud_RequestRejected>リクエスト失敗、サーバーが接続を拒否しました (HTTP {0})</ATC_Cloud_RequestRejected>
+  <ATC_Cloud_RetryAttemptLog>クラウドブレインへの接続で断続的なパケットロスが発生しています。第 {0} 回目の核熱再接続を実行中...</ATC_Cloud_RetryAttemptLog>
+  <ATC_Cloud_DownloadRetryFailed>ダウンロードの再試行に失敗しました。接続が遮断されました：{0}</ATC_Cloud_DownloadRetryFailed>
+  <ATC_Tab_Editor>グローバル編集</ATC_Tab_Editor>
+  <ATC_Workbench_SearchMod>モジュール名またはIDを検索...</ATC_Workbench_SearchMod>
+  <ATC_Workbench_ShowTranslatedOnly>翻訳済みのモジュールのみ表示</ATC_Workbench_ShowTranslatedOnly>
+  <ATC_Workbench_SelectModHint>左側で編集するモジュールを選択してください</ATC_Workbench_SelectModHint>
+  <ATC_Workbench_BackToList>モジュールリストに戻る</ATC_Workbench_BackToList>
+  <ATC_Cloud_SearchHint>モジュール名またはIDを検索...</ATC_Cloud_SearchHint>
+  <ATC_Btn_ClearUICache>UIインターセプターのキャッシュとブラックリストをワンクリック削除</ATC_Btn_ClearUICache>
+  <ATC_Msg_UICacheCleared>UIインターセプターのキャッシュが完全にクリアされました。生肉（未翻訳テキスト）は再翻訳に送られます！</ATC_Msg_UICacheCleared>
+  <ATC_LogError_DeleteUICacheFailed>UIキャッシュの実体ファイルの削除に失敗しました：{0}</ATC_LogError_DeleteUICacheFailed>
+  <ATC_Log_UICacheClearedFull>UI翻訳キャッシュ (実体辞書ファイルを含む) と無視ブラックリストが完全に物理クリーンアップされました！</ATC_Log_UICacheClearedFull>
+  <ATC_Workbench_GlobalSearchTitle>🔍 グローバルテキスト検索 (Global Search)</ATC_Workbench_GlobalSearchTitle>
+  <ATC_Lang_All>🌍 すべての言語 (All)</ATC_Lang_All>
+  <ATC_Workbench_GlobalSearching>🔄 バックグラウンドで高速キャッシュスキャンを実行中...</ATC_Workbench_GlobalSearching>
+  <ATC_Workbench_GlobalSearchNoResult>一致する翻訳テキストが見つかりません。</ATC_Workbench_GlobalSearchNoResult>
+  <ATC_Msg_UploadLogRequired>⚠️ クラウドの品質を維持するため、左下に翻訳の修正内容を簡単に記述してください（最低5文字）！</ATC_Msg_UploadLogRequired>
+  <ATC_Btn_RepairLegacyTranslations>&#x65E7;&#x7FFB;&#x8A33;&#x5F62;&#x5F0F;&#x3092;&#x4FEE;&#x5FA9;</ATC_Btn_RepairLegacyTranslations>
+  <ATC_Msg_RepairLegacyTranslationsDone>&#x65E7;&#x7FFB;&#x8A33;&#x5F62;&#x5F0F;&#x306E;&#x4FEE;&#x5FA9;&#x5B8C;&#x4E86;&#xFF1A;{0} &#x500B;&#x306E;&#x30D5;&#x30A1;&#x30A4;&#x30EB;&#x3067; {1} &#x4EF6;&#x3092;&#x4FEE;&#x5FA9;&#x3057;&#x307E;&#x3057;&#x305F;&#x3002;&#x9AD8;&#x30EA;&#x30B9;&#x30AF;&#x69CB;&#x9020; {2} &#x4EF6;&#x306F;&#x78BA;&#x8A8D;&#x304C;&#x5FC5;&#x8981;&#x3067;&#x3059;&#x3002;</ATC_Msg_RepairLegacyTranslationsDone>
+  <ATC_ApiKeyNoteHint>メモ：Gemini無料枠、DeepSeek予備、プロキシなど</ATC_ApiKeyNoteHint>
+  <ATC_ApiKeyEnabled>この API Key を有効化</ATC_ApiKeyEnabled>
+  <ATC_Msg_ApiKeyDisabled>この API Key は現在無効です。</ATC_Msg_ApiKeyDisabled>
+  <ATC_ModStatus_Translated>翻訳済み</ATC_ModStatus_Translated>
+  <ATC_ModStatus_Untranslated>未翻訳</ATC_ModStatus_Untranslated>
+  <ATC_ModStatus_Outdated>古い可能性あり</ATC_ModStatus_Outdated>
+  <ATC_Msg_CloudUploadPatchModBlocked>&#x30A2;&#x30C3;&#x30D7;&#x30ED;&#x30FC;&#x30C9;&#x3092;&#x963B;&#x6B62;&#x3057;&#x307E;&#x3057;&#x305F;&#xFF1A;{0} &#x306F;&#x30ED;&#x30FC;&#x30AB;&#x30E9;&#x30A4;&#x30BA;&#x307E;&#x305F;&#x306F;&#x7FFB;&#x8A33;&#x30D1;&#x30C3;&#x30C1;&#x30E2;&#x30C3;&#x30C9;&#x3068;&#x5224;&#x5B9A;&#x3055;&#x308C;&#x307E;&#x3057;&#x305F;&#x3002;&#x30AF;&#x30E9;&#x30A6;&#x30C9;&#x5171;&#x6709;&#x306F;&#x5143;&#x306E;&#x30E2;&#x30C3;&#x30C9;&#x7528;&#x306E;&#x6CE8;&#x5165;&#x5F0F;&#x7FFB;&#x8A33;&#x306E;&#x307F;&#x53D7;&#x3051;&#x4ED8;&#x3051;&#x307E;&#x3059;&#x3002;</ATC_Msg_CloudUploadPatchModBlocked>
+  <ATC_Msg_CloudBatchPatchModsSkipped>{0} &#x500B;&#x306E;&#x30ED;&#x30FC;&#x30AB;&#x30E9;&#x30A4;&#x30BA;&#x307E;&#x305F;&#x306F;&#x7FFB;&#x8A33;&#x30D1;&#x30C3;&#x30C1;&#x30E2;&#x30C3;&#x30C9;&#x3092;&#x30B9;&#x30AD;&#x30C3;&#x30D7;&#x3057;&#x307E;&#x3057;&#x305F;&#x3002;&#x30AF;&#x30E9;&#x30A6;&#x30C9;&#x5171;&#x6709;&#x306B;&#x306F;&#x30A2;&#x30C3;&#x30D7;&#x30ED;&#x30FC;&#x30C9;&#x3055;&#x308C;&#x307E;&#x305B;&#x3093;&#x3002;</ATC_Msg_CloudBatchPatchModsSkipped>
+</LanguageData>

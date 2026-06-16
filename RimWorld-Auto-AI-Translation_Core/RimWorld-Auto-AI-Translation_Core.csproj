@@ -96,17 +96,13 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="RimWorld-Auto-AI-Translation_CloudClient.cs" />
-    <Compile Include="RimWorld-Auto-AI-Translation_Core.cs" />
-    <Compile Include="RimWorld-Auto-AI-Translation_Export.cs" />
-    <Compile Include="RimWorld-Auto-AI-Translation_LanguageDetector.cs" />
-    <Compile Include="RimWorld-Auto-AI-Translation_Scanner.cs" />
-    <Compile Include="RimWorld-Auto-AI-Translation_Translator.cs" />
+    <Compile Include="..\src\RimWorld-Auto-AI-Translation_Core\**\*.cs" Exclude="..\src\RimWorld-Auto-AI-Translation_Core\bin\**;..\src\RimWorld-Auto-AI-Translation_Core\obj\**">
+      <Link>%(RecursiveDir)%(Filename)%(Extension)</Link>
+    </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="RimWorld-Auto-AI-Translation_UIInterceptor.cs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="packages.config" />
+    <None Include="packages.config" Condition="Exists('packages.config')" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
