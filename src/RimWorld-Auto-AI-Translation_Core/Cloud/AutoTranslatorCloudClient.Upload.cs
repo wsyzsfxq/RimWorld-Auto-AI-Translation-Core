@@ -33,7 +33,7 @@ namespace AutoTranslator_Core
                 int fileCount = 0;
                 bool isWorkspace = sourceFolder.Contains("Upload_Workspace");
 
-                foreach (string file in System.IO.Directory.GetFiles(sourceFolder, "*.xml", System.IO.SearchOption.AllDirectories))
+                foreach (string file in AutoTranslatorScanner.GetXmlFilesForTranslationCache(sourceFolder, System.IO.SearchOption.AllDirectories))
                 {
                     string fileName = System.IO.Path.GetFileName(file).ToLower();
                     bool shouldPack = isWorkspace;

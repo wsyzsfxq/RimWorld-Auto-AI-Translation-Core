@@ -45,6 +45,7 @@ namespace AutoTranslator_Core
 
 
             var updatedMods = ModUpdateDetector.GetUpdatedOrNewModsCached();
+            bool isCheckingUpdates = ModUpdateDetector.IsRefreshingUpdatedList && !ModUpdateDetector.HasUpdatedListCache;
 
             Rect actionRow = l.GetRect(40f);
             Rect singleModRect = new Rect(actionRow.x, actionRow.y, actionRow.width * 0.3f, actionRow.height);
@@ -97,6 +98,15 @@ namespace AutoTranslator_Core
             }
             l.Gap(15f);
 
+            if (isCheckingUpdates)
+            {
+                Text.Font = GameFont.Tiny;
+                GUI.color = Color.gray;
+                l.Label("ATC_CheckingModStatus".Translate());
+                GUI.color = Color.white;
+                Text.Font = GameFont.Small;
+                l.Gap(5f);
+            }
 
             Rect reloadRow = l.GetRect(35f);
             GUI.color = new Color(0.4f, 1f, 0.8f);
@@ -142,7 +152,7 @@ namespace AutoTranslator_Core
             l.Gap(15f);
 
 
-            if (AutoTranslatorSettings.FilteredModsCount > 0)
+            if (!AutoTranslatorSettings.IsRunning && AutoTranslatorSettings.FilteredModsCount > 0)
             {
                 GUI.color = Color.gray;
                 string text = "ATC_FilteredModsCount".Translate(AutoTranslatorSettings.FilteredModsCount);

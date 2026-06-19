@@ -95,8 +95,8 @@ namespace AutoTranslator_Core
             }
 
             TryAutoSyncLanguageWithGame(resetCaches: false, log: false, writeSettings: true);
-            AutoTranslatorScanner.QueueExternalPatchCoveredOverrideCleanup();
 
+            AutoTranslator_StartupHook.EnsureInstalled();
             AutoTranslator_LongEventCompat.ExecuteWhenFinished(EnsureNetworkDispatchReady);
         }
 

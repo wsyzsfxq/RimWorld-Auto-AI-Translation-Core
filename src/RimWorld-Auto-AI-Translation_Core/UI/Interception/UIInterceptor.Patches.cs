@@ -24,6 +24,7 @@ namespace AutoTranslator_Core
         // 這個欄位保存 BypassInterceptor 的執行狀態或快取資料。
         // EN: This field stores bypass interceptor runtime state or cached data.
         public static bool BypassInterceptor = false;
+        private const int MaxGuiContentCacheSize = 4096;
         private static Dictionary<string, GUIContent> guiContentCache = new Dictionary<string, GUIContent>();
 
 
@@ -106,13 +107,14 @@ namespace AutoTranslator_Core
                 }
 
 
-                if (UIInterceptor.TryGetCachedTranslation(originalText, out string translated))
+                if (UIInterceptor.TryGetCachedTranslationKnownSafe(originalText, out string translated))
                 {
                     if (AutoTranslatorMod.Settings.ShowOriginalUI)
                     {
                         Verse.TooltipHandler.TipRegion(position, new Verse.TipSignal("\u200B" + "ATC_OriginalText".Translate() + ":\n" + originalText));
                     }
 
+                    if (guiContentCache.Count >= MaxGuiContentCacheSize) guiContentCache.Clear();
                     GUIContent newContent = new GUIContent(translated, content.image, tooltipText);
 
 
@@ -141,7 +143,7 @@ namespace AutoTranslator_Core
             if (!UIInterceptor.ShouldInterceptText(tooltip)) return tooltip;
             if (UIInterceptor.IsIgnored(tooltip)) return tooltip;
 
-            if (UIInterceptor.TryGetCachedTranslation(tooltip, out string translated))
+            if (UIInterceptor.TryGetCachedTranslationKnownSafe(tooltip, out string translated))
             {
                 return translated;
             }
@@ -155,6 +157,21 @@ namespace AutoTranslator_Core
         internal static string TranslateTooltipSignalText(string tooltip)
         {
             return TranslateTooltipText(tooltip);
+        }
+
+        internal sealed class TranslatedTooltipGetter
+        {
+            private readonly Func<string> _inner;
+
+            public TranslatedTooltipGetter(Func<string> inner)
+            {
+                _inner = inner;
+            }
+
+            public string Invoke()
+            {
+                return TranslateTooltipSignalText(_inner());
+            }
         }
     }
 
@@ -176,8 +193,10 @@ namespace AutoTranslator_Core
 
             if (__1.textGetter != null)
             {
+                if (__1.textGetter.Target is Patch_GUI_Label_GUIContent.TranslatedTooltipGetter) return;
                 Func<string> originalGetter = __1.textGetter;
-                __1.textGetter = () => Patch_GUI_Label_GUIContent.TranslateTooltipSignalText(originalGetter());
+                var wrapper = new Patch_GUI_Label_GUIContent.TranslatedTooltipGetter(originalGetter);
+                __1.textGetter = wrapper.Invoke;
             }
         }
     }
@@ -193,9 +212,11 @@ namespace AutoTranslator_Core
         {
             if (!AutoTranslatorMod.Settings.EnableUIInterceptor || Patch_GUI_Label_GUIContent.BypassInterceptor) return;
             if (__1 == null) return;
+            if (__1.Target is Patch_GUI_Label_GUIContent.TranslatedTooltipGetter) return;
 
             Func<string> originalGetter = __1;
-            __1 = () => Patch_GUI_Label_GUIContent.TranslateTooltipSignalText(originalGetter());
+            var wrapper = new Patch_GUI_Label_GUIContent.TranslatedTooltipGetter(originalGetter);
+            __1 = wrapper.Invoke;
         }
     }
 
@@ -220,7 +241,7 @@ namespace AutoTranslator_Core
             if (UIInterceptor.IsIgnored(label)) return;
 
 
-            if (UIInterceptor.TryGetCachedTranslation(label, out string translated))
+            if (UIInterceptor.TryGetCachedTranslationKnownSafe(label, out string translated))
             {
                 if (AutoTranslatorMod.Settings.ShowOriginalUI)
                 {
@@ -255,7 +276,7 @@ namespace AutoTranslator_Core
             if (!UIInterceptor.ShouldInterceptText(raw)) return;
             if (UIInterceptor.IsIgnored(raw)) return;
 
-            if (UIInterceptor.TryGetCachedTranslation(raw, out string translated))
+            if (UIInterceptor.TryGetCachedTranslationKnownSafe(raw, out string translated))
             {
                 if (AutoTranslatorMod.Settings.ShowOriginalUI)
                 {
@@ -288,7 +309,7 @@ namespace AutoTranslator_Core
             if (!UIInterceptor.ShouldInterceptText(label)) return;
             if (UIInterceptor.IsIgnored(label)) return;
 
-            if (UIInterceptor.TryGetCachedTranslation(label, out string translated))
+            if (UIInterceptor.TryGetCachedTranslationKnownSafe(label, out string translated))
             {
                 if (AutoTranslatorMod.Settings.ShowOriginalUI)
                 {

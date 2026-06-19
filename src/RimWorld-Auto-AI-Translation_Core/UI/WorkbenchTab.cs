@@ -31,6 +31,7 @@ namespace AutoTranslator_Core
                 // 這個欄位保存 TranslatedText 的執行狀態或快取資料。
                 // EN: This field stores translated text runtime state or cached data.
                 public string TranslatedText;
+                public string OriginalTranslatedText;
                 // 這個欄位保存 IsModified 的執行狀態或快取資料。
                 // EN: This field stores is modified runtime state or cached data.
                 public bool IsModified;
@@ -61,6 +62,7 @@ namespace AutoTranslator_Core
             // 這個欄位保存 translated模組快取Error 的執行狀態或快取資料。
             // EN: This field stores translated mods cache error runtime state or cached data.
             private static string _translatedModsCacheError = null;
+            private static int _translatedModsCacheGeneration = 0;
             // 這個欄位保存 cached模組選取List 的執行狀態或快取資料。
             // EN: This field stores cached mod selection list runtime state or cached data.
             private static List<Verse.ModMetaData> _cachedModSelectionList = null;
@@ -79,6 +81,7 @@ namespace AutoTranslator_Core
             // 這個欄位保存 cached模組選取TranslatedCount 的執行狀態或快取資料。
             // EN: This field stores cached mod selection translated count runtime state or cached data.
             private static int _cachedModSelectionTranslatedCount = -1;
+            private static int _cachedModSelectionTranslatedHash = 0;
 
             private static Dictionary<string, List<WorkbenchItem>> _categorizedData = new Dictionary<string, List<WorkbenchItem>>();
             // 這個欄位保存 selectedCategory 的執行狀態或快取資料。

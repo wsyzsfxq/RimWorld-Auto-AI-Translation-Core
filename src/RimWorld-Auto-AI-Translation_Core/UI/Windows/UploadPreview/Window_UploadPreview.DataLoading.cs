@@ -38,7 +38,7 @@ namespace AutoTranslator_Core
                     if (Directory.Exists(keyedDir))
                     {
                         var list = new List<PreviewItem>();
-                        foreach (var file in Directory.GetFiles(keyedDir, "*.xml", SearchOption.AllDirectories))
+                        foreach (var file in AutoTranslatorScanner.GetXmlFilesForTranslationCache(keyedDir, SearchOption.AllDirectories))
                         {
                             string fileName = Path.GetFileName(file).ToLower();
                             bool isValid = isWorkspace || fileName.StartsWith(id1 + "_") || fileName.StartsWith(id1 + ".") || fileName.StartsWith(id2 + "_") || fileName.StartsWith(id2 + ".");
@@ -63,7 +63,7 @@ namespace AutoTranslator_Core
                             var list = new List<PreviewItem>();
 
 
-                            foreach (var file in Directory.GetFiles(typeDir, "*.xml", SearchOption.AllDirectories))
+                            foreach (var file in AutoTranslatorScanner.GetXmlFilesForTranslationCache(typeDir, SearchOption.AllDirectories))
                             {
                                 string fileName = Path.GetFileName(file).ToLower();
                                 bool isValid = isWorkspace || fileName.StartsWith(id1 + "_") || fileName.StartsWith(id1 + ".") || fileName.StartsWith(id2 + "_") || fileName.StartsWith(id2 + ".");

@@ -70,9 +70,11 @@ Your SOLE task is to translate every string in the provided JSON array into {rul
 
 [RIMWORLD XML / DEF RULES]
 1. InteractionDef, RulePackDef, QuestScriptDef, and similar grammar strings often use `ruleName->text`. Keep the left side and the `->` operator exactly unchanged; translate only the natural-language text on the right side.
-2. Grammar variables in square brackets such as [INITIATOR_nameDef], [RECIPIENT_nameDef], [subject], and [rambled] MUST stay exactly unchanged.
-3. BackstoryDef descriptions often contain [PAWN_*] variables inside normal story prose. These descriptions MUST be translated; do not return the original English sentence just because it contains [PAWN_*] variables.
-4. If source text describes or contains XML list structure, preserve multi-level tag nesting and use <li> tags for array/list items. Do not flatten nested lists and do not invent tag names.
+2. Short grammar fragments after `->` are still translatable when they are real words, e.g. `memeAdjective->greedy`, `name1->The Business`, or `r_deityType->[name1] of [name2]`. Preserve the left side and variables, but translate the English word(s) on the right side.
+3. Random name syllables or phonetic fragments such as `start->kt`, `middle->all'ra`, or `end->tl` may be returned unchanged.
+4. Grammar variables in square brackets such as [INITIATOR_nameDef], [RECIPIENT_nameDef], [subject], and [rambled] MUST stay exactly unchanged.
+5. BackstoryDef descriptions often contain [PAWN_*] variables inside normal story prose. These descriptions MUST be translated; do not return the original English sentence just because it contains [PAWN_*] variables.
+6. If source text describes or contains XML list structure, preserve multi-level tag nesting and use <li> tags for array/list items. Do not flatten nested lists and do not invent tag names.
 
 [INPUT & OUTPUT EXAMPLES]
 Input Example: [""Attack"", ""Pawn {{0}} is dead."", ""<color=red>Warning!</color>""]

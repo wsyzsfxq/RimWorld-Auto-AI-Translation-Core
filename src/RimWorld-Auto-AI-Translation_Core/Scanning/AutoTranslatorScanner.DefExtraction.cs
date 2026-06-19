@@ -55,8 +55,10 @@ namespace AutoTranslator_Core
 
             return lower.EndsWith("label") || lower.EndsWith("description") ||
                    lower.EndsWith("string") || lower.EndsWith("text") ||
-                   lower.EndsWith("message") || lower.EndsWith("name") ||
-                   lower.EndsWith("desc");
+                   lower.EndsWith("message") || lower.Contains("message") ||
+                   lower.EndsWith("name") || lower.EndsWith("desc") ||
+                   lower.EndsWith("title") || lower.EndsWith("titleshort") ||
+                   lower.EndsWith("theme") || lower.EndsWith("member");
         }
 
         // 這個方法負責判斷 IsProtectedDef路徑 條件是否成立。
@@ -101,11 +103,20 @@ namespace AutoTranslator_Core
             if (parentNode == null) return false;
             string parentName = parentNode.Name ?? "";
             string parentLower = parentName.ToLowerInvariant();
+            string pathLower = (currentPath ?? "").ToLowerInvariant();
 
             if (IsProtectedDefPath(currentPath) || BlacklistedFields.Contains(parentName)) return false;
-            if (LooksLikeDefReferenceValue(text)) return false;
 
-            return IsTranslationTarget(parentName, text) || parentLower.Contains("rule");
+            bool isKnownTextList =
+                parentLower == "rulesstrings" ||
+                parentLower == "thoughtstagedescriptions" ||
+                parentLower.EndsWith("stagedescriptions") ||
+                pathLower.EndsWith(".thoughtstagedescriptions");
+
+            if (!isKnownTextList && LooksLikeDefReferenceValue(text)) return false;
+            if (parentLower == "rulesstrings" && IsUntranslatableGrammarRule(text)) return false;
+
+            return isKnownTextList || IsTranslationTarget(parentName, text) || parentLower.Contains("rule");
         }
 
 
@@ -120,6 +131,9 @@ namespace AutoTranslator_Core
                    lower.EndsWith(".customsummary") ||
                    lower.EndsWith(".summary") ||
                    lower.EndsWith(".filter.customsummary") ||
+                   lower.Contains(".thoughtstagedescriptions.") ||
+                   lower.Contains(".rulesstrings.") ||
+                   lower.EndsWith(".resource.name") ||
                    lower.Contains(".ingredients.") && lower.EndsWith(".filter.customsummary");
         }
 
@@ -165,10 +179,12 @@ namespace AutoTranslator_Core
 
                     if (!isGarbage && !string.IsNullOrWhiteSpace(text) && !text.Contains(".xml") && !text.StartsWith("Tex/") && !text.StartsWith("UI/"))
                     {
+                        if (IsUntranslatableGrammarRule(text)) continue;
 
                         bool isKnownTranslatablePath = IsKnownTranslatablePath(childPath);
+                        bool isExactTextTag = ExactTextTags.Contains(child.Name);
                         bool shouldTranslate = !IsProtectedDefPath(childPath) &&
-                                               (isKnownTranslatablePath || !LooksLikeDefReferenceValue(text)) &&
+                                               (isKnownTranslatablePath || isExactTextTag || !LooksLikeDefReferenceValue(text)) &&
                                                (isKnownTranslatablePath || IsTranslationTarget(child.Name, text));
 
 
@@ -197,7 +213,7 @@ namespace AutoTranslator_Core
             var result = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
             if (!Directory.Exists(defsRoot)) return result;
 
-            foreach (var file in Directory.GetFiles(defsRoot, "*.xml", SearchOption.AllDirectories))
+            foreach (var file in GetXmlFilesCached(defsRoot, SearchOption.AllDirectories))
             {
                 if (AutoTranslatorSettings.IsCancellationRequested) return result;
 

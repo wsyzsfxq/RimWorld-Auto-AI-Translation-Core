@@ -47,7 +47,7 @@
   <ATC_Log_InitDone>[Init] Готово! Всього зібрано {0} записів перекладу Def.</ATC_Log_InitDone>
   <ATC_Log_StartScan>Auto Translation Core запущено! Цільових модів: {0}</ATC_Log_StartScan>
   <ATC_Log_ScanMod> [Start] Сканування моду: {0}</ATC_Log_ScanMod>
-  <ATC_Log_SkipMod> [Skip] Немає папок Languages та Defs. Чистий код-мод.</ATC_Log_SkipMod>
+  <ATC_Log_SkipMod> [Skip] Не знайдено сканованих джерел перекладу Languages/Defs; пропущено.</ATC_Log_SkipMod>
   <ATC_Log_KeyedScan> [Keyed] Сканування...</ATC_Log_KeyedScan>
   <ATC_Log_DefScan> [DefInjected] Глибоке сканування та глобальне зіставлення...</ATC_Log_DefScan>
   <ATC_Log_FoundMissing> [{0}] Знайдено {1} пропусків! Запит підтримки ШІ...</ATC_Log_FoundMissing>
@@ -95,6 +95,7 @@
   <ATC_Log_ApiFallback>[API] Пакетний переклад провалився! Перехід у «режим дуелі» для построкового перекладу...</ATC_Log_ApiFallback>
   <ATC_LogError_ApiCritical>[Критична помилка API] Не вдалося перекласти текст за шляхом 【{0}】! Збережено оригінал.</ATC_LogError_ApiCritical>
   <ATC_TranslateMultiMod>Одиночний / Мультивибір</ATC_TranslateMultiMod>
+  <ATC_CheckingModStatus>Перевірка стану перекладу модів...</ATC_CheckingModStatus>
   <ATC_SkipCurrentMod>Пропустити поточний мод</ATC_SkipCurrentMod>
   <ATC_MultiSelect_Title>Виберіть моди для перекладу (можна кілька)</ATC_MultiSelect_Title>
   <ATC_MultiSelect_Search>Введіть назву моду для пошуку...</ATC_MultiSelect_Search>
@@ -140,6 +141,10 @@
   <ATC_Log_AIFormatRecovered>[API] Повторний переклад завершено. Формат відповіді ШІ коректний.</ATC_Log_AIFormatRecovered>
   <ATC_Log_ValidationClean>[Перевірка] Перевірку структури перекладу завершено. Виправлення формату не потрібні.</ATC_Log_ValidationClean>
   <ATC_Log_ValidationSummary>[Перевірка] Автовиправлення：переноси {0}, префікси правил {1}, захищені token {2}, відкат високого ризику {3}, пропущено неправильних XML key {4}.</ATC_Log_ValidationSummary>
+  <ATC_Log_EnglishResidualSummary>[Перевірка] Залишки англійської: знайдено {0}, повторено {1}, досі не виправлено {2}.</ATC_Log_EnglishResidualSummary>
+  <ATC_Log_EnglishResidualRejected>[Перевірка] Залишок англійської не виправлено після повторної спроби: {0}</ATC_Log_EnglishResidualRejected>
+  <ATC_Log_ProtectedTokenMismatchRejected>[Перевірка] Невідповідність захищених token не виправлено після повторної спроби: {0}</ATC_Log_ProtectedTokenMismatchRejected>
+  <ATC_Log_PlaceholderRepairSummary>[Перевірка] Виправлено {0} placeholder token у {1} створених файлах перекладу.</ATC_Log_PlaceholderRepairSummary>
   <ATC_Profile_Current>Поточний профіль：{0} рядків у пакеті, повторів формату {1}, мінімум тайм-ауту {2} с</ATC_Profile_Current>
   <ATC_Profile_DeepSeek>DeepSeek：консервативні пакети для зниження ризику порожнього або неправильного JSON.</ATC_Profile_DeepSeek>
   <ATC_Profile_Google>Google/Gemini：стандартні пакети для стабільного масового перекладу.</ATC_Profile_Google>
@@ -167,7 +172,9 @@
   <ATC_LogError_RateLimit>[Ліміт запитів API] Провайдер [{0}] повернув помилку 429. Час очікування автоматично збільшено.</ATC_LogError_RateLimit>
   <ATC_Tag_FromSimplified>[Зі спрощеного кит.]</ATC_Tag_FromSimplified>
   <ATC_Tag_FromTraditional>[З традиційного кит.]</ATC_Tag_FromTraditional>
-  <ATC_Log_SkipExistingTranslation>[Skip] Мод [{0}] вже містить {1} вбудованих рядків перекладу, пропуск повторного перекладу.</ATC_Log_SkipExistingTranslation>
+  <ATC_Log_SkipExistingTranslation>[Збережено] Мод [{0}] уже містить {1} вбудованих рядків перекладу; вони будуть збережені, а ШІ заповнить лише пропуски.</ATC_Log_SkipExistingTranslation>
+  <ATC_Log_NativeTranslationSkip>[Система] Мод [{0}] уже має повний вбудований переклад {1}; переклад збережено, перезапис ШІ пропущено.</ATC_Log_NativeTranslationSkip>
+  <ATC_Log_ExternalTranslationPatchSkip>[Система] Мод [{0}] покрито патчем перекладу [{1}] ({2}); перезапис ШІ пропущено.</ATC_Log_ExternalTranslationPatchSkip>
   <ATC_Lang_DeepL_FreeNote>DeepL Free (Автовизначення)</ATC_Lang_DeepL_FreeNote>
   <ATC_Lang_DeepL_ProNote>DeepL Pro (Автовизначення)</ATC_Lang_DeepL_ProNote>
   <ATC_LogError_DeepL_LangNotSupport>[DeepL] Цільова мова [{0}] не підтримується DeepL. Використовуйте іншого провайдера.</ATC_LogError_DeepL_LangNotSupport>
@@ -305,7 +312,7 @@
   <ATC_Setting_Timeout>Макс. час очікування API: {0} сек.</ATC_Setting_Timeout>
   <ATC_Setting_Timeout_Tooltip>Якщо сервер не відповість за вказаний час, запит буде скинутий для повторної спроби. Рекомендується: 60-120\n(При використанні важких міркувальних моделей фоновий час очікування примусово збільшується до 300 сек.)</ATC_Setting_Timeout_Tooltip>
   <ATC_FilteredCodeOnly>Відсіяно {0} модів без локалізації (містять тільки виконуваний код).</ATC_FilteredCodeOnly>
-  <ATC_FilteredModsCount>Відсіяно {0} модів, що не потребують перекладу (чистий код або чисто графічні асети)</ATC_FilteredModsCount>
+  <ATC_FilteredModsCount>Відсіяно {0} модів без сканованих джерел перекладу</ATC_FilteredModsCount>
   <ATC_Log_DeepL_EndpointDetected>✅ Ендпоінт DeepL［{0}］успішно підключено.</ATC_Log_DeepL_EndpointDetected>
   <ATC_Log_FetchModelsRetry>Помилка отримання списку моделей (HTTP {0}). Спроба відновлення №{1}…</ATC_Log_FetchModelsRetry>
   <ATC_Log_FetchModelsAutoRetryQueued>[{0}] Model lookup failed. Auto retry in {1}s (attempt {2}).</ATC_Log_FetchModelsAutoRetryQueued>
@@ -348,12 +355,23 @@
   <ATC_Msg_BatchSuccess>✅ Пакетне оновлення завершено! Локалізацію залито в {0} з {1} модів!</ATC_Msg_BatchSuccess>
   <ATC_Cloud_Btn_OpenWorkspace>📂 Відкрити робочу зону</ATC_Cloud_Btn_OpenWorkspace>
   <ATC_Cloud_Btn_BatchUpload>⬆️ Масове завантаження робочої зони</ATC_Cloud_Btn_BatchUpload>
+  <ATC_Cloud_Btn_BatchUploadPack>⬆️ Batch Upload Local Pack</ATC_Cloud_Btn_BatchUploadPack>
   <ATC_Msg_WorkspaceEmpty>⚠️ Робоча директорія порожня або не виявлена!</ATC_Msg_WorkspaceEmpty>
+  <ATC_Msg_BatchUploadPackEmpty>⚠️ No uploadable mod translation files were found in the local translation pack!</ATC_Msg_BatchUploadPackEmpty>
   <ATC_Msg_BatchUploadStart>🚀 Запуск глибокого аналізу робочої зони та вивантаження {0} модів у хмару...</ATC_Msg_BatchUploadStart>
   <ATC_Msg_BatchUploadSuccess>Пакетне завантаження завершено! Завантажено модів: {0}, тип: {1}.</ATC_Msg_BatchUploadSuccess>
   <ATC_Cloud_BatchUploadLogLabel>Опис оновлення для пакетного завантаження:</ATC_Cloud_BatchUploadLogLabel>
   <ATC_Cloud_BatchUploadLogHint>Обов'язково для пакетного завантаження. Коротко опишіть зміни.</ATC_Cloud_BatchUploadLogHint>
   <ATC_Msg_BatchUploadLogRequired>Для пакетного завантаження потрібен опис оновлення щонайменше 5 символів.</ATC_Msg_BatchUploadLogRequired>
+  <ATC_Log_BatchUploadMissingFolder>Batch upload skipped "{0}": source folder was not found.</ATC_Log_BatchUploadMissingFolder>
+  <ATC_Log_BatchUploadNoXml>Batch upload skipped "{0}": no uploadable XML files were found.</ATC_Log_BatchUploadNoXml>
+  <ATC_Log_BatchUploadItemFailed>Batch upload skipped "{0}": {1}</ATC_Log_BatchUploadItemFailed>
+  <ATC_Log_BatchUploadWorkerFailed>Batch upload worker failed: {0}</ATC_Log_BatchUploadWorkerFailed>
+  <ATC_Log_BatchUploadFailedList>Batch upload failed or skipped {0} mod(s): {1}</ATC_Log_BatchUploadFailedList>
+  <ATC_Cloud_ShowMineOnly>Show My Uploads Only</ATC_Cloud_ShowMineOnly>
+  <ATC_Cloud_MyUploadsCount>My uploads: {0}</ATC_Cloud_MyUploadsCount>
+  <ATC_Cloud_NoMyUploads>No cloud translations uploaded from this device were found.</ATC_Cloud_NoMyUploads>
+  <ATC_Cloud_Status_NotInstalled>Uploaded {0} / {1} / not installed locally</ATC_Cloud_Status_NotInstalled>
   <ATC_Cloud_Type_Select>📝 Категорія публікованої локалізації:</ATC_Cloud_Type_Select>
   <ATC_Cloud_Type_AI>🤖 Машинний (ШІ) переклад</ATC_Cloud_Type_AI>
   <ATC_Cloud_Type_Manual>✍️ Ручне доопрацювання людиною</ATC_Cloud_Type_Manual>
@@ -460,6 +478,7 @@
   <ATC_ModStatus_Translated>Перекладено</ATC_ModStatus_Translated>
   <ATC_ModStatus_Untranslated>Не перекладено</ATC_ModStatus_Untranslated>
   <ATC_ModStatus_Outdated>Може бути застаріло</ATC_ModStatus_Outdated>
+  <ATC_ModStatus_Filtered>Відфільтровано</ATC_ModStatus_Filtered>
   <ATC_Msg_CloudUploadPatchModBlocked>&#x0417;&#x0430;&#x0432;&#x0430;&#x043D;&#x0442;&#x0430;&#x0436;&#x0435;&#x043D;&#x043D;&#x044F; &#x0437;&#x0430;&#x0431;&#x043B;&#x043E;&#x043A;&#x043E;&#x0432;&#x0430;&#x043D;&#x043E;: {0} &#x0441;&#x0445;&#x043E;&#x0436;&#x0438;&#x0439; &#x043D;&#x0430; &#x043C;&#x043E;&#x0434; &#x043B;&#x043E;&#x043A;&#x0430;&#x043B;&#x0456;&#x0437;&#x0430;&#x0446;&#x0456;&#x0457; &#x0430;&#x0431;&#x043E; &#x043F;&#x0430;&#x0442;&#x0447; &#x043F;&#x0435;&#x0440;&#x0435;&#x043A;&#x043B;&#x0430;&#x0434;&#x0443;. &#x0425;&#x043C;&#x0430;&#x0440;&#x043D;&#x0438;&#x0439; &#x043E;&#x0431;&#x043C;&#x0456;&#x043D; &#x043F;&#x0440;&#x0438;&#x0439;&#x043C;&#x0430;&#x0454; &#x043B;&#x0438;&#x0448;&#x0435; &#x0456;&#x043D;&#x0454;&#x043A;&#x0446;&#x0456;&#x0439;&#x043D;&#x0456; &#x043F;&#x0435;&#x0440;&#x0435;&#x043A;&#x043B;&#x0430;&#x0434;&#x0438; &#x0434;&#x043B;&#x044F; &#x043E;&#x0440;&#x0438;&#x0433;&#x0456;&#x043D;&#x0430;&#x043B;&#x044C;&#x043D;&#x0438;&#x0445; &#x043C;&#x043E;&#x0434;&#x0456;&#x0432;.</ATC_Msg_CloudUploadPatchModBlocked>
   <ATC_Msg_CloudBatchPatchModsSkipped>&#x041F;&#x0440;&#x043E;&#x043F;&#x0443;&#x0449;&#x0435;&#x043D;&#x043E; {0} &#x043C;&#x043E;&#x0434;&#x0456;&#x0432; &#x043B;&#x043E;&#x043A;&#x0430;&#x043B;&#x0456;&#x0437;&#x0430;&#x0446;&#x0456;&#x0457; &#x0430;&#x0431;&#x043E; &#x043F;&#x0430;&#x0442;&#x0447;&#x0456;&#x0432; &#x043F;&#x0435;&#x0440;&#x0435;&#x043A;&#x043B;&#x0430;&#x0434;&#x0443;. &#x0412;&#x043E;&#x043D;&#x0438; &#x043D;&#x0435; &#x0431;&#x0443;&#x0434;&#x0443;&#x0442;&#x044C; &#x0437;&#x0430;&#x0432;&#x0430;&#x043D;&#x0442;&#x0430;&#x0436;&#x0435;&#x043D;&#x0456; &#x0434;&#x043E; &#x0445;&#x043C;&#x0430;&#x0440;&#x043D;&#x043E;&#x0433;&#x043E; &#x043E;&#x0431;&#x043C;&#x0456;&#x043D;&#x0443;.</ATC_Msg_CloudBatchPatchModsSkipped>
 </LanguageData>

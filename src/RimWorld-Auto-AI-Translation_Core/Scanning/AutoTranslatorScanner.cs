@@ -34,11 +34,31 @@ namespace AutoTranslator_Core
         // 這個欄位保存 pending記憶體Drop 的執行狀態或快取資料。
         // EN: This field stores pending memory drop runtime state or cached data.
         private static bool _pendingMemoryDrop = false;
+        private static bool _pendingKeyedMemoryDrop = false;
+        private static readonly HashSet<string> _pendingMemoryDropPackageIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private static readonly Dictionary<string, Dictionary<string, HashSet<string>>> _pendingMemoryDropClearKeysByPackage =
+            new Dictionary<string, Dictionary<string, HashSet<string>>>(StringComparer.OrdinalIgnoreCase);
+        private static int _startupFullMemoryDropQueued = 0;
+        private static int _memoryDropPrepareRunning = 0;
+        private static MemoryDropPayload _pendingMemoryDropPayload = null;
+        private static MemoryDropApplyState _activeMemoryDropApply = null;
+        private static bool _pendingStaticCachedTranslationRefresh = false;
+        private static readonly object _memoryDropStampLock = new object();
+        private static string _lastKeyedMemoryDropStamp = null;
+        private static string _lastFullMemoryDropStamp = null;
         private static Dictionary<string, string> GlobalPrimaryDefDict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private static Dictionary<string, string> GlobalSecondaryDefDict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private static Dictionary<string, string> GlobalPrimaryKeyedDict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         private static Dictionary<string, string> GlobalSecondaryKeyedDict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        private static readonly object GlobalTranslationDatabaseCacheLock = new object();
+        private static int GlobalTranslationDatabaseCacheGeneration = 0;
+        private static string GlobalTranslationDatabaseCacheKey = null;
+        private static Dictionary<string, string> GlobalTranslationDatabaseCachedPrimaryDefDict = null;
+        private static Dictionary<string, string> GlobalTranslationDatabaseCachedSecondaryDefDict = null;
+        private static Dictionary<string, string> GlobalTranslationDatabaseCachedPrimaryKeyedDict = null;
+        private static Dictionary<string, string> GlobalTranslationDatabaseCachedSecondaryKeyedDict = null;
         private static readonly TranslationValidationStats _validationStats = new TranslationValidationStats();
+        private static readonly HashSet<string> _loggedEnglishResidualContexts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         // 這個類別負責 翻譯ValidationStats 的主要流程與狀態。
         // EN: This class manages the main workflow and state for TranslationValidationStats.
@@ -68,6 +88,9 @@ namespace AutoTranslator_Core
             // 這個欄位保存 EnglishResidualFallback 的執行狀態或快取資料。
             // EN: This field stores english residual fallback runtime state or cached data.
             public int EnglishResidualFallback;
+            public int ProtectedTokenMismatchDetected;
+            public int ProtectedTokenMismatchRetried;
+            public int ProtectedTokenMismatchFallback;
 
             // 這個方法負責重置 這段邏輯 狀態。
             // EN: This method resets .
@@ -81,6 +104,9 @@ namespace AutoTranslator_Core
                 EnglishResidualDetected = 0;
                 EnglishResidualRetried = 0;
                 EnglishResidualFallback = 0;
+                ProtectedTokenMismatchDetected = 0;
+                ProtectedTokenMismatchRetried = 0;
+                ProtectedTokenMismatchFallback = 0;
             }
         }
 
@@ -91,11 +117,16 @@ namespace AutoTranslator_Core
             "pawnLabel", "gerund", "verb", "deathMessage", "inspectString", "baseInspectString", "helpText",
             "letterLabel", "letterText", "message", "messageSuccess", "messageFailed", "rejectInputMessage",
             "skillLabel", "endMessage", "beginLetterLabel", "beginLetter", "recoveryMessage", "destroyedLabel",
-            "pawnSingular", "pawnPlural", "leaderTitle", "adjective", "royalFavorLabel", "arrivalText", "arrivalTextEnemy",
+            "pawnSingular", "pawnPlural", "pawnsPlural", "leaderTitle", "adjective", "royalFavorLabel", "arrivalText", "arrivalTextEnemy",
             "logRulesInitiator", "logRulesRecipient", "useLabel", "ingestCommandString", "ingestReportString",
             "meatLabel", "corpseLabel", "discoverLetterTitle", "discoverLetterText", "letterLabelEnemy", "letterTextEnemy",
             "commandLabel", "commandDescription", "formatString", "outfitName", "labelNoun", "labelNounPretty",
-            "customSummary", "summary",
+            "customSummary", "summary", "title", "titleShort", "titleFemale", "titleShortFemale", "titleMale",
+            "titleShortMale", "subtitle", "theme", "member", "ideoName", "successMessage",
+            "successMessageNoNegativeThought", "failureMessage", "failMessage", "warningMessage",
+            "tooltip", "explanation", "caption", "labelShortAdj", "baseInspectLine", "inspectLine",
+            "fuelLabel", "fuelGizmoLabel", "permanentLabel", "destroyedOutLabel",
+            "customLetterLabel", "customLetterText",
             "rulesStrings"
         };
 
@@ -148,6 +179,7 @@ namespace AutoTranslator_Core
 };
         private static readonly Regex FilePathRegex = new Regex(@"\.(png|jpg|jpeg|wav|mp3|ogg|xml|txt|lua|tex|dds)$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
         private static readonly Regex ProtectedTokenRegex = new Regex(@"(\{[^{}\r\n]+\}|\[[^\[\]\r\n]+\])", RegexOptions.Compiled);
+        private static readonly Regex FormatArgumentRegex = new Regex(@"\{(\d+)(?:,[^{}:]+)?(?::[^{}]+)?\}", RegexOptions.Compiled);
 
         private static readonly Regex ValidXmlNameRegex = new Regex(
             @"^[A-Za-z_][A-Za-z0-9_\-\.]*$",

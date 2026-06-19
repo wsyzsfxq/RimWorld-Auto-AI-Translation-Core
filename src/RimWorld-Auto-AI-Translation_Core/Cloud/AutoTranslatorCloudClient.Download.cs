@@ -102,6 +102,7 @@ namespace AutoTranslator_Core
                 if (System.IO.Directory.Exists(workspaceDir))
                 {
                     System.IO.Directory.Delete(workspaceDir, true);
+                    AutoTranslatorScanner.NotifyTranslationFilesChanged(workspaceDir);
                 }
                 System.IO.Directory.CreateDirectory(workspaceDir);
 
@@ -117,10 +118,12 @@ namespace AutoTranslator_Core
                         string destPath = System.IO.Path.Combine(extractRoot, entry.FullName);
                         System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(destPath));
                         entry.ExtractToFile(destPath, true);
+                        AutoTranslatorScanner.NotifyTranslationFileChanged(destPath);
 
                         string wsDestPath = System.IO.Path.Combine(workspaceDir, entry.FullName);
                         System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(wsDestPath));
                         entry.ExtractToFile(wsDestPath, true);
+                        AutoTranslatorScanner.NotifyTranslationFileChanged(wsDestPath);
                     }
                 }
                 System.IO.File.Delete(tempZipFile);
@@ -139,6 +142,9 @@ namespace AutoTranslator_Core
                     string metaPath = System.IO.Path.Combine(extractRoot, $"{cleanPackageId}_ATC_Meta.json");
                     System.IO.File.WriteAllText(metaPath, JsonConvert.SerializeObject(meta, Newtonsoft.Json.Formatting.Indented));
                 }
+
+                AutoTranslatorScanner.NotifyTranslationFilesChanged(extractRoot);
+                AutoTranslatorScanner.NotifyTranslationFilesChanged(workspaceDir);
 
                 if (requestMemoryDrop)
                 {

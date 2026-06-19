@@ -70,6 +70,7 @@ namespace AutoTranslator_Core
 
             translated = RestoreGrammarRulePrefix(translated, original);
             translated = RestoreProtectedTokens(translated, original);
+            translated = RestoreUntranslatableGrammarRule(translated, original);
             translated = LanguageDetector.NormalizeChineseVariant(translated, AutoTranslatorMod.Settings.TargetLang);
 
             return translated;
@@ -82,10 +83,7 @@ namespace AutoTranslator_Core
         {
             if (string.IsNullOrEmpty(translated) || string.IsNullOrEmpty(original)) return translated;
 
-            int originalArrow = original.IndexOf("->", StringComparison.Ordinal);
-            if (originalArrow < 0) return translated;
-
-            string originalPrefix = original.Substring(0, originalArrow + 2);
+            if (!TrySplitGrammarRule(original, out string originalPrefix, out _, out _)) return translated;
             int translatedArrow = translated.IndexOf("->", StringComparison.Ordinal);
 
             if (translatedArrow >= 0)
@@ -100,6 +98,83 @@ namespace AutoTranslator_Core
 
             AddValidationStat(s => s.RulePrefixFixed++);
             return originalPrefix + translated.TrimStart();
+        }
+
+
+        private static string RestoreUntranslatableGrammarRule(string translated, string original)
+        {
+            if (string.IsNullOrEmpty(translated) || string.IsNullOrEmpty(original)) return translated;
+            return IsUntranslatableGrammarRule(original) ? original : translated;
+        }
+
+
+        private static bool TrySplitGrammarRule(string text, out string prefix, out string ruleName, out string rightSide)
+        {
+            prefix = "";
+            ruleName = "";
+            rightSide = "";
+
+            if (string.IsNullOrEmpty(text)) return false;
+
+            int arrow = text.IndexOf("->", StringComparison.Ordinal);
+            if (arrow < 0) return false;
+
+            prefix = text.Substring(0, arrow + 2);
+            rightSide = text.Substring(arrow + 2);
+
+            string leftSide = text.Substring(0, arrow).Trim();
+            int metadataStart = leftSide.IndexOf('(');
+            ruleName = metadataStart >= 0 ? leftSide.Substring(0, metadataStart).Trim() : leftSide;
+            return !string.IsNullOrEmpty(ruleName);
+        }
+
+
+        private static bool IsUntranslatableGrammarRule(string text)
+        {
+            if (!TrySplitGrammarRule(text, out _, out string ruleName, out string rightSide)) return false;
+            return !ShouldTranslateGrammarRuleRightSide(ruleName, rightSide);
+        }
+
+
+        private static bool ShouldTranslateGrammarRuleRightSide(string ruleName, string rightSide)
+        {
+            string normalizedRuleName = (ruleName ?? "").Trim();
+            if (normalizedRuleName.Equals("start", StringComparison.OrdinalIgnoreCase) ||
+                normalizedRuleName.Equals("middle", StringComparison.OrdinalIgnoreCase) ||
+                normalizedRuleName.Equals("end", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            string sample = NormalizeGrammarRightSideForDecision(rightSide);
+            if (sample.Length == 0) return false;
+            if (Regex.IsMatch(sample, @"^[A-Za-z]{1,2}-?$") && !HasEnglishSignal(sample)) return false;
+            if (Regex.IsMatch(sample, @"^[A-Za-z0-9_]+$") && sample.Contains("_")) return false;
+
+            CountResidualScripts(sample, out _, out _, out _, out _, out int latinCount, out int letterCount);
+            return (letterCount >= 3 && latinCount >= 3) || HasEnglishSignal(sample);
+        }
+
+
+        private static string NormalizeGrammarRightSideForDecision(string rightSide)
+        {
+            if (string.IsNullOrWhiteSpace(rightSide)) return "";
+
+            string sample = rightSide
+                .Replace("\\n", " ")
+                .Replace("\\r", " ")
+                .Replace("\\t", " ")
+                .Replace("\n", " ")
+                .Replace("\r", " ")
+                .Replace("\t", " ");
+
+            sample = Regex.Replace(sample, @"<[^>]+>", " ");
+            sample = ProtectedTokenRegex.Replace(sample, " ");
+            sample = Regex.Replace(sample, @"\$[A-Za-z0-9_]+|%[A-Za-z]", " ");
+            sample = Regex.Replace(sample, @"[_/\\]+", " ");
+            sample = Regex.Replace(sample, @"[^A-Za-z\u00C0-\u024F\s'\-]", " ");
+            sample = Regex.Replace(sample, @"\s+", " ");
+            return sample.Trim();
         }
 
 
@@ -141,13 +216,65 @@ namespace AutoTranslator_Core
                 }
             }
 
-            if (missingToken && IsStructureSensitiveText(original))
+            if (missingToken && RequiresProtectedTokenParity(original))
             {
                 AddValidationStat(s => s.StructureFallback++);
                 return original;
             }
 
             return result;
+        }
+
+        private static bool HasProtectedTokenMismatch(string translated, string original)
+        {
+            if (string.IsNullOrEmpty(original)) return false;
+            if (string.IsNullOrEmpty(translated)) return ProtectedTokenRegex.IsMatch(original);
+
+            var tokens = ProtectedTokenRegex.Matches(original)
+                .Cast<Match>()
+                .GroupBy(m => m.Value)
+                .ToDictionary(g => g.Key, g => g.Count(), StringComparer.Ordinal);
+
+            foreach (var pair in tokens)
+            {
+                int translatedCount = Regex.Matches(translated, Regex.Escape(pair.Key)).Count;
+                if (translatedCount != pair.Value) return true;
+            }
+
+            return false;
+        }
+
+        private static bool HasFormatArgumentMismatch(string translated, string original)
+        {
+            if (string.IsNullOrEmpty(original)) return false;
+            if (string.IsNullOrEmpty(translated)) return FormatArgumentRegex.IsMatch(original);
+
+            var originalArgs = FormatArgumentRegex.Matches(original)
+                .Cast<Match>()
+                .GroupBy(m => m.Groups[1].Value)
+                .ToDictionary(g => g.Key, g => g.Count(), StringComparer.Ordinal);
+
+            var translatedArgs = FormatArgumentRegex.Matches(translated)
+                .Cast<Match>()
+                .GroupBy(m => m.Groups[1].Value)
+                .ToDictionary(g => g.Key, g => g.Count(), StringComparer.Ordinal);
+
+            if (originalArgs.Count != translatedArgs.Count) return true;
+
+            foreach (var pair in originalArgs)
+            {
+                if (!translatedArgs.TryGetValue(pair.Key, out int count) || count != pair.Value)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool RequiresProtectedTokenParity(string original)
+        {
+            return ProtectedTokenRegex.IsMatch(original ?? "") || FormatArgumentRegex.IsMatch(original ?? "");
         }
 
 
@@ -160,7 +287,9 @@ namespace AutoTranslator_Core
                    original.IndexOf("[INITIATOR_", StringComparison.Ordinal) >= 0 ||
                    original.IndexOf("[RECIPIENT_", StringComparison.Ordinal) >= 0 ||
                    original.IndexOf("{PAWN", StringComparison.Ordinal) >= 0 ||
-                   original.IndexOf("[PAWN_", StringComparison.Ordinal) >= 0;
+                   original.IndexOf("[PAWN_", StringComparison.Ordinal) >= 0 ||
+                   original.IndexOf('{') >= 0 ||
+                   original.IndexOf('[') >= 0;
         }
 
 
@@ -187,11 +316,12 @@ namespace AutoTranslator_Core
 
             string sample = NormalizeResidualLanguageSample(translated);
             string sourceSample = NormalizeResidualLanguageSample(original);
-            if (sample.Length < 2 || sourceSample.Length < 2) return false;
+            if ((sample.Length < 2 || sourceSample.Length < 2) && !(HasEnglishSignal(sample) && HasEnglishSignal(sourceSample))) return false;
             if (!HasTranslatableLatinSource(sourceSample)) return false;
 
             CountResidualScripts(sample, out int hanCount, out int kanaCount, out int hangulCount, out int cyrillicCount, out int latinCount, out int letterCount);
-            if (letterCount < 3 || latinCount < 3) return false;
+            bool shortEnglishSignal = HasEnglishSignal(sample) && HasEnglishSignal(sourceSample);
+            if ((letterCount < 3 || latinCount < 3) && !shortEnglishSignal) return false;
             if (IsShortUppercaseToken(sample)) return false;
 
             bool unchanged = string.Equals(sample, sourceSample, StringComparison.OrdinalIgnoreCase);
@@ -228,6 +358,12 @@ namespace AutoTranslator_Core
         {
             if (string.IsNullOrWhiteSpace(text)) return "";
 
+            if (TrySplitGrammarRule(text, out _, out string ruleName, out string rightSide))
+            {
+                if (!ShouldTranslateGrammarRuleRightSide(ruleName, rightSide)) return "";
+                text = rightSide;
+            }
+
             string sample = text
                 .Replace("\\n", " ")
                 .Replace("\\r", " ")
@@ -251,7 +387,7 @@ namespace AutoTranslator_Core
         private static bool HasTranslatableLatinSource(string sample)
         {
             CountResidualScripts(sample, out _, out _, out _, out _, out int latinCount, out int letterCount);
-            if (letterCount < 3 || latinCount < 3) return false;
+            if (letterCount < 3 || latinCount < 3) return HasEnglishSignal(sample);
             if (Regex.IsMatch(sample, @"^[A-Z0-9 .'\-]{2,6}$") && sample.ToUpperInvariant() == sample) return false;
             return true;
         }
@@ -262,7 +398,7 @@ namespace AutoTranslator_Core
         private static bool HasEnglishSignal(string sample)
         {
             if (string.IsNullOrWhiteSpace(sample)) return false;
-            if (Regex.IsMatch(sample, @"(?<!\p{L})(the|and|for|with|from|this|that|your|you|not|can|will|when|while|after|before|into|has|have|are|was|were|is|of|to|in|on)(?!\p{L})", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+            if (Regex.IsMatch(sample, @"(?<!\p{L})(the|and|for|with|from|this|that|your|you|not|can|will|when|while|after|before|into|has|have|are|was|were|is|of|to|in|on|a|an)(?!\p{L})", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
             {
                 return true;
             }

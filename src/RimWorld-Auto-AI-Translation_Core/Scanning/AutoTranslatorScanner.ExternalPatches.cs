@@ -99,7 +99,7 @@ namespace AutoTranslator_Core
                              m != null &&
                              m.Active &&
                              IsTranslationPatchMod(m) &&
-                             HasNativeTargetLanguage(m, targetLang)))
+                             HasTranslationPatchTargetLanguage(m, targetLang)))
                 {
                     string patchPackageId = NormalizeExternalPatchPackageId(patchMod.PackageId);
 
@@ -128,44 +128,94 @@ namespace AutoTranslator_Core
 
         // 這個方法負責取得 Referenced目標PackageIds 資料。
         // EN: This method gets referenced target package ids.
+        private static bool HasTranslationPatchTargetLanguage(ModMetaData patchMod, TargetLanguage targetLang)
+        {
+            if (patchMod == null) return false;
+
+            string targetFolder = GetFolderNameByLanguage(targetLang);
+            foreach (string langRoot in GetAllTranslationPatchLangPaths(patchMod))
+            {
+                try
+                {
+                    foreach (string targetRoot in ResolveLanguageFolders(langRoot, targetFolder))
+                    {
+                        if (ContainsTranslationXmlFiles(targetRoot))
+                        {
+                            return true;
+                        }
+                    }
+                }
+                catch { }
+            }
+
+            return false;
+        }
+
         private static IEnumerable<string> GetReferencedTargetPackageIds(ModMetaData patchMod)
         {
             var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             if (patchMod == null) return result;
 
             string aboutXml = Path.Combine(patchMod.RootDir.FullName, "About", "About.xml");
-            if (!File.Exists(aboutXml)) return result;
-
-            try
+            if (File.Exists(aboutXml))
             {
-                XmlDocument doc = new XmlDocument();
-                doc.Load(aboutXml);
-
-                string[] dependencyPaths =
+                try
                 {
-                    "//loadAfter/li",
-                    "//forceLoadAfter/li",
-                    "//loadBefore/li",
-                    "//forceLoadBefore/li",
-                    "//modDependencies//packageId",
-                    "//modDependenciesByVersion//packageId"
-                };
+                    XmlDocument doc = new XmlDocument();
+                    doc.Load(aboutXml);
 
-                foreach (string xpath in dependencyPaths)
-                {
-                    XmlNodeList nodes = doc.SelectNodes(xpath);
-                    if (nodes == null) continue;
-
-                    foreach (XmlNode node in nodes)
+                    string[] dependencyPaths =
                     {
-                        foreach (string packageId in ExtractPackageIdTokens(node.InnerText))
+                        "//loadAfter/li",
+                        "//forceLoadAfter/li",
+                        "//loadBefore/li",
+                        "//forceLoadBefore/li",
+                        "//modDependencies//packageId",
+                        "//modDependenciesByVersion//packageId"
+                    };
+
+                    foreach (string xpath in dependencyPaths)
+                    {
+                        XmlNodeList nodes = doc.SelectNodes(xpath);
+                        if (nodes == null) continue;
+
+                        foreach (XmlNode node in nodes)
                         {
-                            result.Add(packageId);
+                            foreach (string packageId in ExtractPackageIdTokens(node.InnerText))
+                            {
+                                result.Add(packageId);
+                            }
                         }
                     }
                 }
+                catch { }
             }
-            catch { }
+
+            string loadFoldersXml = Path.Combine(patchMod.RootDir.FullName, "LoadFolders.xml");
+            if (File.Exists(loadFoldersXml))
+            {
+                try
+                {
+                    XmlDocument loadDoc = new XmlDocument();
+                    loadDoc.Load(loadFoldersXml);
+
+                    XmlNodeList nodes = loadDoc.SelectNodes("//*[@IfModActive]");
+                    if (nodes != null)
+                    {
+                        foreach (XmlNode node in nodes)
+                        {
+                            XmlAttribute attr = node.Attributes?["IfModActive"];
+                            if (attr == null) continue;
+
+                            foreach (string packageId in ExtractPackageIdTokens(attr.Value))
+                            {
+                                result.Add(packageId);
+                            }
+                        }
+                    }
+                }
+                catch { }
+            }
 
             return result;
         }

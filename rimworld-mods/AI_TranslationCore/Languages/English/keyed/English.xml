@@ -47,7 +47,7 @@
   <ATC_Log_InitDone>[Init] Completed! Collected {0} Def translation entries.</ATC_Log_InitDone>
   <ATC_Log_StartScan>Auto Translation Core started! Target mods: {0}</ATC_Log_StartScan>
   <ATC_Log_ScanMod> [Start] Scanning mod: {0}</ATC_Log_ScanMod>
-  <ATC_Log_SkipMod> [Skip] No Languages or Defs folders found. Pure code mod.</ATC_Log_SkipMod>
+  <ATC_Log_SkipMod> [Skip] No scannable Languages/Defs translation sources found; skipped.</ATC_Log_SkipMod>
   <ATC_Log_KeyedScan> [Keyed] Scanning...</ATC_Log_KeyedScan>
   <ATC_Log_DefScan> [DefInjected] Deep scanning and global comparison in progress...</ATC_Log_DefScan>
   <ATC_Log_FoundMissing> [{0}] {1} missing entries found! Requesting AI assistance...</ATC_Log_FoundMissing>
@@ -95,6 +95,7 @@
   <ATC_Log_ApiFallback>[API] Block translation completely failed! Switching to "duel mode" to translate sentence-by-sentence...</ATC_Log_ApiFallback>
   <ATC_LogError_ApiCritical>[API Critical Error] Translation of the text at 【{0}】 completely failed! Original text preserved.</ATC_LogError_ApiCritical>
   <ATC_TranslateMultiMod>Single / Multi-Select Translation</ATC_TranslateMultiMod>
+  <ATC_CheckingModStatus>Checking mod translation status...</ATC_CheckingModStatus>
   <ATC_SkipCurrentMod>Skip Current Mod</ATC_SkipCurrentMod>
   <ATC_MultiSelect_Title>Select mods to translate (multiple choices allowed)</ATC_MultiSelect_Title>
   <ATC_MultiSelect_Search>Type a mod name to search...</ATC_MultiSelect_Search>
@@ -140,6 +141,10 @@
   <ATC_Log_AIFormatRecovered>[API] Retranslation completed. AI response format is correct.</ATC_Log_AIFormatRecovered>
   <ATC_Log_ValidationClean>[Validation] Translation structure check completed. No format fixes were needed.</ATC_Log_ValidationClean>
   <ATC_Log_ValidationSummary>[Validation] Auto fixes: newline {0}, rule prefix {1}, protected token {2}, high-risk fallback {3}, invalid XML keys skipped {4}.</ATC_Log_ValidationSummary>
+  <ATC_Log_EnglishResidualSummary>[Validation] English residual scan: detected {0}, retried {1}, still unresolved {2}.</ATC_Log_EnglishResidualSummary>
+  <ATC_Log_EnglishResidualRejected>[Validation] English residual still unresolved after retry: {0}</ATC_Log_EnglishResidualRejected>
+  <ATC_Log_ProtectedTokenMismatchRejected>[Validation] Protected token mismatch still unresolved after retry: {0}</ATC_Log_ProtectedTokenMismatchRejected>
+  <ATC_Log_PlaceholderRepairSummary>[Validation] Repaired {0} placeholder tokens in {1} generated translation files.</ATC_Log_PlaceholderRepairSummary>
   <ATC_Profile_Current>Current profile: {0} strings per batch, {1} format retries, {2}s timeout floor</ATC_Profile_Current>
   <ATC_Profile_DeepSeek>DeepSeek: conservative batches to reduce empty or invalid JSON responses.</ATC_Profile_DeepSeek>
   <ATC_Profile_Google>Google/Gemini: standard batches for stable high-volume translation.</ATC_Profile_Google>
@@ -167,7 +172,9 @@
   <ATC_LogError_RateLimit>[API Rate Limit] Provider [{0}] returned 429, retry delay automatically extended.</ATC_LogError_RateLimit>
   <ATC_Tag_FromSimplified>[From Simp. Chinese]</ATC_Tag_FromSimplified>
   <ATC_Tag_FromTraditional>[From Trad. Chinese]</ATC_Tag_FromTraditional>
-  <ATC_Log_SkipExistingTranslation>[Skip] Mod [{0}] already contains {1} built-in translation entries, skipped duplicate translation.</ATC_Log_SkipExistingTranslation>
+  <ATC_Log_SkipExistingTranslation>[Keep] Mod [{0}] already contains {1} built-in translation entries; keeping them and only filling missing entries.</ATC_Log_SkipExistingTranslation>
+  <ATC_Log_NativeTranslationSkip>[System] Mod [{0}] already has complete native {1} translations; keeping native translations and skipping AI overwrite.</ATC_Log_NativeTranslationSkip>
+  <ATC_Log_ExternalTranslationPatchSkip>[System] Mod [{0}] is covered by translation patch [{1}] ({2}); skipping AI overwrite.</ATC_Log_ExternalTranslationPatchSkip>
   <ATC_Lang_DeepL_FreeNote>DeepL Free (Auto Detect)</ATC_Lang_DeepL_FreeNote>
   <ATC_Lang_DeepL_ProNote>DeepL Pro (Auto Detect)</ATC_Lang_DeepL_ProNote>
   <ATC_LogError_DeepL_LangNotSupport>[DeepL] Target language [{0}] is not supported by DeepL, please use another AI provider.</ATC_LogError_DeepL_LangNotSupport>
@@ -305,7 +312,7 @@
   <ATC_Setting_Timeout>API Request Timeout: {0} s</ATC_Setting_Timeout>
   <ATC_Setting_Timeout_Tooltip>If the AI does not respond within this time, the system will automatically disconnect and retry. Recommended: 60-120\n(If using deep reasoning models, the background will force a minimum wait of 300 seconds)</ATC_Setting_Timeout_Tooltip>
   <ATC_FilteredCodeOnly>Filtered {0} pure code mods, no translation required.</ATC_FilteredCodeOnly>
-  <ATC_FilteredModsCount>Filtered {0} non-translatable mods (pure code or graphical assets only)</ATC_FilteredModsCount>
+  <ATC_FilteredModsCount>Filtered {0} mods with no scannable translation sources</ATC_FilteredModsCount>
   <ATC_Log_DeepL_EndpointDetected>✅ DeepL［{0}］endpoint detected successfully.</ATC_Log_DeepL_EndpointDetected>
   <ATC_Log_FetchModelsRetry>Fetch Models encountered HTTP {0}, preparing for retry n°{1}…</ATC_Log_FetchModelsRetry>
   <ATC_Log_FetchModelsAutoRetryQueued>[{0}] Model lookup failed. Auto retry in {1}s (attempt {2}).</ATC_Log_FetchModelsAutoRetryQueued>
@@ -348,12 +355,23 @@
   <ATC_Msg_BatchSuccess>✅ Batch airdrop complete! Successfully loaded {0} / {1} translation databases!</ATC_Msg_BatchSuccess>
   <ATC_Cloud_Btn_OpenWorkspace>📂 Open Total Workspace</ATC_Cloud_Btn_OpenWorkspace>
   <ATC_Cloud_Btn_BatchUpload>⬆️ Batch Upload Workspace</ATC_Cloud_Btn_BatchUpload>
+  <ATC_Cloud_Btn_BatchUploadPack>⬆️ Batch Upload Local Pack</ATC_Cloud_Btn_BatchUploadPack>
   <ATC_Msg_WorkspaceEmpty>⚠️ Workspace does not exist or has no mod folders!</ATC_Msg_WorkspaceEmpty>
+  <ATC_Msg_BatchUploadPackEmpty>⚠️ No uploadable mod translation files were found in the local translation pack!</ATC_Msg_BatchUploadPackEmpty>
   <ATC_Msg_BatchUploadStart>🚀 Starting batch scan and upload of {0} mods...</ATC_Msg_BatchUploadStart>
   <ATC_Msg_BatchUploadSuccess>Batch upload complete! Successfully uploaded {0} mods as {1}.</ATC_Msg_BatchUploadSuccess>
   <ATC_Cloud_BatchUploadLogLabel>Batch upload update description:</ATC_Cloud_BatchUploadLogLabel>
   <ATC_Cloud_BatchUploadLogHint>Required for batch uploads. Briefly describe what changed in this upload.</ATC_Cloud_BatchUploadLogHint>
   <ATC_Msg_BatchUploadLogRequired>Batch upload requires an update description of at least 5 characters.</ATC_Msg_BatchUploadLogRequired>
+  <ATC_Log_BatchUploadMissingFolder>Batch upload skipped "{0}": source folder was not found.</ATC_Log_BatchUploadMissingFolder>
+  <ATC_Log_BatchUploadNoXml>Batch upload skipped "{0}": no uploadable XML files were found.</ATC_Log_BatchUploadNoXml>
+  <ATC_Log_BatchUploadItemFailed>Batch upload skipped "{0}": {1}</ATC_Log_BatchUploadItemFailed>
+  <ATC_Log_BatchUploadWorkerFailed>Batch upload worker failed: {0}</ATC_Log_BatchUploadWorkerFailed>
+  <ATC_Log_BatchUploadFailedList>Batch upload failed or skipped {0} mod(s): {1}</ATC_Log_BatchUploadFailedList>
+  <ATC_Cloud_ShowMineOnly>Show My Uploads Only</ATC_Cloud_ShowMineOnly>
+  <ATC_Cloud_MyUploadsCount>My uploads: {0}</ATC_Cloud_MyUploadsCount>
+  <ATC_Cloud_NoMyUploads>No cloud translations uploaded from this device were found.</ATC_Cloud_NoMyUploads>
+  <ATC_Cloud_Status_NotInstalled>Uploaded {0} / {1} / not installed locally</ATC_Cloud_Status_NotInstalled>
   <ATC_Cloud_Type_Select>📝 Select Translation Type:</ATC_Cloud_Type_Select>
   <ATC_Cloud_Type_AI>🤖 AI Machine Translation</ATC_Cloud_Type_AI>
   <ATC_Cloud_Type_Manual>✍️ Manual Translation Proofing</ATC_Cloud_Type_Manual>
@@ -460,6 +478,26 @@
   <ATC_ModStatus_Translated>Translated</ATC_ModStatus_Translated>
   <ATC_ModStatus_Untranslated>Untranslated</ATC_ModStatus_Untranslated>
   <ATC_ModStatus_Outdated>Possibly outdated</ATC_ModStatus_Outdated>
+  <ATC_ModStatus_Filtered>Filtered</ATC_ModStatus_Filtered>
   <ATC_Msg_CloudUploadPatchModBlocked>Upload blocked: {0} looks like a localization or translation patch mod. Cloud sharing only accepts injected translations for original mods.</ATC_Msg_CloudUploadPatchModBlocked>
   <ATC_Msg_CloudBatchPatchModsSkipped>Skipped {0} localization or translation patch mods. They will not be uploaded to cloud sharing.</ATC_Msg_CloudBatchPatchModsSkipped>
+  <ATC_Correction_Title>Submit In-Game Correction - {0}</ATC_Correction_Title>
+  <ATC_Correction_MetaPackage>Package</ATC_Correction_MetaPackage>
+  <ATC_Correction_MetaEntry>Entry</ATC_Correction_MetaEntry>
+  <ATC_Correction_SourceLabel>Original Text</ATC_Correction_SourceLabel>
+  <ATC_Correction_CurrentLabel>Current Translation</ATC_Correction_CurrentLabel>
+  <ATC_Correction_ProposedLabel>Proposed Correction</ATC_Correction_ProposedLabel>
+  <ATC_Correction_ReasonLabel>Correction Reason</ATC_Correction_ReasonLabel>
+  <ATC_Correction_ReasonHint>Explain why this correction is better. In-game context, terminology, placeholder safety, or typo details are all useful.</ATC_Correction_ReasonHint>
+  <ATC_Correction_SubmitBtn>Submit Correction</ATC_Correction_SubmitBtn>
+  <ATC_Correction_Submitting>Submitting...</ATC_Correction_Submitting>
+  <ATC_Correction_RowBtn>Submit Fix</ATC_Correction_RowBtn>
+  <ATC_Correction_RowBtnTip>Submit this one entry as an in-game verified correction.</ATC_Correction_RowBtnTip>
+  <ATC_Correction_Msg_EmptyProposed>Please enter a proposed correction first.</ATC_Correction_Msg_EmptyProposed>
+  <ATC_Correction_Msg_Unchanged>The proposed correction is identical to the current translation.</ATC_Correction_Msg_Unchanged>
+  <ATC_Correction_Msg_ReasonRequired>Please write a correction reason of at least 8 characters.</ATC_Correction_Msg_ReasonRequired>
+  <ATC_Correction_Msg_Submitted>Correction submitted. It will enter the cloud review queue.</ATC_Correction_Msg_Submitted>
+  <ATC_Correction_Msg_SubmitFailedOutbox>Correction could not be submitted now. A local outbox copy was saved.</ATC_Correction_Msg_SubmitFailedOutbox>
+  <ATC_Cloud_CorrectionSubmitFallback>Correction submit main route timed out, switching to backup channel...</ATC_Cloud_CorrectionSubmitFallback>
+  <ATC_Cloud_CorrectionSubmitSavedOutbox>Correction submit failed and was saved locally: {0}</ATC_Cloud_CorrectionSubmitSavedOutbox>
 </LanguageData>

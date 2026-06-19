@@ -47,7 +47,7 @@
   <ATC_Log_InitDone>[Init] 完了！計 {0} 件の Def 翻訳を収集しました。</ATC_Log_InitDone>
   <ATC_Log_StartScan>Auto Translation Core 起動！対象モジュール数: {0}</ATC_Log_StartScan>
   <ATC_Log_ScanMod> [Start] モジュールスキャン: {0}</ATC_Log_ScanMod>
-  <ATC_Log_SkipMod> [Skip] Languages も Defs もありません。純粋なコードモジュールです。</ATC_Log_SkipMod>
+  <ATC_Log_SkipMod> [Skip] スキャン可能な Languages/Defs 翻訳ソースが見つからないため、スキップしました。</ATC_Log_SkipMod>
   <ATC_Log_KeyedScan> [Keyed] スキャン中...</ATC_Log_KeyedScan>
   <ATC_Log_DefScan> [DefInjected] ディープスキャンおよびグローバル照合を開始...</ATC_Log_DefScan>
   <ATC_Log_FoundMissing> [{0}] {1} 件の未翻訳箇所を発見！AI支援を要請中...</ATC_Log_FoundMissing>
@@ -95,6 +95,7 @@
   <ATC_Log_ApiFallback>[API] ブロック翻訳が完全に失敗しました。「格下げタイマンモード」を起動し、一文ずつ解読します...</ATC_Log_ApiFallback>
   <ATC_LogError_ApiCritical>[API致命的エラー] 【{0}】 にあるテキストの翻訳に完全に失敗しました！原文を保持します。</ATC_LogError_ApiCritical>
   <ATC_TranslateMultiMod>単一/複数選択翻訳</ATC_TranslateMultiMod>
+  <ATC_CheckingModStatus>モジュール翻訳状態を確認中...</ATC_CheckingModStatus>
   <ATC_SkipCurrentMod>現在のModをスキップ</ATC_SkipCurrentMod>
   <ATC_MultiSelect_Title>翻訳するモジュールを選択 (複数選択可)</ATC_MultiSelect_Title>
   <ATC_MultiSelect_Search>ここにモジュール名を入力して検索...</ATC_MultiSelect_Search>
@@ -140,6 +141,10 @@
   <ATC_Log_AIFormatRecovered>[API] 再翻訳が完了し、AI の返答形式は正常です。</ATC_Log_AIFormatRecovered>
   <ATC_Log_ValidationClean>[検証] 翻訳構造チェックが完了しました。修復が必要な形式問題はありません。</ATC_Log_ValidationClean>
   <ATC_Log_ValidationSummary>[検証] 自動修復：改行 {0}、ルール接頭辞 {1}、保護 token {2}、高リスク回退 {3}、不正 XML key スキップ {4}。</ATC_Log_ValidationSummary>
+  <ATC_Log_EnglishResidualSummary>[検証] 英文残留スキャン：検出 {0}、再試行 {1}、未解決 {2}。</ATC_Log_EnglishResidualSummary>
+  <ATC_Log_EnglishResidualRejected>[検証] 再試行後も英文残留が未解決：{0}</ATC_Log_EnglishResidualRejected>
+  <ATC_Log_ProtectedTokenMismatchRejected>[検証] 再試行後も保護 token の不一致が未解決：{0}</ATC_Log_ProtectedTokenMismatchRejected>
+  <ATC_Log_PlaceholderRepairSummary>[検証] 生成翻訳ファイル {1} 個で、占位符 token {0} 個を修復しました。</ATC_Log_PlaceholderRepairSummary>
   <ATC_Profile_Current>現在の戦略：1 バッチ {0} 件、形式再試行 {1} 回、タイムアウト下限 {2} 秒</ATC_Profile_Current>
   <ATC_Profile_DeepSeek>DeepSeek：空または不正 JSON を減らすため、保守的なバッチを使用します。</ATC_Profile_DeepSeek>
   <ATC_Profile_Google>Google/Gemini：安定した大量翻訳向けの標準バッチです。</ATC_Profile_Google>
@@ -167,7 +172,9 @@
   <ATC_LogError_RateLimit>[APIレートリミット] プロバイダー [{0}] が 429 を返しました。待ち時間を自動的に延長しました。</ATC_LogError_RateLimit>
   <ATC_Tag_FromSimplified>[簡体字から]</ATC_Tag_FromSimplified>
   <ATC_Tag_FromTraditional>[繁体字から]</ATC_Tag_FromTraditional>
-  <ATC_Log_SkipExistingTranslation>[Skip] モジュール [{0}] にはすでに {1} 件の翻訳が含まれているため、重複翻訳をスキップします。</ATC_Log_SkipExistingTranslation>
+  <ATC_Log_SkipExistingTranslation>[保持] モジュール [{0}] には既存翻訳が {1} 件あります。既存訳を保持し、不足分のみ補完します。</ATC_Log_SkipExistingTranslation>
+  <ATC_Log_NativeTranslationSkip>[システム] モジュール [{0}] には完全な {1} ネイティブ翻訳があります。既存翻訳を保持し、AI 上書きをスキップします。</ATC_Log_NativeTranslationSkip>
+  <ATC_Log_ExternalTranslationPatchSkip>[システム] モジュール [{0}] は翻訳パッチ [{1}] ({2}) でカバーされています。AI 上書きをスキップします。</ATC_Log_ExternalTranslationPatchSkip>
   <ATC_Lang_DeepL_FreeNote>DeepL Free (自動検出)</ATC_Lang_DeepL_FreeNote>
   <ATC_Lang_DeepL_ProNote>DeepL Pro (自動検出)</ATC_Lang_DeepL_ProNote>
   <ATC_LogError_DeepL_LangNotSupport>[DeepL] 対象言語 [{0}] は DeepL でサポートされていません。他のAIプロバイダーを使用してください。</ATC_LogError_DeepL_LangNotSupport>
@@ -328,7 +335,7 @@
   <ATC_Setting_Timeout>APIリクエストタイムアウト上限: {0} 秒</ATC_Setting_Timeout>
   <ATC_Setting_Timeout_Tooltip>AIがこの時間内に応答しない場合、システムは自動的に切断し、冷却して再試行します。推奨設定: 60~120\n(ディープシンキングモデルを使用する場合、バックグラウンドは強制的に最低300秒間待機します)</ATC_Setting_Timeout_Tooltip>
   <ATC_FilteredCodeOnly>{0} 個の純粋なコードモジュールをフィルタリングしました。翻訳は不要です。</ATC_FilteredCodeOnly>
-  <ATC_FilteredModsCount>{0} 個の非翻訳モジュール（純コード/純素材）をフィルタリングしました</ATC_FilteredModsCount>
+  <ATC_FilteredModsCount>スキャン可能な翻訳ソースがないモジュール {0} 個をフィルタリングしました</ATC_FilteredModsCount>
   <ATC_Log_DeepL_EndpointDetected>✅ DeepL［{0}］エンドポイントの検出が完了しました。</ATC_Log_DeepL_EndpointDetected>
   <ATC_Log_FetchModelsRetry>Fetch Models で HTTP {0} に遭遇しました。第 {1} 回目の再試行を準備中…</ATC_Log_FetchModelsRetry>
   <ATC_Log_FetchModelsAutoRetryQueued>[{0}] Model lookup failed. Auto retry in {1}s (attempt {2}).</ATC_Log_FetchModelsAutoRetryQueued>
@@ -371,12 +378,23 @@
   <ATC_Msg_BatchSuccess>✅ 一括エアドロップ完了！{0} / {1} 個の翻訳ライブラリのロードに成功！</ATC_Msg_BatchSuccess>
   <ATC_Cloud_Btn_OpenWorkspace>📂 総合ワークスペースを開く</ATC_Cloud_Btn_OpenWorkspace>
   <ATC_Cloud_Btn_BatchUpload>⬆️ ワークスペースを一括アップロード</ATC_Cloud_Btn_BatchUpload>
+  <ATC_Cloud_Btn_BatchUploadPack>⬆️ Batch Upload Local Pack</ATC_Cloud_Btn_BatchUploadPack>
   <ATC_Msg_WorkspaceEmpty>⚠️ ワークスペースが存在しないか、モジュールフォルダがありません！</ATC_Msg_WorkspaceEmpty>
+  <ATC_Msg_BatchUploadPackEmpty>⚠️ No uploadable mod translation files were found in the local translation pack!</ATC_Msg_BatchUploadPackEmpty>
   <ATC_Msg_BatchUploadStart>🚀 一括スキャンおよび {0} 個のモジュールのアップロードを開始...</ATC_Msg_BatchUploadStart>
   <ATC_Msg_BatchUploadSuccess>一括アップロード完了！{0} 個のモジュールを「{1}」としてアップロードしました。</ATC_Msg_BatchUploadSuccess>
   <ATC_Cloud_BatchUploadLogLabel>一括アップロード更新ログ：</ATC_Cloud_BatchUploadLogLabel>
   <ATC_Cloud_BatchUploadLogHint>一括アップロードでは必須です。今回の変更内容を簡潔に入力してください。</ATC_Cloud_BatchUploadLogHint>
   <ATC_Msg_BatchUploadLogRequired>一括アップロードには 5 文字以上の更新ログが必要です。</ATC_Msg_BatchUploadLogRequired>
+  <ATC_Log_BatchUploadMissingFolder>Batch upload skipped "{0}": source folder was not found.</ATC_Log_BatchUploadMissingFolder>
+  <ATC_Log_BatchUploadNoXml>Batch upload skipped "{0}": no uploadable XML files were found.</ATC_Log_BatchUploadNoXml>
+  <ATC_Log_BatchUploadItemFailed>Batch upload skipped "{0}": {1}</ATC_Log_BatchUploadItemFailed>
+  <ATC_Log_BatchUploadWorkerFailed>Batch upload worker failed: {0}</ATC_Log_BatchUploadWorkerFailed>
+  <ATC_Log_BatchUploadFailedList>Batch upload failed or skipped {0} mod(s): {1}</ATC_Log_BatchUploadFailedList>
+  <ATC_Cloud_ShowMineOnly>Show My Uploads Only</ATC_Cloud_ShowMineOnly>
+  <ATC_Cloud_MyUploadsCount>My uploads: {0}</ATC_Cloud_MyUploadsCount>
+  <ATC_Cloud_NoMyUploads>No cloud translations uploaded from this device were found.</ATC_Cloud_NoMyUploads>
+  <ATC_Cloud_Status_NotInstalled>Uploaded {0} / {1} / not installed locally</ATC_Cloud_Status_NotInstalled>
   <ATC_Cloud_Type_Select>📝 あなたの翻訳タイプ：</ATC_Cloud_Type_Select>
   <ATC_Cloud_Type_AI>🤖 AI 機械翻訳</ATC_Cloud_Type_AI>
   <ATC_Cloud_Type_Manual>✍️ 手動精翻</ATC_Cloud_Type_Manual>
@@ -483,6 +501,7 @@
   <ATC_ModStatus_Translated>翻訳済み</ATC_ModStatus_Translated>
   <ATC_ModStatus_Untranslated>未翻訳</ATC_ModStatus_Untranslated>
   <ATC_ModStatus_Outdated>古い可能性あり</ATC_ModStatus_Outdated>
+  <ATC_ModStatus_Filtered>フィルター済み</ATC_ModStatus_Filtered>
   <ATC_Msg_CloudUploadPatchModBlocked>&#x30A2;&#x30C3;&#x30D7;&#x30ED;&#x30FC;&#x30C9;&#x3092;&#x963B;&#x6B62;&#x3057;&#x307E;&#x3057;&#x305F;&#xFF1A;{0} &#x306F;&#x30ED;&#x30FC;&#x30AB;&#x30E9;&#x30A4;&#x30BA;&#x307E;&#x305F;&#x306F;&#x7FFB;&#x8A33;&#x30D1;&#x30C3;&#x30C1;&#x30E2;&#x30C3;&#x30C9;&#x3068;&#x5224;&#x5B9A;&#x3055;&#x308C;&#x307E;&#x3057;&#x305F;&#x3002;&#x30AF;&#x30E9;&#x30A6;&#x30C9;&#x5171;&#x6709;&#x306F;&#x5143;&#x306E;&#x30E2;&#x30C3;&#x30C9;&#x7528;&#x306E;&#x6CE8;&#x5165;&#x5F0F;&#x7FFB;&#x8A33;&#x306E;&#x307F;&#x53D7;&#x3051;&#x4ED8;&#x3051;&#x307E;&#x3059;&#x3002;</ATC_Msg_CloudUploadPatchModBlocked>
   <ATC_Msg_CloudBatchPatchModsSkipped>{0} &#x500B;&#x306E;&#x30ED;&#x30FC;&#x30AB;&#x30E9;&#x30A4;&#x30BA;&#x307E;&#x305F;&#x306F;&#x7FFB;&#x8A33;&#x30D1;&#x30C3;&#x30C1;&#x30E2;&#x30C3;&#x30C9;&#x3092;&#x30B9;&#x30AD;&#x30C3;&#x30D7;&#x3057;&#x307E;&#x3057;&#x305F;&#x3002;&#x30AF;&#x30E9;&#x30A6;&#x30C9;&#x5171;&#x6709;&#x306B;&#x306F;&#x30A2;&#x30C3;&#x30D7;&#x30ED;&#x30FC;&#x30C9;&#x3055;&#x308C;&#x307E;&#x305B;&#x3093;&#x3002;</ATC_Msg_CloudBatchPatchModsSkipped>
 </LanguageData>

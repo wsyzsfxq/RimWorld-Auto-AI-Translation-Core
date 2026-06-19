@@ -34,6 +34,13 @@ namespace AutoTranslator_Core
         // 這個欄位保存 isTranslating模組Names 的執行狀態或快取資料。
         // EN: This field stores is translating mod names runtime state or cached data.
         private static bool isTranslatingModNames = false;
+        private List<ModMetaData> cachedDisplayMods = null;
+        private string cachedSearchText = null;
+        private int cachedValidModCount = -1;
+        private readonly HashSet<string> queuedStatusChecks = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private static readonly object statusCheckLock = new object();
+        private static readonly HashSet<string> statusChecksInFlight = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private const int MaxStatusChecksPerPass = 3;
 
         // 這個屬性提供 InitialSize 的讀寫或計算結果。
         // EN: This method handles vector2.
@@ -94,6 +101,14 @@ namespace AutoTranslator_Core
         // EN: This method gets display mods.
         private List<ModMetaData> GetDisplayMods()
         {
+            int currentValidCount = AutoTranslatorMod.GetValidModsCached().Count;
+            if (cachedDisplayMods != null &&
+                cachedValidModCount == currentValidCount &&
+                string.Equals(cachedSearchText, searchText ?? "", StringComparison.Ordinal))
+            {
+                return cachedDisplayMods;
+            }
+
             IEnumerable<ModMetaData> mods = AutoTranslatorMod.GetValidModsCached()
                 .Where(m => !AutoTranslatorScanner.IsTranslationPatchMod(m));
 
@@ -106,7 +121,10 @@ namespace AutoTranslator_Core
                     GetCachedTranslatedModName(m).ToLowerInvariant().Contains(searchLower));
             }
 
-            return mods.OrderBy(m => m.Name).ToList();
+            cachedDisplayMods = mods.OrderBy(m => m.Name).ToList();
+            cachedSearchText = searchText ?? "";
+            cachedValidModCount = currentValidCount;
+            return cachedDisplayMods;
         }
 
         // 這個方法負責繪製 選取Buttons 介面。
@@ -158,7 +176,9 @@ namespace AutoTranslator_Core
             int lastVisible = Mathf.Min(displayMods.Count - 1, Mathf.CeilToInt((scrollPos.y + listOutRect.height) / RowHeight) + 2);
             if (firstVisible <= lastVisible)
             {
-                QueueVisibleModNameTranslations(displayMods.GetRange(firstVisible, lastVisible - firstVisible + 1));
+                List<ModMetaData> visibleMods = displayMods.GetRange(firstVisible, lastVisible - firstVisible + 1);
+                QueueVisibleModNameTranslations(visibleMods);
+                QueueVisibleStatusChecks(visibleMods);
             }
 
             for (int i = firstVisible; i <= lastVisible; i++)
@@ -257,7 +277,11 @@ namespace AutoTranslator_Core
         // EN: This method gets mod status line.
         private static string GetModStatusLine(ModMetaData mod)
         {
-            ModTranslationStatus status = ModUpdateDetector.GetTranslationStatus(mod);
+            if (!ModUpdateDetector.TryGetCachedTranslationStatus(mod, out ModTranslationStatus status))
+            {
+                return $"<color=#888888>{"ATC_CheckingModStatus".Translate()}</color>";
+            }
+
             string label = ModUpdateDetector.GetTranslationStatusLabelKey(status).Translate().ToString();
             string color = ModUpdateDetector.GetTranslationStatusColorHex(status);
             return $"<color={color}>{label}</color>";
@@ -267,7 +291,60 @@ namespace AutoTranslator_Core
         // EN: This method gets plain mod status text.
         private static string GetPlainModStatusText(ModMetaData mod)
         {
-            return ModUpdateDetector.GetTranslationStatusLabelKey(ModUpdateDetector.GetTranslationStatus(mod)).Translate().ToString();
+            if (!ModUpdateDetector.TryGetCachedTranslationStatus(mod, out ModTranslationStatus status))
+            {
+                return "ATC_CheckingModStatus".Translate().ToString();
+            }
+
+            return ModUpdateDetector.GetTranslationStatusLabelKey(status).Translate().ToString();
+        }
+
+        private void QueueVisibleStatusChecks(List<ModMetaData> displayMods)
+        {
+            if (displayMods == null || displayMods.Count == 0) return;
+
+            var pending = new List<ModMetaData>();
+            foreach (ModMetaData mod in displayMods)
+            {
+                if (mod == null || string.IsNullOrEmpty(mod.PackageId)) continue;
+                if (ModUpdateDetector.TryGetCachedTranslationStatus(mod, out _)) continue;
+
+                string key = $"{AutoTranslatorMod.Settings.TargetLang}|{mod.PackageId}";
+                if (!queuedStatusChecks.Add(key)) continue;
+
+                lock (statusCheckLock)
+                {
+                    if (!statusChecksInFlight.Add(key)) continue;
+                }
+
+                pending.Add(mod);
+                if (pending.Count >= MaxStatusChecksPerPass) break;
+            }
+
+            if (pending.Count == 0) return;
+
+            Task.Run(() =>
+            {
+                foreach (ModMetaData mod in pending)
+                {
+                    try
+                    {
+                        ModUpdateDetector.GetTranslationStatus(mod);
+                    }
+                    catch (Exception ex)
+                    {
+                        Verse.Log.Warning($"[AutoTranslationCore] Multi-select status check failed for {mod?.PackageId}: {ex.Message}");
+                    }
+                    finally
+                    {
+                        string key = $"{AutoTranslatorMod.Settings.TargetLang}|{mod?.PackageId}";
+                        lock (statusCheckLock)
+                        {
+                            statusChecksInFlight.Remove(key);
+                        }
+                    }
+                }
+            });
         }
 
         // 這個方法負責排入 Visible模組名稱Translations 佇列。

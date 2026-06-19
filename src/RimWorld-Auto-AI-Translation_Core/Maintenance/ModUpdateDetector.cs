@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading.Tasks;
 using UnityEngine;
 using Verse;
 using static AutoTranslator_Core.DeleteTranslationWindow;
@@ -19,7 +20,8 @@ namespace AutoTranslator_Core
     {
         Untranslated,
         Translated,
-        PossiblyOutdated
+        PossiblyOutdated,
+        Filtered
     }
 
     // 這個類別負責 模組Update偵測器 的主要流程與狀態。
@@ -28,19 +30,21 @@ namespace AutoTranslator_Core
     {
         // 這個常數定義 UpdatedList快取Seconds 的固定值。
         // EN: This constant defines the fixed value for updated list cache seconds.
-        private const float UpdatedListCacheSeconds = 10f;
+        private const float UpdatedListCacheSeconds = 300f;
         // 這個常數定義 TranslatedFile快取Seconds 的固定值。
         // EN: This constant defines the fixed value for translated file cache seconds.
-        private const float TranslatedFileCacheSeconds = 10f;
+        private const float TranslatedFileCacheSeconds = 60f;
         // 這個常數定義 SourceFingerprint快取Seconds 的固定值。
         // EN: This constant defines the fixed value for source fingerprint cache seconds.
-        private const float SourceFingerprintCacheSeconds = 30f;
+        private const float SourceFingerprintCacheSeconds = 300f;
         // 這個常數定義 Status快取Seconds 的固定值。
         // EN: This constant defines the fixed value for status cache seconds.
-        private const float StatusCacheSeconds = 5f;
+        private const float StatusCacheSeconds = 300f;
 
         // 這個欄位保存 cached模組 的執行狀態或快取資料。
         // EN: This field stores cached mods runtime state or cached data.
+        private static readonly object _cacheLock = new object();
+        private static readonly DateTime _cacheClockOriginUtc = DateTime.UtcNow;
         private static List<ModMetaData> _cachedMods = null;
         // 這個欄位保存 lastCheckTime 的執行狀態或快取資料。
         // EN: This field stores last check time runtime state or cached data.
@@ -65,6 +69,48 @@ namespace AutoTranslator_Core
         // EN: This field stores status cache runtime state or cached data.
         private static readonly Dictionary<string, StatusSnapshot> _statusCache =
             new Dictionary<string, StatusSnapshot>(StringComparer.OrdinalIgnoreCase);
+        private static int _cacheGeneration = 0;
+        private static bool _isUpdatedListRefreshing = false;
+        private static int _updatedListRefreshGeneration = 0;
+        private static string _updatedListRefreshError = null;
+
+        public static bool IsRefreshingUpdatedList
+        {
+            get
+            {
+                lock (_cacheLock)
+                {
+                    return _isUpdatedListRefreshing;
+                }
+            }
+        }
+
+        public static bool HasUpdatedListCache
+        {
+            get
+            {
+                lock (_cacheLock)
+                {
+                    return _cachedMods != null;
+                }
+            }
+        }
+
+        public static string LastUpdatedListRefreshError
+        {
+            get
+            {
+                lock (_cacheLock)
+                {
+                    return _updatedListRefreshError;
+                }
+            }
+        }
+
+        private static float NowSeconds()
+        {
+            return (float)(DateTime.UtcNow - _cacheClockOriginUtc).TotalSeconds;
+        }
 
         // 這個類別負責 SourceSnapshot 的主要流程與狀態。
         // EN: This class manages the main workflow and state for SourceSnapshot.
@@ -79,6 +125,7 @@ namespace AutoTranslator_Core
             // 這個欄位保存 HasSourceFiles 的執行狀態或快取資料。
             // EN: This field stores has source files runtime state or cached data.
             public bool HasSourceFiles = false;
+            public bool HasTranslatableSourceFiles = false;
             // 這個欄位保存 HasNative目標語言 的執行狀態或快取資料。
             // EN: This field stores has native target language runtime state or cached data.
             public bool HasNativeTargetLanguage = false;
@@ -174,11 +221,18 @@ namespace AutoTranslator_Core
         private static HashSet<string> GetTranslatedFilePackageIdsCached()
         {
             TargetLanguage targetLang = AutoTranslatorMod.Settings.TargetLang;
-            if (_translatedFilePackageIds != null &&
-                _translatedFileCacheLang == targetLang &&
-                Time.realtimeSinceStartup - _lastTranslatedFileCacheTime <= TranslatedFileCacheSeconds)
+            float now = NowSeconds();
+            int generation;
+            lock (_cacheLock)
             {
-                return _translatedFilePackageIds;
+                if (_translatedFilePackageIds != null &&
+                    _translatedFileCacheLang == targetLang &&
+                    now - _lastTranslatedFileCacheTime <= TranslatedFileCacheSeconds)
+                {
+                    return _translatedFilePackageIds;
+                }
+
+                generation = _cacheGeneration;
             }
 
             var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -206,11 +260,19 @@ namespace AutoTranslator_Core
             }
             catch { }
 
-            _translatedFilePackageIds = result;
-            _translatedFileLatestTicksByPackageId = latestTicks;
-            _translatedFileCacheLang = targetLang;
-            _lastTranslatedFileCacheTime = Time.realtimeSinceStartup;
-            return _translatedFilePackageIds;
+            lock (_cacheLock)
+            {
+                if (generation == _cacheGeneration)
+                {
+                    _translatedFilePackageIds = result;
+                    _translatedFileLatestTicksByPackageId = latestTicks;
+                    _translatedFileCacheLang = targetLang;
+                    _lastTranslatedFileCacheTime = now;
+                    return _translatedFilePackageIds;
+                }
+            }
+
+            return result;
         }
 
         // 這個方法負責處理 Remember翻譯File 相關流程。
@@ -260,11 +322,19 @@ namespace AutoTranslator_Core
         // EN: This method clears status cache.
         public static void ClearStatusCache()
         {
-            _cachedMods = null;
-            _translatedFilePackageIds = null;
-            _translatedFileLatestTicksByPackageId = null;
-            _sourceSnapshotCache.Clear();
-            _statusCache.Clear();
+            lock (_cacheLock)
+            {
+                _cacheGeneration++;
+                _cachedMods = null;
+                _lastCheckTime = 0f;
+                _translatedFilePackageIds = null;
+                _translatedFileLatestTicksByPackageId = null;
+                _sourceSnapshotCache.Clear();
+                _statusCache.Clear();
+                _isUpdatedListRefreshing = false;
+                _updatedListRefreshGeneration++;
+                _updatedListRefreshError = null;
+            }
             AutoTranslatorScanner.ClearExternalTargetLanguagePatchCache();
         }
 
@@ -284,11 +354,14 @@ namespace AutoTranslator_Core
             if (mod == null) return false;
 
             GetTranslatedFilePackageIdsCached();
-            if (_translatedFileLatestTicksByPackageId == null) return false;
+            lock (_cacheLock)
+            {
+                if (_translatedFileLatestTicksByPackageId == null) return false;
 
-            return _translatedFileLatestTicksByPackageId.TryGetValue(
-                NormalizePackageForComparison(mod.PackageId),
-                out latestTicks);
+                return _translatedFileLatestTicksByPackageId.TryGetValue(
+                    NormalizePackageForComparison(mod.PackageId),
+                    out latestTicks);
+            }
         }
 
         // 這個方法負責取得 SourceSnapshot 資料。
@@ -298,15 +371,28 @@ namespace AutoTranslator_Core
             if (mod == null || string.IsNullOrEmpty(mod.PackageId)) return new SourceSnapshot();
 
             string cacheKey = GetModCacheKey(mod);
-            if (_sourceSnapshotCache.TryGetValue(cacheKey, out SourceSnapshot cached) &&
-                Time.realtimeSinceStartup - cached.CachedAt <= SourceFingerprintCacheSeconds)
+            float now = NowSeconds();
+            int generation;
+            lock (_cacheLock)
             {
-                return cached;
+                if (_sourceSnapshotCache.TryGetValue(cacheKey, out SourceSnapshot cached) &&
+                    now - cached.CachedAt <= SourceFingerprintCacheSeconds)
+                {
+                    return cached;
+                }
+
+                generation = _cacheGeneration;
             }
 
             SourceSnapshot snapshot = BuildSourceSnapshot(mod);
-            snapshot.CachedAt = Time.realtimeSinceStartup;
-            _sourceSnapshotCache[cacheKey] = snapshot;
+            snapshot.CachedAt = now;
+            lock (_cacheLock)
+            {
+                if (generation == _cacheGeneration)
+                {
+                    _sourceSnapshotCache[cacheKey] = snapshot;
+                }
+            }
             return snapshot;
         }
 
@@ -324,10 +410,16 @@ namespace AutoTranslator_Core
 
                 foreach (string langRoot in AutoTranslatorScanner.GetAllEffectiveLangPaths(mod))
                 {
-                    AddXmlFiles(files, Path.Combine(langRoot, "English", "Keyed"));
-                    AddXmlFiles(files, Path.Combine(langRoot, "English", "keyed"));
-                    AddXmlFiles(files, Path.Combine(langRoot, "English", "DefInjected"));
-                    AddXmlFiles(files, Path.Combine(langRoot, "English", "defInjected"));
+                    foreach (string keyedPath in AutoTranslatorScanner.GetTranslatableLanguageBucketPaths(langRoot, AutoTranslatorMod.Settings.TargetLang, "Keyed", false))
+                    {
+                        AddXmlFiles(files, keyedPath, snapshot);
+                    }
+
+                    foreach (string defInjectedPath in AutoTranslatorScanner.GetTranslatableLanguageBucketPaths(langRoot, AutoTranslatorMod.Settings.TargetLang, "DefInjected", false))
+                    {
+                        AddXmlFiles(files, defInjectedPath, snapshot);
+                    }
+
                     if (!snapshot.HasNativeTargetLanguage)
                     {
                         snapshot.HasNativeTargetLanguage = AutoTranslatorScanner.HasNativeTargetLanguage(mod, AutoTranslatorMod.Settings.TargetLang);
@@ -339,7 +431,7 @@ namespace AutoTranslator_Core
 
                 foreach (string defsRoot in AutoTranslatorScanner.GetAllEffectiveDefsPaths(mod))
                 {
-                    AddXmlFiles(files, defsRoot);
+                    AddXmlFiles(files, defsRoot, snapshot);
                 }
             }
             catch { }
@@ -384,12 +476,16 @@ namespace AutoTranslator_Core
 
         // 這個方法負責處理 AddXmlFiles 相關流程。
         // EN: This method handles add XML files.
-        private static void AddXmlFiles(ISet<string> files, string dir)
+        private static void AddXmlFiles(ISet<string> files, string dir, SourceSnapshot snapshot = null)
         {
             if (string.IsNullOrEmpty(dir) || !Directory.Exists(dir)) return;
             foreach (string file in Directory.GetFiles(dir, "*.xml", SearchOption.AllDirectories))
             {
                 files.Add(Path.GetFullPath(file));
+                if (snapshot != null)
+                {
+                    snapshot.HasTranslatableSourceFiles = true;
+                }
             }
         }
 
@@ -444,18 +540,31 @@ namespace AutoTranslator_Core
             if (mod == null) return ModTranslationStatus.Untranslated;
 
             string cacheKey = GetModCacheKey(mod);
-            if (_statusCache.TryGetValue(cacheKey, out StatusSnapshot cached) &&
-                Time.realtimeSinceStartup - cached.CachedAt <= StatusCacheSeconds)
+            float now = NowSeconds();
+            int generation;
+            lock (_cacheLock)
             {
-                return cached.Status;
+                if (_statusCache.TryGetValue(cacheKey, out StatusSnapshot cached) &&
+                    now - cached.CachedAt <= StatusCacheSeconds)
+                {
+                    return cached.Status;
+                }
+
+                generation = _cacheGeneration;
             }
 
             ModTranslationStatus status = GetTranslationStatusUncached(mod);
-            _statusCache[cacheKey] = new StatusSnapshot
+            lock (_cacheLock)
             {
-                Status = status,
-                CachedAt = Time.realtimeSinceStartup
-            };
+                if (generation == _cacheGeneration)
+                {
+                    _statusCache[cacheKey] = new StatusSnapshot
+                    {
+                        Status = status,
+                        CachedAt = now
+                    };
+                }
+            }
             return status;
         }
 
@@ -469,6 +578,11 @@ namespace AutoTranslator_Core
             if (source.HasNativeTargetLanguage || source.HasExternalTargetLanguagePatch)
             {
                 return ModTranslationStatus.Translated;
+            }
+
+            if (!source.HasTranslatableSourceFiles)
+            {
+                return ModTranslationStatus.Filtered;
             }
 
             if (TryGetSavedFingerprint(mod.PackageId, out string savedFingerprint))
@@ -487,8 +601,7 @@ namespace AutoTranslator_Core
 
             if (hasLocalFiles)
             {
-                if (!source.HasSourceFiles ||
-                    source.LatestTicks <= 0L ||
+                if (source.LatestTicks <= 0L ||
                     (TryGetLocalTranslationLatestTicks(mod, out long localTicks) && localTicks >= source.LatestTicks))
                 {
                     return ModTranslationStatus.Translated;
@@ -508,6 +621,7 @@ namespace AutoTranslator_Core
             {
                 case ModTranslationStatus.Translated: return "ATC_ModStatus_Translated";
                 case ModTranslationStatus.PossiblyOutdated: return "ATC_ModStatus_Outdated";
+                case ModTranslationStatus.Filtered: return "ATC_ModStatus_Filtered";
                 default: return "ATC_ModStatus_Untranslated";
             }
         }
@@ -520,20 +634,125 @@ namespace AutoTranslator_Core
             {
                 case ModTranslationStatus.Translated: return "#76D66A";
                 case ModTranslationStatus.PossiblyOutdated: return "#E6C35C";
+                case ModTranslationStatus.Filtered: return "#8A8A8A";
                 default: return "#9A9A9A";
             }
+        }
+
+        public static bool TryGetCachedTranslationStatus(ModMetaData mod, out ModTranslationStatus status)
+        {
+            status = ModTranslationStatus.Untranslated;
+            if (mod == null) return false;
+
+            string cacheKey = GetModCacheKey(mod);
+            float now = NowSeconds();
+            lock (_cacheLock)
+            {
+                if (_statusCache.TryGetValue(cacheKey, out StatusSnapshot cached) &&
+                    now - cached.CachedAt <= StatusCacheSeconds)
+                {
+                    status = cached.Status;
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         // 這個方法負責取得 UpdatedOrNew模組Cached 資料。
         // EN: This method gets updated or new mods cached.
         public static List<ModMetaData> GetUpdatedOrNewModsCached()
         {
-            if (_cachedMods == null || Time.realtimeSinceStartup - _lastCheckTime > UpdatedListCacheSeconds)
+            float now = NowSeconds();
+            List<ModMetaData> snapshot;
+            bool shouldRefresh = false;
+
+            lock (_cacheLock)
             {
-                _cachedMods = GetUpdatedOrNewModsForce();
-                _lastCheckTime = Time.realtimeSinceStartup;
+                snapshot = _cachedMods != null
+                    ? new List<ModMetaData>(_cachedMods)
+                    : new List<ModMetaData>();
+
+                if (!_isUpdatedListRefreshing &&
+                    (_cachedMods == null || now - _lastCheckTime > UpdatedListCacheSeconds))
+                {
+                    shouldRefresh = true;
+                }
             }
-            return _cachedMods;
+
+            if (shouldRefresh)
+            {
+                StartUpdatedListRefresh();
+            }
+
+            return snapshot;
+        }
+
+        public static List<ModMetaData> GetUpdatedOrNewModsBlocking()
+        {
+            float now = NowSeconds();
+            lock (_cacheLock)
+            {
+                if (_cachedMods != null && now - _lastCheckTime <= UpdatedListCacheSeconds)
+                {
+                    return new List<ModMetaData>(_cachedMods);
+                }
+            }
+
+            List<ModMetaData> result = GetUpdatedOrNewModsForce();
+            lock (_cacheLock)
+            {
+                _cachedMods = new List<ModMetaData>(result);
+                _lastCheckTime = NowSeconds();
+                _updatedListRefreshError = null;
+                return new List<ModMetaData>(_cachedMods);
+            }
+        }
+
+        public static void RequestUpdatedListRefresh()
+        {
+            StartUpdatedListRefresh();
+        }
+
+        private static void StartUpdatedListRefresh()
+        {
+            int generation;
+            lock (_cacheLock)
+            {
+                if (_isUpdatedListRefreshing) return;
+                _isUpdatedListRefreshing = true;
+                generation = ++_updatedListRefreshGeneration;
+            }
+
+            Task.Run(() =>
+            {
+                List<ModMetaData> result = null;
+                string error = null;
+                try
+                {
+                    result = GetUpdatedOrNewModsForce();
+                }
+                catch (Exception ex)
+                {
+                    error = ex.Message;
+                    Verse.Log.Warning($"[AutoTranslationCore] Background mod update scan failed: {ex.Message}");
+                }
+
+                lock (_cacheLock)
+                {
+                    if (generation == _updatedListRefreshGeneration && result != null)
+                    {
+                        _cachedMods = new List<ModMetaData>(result);
+                        _lastCheckTime = NowSeconds();
+                    }
+
+                    if (generation == _updatedListRefreshGeneration)
+                    {
+                        _updatedListRefreshError = error;
+                        _isUpdatedListRefreshing = false;
+                    }
+                }
+            });
         }
 
         // 這個方法負責取得 UpdatedOrNew模組Force 資料。
@@ -561,7 +780,8 @@ namespace AutoTranslator_Core
                     continue;
                 }
 
-                if (GetTranslationStatus(mod) != ModTranslationStatus.Translated)
+                ModTranslationStatus status = GetTranslationStatus(mod);
+                if (status != ModTranslationStatus.Translated && status != ModTranslationStatus.Filtered)
                 {
                     result.Add(mod);
                 }

@@ -81,12 +81,20 @@ namespace AutoTranslator_Core
             switch (expectedLang)
             {
                 case TargetLanguage.Traditional:
+                    return hanCount >= 2
+                        && kanaCount == 0
+                        && hangulCount == 0
+                        && cyrillicCount == 0
+                        && Percent(hanCount, letterCount) >= 35
+                        && LooksLikeTraditional(sample);
+
                 case TargetLanguage.Simplified:
                     return hanCount >= 2
                         && kanaCount == 0
                         && hangulCount == 0
                         && cyrillicCount == 0
-                        && Percent(hanCount, letterCount) >= 35;
+                        && Percent(hanCount, letterCount) >= 35
+                        && LooksLikeSimplified(sample);
 
                 case TargetLanguage.Japanese:
                     return kanaCount >= 1

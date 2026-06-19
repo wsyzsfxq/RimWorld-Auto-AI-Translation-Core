@@ -15,6 +15,12 @@ namespace AutoTranslator_Core
     // EN: This class manages the main workflow and state for AutoTranslatorMod.
     public partial class AutoTranslatorMod : Mod
     {
+        private enum CloudBatchUploadSource
+        {
+            Workspace,
+            LocalPack
+        }
+
         // 這個方法負責判斷 ShouldSkip雲端Sharing模組 條件是否成立。
         // EN: This method checks should skip cloud sharing mod.
         internal static bool ShouldSkipCloudSharingMod(ModMetaData mod, string packageId = null, string displayName = null)
@@ -160,7 +166,7 @@ namespace AutoTranslator_Core
 
         // 這個方法負責執行 Batch上傳 動作。
         // EN: This method executes batch upload.
-        private void ExecuteBatchUpload()
+        private void ExecuteBatchUpload(CloudBatchUploadSource source)
         {
             string packPath = AutoTranslatorScanner.GetLocalPackPath();
             string workspaceRoot = System.IO.Path.Combine(packPath, "Upload_Workspace");
@@ -177,49 +183,61 @@ namespace AutoTranslator_Core
 
 
             int skippedPatchModCount = 0;
-            var modDirs = System.IO.Directory.Exists(workspaceRoot)
-                ? System.IO.Directory.GetDirectories(workspaceRoot)
-                .Where(modDir =>
+            var uploadSources = new List<string>();
+
+            if (source == CloudBatchUploadSource.Workspace)
+            {
+                var modDirs = System.IO.Directory.Exists(workspaceRoot)
+                    ? System.IO.Directory.GetDirectories(workspaceRoot)
+                    .Where(modDir =>
+                    {
+                        string packageId = System.IO.Path.GetFileName(modDir);
+                        var tempMeta = Verse.ModLister.AllInstalledMods.FirstOrDefault(m => string.Equals(m.PackageId, packageId, StringComparison.OrdinalIgnoreCase));
+                        string displayName = tempMeta != null ? tempMeta.Name : packageId;
+                        if (ShouldSkipCloudSharingMod(tempMeta, packageId, displayName))
+                        {
+                            skippedPatchModCount++;
+                            return false;
+                        }
+                        return true;
+                    })
+                    .ToArray()
+                    : new string[0];
+
+                foreach (string modDir in modDirs)
                 {
                     string packageId = System.IO.Path.GetFileName(modDir);
-                    var tempMeta = Verse.ModLister.AllInstalledMods.FirstOrDefault(m => string.Equals(m.PackageId, packageId, StringComparison.OrdinalIgnoreCase));
-                    string displayName = tempMeta != null ? tempMeta.Name : packageId;
-                    if (ShouldSkipCloudSharingMod(tempMeta, packageId, displayName))
+                    string langDir = System.IO.Path.Combine(modDir, targetLangFolder);
+                    if (!HasUploadableTranslationFiles(langDir, packageId, true)) continue;
+                    uploadSources.Add(modDir);
+                }
+            }
+            else
+            {
+                foreach (var mod in Verse.ModLister.AllInstalledMods)
+                {
+                    if (mod == null || string.IsNullOrEmpty(mod.PackageId)) continue;
+                    if (ShouldSkipCloudSharingMod(mod))
                     {
                         skippedPatchModCount++;
-                        return false;
+                        continue;
                     }
-                    return true;
-                })
-                .ToArray()
-                : new string[0];
-            var uploadSources = new List<string>();
-            foreach (string modDir in modDirs)
-            {
-                string packageId = System.IO.Path.GetFileName(modDir);
-                string langDir = System.IO.Path.Combine(modDir, targetLangFolder);
-                if (!HasUploadableTranslationFiles(langDir, packageId, true)) continue;
-                uploadSources.Add(modDir);
-            }
-            var queuedPackages = new HashSet<string>(
-                uploadSources.Select(modDir => System.IO.Path.GetFileName(modDir)),
-                StringComparer.OrdinalIgnoreCase);
-            foreach (var mod in Verse.ModLister.AllInstalledMods)
-            {
-                if (mod == null || string.IsNullOrEmpty(mod.PackageId) || queuedPackages.Contains(mod.PackageId)) continue;
-                if (ShouldSkipCloudSharingMod(mod)) continue;
-                if (!HasUploadableTranslationFiles(liveLangDir, mod.PackageId, false)) continue;
+                    if (!HasUploadableTranslationFiles(liveLangDir, mod.PackageId, false)) continue;
 
-                uploadSources.Add(mod.PackageId + "|" + liveLangDir);
-                queuedPackages.Add(mod.PackageId);
+                    uploadSources.Add(mod.PackageId + "|" + liveLangDir);
+                }
             }
+
             if (skippedPatchModCount > 0)
             {
                 Messages.Message("ATC_Msg_CloudBatchPatchModsSkipped".Translate(skippedPatchModCount), MessageTypeDefOf.NeutralEvent, false);
             }
             if (uploadSources.Count == 0)
             {
-                Messages.Message("ATC_Msg_WorkspaceEmpty".Translate(), MessageTypeDefOf.RejectInput, false);
+                string emptyKey = source == CloudBatchUploadSource.Workspace
+                    ? "ATC_Msg_WorkspaceEmpty"
+                    : "ATC_Msg_BatchUploadPackEmpty";
+                Messages.Message(emptyKey.Translate(), MessageTypeDefOf.RejectInput, false);
                 return;
             }
 
@@ -228,84 +246,123 @@ namespace AutoTranslator_Core
             System.Threading.Tasks.Task.Run(async () =>
             {
                 int successCount = 0;
+                int failCount = 0;
+                List<string> failedMods = new List<string>();
 
                 AutoTranslatorSettings.IsRunning = true;
 
-                for (int i = 0; i < uploadSources.Count; i++)
+                try
                 {
-                    var modDir = uploadSources[i];
-
-                    string packageId = System.IO.Path.GetFileName(modDir);
-                    string sourceOverride = null;
-                    int sourceSplit = modDir.IndexOf('|');
-                    if (sourceSplit >= 0)
+                    for (int i = 0; i < uploadSources.Count; i++)
                     {
-                        packageId = modDir.Substring(0, sourceSplit);
-                        sourceOverride = modDir.Substring(sourceSplit + 1);
-                    }
+                        var modDir = uploadSources[i];
 
-
-                    var tempMeta = Verse.ModLister.AllInstalledMods.FirstOrDefault(m => string.Equals(m.PackageId, packageId, StringComparison.OrdinalIgnoreCase));
-                    string displayName = tempMeta != null ? tempMeta.Name : packageId;
-
-
-                    AutoTranslatorMod.Settings.CurrentTaskName = "ATC_Cloud_Uploading".Translate(displayName);
-                    AutoTranslatorMod.Settings.CurrentProgress = (float)i / uploadSources.Count;
-
-
-                    string langDir = sourceOverride ?? System.IO.Path.Combine(modDir, targetLangFolder);
-
-
-                    if (!System.IO.Directory.Exists(langDir)) continue;
-                    if (System.IO.Directory.GetFiles(langDir, "*.xml", System.IO.SearchOption.AllDirectories).Length == 0) continue;
-
-                    string modName = tempMeta != null ? tempMeta.Name : packageId;
-
-
-                    bool success = await AutoTranslatorCloudClient.UploadTranslationAsync(packageId, targetLangFolder, modName, uNickname, uploadType, langDir, uToken, updateLog);
-
-                    if (success)
-                    {
-                        successCount++;
-                        if (sourceOverride != null) continue;
-
-                        foreach (string file in System.IO.Directory.GetFiles(langDir, "*.xml", System.IO.SearchOption.AllDirectories))
+                        string packageId = System.IO.Path.GetFileName(modDir);
+                        string sourceOverride = null;
+                        int sourceSplit = modDir.IndexOf('|');
+                        if (sourceSplit >= 0)
                         {
-                            string relPath = file.Substring(langDir.Length).TrimStart('\\', '/');
+                            packageId = modDir.Substring(0, sourceSplit);
+                            sourceOverride = modDir.Substring(sourceSplit + 1);
+                        }
 
+                        var tempMeta = Verse.ModLister.AllInstalledMods.FirstOrDefault(m => string.Equals(m.PackageId, packageId, StringComparison.OrdinalIgnoreCase));
+                        string displayName = tempMeta != null ? tempMeta.Name : packageId;
 
-                            string justFileName = System.IO.Path.GetFileName(file);
-                            string justFileNameLower = justFileName.ToLower();
-                            string id1 = packageId.ToLower();
-                            string id2 = packageId.Replace(".", "_").ToLower();
+                        try
+                        {
+                            AutoTranslatorMod.Settings.CurrentTaskName = "ATC_Cloud_Uploading".Translate(displayName);
+                            AutoTranslatorMod.Settings.CurrentProgress = (float)i / uploadSources.Count;
 
-                            if (!justFileNameLower.StartsWith(id1 + "_") && !justFileNameLower.StartsWith(id1 + ".") &&
-                                !justFileNameLower.StartsWith(id2 + "_") && !justFileNameLower.StartsWith(id2 + "."))
+                            string langDir = sourceOverride ?? System.IO.Path.Combine(modDir, targetLangFolder);
+
+                            if (!System.IO.Directory.Exists(langDir))
                             {
-                                string dirName = System.IO.Path.GetDirectoryName(relPath);
-                                string newFileName = $"{id2}_{justFileName}";
-                                relPath = string.IsNullOrEmpty(dirName) ? newFileName : System.IO.Path.Combine(dirName, newFileName);
+                                failCount++;
+                                failedMods.Add(displayName);
+                                AutoTranslatorSettings.AddLog("⚠️ " + "ATC_Log_BatchUploadMissingFolder".Translate(displayName));
+                                continue;
                             }
 
-                            string destPath = System.IO.Path.Combine(liveLangDir, relPath);
-                            System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(destPath));
-                            System.IO.File.Copy(file, destPath, true);
+                            if (AutoTranslatorScanner.GetXmlFilesForTranslationCache(langDir, System.IO.SearchOption.AllDirectories).Count == 0)
+                            {
+                                failCount++;
+                                failedMods.Add(displayName);
+                                AutoTranslatorSettings.AddLog("⚠️ " + "ATC_Log_BatchUploadNoXml".Translate(displayName));
+                                continue;
+                            }
+
+                            string modName = tempMeta != null ? tempMeta.Name : packageId;
+
+                            bool success = await AutoTranslatorCloudClient.UploadTranslationAsync(packageId, targetLangFolder, modName, uNickname, uploadType, langDir, uToken, updateLog);
+
+                            if (success)
+                            {
+                                successCount++;
+                                if (sourceOverride != null) continue;
+
+                                foreach (string file in AutoTranslatorScanner.GetXmlFilesForTranslationCache(langDir, System.IO.SearchOption.AllDirectories))
+                                {
+                                    string relPath = file.Substring(langDir.Length).TrimStart('\\', '/');
+
+                                    string justFileName = System.IO.Path.GetFileName(file);
+                                    string justFileNameLower = justFileName.ToLower();
+                                    string id1 = packageId.ToLower();
+                                    string id2 = packageId.Replace(".", "_").ToLower();
+
+                                    if (!justFileNameLower.StartsWith(id1 + "_") && !justFileNameLower.StartsWith(id1 + ".") &&
+                                        !justFileNameLower.StartsWith(id2 + "_") && !justFileNameLower.StartsWith(id2 + "."))
+                                    {
+                                        string dirName = System.IO.Path.GetDirectoryName(relPath);
+                                        string newFileName = $"{id2}_{justFileName}";
+                                        relPath = string.IsNullOrEmpty(dirName) ? newFileName : System.IO.Path.Combine(dirName, newFileName);
+                                    }
+
+                                    string destPath = System.IO.Path.Combine(liveLangDir, relPath);
+                                    System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(destPath));
+                                    System.IO.File.Copy(file, destPath, true);
+                                }
+                            }
+                            else
+                            {
+                                failCount++;
+                                failedMods.Add(displayName);
+                            }
+                        }
+                        catch (Exception itemEx)
+                        {
+                            failCount++;
+                            failedMods.Add(displayName);
+                            AutoTranslatorSettings.AddErrorLog("⚠️ " + "ATC_Log_BatchUploadItemFailed".Translate(displayName, itemEx.Message));
+                            Log.Warning($"[AutoTranslationCore] Batch upload skipped {displayName} ({packageId}): {itemEx}");
                         }
                     }
                 }
-
-                ATC_Dispatcher.RunOnMainThread(() =>
+                catch (Exception ex)
                 {
+                    AutoTranslatorSettings.AddErrorLog("❌ " + "ATC_Log_BatchUploadWorkerFailed".Translate(ex.Message));
+                    Log.Warning("[AutoTranslationCore] Batch upload worker failed: " + ex);
+                }
+                finally
+                {
+                    ATC_Dispatcher.RunOnMainThread(() =>
+                    {
 
-                    AutoTranslatorSettings.IsRunning = false;
-                    AutoTranslatorMod.Settings.CurrentTaskName = "";
-                    AutoTranslatorMod.Settings.CurrentProgress = 0f;
+                        AutoTranslatorSettings.IsRunning = false;
+                        AutoTranslatorMod.Settings.CurrentTaskName = "";
+                        AutoTranslatorMod.Settings.CurrentProgress = 0f;
 
-                    Verse.Messages.Message("ATC_Msg_BatchUploadSuccess".Translate(successCount, uploadTypeLabel), RimWorld.MessageTypeDefOf.PositiveEvent, false);
-                    AutoTranslatorSettings.HasFetchedCloudThisSession = false;
-                    ModUpdateDetector.ClearStatusCache();
-                    TranslationWorkbenchTab.RequestRefresh();
-                });
+                        Verse.Messages.Message("ATC_Msg_BatchUploadSuccess".Translate(successCount, uploadTypeLabel), RimWorld.MessageTypeDefOf.PositiveEvent, false);
+                        if (failCount > 0)
+                        {
+                            AutoTranslatorSettings.AddLog("⚠️ " + "ATC_Log_BatchUploadFailedList".Translate(failCount, string.Join(", ", failedMods.Take(8).ToArray())));
+                        }
+
+                        AutoTranslatorSettings.HasFetchedCloudThisSession = false;
+                        ModUpdateDetector.ClearStatusCache();
+                        TranslationWorkbenchTab.RequestRefresh();
+                    });
+                }
             });
         }
 
@@ -317,7 +374,7 @@ namespace AutoTranslator_Core
             string id1 = packageId.ToLower();
             string id2 = packageId.Replace(".", "_").ToLower();
 
-            foreach (string file in System.IO.Directory.GetFiles(sourceDir, "*.xml", System.IO.SearchOption.AllDirectories))
+            foreach (string file in AutoTranslatorScanner.GetXmlFilesForTranslationCache(sourceDir, System.IO.SearchOption.AllDirectories))
             {
                 if (isWorkspace) return true;
 

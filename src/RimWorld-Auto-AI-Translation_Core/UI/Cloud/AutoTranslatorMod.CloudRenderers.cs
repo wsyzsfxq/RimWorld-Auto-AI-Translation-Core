@@ -75,7 +75,13 @@ namespace AutoTranslator_Core
             GUI.color = new Color(1f, 0.6f, 0.2f);
             if (Widgets.ButtonText(new Rect(topBarRect2.x + 150f, topBarRect2.y, 140f, topBarRect2.height), "ATC_Cloud_Btn_BatchUpload".Translate()))
             {
-                ExecuteBatchUpload();
+                ExecuteBatchUpload(CloudBatchUploadSource.Workspace);
+            }
+
+            GUI.color = new Color(1f, 0.72f, 0.25f);
+            if (Widgets.ButtonText(new Rect(topBarRect2.x + 300f, topBarRect2.y, 170f, topBarRect2.height), "ATC_Cloud_Btn_BatchUploadPack".Translate()))
+            {
+                ExecuteBatchUpload(CloudBatchUploadSource.LocalPack);
             }
             GUI.color = Color.white;
 
@@ -325,8 +331,19 @@ namespace AutoTranslator_Core
                 GUI.color = new Color(1f, 0.6f, 0.6f);
                 if (Widgets.ButtonText(deleteLocalBtn, "ATC_Cloud_Btn_DeleteLocal".Translate()))
                 {
-                    AutoTranslatorScanner.ClearOldTranslationFiles(new List<ModMetaData> { mod });
-                    Messages.Message("ATC_Msg_DeleteLocalSuccess".Translate(mod.Name), MessageTypeDefOf.NeutralEvent, false);
+                    AutoTranslatorScanner.LocalTranslationDeleteResult result =
+                        AutoTranslatorScanner.DeleteLocalTranslationFiles(new List<ModMetaData> { mod });
+
+                    if (result.HasErrors)
+                    {
+                        string error = string.IsNullOrEmpty(result.FirstError) ? "Unknown error" : result.FirstError;
+                        AutoTranslatorSettings.AddErrorLog("ATC_Message_DeleteTransError".Translate(error));
+                        Messages.Message("ATC_Message_DeleteTransError".Translate(error), MessageTypeDefOf.RejectInput, false);
+                    }
+                    else
+                    {
+                        Messages.Message("ATC_Msg_DeleteLocalSuccess".Translate(mod.Name), MessageTypeDefOf.NeutralEvent, false);
+                    }
                 }
                 GUI.color = Color.white;
                 cursorX -= 5f;
@@ -352,7 +369,7 @@ namespace AutoTranslator_Core
                         string uNickname = Settings.CloudNickname; string uToken = Settings.CloudAdminToken;
                         string workspaceDir = System.IO.Path.Combine(packPath, "Upload_Workspace", mod.PackageId, targetLangFolder);
                         string liveLangDir = System.IO.Path.Combine(packPath, "Languages", targetLangFolder);
-                        bool useWorkspace = System.IO.Directory.Exists(workspaceDir) && System.IO.Directory.GetFiles(workspaceDir, "*.xml", System.IO.SearchOption.AllDirectories).Length > 0;
+                        bool useWorkspace = System.IO.Directory.Exists(workspaceDir) && AutoTranslatorScanner.GetXmlFilesForTranslationCache(workspaceDir, System.IO.SearchOption.AllDirectories).Count > 0;
                         string finalSourceDir = useWorkspace ? workspaceDir : liveLangDir;
 
                         string pId = mod.PackageId;
@@ -419,14 +436,7 @@ namespace AutoTranslator_Core
                     string mergedTag = cloudRecord.IsSmartMerged ? "ATC_Cloud_SmartMerged".Translate().ToString() : "";
 
 
-                    Func<string, string> getLocType = (t) => {
-                        if (t == "Official_Group") return "ATC_Type_Official".Translate();
-                        if (t == "Manual") return "ATC_Type_Manual".Translate();
-                        if (t == "AI_Auto") return "ATC_Type_AI".Translate();
-                        return t;
-                    };
-
-                    string currentLocType = getLocType(cloudRecord.TranslationType);
+                    string currentLocType = GetCloudTranslationTypeLabel(cloudRecord.TranslationType);
 
                     string verLabel = $"v{cloudRecord.LatestVersion} ({currentLocType}){mergedTag}";
 
@@ -436,7 +446,7 @@ namespace AutoTranslator_Core
                         foreach (var v in allVersions)
                         {
                             string mTag = v.IsSmartMerged ? "ATC_Cloud_SmartMerged".Translate().ToString() : "";
-                            string vLocType = getLocType(v.TranslationType);
+                            string vLocType = GetCloudTranslationTypeLabel(v.TranslationType);
 
                             string optLabel = $"[{v.LastUpdated:yyyy-MM-dd}] ({vLocType}) - {v.Author}{mTag}";
                             verOptions.Add(new FloatMenuOption(optLabel, () => { AutoTranslatorSettings.SelectedCloudVersion[mod.PackageId] = v; }));
@@ -480,6 +490,99 @@ namespace AutoTranslator_Core
                 GUI.color = statusColor;
                 Widgets.Label(statusRect, statusText);
                 GUI.color = Color.white;
+        }
+
+        private void DrawOwnCloudRecordRow(CloudModRecord record, Rect rowRect, Dictionary<string, List<CloudModRecord>> cloudLookup, string targetLangFolder)
+        {
+            if (record == null) return;
+
+            ModMetaData localMod = GetValidModsCached()
+                .FirstOrDefault(m => m != null && string.Equals(m.PackageId, record.PackageId, StringComparison.OrdinalIgnoreCase));
+
+            if (localMod != null)
+            {
+                AutoTranslatorSettings.SelectedCloudVersion[localMod.PackageId] = record;
+                DrawCloudModRow(localMod, rowRect, cloudLookup, targetLangFolder);
+                return;
+            }
+
+            Widgets.DrawHighlightIfMouseover(rowRect);
+
+            float btnWidth = 85f;
+            float cursorX = rowRect.xMax - 5f;
+            if (!string.IsNullOrEmpty(Settings.CloudAdminToken))
+            {
+                cursorX -= btnWidth;
+                Rect deleteCloudBtn = new Rect(cursorX, rowRect.y + 5f, btnWidth - 5f, 30f);
+                string deleteKey = record.PackageId + "_" + record.RecordId + "_del";
+                if (AutoTranslatorSettings.CloudUploadTarget == deleteKey)
+                {
+                    GUI.color = Color.red;
+                    Text.Anchor = TextAnchor.MiddleCenter;
+                    Widgets.Label(deleteCloudBtn, "ATC_Cloud_Deleting".Translate());
+                    Text.Anchor = TextAnchor.UpperLeft;
+                }
+                else
+                {
+                    GUI.color = new Color(1f, 0.3f, 0.3f);
+                    if (Widgets.ButtonText(deleteCloudBtn, "ATC_Cloud_Btn_DeleteCloud".Translate()))
+                    {
+                        AutoTranslatorSettings.CloudUploadTarget = deleteKey;
+
+                        string pid = record.PackageId;
+                        string lang = targetLangFolder;
+                        string token = Settings.CloudAdminToken;
+                        string recId = record.RecordId;
+                        string displayName = string.IsNullOrWhiteSpace(record.ModName) ? record.PackageId : record.ModName;
+                        System.Threading.Tasks.Task.Run(async () => {
+                            bool success = await AutoTranslatorCloudClient.DeleteCloudRecordAsync(pid, lang, recId, token);
+                            ATC_Dispatcher.RunOnMainThread(() => {
+                                AutoTranslatorSettings.CloudUploadTarget = "";
+                                if (success)
+                                {
+                                    Messages.Message("ATC_Msg_DeleteCloudSuccess".Translate(displayName), MessageTypeDefOf.PositiveEvent, false);
+                                    AutoTranslatorSettings.HasFetchedCloudThisSession = false;
+                                }
+                                else
+                                {
+                                    Messages.Message("ATC_Msg_DeleteCloudFailed".Translate(displayName), MessageTypeDefOf.RejectInput, false);
+                                }
+                            });
+                        });
+                    }
+                }
+                GUI.color = Color.white;
+                cursorX -= 5f;
+            }
+
+            float leftSpace = cursorX - rowRect.x - 10f;
+            Rect nameRect = new Rect(rowRect.x + 5f, rowRect.y + 2f, leftSpace, 20f);
+            Rect statusRect = new Rect(rowRect.x + 5f, rowRect.y + 22f, leftSpace, 18f);
+
+            string display = string.IsNullOrWhiteSpace(record.ModName) ? record.PackageId : record.ModName;
+            string currentLocType = GetCloudTranslationTypeLabel(record.TranslationType);
+
+            Text.Font = GameFont.Small;
+            Text.WordWrap = false;
+            Widgets.Label(nameRect, display);
+            Text.WordWrap = true;
+            if (Mouse.IsOver(nameRect))
+            {
+                TooltipHandler.TipRegion(nameRect, display + "\n" + record.PackageId);
+            }
+
+            Text.Font = GameFont.Tiny;
+            GUI.color = new Color(0.8f, 0.8f, 0.8f);
+            Widgets.Label(statusRect, "ATC_Cloud_Status_NotInstalled".Translate(record.LastUpdated.ToString("yyyy-MM-dd HH:mm"), currentLocType));
+            GUI.color = Color.white;
+        }
+
+        private static string GetCloudTranslationTypeLabel(string type)
+        {
+            if (type == "Official_Group") return "ATC_Type_Official".Translate();
+            if (type == "Manual") return "ATC_Type_Manual".Translate();
+            if (type == "AI_Auto") return "ATC_Type_AI".Translate();
+            return type ?? "";
         }
     }
 }

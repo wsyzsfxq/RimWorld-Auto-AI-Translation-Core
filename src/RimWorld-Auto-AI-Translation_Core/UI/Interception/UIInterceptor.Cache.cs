@@ -382,6 +382,7 @@ namespace AutoTranslator_Core
         {
             Cache.Clear();
             IgnoredCache.Clear();
+            TextDecisionCache.Clear();
             Patch_GUI_Label_GUIContent.ClearCache();
             while (TranslationQueue.TryDequeue(out _)) { }
             PendingTranslations.Clear();
@@ -402,6 +403,13 @@ namespace AutoTranslator_Core
             {
                 return false;
             }
+
+            return TryGetCachedTranslationKnownSafe(text, out translated);
+        }
+
+        public static bool TryGetCachedTranslationKnownSafe(string text, out string translated)
+        {
+            translated = null;
 
             string lookupText = GetTranslationLookupText(text);
             string cacheKey = BuildCacheKey(lookupText);
@@ -567,7 +575,7 @@ namespace AutoTranslator_Core
                 RefreshRuntimeUICache();
 
 
-                AutoTranslatorScanner.MemoryDrop_InjectNow();
+                AutoTranslatorScanner.RequestMemoryDrop();
 
 
                 Messages.Message("ATC_Message_HotReloadSuccess".CanTranslate()

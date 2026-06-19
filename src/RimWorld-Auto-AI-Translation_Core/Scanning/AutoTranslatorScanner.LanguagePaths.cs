@@ -107,6 +107,113 @@ namespace AutoTranslator_Core
             }
         }
 
+        private class TranslationLanguageSource
+        {
+            public string LanguageRoot;
+            public string LanguageFolderPath;
+            public string FolderName;
+            public TargetLanguage? Language;
+            public int Priority;
+        }
+
+        private static bool TryGetLanguageFromFolderName(string folderName, out TargetLanguage language)
+        {
+            foreach (TargetLanguage candidate in Enum.GetValues(typeof(TargetLanguage)))
+            {
+                if (IsLanguageFolderMatch(folderName, GetFolderNameByLanguage(candidate)))
+                {
+                    language = candidate;
+                    return true;
+                }
+            }
+
+            language = TargetLanguage.English;
+            return false;
+        }
+
+        private static int GetLanguageSourcePriority(TargetLanguage? sourceLang, TargetLanguage targetLang)
+        {
+            if (sourceLang.HasValue && sourceLang.Value == targetLang) return 0;
+
+            if (targetLang == TargetLanguage.Traditional && sourceLang == TargetLanguage.Simplified) return 10;
+            if (targetLang == TargetLanguage.Simplified && sourceLang == TargetLanguage.Traditional) return 10;
+            if (sourceLang == TargetLanguage.English) return 20;
+
+            if (sourceLang == TargetLanguage.Japanese) return 30;
+            if (sourceLang == TargetLanguage.Korean) return 35;
+            if (sourceLang == TargetLanguage.Russian) return 40;
+            if (sourceLang == TargetLanguage.Ukrainian) return 45;
+
+            return sourceLang.HasValue ? 70 : 100;
+        }
+
+        private static List<TranslationLanguageSource> GetTranslationLanguageSources(string langRoot, TargetLanguage targetLang, bool includeTarget)
+        {
+            List<TranslationLanguageSource> result = new List<TranslationLanguageSource>();
+            if (string.IsNullOrEmpty(langRoot) || !Directory.Exists(langRoot)) return result;
+
+            try
+            {
+                foreach (string dir in Directory.GetDirectories(langRoot))
+                {
+                    string folderName = Path.GetFileName(dir);
+                    TargetLanguage detected;
+                    TargetLanguage? language = TryGetLanguageFromFolderName(folderName, out detected)
+                        ? (TargetLanguage?)detected
+                        : null;
+
+                    if (!includeTarget && language.HasValue && language.Value == targetLang) continue;
+                    if (!ContainsTranslationXmlFiles(dir)) continue;
+
+                    result.Add(new TranslationLanguageSource
+                    {
+                        LanguageRoot = langRoot,
+                        LanguageFolderPath = dir,
+                        FolderName = folderName,
+                        Language = language,
+                        Priority = GetLanguageSourcePriority(language, targetLang)
+                    });
+                }
+            }
+            catch { }
+
+            return result
+                .OrderBy(s => s.Priority)
+                .ThenBy(s => s.FolderName, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        public static List<string> GetTranslatableLanguageBucketPaths(string langRoot, TargetLanguage targetLang, string bucketName, bool includeTarget)
+        {
+            List<string> result = new List<string>();
+            if (string.IsNullOrWhiteSpace(bucketName)) return result;
+
+            foreach (TranslationLanguageSource source in GetTranslationLanguageSources(langRoot, targetLang, includeTarget))
+            {
+                AddLanguageBucketPath(result, source.LanguageFolderPath, bucketName);
+            }
+
+            return result.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        }
+
+        private static List<string> GetLanguageBucketPaths(string languageFolderPath, string bucketName)
+        {
+            List<string> result = new List<string>();
+            AddLanguageBucketPath(result, languageFolderPath, bucketName);
+            return result.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        }
+
+        private static void AddLanguageBucketPath(List<string> result, string languageFolderPath, string bucketName)
+        {
+            if (result == null || string.IsNullOrEmpty(languageFolderPath) || string.IsNullOrWhiteSpace(bucketName)) return;
+
+            string direct = Path.Combine(languageFolderPath, bucketName);
+            if (Directory.Exists(direct)) result.Add(direct);
+
+            string lower = Path.Combine(languageFolderPath, bucketName.ToLowerInvariant());
+            if (Directory.Exists(lower)) result.Add(lower);
+        }
+
 
         // 這個方法負責判斷 Is語言FolderMatch 條件是否成立。
         // EN: This method checks is language folder match.
@@ -157,25 +264,7 @@ namespace AutoTranslator_Core
         // EN: This method handles resolve language folders.
         private static List<string> ResolveLanguageFolders(string langRoot, string folderName)
         {
-            List<string> matches = new List<string>();
-            if (string.IsNullOrEmpty(langRoot) || string.IsNullOrEmpty(folderName) || !Directory.Exists(langRoot)) return matches;
-
-            string direct = Path.Combine(langRoot, folderName);
-            if (Directory.Exists(direct)) matches.Add(direct);
-
-            try
-            {
-                foreach (string dir in Directory.GetDirectories(langRoot))
-                {
-                    if (IsLanguageFolderMatch(Path.GetFileName(dir), folderName) && !matches.Contains(dir, StringComparer.OrdinalIgnoreCase))
-                    {
-                        matches.Add(dir);
-                    }
-                }
-            }
-            catch { }
-
-            return matches;
+            return ResolveLanguageFoldersCached(langRoot, folderName);
         }
 
 
@@ -307,36 +396,45 @@ namespace AutoTranslator_Core
         // EN: This method gets all effective language paths.
         public static List<string> GetAllEffectiveLangPaths(ModMetaData mod)
         {
-            List<string> result = new List<string>();
-            var activeRoots = ParseLoadFolders(mod);
+            return GetModPathIndex(mod).EffectiveLangPaths;
+        }
 
-            foreach (var root in activeRoots)
+        public static List<string> GetAllTranslationPatchLangPaths(ModMetaData mod)
+        {
+            return GetModPathIndex(mod).TranslationPatchLangPaths;
+        }
+
+        public static bool HasScannableTranslationSources(ModMetaData mod)
+        {
+            if (mod == null) return false;
+            return GetAllEffectiveLangPaths(mod).Count > 0 ||
+                   GetAllEffectiveDefsPaths(mod).Count > 0;
+        }
+
+        private static void AddLanguageRootsFrom(string root, string modRoot, List<string> result)
+        {
+            AddLanguageRootsFrom(root, modRoot, result, false);
+        }
+
+        private static void AddLanguageRootsFrom(string root, string modRoot, List<string> result, bool includeOldVersionPaths)
+        {
+            if (string.IsNullOrEmpty(root) || string.IsNullOrEmpty(modRoot) || result == null || !Directory.Exists(root)) return;
+
+            try
             {
-                try
+                string direct = Path.Combine(root, "Languages");
+                if (Directory.Exists(direct) && (includeOldVersionPaths || !IsOldVersionPath(modRoot, direct)))
                 {
-                    var dirs = Directory.GetDirectories(root, "Languages", SearchOption.AllDirectories);
-                    foreach (var dir in dirs)
-                    {
-                        if (!IsOldVersionPath(mod.RootDir.FullName, dir)) result.Add(dir);
-                    }
+                    result.Add(direct);
                 }
-                catch { }
-            }
 
-            if (result.Count == 0)
-            {
-                try
+                var dirs = Directory.GetDirectories(root, "Languages", SearchOption.AllDirectories);
+                foreach (var dir in dirs)
                 {
-                    var dirs = Directory.GetDirectories(mod.RootDir.FullName, "Languages", SearchOption.AllDirectories);
-                    foreach (var dir in dirs)
-                    {
-                        if (!IsOldVersionPath(mod.RootDir.FullName, dir)) result.Add(dir);
-                    }
+                    if (includeOldVersionPaths || !IsOldVersionPath(modRoot, dir)) result.Add(dir);
                 }
-                catch { }
             }
-
-            return result.Distinct().ToList();
+            catch { }
         }
 
         // 這個方法負責判斷 HasNative目標語言 條件是否成立。
@@ -352,7 +450,7 @@ namespace AutoTranslator_Core
                 {
                     foreach (string targetRoot in ResolveLanguageFolders(langRoot, targetFolder))
                     {
-                        if (Directory.GetFiles(targetRoot, "*.xml", SearchOption.AllDirectories).Length > 0)
+                        if (ContainsTranslationXmlFiles(targetRoot))
                         {
                             return true;
                         }
@@ -367,38 +465,189 @@ namespace AutoTranslator_Core
 
         // 這個方法負責取得 AllEffectiveDefs路徑 資料。
         // EN: This method gets all effective defs paths.
+        public static bool HasCompleteNativeTargetLanguage(ModMetaData mod, TargetLanguage targetLang)
+        {
+            if (mod == null) return false;
+
+            string targetFolder = GetFolderNameByLanguage(targetLang);
+            List<string> langRoots = GetAllEffectiveLangPaths(mod);
+            List<string> defsRoots = GetAllEffectiveDefsPaths(mod);
+            bool hasSource = false;
+            bool hasTarget = false;
+
+            var sourceKeyed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var targetKeyed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (string langRoot in langRoots)
+            {
+                foreach (string sourceKeyedDir in GetTranslatableLanguageBucketPaths(langRoot, targetLang, "Keyed", false))
+                {
+                    AddKeyedKeys(sourceKeyedDir, sourceKeyed);
+                }
+
+                foreach (string targetRoot in ResolveLanguageFolders(langRoot, targetFolder))
+                {
+                    if (ContainsTranslationXmlFiles(targetRoot)) hasTarget = true;
+                    AddKeyedKeys(Path.Combine(targetRoot, "Keyed"), targetKeyed);
+                    AddKeyedKeys(Path.Combine(targetRoot, "keyed"), targetKeyed);
+                }
+            }
+
+            if (sourceKeyed.Count > 0)
+            {
+                hasSource = true;
+                foreach (string key in sourceKeyed)
+                {
+                    if (!targetKeyed.Contains(key)) return false;
+                }
+            }
+
+            var sourceDefs = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+            var targetDefs = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (string defsRoot in defsRoots)
+            {
+                foreach (var typePair in ExtractEnglishFromRawDefs(defsRoot))
+                {
+                    AddDefKeys(sourceDefs, typePair.Key, typePair.Value.Keys);
+                }
+            }
+
+            foreach (string langRoot in langRoots)
+            {
+                foreach (string sourceDefDir in GetTranslatableLanguageBucketPaths(langRoot, targetLang, "DefInjected", false))
+                {
+                    AddDefKeysFromDir(sourceDefDir, sourceDefs);
+                }
+
+                foreach (string targetRoot in ResolveLanguageFolders(langRoot, targetFolder))
+                {
+                    AddDefKeysFromDir(Path.Combine(targetRoot, "DefInjected"), targetDefs);
+                    AddDefKeysFromDir(Path.Combine(targetRoot, "defInjected"), targetDefs);
+                }
+            }
+
+            if (sourceDefs.Count > 0)
+            {
+                hasSource = true;
+                foreach (var typePair in sourceDefs)
+                {
+                    if (!targetDefs.TryGetValue(typePair.Key, out HashSet<string> targetKeys))
+                    {
+                        return false;
+                    }
+
+                    foreach (string key in typePair.Value)
+                    {
+                        if (!targetKeys.Contains(key)) return false;
+                    }
+                }
+            }
+
+            return hasSource && hasTarget;
+        }
+
+        private static void AddKeyedKeys(string path, HashSet<string> keys)
+        {
+            if (keys == null || string.IsNullOrEmpty(path) || !Directory.Exists(path)) return;
+
+            foreach (string file in GetXmlFilesCached(path, SearchOption.AllDirectories))
+            {
+                foreach (string key in LoadXmlFileToDict(file).Keys)
+                {
+                    keys.Add(key);
+                }
+            }
+        }
+
+        private static void AddDefKeysFromDir(string path, Dictionary<string, HashSet<string>> target)
+        {
+            if (target == null || string.IsNullOrEmpty(path) || !Directory.Exists(path)) return;
+
+            foreach (string typeDir in Directory.GetDirectories(path))
+            {
+                string defType = Path.GetFileName(typeDir);
+                foreach (string file in GetXmlFilesCached(typeDir, SearchOption.AllDirectories))
+                {
+                    AddDefKeys(target, defType, LoadXmlFileToDict(file).Keys);
+                }
+            }
+
+            foreach (string file in GetXmlFilesCached(path, SearchOption.TopDirectoryOnly))
+            {
+                AddDefKeys(target, "General", LoadXmlFileToDict(file).Keys);
+            }
+        }
+
+        private static void AddDefKeys(Dictionary<string, HashSet<string>> target, string defType, IEnumerable<string> keys)
+        {
+            if (target == null || string.IsNullOrEmpty(defType) || keys == null) return;
+
+            if (!target.TryGetValue(defType, out HashSet<string> typeKeys))
+            {
+                typeKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                target[defType] = typeKeys;
+            }
+
+            foreach (string key in keys)
+            {
+                if (!string.IsNullOrEmpty(key)) typeKeys.Add(key);
+            }
+        }
+
+        private static bool ContainsTranslationXmlFiles(string languageFolderPath)
+        {
+            if (string.IsNullOrEmpty(languageFolderPath) || !Directory.Exists(languageFolderPath)) return false;
+            try
+            {
+                return ContainsXmlFiles(Path.Combine(languageFolderPath, "Keyed")) ||
+                       ContainsXmlFiles(Path.Combine(languageFolderPath, "keyed")) ||
+                       ContainsXmlFiles(Path.Combine(languageFolderPath, "DefInjected")) ||
+                       ContainsXmlFiles(Path.Combine(languageFolderPath, "defInjected"));
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static bool ContainsXmlFiles(string path)
+        {
+            if (string.IsNullOrEmpty(path) || !Directory.Exists(path)) return false;
+            try
+            {
+                return GetXmlFilesCached(path, SearchOption.AllDirectories).Count > 0;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
         public static List<string> GetAllEffectiveDefsPaths(ModMetaData mod)
         {
-            List<string> result = new List<string>();
-            var activeRoots = ParseLoadFolders(mod);
+            return GetModPathIndex(mod).EffectiveDefsPaths;
+        }
 
-            foreach (var root in activeRoots)
+        private static void AddDefsRootsFrom(string root, string modRoot, List<string> result)
+        {
+            if (string.IsNullOrEmpty(root) || string.IsNullOrEmpty(modRoot) || result == null || !Directory.Exists(root)) return;
+
+            try
             {
-                try
+                string direct = Path.Combine(root, "Defs");
+                if (Directory.Exists(direct) && !IsOldVersionPath(modRoot, direct))
                 {
-                    string defPath = Path.Combine(root, "Defs");
-                    if (Directory.Exists(defPath) && !IsOldVersionPath(mod.RootDir.FullName, defPath))
-                    {
-                        result.Add(defPath);
-                    }
+                    result.Add(direct);
                 }
-                catch { }
-            }
 
-            if (result.Count == 0)
-            {
-                try
+                var dirs = Directory.GetDirectories(root, "Defs", SearchOption.AllDirectories);
+                foreach (var dir in dirs)
                 {
-                    var dirs = Directory.GetDirectories(mod.RootDir.FullName, "Defs", SearchOption.AllDirectories);
-                    foreach (var dir in dirs)
-                    {
-                        if (!IsOldVersionPath(mod.RootDir.FullName, dir)) result.Add(dir);
-                    }
+                    if (!IsOldVersionPath(modRoot, dir)) result.Add(dir);
                 }
-                catch { }
             }
-
-            return result.Distinct().ToList();
+            catch { }
         }
 
     }

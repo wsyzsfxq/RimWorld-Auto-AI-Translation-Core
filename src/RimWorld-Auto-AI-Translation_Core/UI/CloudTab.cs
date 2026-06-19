@@ -57,7 +57,55 @@ namespace AutoTranslator_Core
                 Widgets.Label(new Rect(searchRect.x + 5f, searchRect.y + 2f, searchRect.width, searchRect.height), "ATC_Cloud_SearchHint".Translate());
                 GUI.color = Color.white;
             }
+
+            Rect filterRow = l.GetRect(28f);
+            bool showMineOnly = AutoTranslatorSettings.CloudShowMineOnly;
+            Widgets.CheckboxLabeled(new Rect(filterRow.x, filterRow.y + 2f, 230f, 24f), "ATC_Cloud_ShowMineOnly".Translate(), ref showMineOnly);
+            if (showMineOnly != AutoTranslatorSettings.CloudShowMineOnly)
+            {
+                AutoTranslatorSettings.CloudShowMineOnly = showMineOnly;
+                _cachedCloudDisplayMods = null;
+            }
+
+            int ownUploadCount = AutoTranslatorSettings.CloudRegistry.Count(r =>
+                r != null &&
+                r.Language == targetLangFolder &&
+                IsOwnCloudRecord(r));
+            GUI.color = new Color(0.7f, 0.9f, 1f);
+            Widgets.Label(new Rect(filterRow.x + 240f, filterRow.y + 3f, filterRow.width - 240f, 24f), "ATC_Cloud_MyUploadsCount".Translate(ownUploadCount));
+            GUI.color = Color.white;
             l.Gap(10f);
+
+            Dictionary<string, List<CloudModRecord>> cloudLookup = BuildCloudLookup(targetLangFolder);
+
+            if (AutoTranslatorSettings.CloudShowMineOnly)
+            {
+                List<CloudModRecord> ownRecords = GetOwnLatestCloudRecords(targetLangFolder);
+                if (ownRecords.Count == 0)
+                {
+                    GUI.color = Color.gray;
+                    Widgets.Label(l.GetRect(40f), "ATC_Cloud_NoMyUploads".Translate());
+                    GUI.color = Color.white;
+                    return;
+                }
+
+                float ownListStartY = l.CurHeight;
+                int ownFirstVisible = Math.Max(0, Mathf.FloorToInt((AutoTranslatorSettings.mainScrollPos.y - ownListStartY) / CloudRowHeight) - 2);
+                int ownLastVisible = Math.Min(ownRecords.Count - 1, Mathf.CeilToInt((AutoTranslatorSettings.mainScrollPos.y - ownListStartY + 900f) / CloudRowHeight) + 2);
+
+                for (int i = 0; i < ownRecords.Count; i++)
+                {
+                    Rect rowRect = l.GetRect(CloudRowHeight);
+                    if (i < ownFirstVisible || i > ownLastVisible)
+                    {
+                        continue;
+                    }
+
+                    DrawOwnCloudRecordRow(ownRecords[i], rowRect, cloudLookup, targetLangFolder);
+                }
+
+                return;
+            }
 
             List<ModMetaData> localMods = GetCloudDisplayMods();
             if (localMods.Count == 0)
@@ -68,7 +116,6 @@ namespace AutoTranslator_Core
                 return;
             }
 
-            Dictionary<string, List<CloudModRecord>> cloudLookup = BuildCloudLookup(targetLangFolder);
             float listStartY = l.CurHeight;
             int firstVisible = Math.Max(0, Mathf.FloorToInt((AutoTranslatorSettings.mainScrollPos.y - listStartY) / CloudRowHeight) - 2);
             int lastVisible = Math.Min(localMods.Count - 1, Mathf.CeilToInt((AutoTranslatorSettings.mainScrollPos.y - listStartY + 900f) / CloudRowHeight) + 2);
@@ -112,6 +159,34 @@ namespace AutoTranslator_Core
             _cachedCloudSearchText = searchText;
             _cachedCloudValidModCount = validMods.Count;
             return _cachedCloudDisplayMods;
+        }
+
+        private static bool IsOwnCloudRecord(CloudModRecord record)
+        {
+            if (record == null || string.IsNullOrWhiteSpace(record.UploaderID)) return false;
+            return string.Equals(record.UploaderID, UnityEngine.SystemInfo.deviceUniqueIdentifier, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private List<CloudModRecord> GetOwnLatestCloudRecords(string targetLangFolder)
+        {
+            string searchText = AutoTranslatorSettings.CloudSearchText ?? "";
+            IEnumerable<CloudModRecord> records = AutoTranslatorSettings.CloudRegistry
+                .Where(r => r != null && r.Language == targetLangFolder && IsOwnCloudRecord(r));
+
+            if (!string.IsNullOrEmpty(searchText))
+            {
+                string searchLower = searchText.ToLowerInvariant();
+                records = records.Where(r =>
+                    ((r.ModName ?? "").ToLowerInvariant().Contains(searchLower)) ||
+                    ((r.PackageId ?? "").ToLowerInvariant().Contains(searchLower)) ||
+                    ((r.Author ?? "").ToLowerInvariant().Contains(searchLower)));
+            }
+
+            return records
+                .GroupBy(r => r.PackageId ?? "", StringComparer.OrdinalIgnoreCase)
+                .Select(g => g.OrderByDescending(r => r.LastUpdated).First())
+                .OrderByDescending(r => r.LastUpdated)
+                .ToList();
         }
     }
 }

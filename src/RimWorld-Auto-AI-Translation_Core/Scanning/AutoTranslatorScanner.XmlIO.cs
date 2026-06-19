@@ -28,9 +28,9 @@ namespace AutoTranslator_Core
         {
             var dict = new Dictionary<string, string>();
             if (!Directory.Exists(path)) return dict;
-            foreach (var f in Directory.GetFiles(path, "*.xml", SearchOption.AllDirectories))
+            foreach (var f in GetXmlFilesCached(path, SearchOption.AllDirectories))
             {
-                var d = LoadXmlFileToDict(f, expectedLang);
+                var d = LoadXmlFileToDict(f, ShouldCheckFakeLanguageForFile(f, expectedLang) ? expectedLang : null);
                 foreach (var p in d) dict[p.Key] = p.Value;
             }
             return dict;
@@ -40,33 +40,15 @@ namespace AutoTranslator_Core
         // EN: This method loads XML file to dict.
         public static Dictionary<string, string> LoadXmlFileToDict(string filePath, TargetLanguage? expectedLang = null)
         {
-            var dict = new Dictionary<string, string>();
-            if (!File.Exists(filePath)) return dict;
-            try
+            var dict = LoadRawXmlFileToDictCached(filePath);
+
+            if (ShouldCheckFakeLanguageForFile(filePath, expectedLang) &&
+                LanguageDetector.IsFakeLanguage(dict, expectedLang.Value))
             {
-                XmlDocument d = new XmlDocument(); d.Load(filePath);
-                if (d.DocumentElement == null) return dict;
-                foreach (XmlNode n in d.DocumentElement.ChildNodes)
-                {
-                    if (n.NodeType == XmlNodeType.Element)
-                    {
-                        string val = n.InnerText;
-                        if (!string.IsNullOrEmpty(val))
-                        {
-                            val = val.Replace("\\n", "\n").Replace("\\r", "\r").Replace("/n", "\n");
-                        }
-                        dict[n.Name] = val;
-                    }
-                }
-
-
-                if (expectedLang.HasValue && LanguageDetector.IsFakeLanguage(dict, expectedLang.Value))
-                {
-                    AutoTranslatorSettings.AddLog($"🕵️ [System] " + "ATC_Log_FakeLanguageDetected".Translate(Path.GetFileName(filePath)).ToString());
-                    return new Dictionary<string, string>();
-                }
+                AutoTranslatorSettings.AddLog($"🕵️ [System] " + "ATC_Log_FakeLanguageDetected".Translate(Path.GetFileName(filePath)).ToString());
+                return new Dictionary<string, string>();
             }
-            catch { }
+
             return dict;
         }
 
@@ -111,6 +93,7 @@ namespace AutoTranslator_Core
 
             d.AppendChild(r);
             d.Save(path);
+            NotifyTranslationFileChanged(path);
         }
         // 這個方法負責取得 Short路徑 資料。
         // EN: This method gets short path.
@@ -121,6 +104,30 @@ namespace AutoTranslator_Core
             int idx = normalized.IndexOf("294100/");
             if (idx == -1) idx = normalized.IndexOf("Mods/");
             return idx != -1 ? normalized.Substring(idx) : Path.GetFileName(fullPath);
+        }
+
+        private static bool ShouldCheckFakeLanguageForFile(string filePath, TargetLanguage? expectedLang)
+        {
+            if (!expectedLang.HasValue || string.IsNullOrEmpty(filePath)) return false;
+
+            string targetFolder = GetFolderNameByLanguage(expectedLang.Value);
+            string normalized = filePath.Replace('\\', '/');
+            string[] parts = normalized.Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+
+            for (int i = 0; i <= parts.Length - 4; i++)
+            {
+                if (!parts[i].Equals("Languages", StringComparison.OrdinalIgnoreCase)) continue;
+                if (!IsLanguageFolderMatch(parts[i + 1], targetFolder)) continue;
+
+                string bucket = parts[i + 2];
+                if (bucket.Equals("Keyed", StringComparison.OrdinalIgnoreCase) ||
+                    bucket.Equals("DefInjected", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }

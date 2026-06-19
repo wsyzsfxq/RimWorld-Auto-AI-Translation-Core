@@ -20,6 +20,23 @@ namespace AutoTranslator_Core
     // EN: This class manages the main workflow and state for AutoTranslatorScanner.
     public static partial class AutoTranslatorScanner
     {
+        public class LocalTranslationDeleteResult
+        {
+            public int RequestedMods;
+            public int DeletedFiles;
+            public int FailedFiles;
+            public List<string> Errors = new List<string>();
+
+            public bool HasErrors
+            {
+                get { return FailedFiles > 0 || Errors.Count > 0; }
+            }
+
+            public string FirstError
+            {
+                get { return Errors.Count > 0 ? Errors[0] : ""; }
+            }
+        }
 
 
         // 這個方法負責處理 UpdateLocal模組Meta 相關流程。
@@ -144,61 +161,284 @@ namespace AutoTranslator_Core
         // EN: This method clears old translation files.
         public static void ClearOldTranslationFiles(List<ModMetaData> modsToClear)
         {
+            LocalTranslationDeleteResult result = DeleteLocalTranslationFiles(
+                modsToClear,
+                createBackup: true,
+                requestRuntimeRefresh: true,
+                logResult: false);
+
+            if (result.DeletedFiles > 0)
+            {
+                AutoTranslatorSettings.AddLog("ATC_ClearCacheSuccess".Translate(result.DeletedFiles));
+                Log.Message($"[AutoTranslationCore] Auto-cleared {result.DeletedFiles} old files for updated mods (Backup created).");
+            }
+
+            if (result.HasErrors)
+            {
+                AutoTranslatorSettings.AddErrorLog($"Auto Clear Error: {result.FirstError}");
+            }
+        }
+
+        public static LocalTranslationDeleteResult DeleteLocalTranslationFiles(
+            List<ModMetaData> modsToDelete,
+            bool createBackup = true,
+            bool requestRuntimeRefresh = true,
+            bool logResult = true)
+        {
+            var result = new LocalTranslationDeleteResult();
+            if (modsToDelete == null || modsToDelete.Count == 0) return result;
+
+            result.RequestedMods = modsToDelete.Count(m => m != null && !string.IsNullOrWhiteSpace(m.PackageId));
+
             try
             {
                 string packPath = GetLocalPackPath();
                 string langsPath = Path.Combine(packPath, "Languages");
-                if (!Directory.Exists(langsPath)) return;
+                bool langsPathExists = Directory.Exists(langsPath);
 
-                int deletedFiles = 0;
-                var allXmls = Directory.GetFiles(langsPath, "*.xml", SearchOption.AllDirectories);
+                string targetFolder = AutoTranslatorMod.Settings != null
+                    ? GetFolderNameByLanguage(AutoTranslatorMod.Settings.TargetLang)
+                    : null;
 
-                foreach (var mod in modsToClear)
+                var allXmls = langsPathExists
+                    ? GetXmlFilesCached(langsPath, SearchOption.AllDirectories)
+                    : new List<string>();
+                var deletedPathSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                bool touchedSettings = false;
+
+                foreach (var mod in modsToDelete)
                 {
-                    string id1 = mod.PackageId.ToLower();
-                    string id2 = mod.PackageId.Replace(".", "_").ToLower();
+                    if (mod == null || string.IsNullOrWhiteSpace(mod.PackageId)) continue;
 
+                    string packageId = mod.PackageId;
+                    string id1 = packageId.ToLowerInvariant();
+                    string id2 = packageId.Replace(".", "_").ToLowerInvariant();
 
-                    List<string> filesToDelete = new List<string>();
+                    List<string> filesToDelete = allXmls
+                        .Where(file => IsLocalTranslationFileForPackage(file, id1, id2))
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToList();
 
-                    foreach (var file in allXmls)
+                    if (filesToDelete.Count > 0 && createBackup)
                     {
+                        CreateBackupBeforeClear(mod, filesToDelete.Where(File.Exists).ToList());
+                    }
 
-                        if (file.Contains("Upload_Workspace")) continue;
+                    var clearKeysByDefType = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
 
-                        string fileName = Path.GetFileName(file).ToLower();
-                        if (fileName.StartsWith(id1 + "_") || fileName.StartsWith(id1 + ".") ||
-                            fileName.StartsWith(id2 + "_") || fileName.StartsWith(id2 + "."))
+                    foreach (string file in filesToDelete)
+                    {
+                        if (string.IsNullOrEmpty(file) || deletedPathSet.Contains(file)) continue;
+
+                        try
                         {
-                            filesToDelete.Add(file);
+                            if (!File.Exists(file))
+                            {
+                                deletedPathSet.Add(file);
+                                NotifyTranslationFileChanged(file);
+                                continue;
+                            }
+
+                            Dictionary<string, HashSet<string>> fileClearKeys = CollectRuntimeClearKeysForTranslationFile(langsPath, file, targetFolder);
+                            File.SetAttributes(file, FileAttributes.Normal);
+                            File.Delete(file);
+                            deletedPathSet.Add(file);
+                            NotifyTranslationFileChanged(file);
+                            MergeClearKeys(clearKeysByDefType, fileClearKeys);
+                            result.DeletedFiles++;
+                        }
+                        catch (FileNotFoundException)
+                        {
+                            deletedPathSet.Add(file);
+                            NotifyTranslationFileChanged(file);
+                        }
+                        catch (DirectoryNotFoundException)
+                        {
+                            deletedPathSet.Add(file);
+                            NotifyTranslationFileChanged(file);
+                        }
+                        catch (Exception ex)
+                        {
+                            result.FailedFiles++;
+                            result.Errors.Add($"{mod.Name}: {Path.GetFileName(file)} - {ex.Message}");
+                            Log.Warning($"[AutoTranslationCore] Failed to delete local translation file {file}: {ex}");
                         }
                     }
 
+                    touchedSettings |= ClearVerificationStateForPackage(packageId);
 
-                    if (filesToDelete.Count > 0)
+                    if (requestRuntimeRefresh && clearKeysByDefType.Count > 0)
                     {
-                        CreateBackupBeforeClear(mod, filesToDelete);
-
-                        foreach (var file in filesToDelete)
-                        {
-
-                            System.IO.File.SetAttributes(file, System.IO.FileAttributes.Normal);
-                            File.Delete(file);
-                            deletedFiles++;
-                        }
+                        RequestMemoryDropForPackage(packageId, clearKeysByDefType);
+                    }
+                    else if (requestRuntimeRefresh && filesToDelete.Count > 0)
+                    {
+                        RequestMemoryDropForPackage(packageId);
                     }
                 }
 
-                if (deletedFiles > 0)
+                if (result.DeletedFiles > 0 || touchedSettings)
                 {
-                    AutoTranslatorSettings.AddLog("ATC_ClearCacheSuccess".Translate(deletedFiles));
-                    Log.Message($"[AutoTranslationCore] Auto-cleared {deletedFiles} old files for updated mods (Backup created).");
+                    if (langsPathExists)
+                    {
+                        NotifyTranslationFilesChanged(langsPath);
+                    }
+                    else
+                    {
+                        NotifyTranslationFilesChanged(null);
+                    }
+
+                    QueueLocalTranslationDeleteRefresh(touchedSettings);
+                }
+
+                if (logResult && result.DeletedFiles > 0)
+                {
+                    string logMsg = "ATC_Log_DeleteTransSuccess".Translate(result.RequestedMods, result.DeletedFiles);
+                    AutoTranslatorSettings.AddLog(logMsg);
+                    Log.Message($"[AutoTranslationCore] {logMsg}");
                 }
             }
             catch (Exception ex)
             {
-                AutoTranslatorSettings.AddErrorLog($"Auto Clear Error: {ex.Message}");
+                result.Errors.Add(ex.Message);
+                AutoTranslatorSettings.AddErrorLog("ATC_Message_DeleteTransError".Translate(ex.Message));
+                Log.Warning($"[AutoTranslationCore] Delete local translations failed: {ex}");
             }
+
+            return result;
+        }
+
+        private static bool IsLocalTranslationFileForPackage(string file, string id1, string id2)
+        {
+            if (string.IsNullOrEmpty(file)) return false;
+            if (file.IndexOf("Upload_Workspace", StringComparison.OrdinalIgnoreCase) >= 0) return false;
+
+            string fileName = Path.GetFileName(file).ToLowerInvariant();
+            return fileName.StartsWith(id1 + "_") ||
+                   fileName.StartsWith(id1 + ".") ||
+                   fileName.StartsWith(id2 + "_") ||
+                   fileName.StartsWith(id2 + ".");
+        }
+
+        private static Dictionary<string, HashSet<string>> CollectRuntimeClearKeysForTranslationFile(string langsPath, string file, string targetFolder)
+        {
+            var result = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+            if (string.IsNullOrEmpty(targetFolder)) return result;
+
+            string bucket;
+            if (!TryGetRuntimeClearBucket(langsPath, file, targetFolder, out bucket)) return result;
+
+            Dictionary<string, string> dict = LoadXmlFileToDict(file);
+            foreach (string key in dict.Keys)
+            {
+                AddClearKey(result, bucket, key);
+            }
+
+            return result;
+        }
+
+        private static bool TryGetRuntimeClearBucket(string langsPath, string file, string targetFolder, out string bucket)
+        {
+            bucket = null;
+            if (string.IsNullOrEmpty(langsPath) || string.IsNullOrEmpty(file) || string.IsNullOrEmpty(targetFolder)) return false;
+
+            string root = Path.GetFullPath(langsPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                + Path.DirectorySeparatorChar;
+            string fullPath = Path.GetFullPath(file);
+            if (!fullPath.StartsWith(root, StringComparison.OrdinalIgnoreCase)) return false;
+
+            string relative = fullPath.Substring(root.Length);
+            string[] parts = relative.Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length < 3) return false;
+            if (!IsLanguageFolderMatch(parts[0], targetFolder)) return false;
+
+            if (parts[1].Equals("Keyed", StringComparison.OrdinalIgnoreCase))
+            {
+                bucket = "Keyed";
+                return true;
+            }
+
+            if (parts[1].Equals("DefInjected", StringComparison.OrdinalIgnoreCase))
+            {
+                bucket = parts.Length >= 4 ? parts[2] : "General";
+                return true;
+            }
+
+            return false;
+        }
+
+        private static void AddClearKey(Dictionary<string, HashSet<string>> target, string bucket, string key)
+        {
+            if (target == null || string.IsNullOrWhiteSpace(bucket) || string.IsNullOrWhiteSpace(key)) return;
+
+            HashSet<string> keys;
+            if (!target.TryGetValue(bucket, out keys))
+            {
+                keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                target[bucket] = keys;
+            }
+
+            keys.Add(key);
+        }
+
+        private static void MergeClearKeys(Dictionary<string, HashSet<string>> target, Dictionary<string, HashSet<string>> source)
+        {
+            if (target == null || source == null || source.Count == 0) return;
+
+            foreach (var pair in source)
+            {
+                if (pair.Value == null) continue;
+                foreach (string key in pair.Value)
+                {
+                    AddClearKey(target, pair.Key, key);
+                }
+            }
+        }
+
+        private static bool ClearVerificationStateForPackage(string packageId)
+        {
+            if (AutoTranslatorMod.Settings == null || string.IsNullOrWhiteSpace(packageId)) return false;
+
+            bool changed = false;
+            changed |= RemovePackageSettingEntry(AutoTranslatorMod.Settings.ModLastVerifiedTimes, packageId);
+            changed |= RemovePackageSettingEntry(AutoTranslatorMod.Settings.ModLastVerifiedFingerprints, packageId);
+            return changed;
+        }
+
+        private static bool RemovePackageSettingEntry<T>(Dictionary<string, T> dict, string packageId)
+        {
+            if (dict == null || string.IsNullOrWhiteSpace(packageId)) return false;
+
+            if (dict.Remove(packageId)) return true;
+
+            string existingKey = dict.Keys.FirstOrDefault(key => string.Equals(key, packageId, StringComparison.OrdinalIgnoreCase));
+            if (existingKey == null) return false;
+
+            dict.Remove(existingKey);
+            return true;
+        }
+
+        private static void QueueLocalTranslationDeleteRefresh(bool writeSettings)
+        {
+            ATC_Dispatcher.RunOnMainThread(() =>
+            {
+                try
+                {
+                    if (writeSettings)
+                    {
+                        AutoTranslatorMod mod = LoadedModManager.GetMod<AutoTranslatorMod>();
+                        if (mod != null) mod.WriteSettings();
+                    }
+
+                    ModUpdateDetector.ClearStatusCache();
+                    TranslationWorkbenchTab.RequestRefresh();
+                    UIInterceptor.RefreshRuntimeUICache();
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning($"[AutoTranslationCore] Local translation delete refresh failed: {ex.Message}");
+                }
+            });
         }
 
 
@@ -246,6 +486,7 @@ namespace AutoTranslator_Core
 
                             Directory.CreateDirectory(Path.GetDirectoryName(destPath));
                             entry.ExtractToFile(destPath, true);
+                            NotifyTranslationFileChanged(destPath);
                         }
                     }
 
@@ -259,6 +500,7 @@ namespace AutoTranslator_Core
 
             if (restored > 0)
             {
+                NotifyTranslationFilesChanged(langsPath);
                 RequestMemoryDrop();
             }
 
