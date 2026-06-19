@@ -107,7 +107,7 @@ namespace AutoTranslator_Core
                             ).ToList();
                         }
 
-                        float rowHeight = 90f;
+                        float rowHeight = 100f;
                         UnityEngine.Rect itemsOutRect = new UnityEngine.Rect(rightOutRect.x, rightOutRect.y + 85f, rightOutRect.width, rightOutRect.height - 85f);
                         UnityEngine.Rect itemsViewRect = new UnityEngine.Rect(0, 0, itemsOutRect.width - 20f, items.Count * rowHeight);
                         Verse.Widgets.BeginScrollView(itemsOutRect, ref _itemScroll, itemsViewRect);
@@ -124,18 +124,36 @@ namespace AutoTranslator_Core
 
                                 Verse.Text.Font = Verse.GameFont.Tiny;
                                 UnityEngine.GUI.color = UnityEngine.Color.gray;
-                                Verse.Widgets.Label(new UnityEngine.Rect(itemRect.x, itemRect.y, itemRect.width, 15f), item.Key);
+                                Verse.Widgets.Label(new UnityEngine.Rect(itemRect.x, itemRect.y, itemRect.width - 120f, 15f), item.Key);
+
+                                UnityEngine.Rect correctionBtnRect = new UnityEngine.Rect(itemRect.xMax - 112f, itemRect.y, 108f, 22f);
+                                UnityEngine.GUI.color = new UnityEngine.Color(0.55f, 0.85f, 1f);
+                                if (Verse.Widgets.ButtonText(correctionBtnRect, "ATC_Correction_RowBtn".Translate()))
+                                {
+                                    Find.WindowStack.Add(new Window_CorrectionSubmit(
+                                        _editingMod,
+                                        _selectedCategory,
+                                        item.Key,
+                                        item.OriginalText,
+                                        item.OriginalTranslatedText ?? "",
+                                        item.TranslatedText ?? ""));
+                                }
+                                UnityEngine.GUI.color = UnityEngine.Color.gray;
+                                if (Mouse.IsOver(correctionBtnRect))
+                                {
+                                    TooltipHandler.TipRegion(correctionBtnRect, "ATC_Correction_RowBtnTip".Translate());
+                                }
 
                                 Verse.Text.Font = Verse.GameFont.Small;
                                 UnityEngine.GUI.color = new UnityEngine.Color(0.8f, 0.8f, 0.8f);
-                                UnityEngine.Rect originalRect = new UnityEngine.Rect(itemRect.x, itemRect.y + 15f, halfWidth - 5f, itemRect.height - 15f);
+                                UnityEngine.Rect originalRect = new UnityEngine.Rect(itemRect.x, itemRect.y + 24f, halfWidth - 5f, itemRect.height - 24f);
 
 
                                 try { Verse.Widgets.Label(originalRect, item.OriginalText ?? ""); }
                                 catch { Verse.Widgets.Label(originalRect, "[Error: Invalid Rich Text]"); }
 
                                 UnityEngine.GUI.color = UnityEngine.Color.white;
-                                UnityEngine.Rect transRect = new UnityEngine.Rect(itemRect.x + halfWidth + 5f, itemRect.y + 15f, halfWidth - 5f, itemRect.height - 15f);
+                                UnityEngine.Rect transRect = new UnityEngine.Rect(itemRect.x + halfWidth + 5f, itemRect.y + 24f, halfWidth - 5f, itemRect.height - 24f);
 
 
                                 string newText = item.TranslatedText ?? "";

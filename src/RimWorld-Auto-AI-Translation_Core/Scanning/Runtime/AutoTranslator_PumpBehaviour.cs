@@ -32,9 +32,10 @@ namespace AutoTranslator_Core
             {
 
                 _accumulator += UnityEngine.Time.unscaledDeltaTime;
-                if (_accumulator >= 0.5f)
+                if (_accumulator >= 0.05f)
                 {
                     _accumulator = 0f;
+                    AutoTranslator_StartupHook.PollForLoadedPlayData();
                     AutoTranslatorScanner.PumpMainThreadDispatcher();
                 }
             }

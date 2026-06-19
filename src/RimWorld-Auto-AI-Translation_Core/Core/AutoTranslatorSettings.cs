@@ -138,6 +138,7 @@ namespace AutoTranslator_Core
         // 這個欄位保存 雲端搜尋Text 的執行狀態或快取資料。
         // EN: This field stores cloud scroll pos runtime state or cached data.
         [NonSerialized] public static string CloudSearchText = "";
+        [NonSerialized] public static bool CloudShowMineOnly = false;
 
         // 這個欄位保存 雲端連線Failed 的執行狀態或快取資料。
         // EN: This field stores cloud scroll pos runtime state or cached data.

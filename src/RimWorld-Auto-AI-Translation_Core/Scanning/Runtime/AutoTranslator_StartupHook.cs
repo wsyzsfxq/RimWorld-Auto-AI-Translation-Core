@@ -1,5 +1,6 @@
 using System;
 using System.Reflection;
+using HarmonyLib;
 using UnityEngine;
 using Verse;
 // 這個檔案負責啟動時的掛鉤注入。
@@ -15,10 +16,24 @@ namespace AutoTranslator_Core
         // 這個欄位保存 installed 的執行狀態或快取資料。
         // EN: This field stores installed runtime state or cached data.
         private static bool _installed;
+        private static bool _playDataHookInstalled;
+        private static int _defsLoadedMemoryDropQueued;
 
         static AutoTranslator_StartupHook()
         {
-            AutoTranslator_LongEventCompat.QueueLongEvent(InstallPump, InstallPump);
+            InstallPlayDataLoaderHook();
+            AutoTranslator_LongEventCompat.ExecuteWhenFinished(EnsureInstalled);
+        }
+
+        public static void EnsureInstalled()
+        {
+            if (UnityData.IsInMainThread)
+            {
+                InstallPump();
+                return;
+            }
+
+            ATC_Dispatcher.RunOnMainThread(InstallPump);
         }
 
         // 這個方法負責處理 InstallPump 相關流程。
@@ -38,10 +53,92 @@ namespace AutoTranslator_Core
                 UnityEngine.Object.DontDestroyOnLoad(hook);
                 hook.AddComponent<AutoTranslator_PumpBehaviour>();
                 hook.AddComponent<UIInterceptorLifecycle>();
+                AutoTranslatorScanner.ApplyStartupKeyedHotfixes();
+                AutoTranslatorScanner.RequestKeyedMemoryDrop();
             }
             catch (Exception ex)
             {
                 Log.Warning("[AutoTranslationCore] Startup pump install failed: " + ex);
+            }
+        }
+
+        private static void InstallPlayDataLoaderHook()
+        {
+            if (_playDataHookInstalled) return;
+
+            try
+            {
+                MethodInfo target = AccessTools.Method(typeof(PlayDataLoader), "DoPlayLoad");
+                MethodInfo postfix = AccessTools.Method(typeof(AutoTranslator_StartupHook), nameof(AfterPlayDataLoaded));
+                if (target == null || postfix == null)
+                {
+                    Log.Warning("[AutoTranslationCore] PlayDataLoader.DoPlayLoad hook was not installed: method not found.");
+                    return;
+                }
+
+                var harmony = new Harmony("MingYang.AutoTranslation.Startup");
+                harmony.Patch(target, postfix: new HarmonyMethod(postfix));
+                _playDataHookInstalled = true;
+            }
+            catch (Exception ex)
+            {
+                Log.Warning("[AutoTranslationCore] PlayDataLoader.DoPlayLoad hook install failed: " + ex);
+            }
+        }
+
+        private static void AfterPlayDataLoaded()
+        {
+            if (System.Threading.Interlocked.Exchange(ref _defsLoadedMemoryDropQueued, 1) == 1)
+            {
+                return;
+            }
+
+            ATC_Dispatcher.RunOnMainThread(QueueDefsLoadedMemoryDrop);
+        }
+
+        public static void PollForLoadedPlayData()
+        {
+            if (System.Threading.Interlocked.CompareExchange(ref _defsLoadedMemoryDropQueued, 0, 0) == 1)
+            {
+                return;
+            }
+
+            bool loaded;
+            try
+            {
+                loaded = PlayDataLoader.Loaded;
+            }
+            catch
+            {
+                return;
+            }
+
+            if (!loaded)
+            {
+                return;
+            }
+
+            if (System.Threading.Interlocked.Exchange(ref _defsLoadedMemoryDropQueued, 1) == 1)
+            {
+                return;
+            }
+
+            Log.Message("[AutoTranslationCore] PlayDataLoader.Loaded fallback detected; queuing startup memory drop.");
+            QueueDefsLoadedMemoryDrop();
+        }
+
+        private static void QueueDefsLoadedMemoryDrop()
+        {
+            try
+            {
+                AutoTranslatorMod.EnsureNetworkDispatchReady();
+                EnsureInstalled();
+                AutoTranslatorScanner.QueueStartupFullMemoryDrop(1000);
+            }
+            catch (Exception ex)
+            {
+                System.Threading.Interlocked.Exchange(ref _defsLoadedMemoryDropQueued, 0);
+                Log.Warning("[AutoTranslationCore] Defs-loaded memory drop queue failed: " + ex);
             }
         }
     }

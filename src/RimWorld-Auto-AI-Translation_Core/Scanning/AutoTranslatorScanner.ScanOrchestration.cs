@@ -43,20 +43,10 @@ namespace AutoTranslator_Core
             {
                 try
                 {
-                    EnsurePackInitialized(runFullMaintenance: true);
+                    EnsurePackInitialized(runFullMaintenance: false);
                     if (AutoTranslatorSettings.IsCancellationRequested) return;
 
-                    if (AutoTranslatorMod.Settings.AutoClearOldOnUpdate &&
-                        !HasNativeOrExternalTargetLanguage(targetMod, AutoTranslatorMod.Settings.TargetLang))
-                    {
-                        var updatedTracker = ModUpdateDetector.GetUpdatedOrNewModsCached();
-                        if (updatedTracker.Any(m => m.PackageId == targetMod.PackageId))
-                        {
-                            ClearOldTranslationFiles(new List<ModMetaData> { targetMod });
-                        }
-                    }
-
-                    if (ShouldSkipNativeTargetTranslation(targetMod, settings.TargetLang, true))
+                    if (ShouldSkipTranslationPatchMod(targetMod))
                     {
                         ModUpdateDetector.MarkModAsTranslated(targetMod.PackageId, targetMod.RootDir.FullName, false);
                         settings.CurrentTaskName = "ATC_TaskDone".Translate();
@@ -66,6 +56,14 @@ namespace AutoTranslator_Core
                         return;
                     }
 
+                    if (AutoTranslatorMod.Settings.AutoClearOldOnUpdate)
+                    {
+                        var updatedTracker = ModUpdateDetector.GetUpdatedOrNewModsBlocking();
+                        if (updatedTracker.Any(m => m.PackageId == targetMod.PackageId))
+                        {
+                            ClearOldTranslationFiles(new List<ModMetaData> { targetMod });
+                        }
+                    }
 
                     settings.SubTaskName = "ATC_SubTask_TestingAPI".Translate();
                     AutoTranslatorSettings.AddLog("🔌 " + "ATC_Log_PreflightCheck".Translate());
@@ -88,10 +86,12 @@ namespace AutoTranslator_Core
                     bool hasLang = langRoots.Count > 0;
                     bool hasDefs = defsRoots.Count > 0;
                     int aiTranslatedCount = 0;
+                    bool skippedNoSource = false;
 
                     if (!hasLang && !hasDefs)
                     {
                         AutoTranslatorSettings.AddLog("⏭️ " + "ATC_Log_SkipMod".Translate());
+                        skippedNoSource = true;
                     }
                     else
                     {
@@ -99,12 +99,7 @@ namespace AutoTranslator_Core
                         {
                             foreach (var langRoot in langRoots)
                             {
-                                string englishKeyed = Path.Combine(langRoot, "English/Keyed");
-                                if (Directory.Exists(englishKeyed))
-                                {
-                                    AutoTranslatorSettings.AddLog("⚙️ " + "ATC_Log_KeyedScan".Translate());
-                                    aiTranslatedCount += await ProcessModKeyed(targetMod, englishKeyed);
-                                }
+                                aiTranslatedCount += await ProcessModKeyedSources(targetMod, langRoot);
                             }
                         }
                         if (AutoTranslatorSettings.IsCancellationRequested) return;
@@ -125,7 +120,10 @@ namespace AutoTranslator_Core
                     {
                         settings.CurrentTaskName = "ATC_TaskDone".Translate();
 
-                        ModUpdateDetector.MarkModAsTranslated(targetMod.PackageId, targetMod.RootDir.FullName, false);
+                        if (!skippedNoSource)
+                        {
+                            ModUpdateDetector.MarkModAsTranslated(targetMod.PackageId, targetMod.RootDir.FullName, false);
+                        }
                         settings.CurrentProgress = 1f;
                         AutoTranslatorSettings.AddLog("✨ " + "ATC_Log_SingleModDone".Translate());
                         LogValidationSummary();
@@ -171,7 +169,7 @@ namespace AutoTranslator_Core
             {
                 try
                 {
-                    EnsurePackInitialized(runFullMaintenance: true);
+                    EnsurePackInitialized(runFullMaintenance: false);
                     if (AutoTranslatorSettings.IsCancellationRequested) return;
 
 
@@ -187,6 +185,26 @@ namespace AutoTranslator_Core
                         return;
                     }
 
+                    HashSet<string> updatedPackageIds = AutoTranslatorMod.Settings.AutoClearOldOnUpdate
+                        ? new HashSet<string>(
+                            ModUpdateDetector.GetUpdatedOrNewModsBlocking()
+                                .Where(m => m != null && !string.IsNullOrEmpty(m.PackageId))
+                                .Select(m => m.PackageId),
+                            StringComparer.OrdinalIgnoreCase)
+                        : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+                    if (updatedPackageIds.Count > 0)
+                    {
+                        var updatedModsToClear = mods
+                            .Where(m => m != null &&
+                                        !IsTranslationPatchMod(m) &&
+                                        updatedPackageIds.Contains(m.PackageId))
+                            .ToList();
+                        if (updatedModsToClear.Count > 0)
+                        {
+                            ClearOldTranslationFiles(updatedModsToClear);
+                        }
+                    }
 
                     BuildGlobalTranslationDatabase(mods);
                     int total = mods.Count;
@@ -200,21 +218,12 @@ namespace AutoTranslator_Core
                             continue;
                         }
 
-                        if (ShouldSkipNativeTargetTranslation(mod, settings.TargetLang, true))
+                        if (ShouldSkipTranslationPatchMod(mod))
                         {
                             ModUpdateDetector.MarkModAsTranslated(mod.PackageId, mod.RootDir.FullName, false);
                             continue;
                         }
 
-
-                        if (AutoTranslatorMod.Settings.AutoClearOldOnUpdate)
-                        {
-                            var updatedTracker = ModUpdateDetector.GetUpdatedOrNewModsCached();
-                            if (updatedTracker.Any(m => m.PackageId == mod.PackageId))
-                            {
-                                ClearOldTranslationFiles(new List<ModMetaData> { mod });
-                            }
-                        }
                         if (AutoTranslatorSettings.IsCancellationRequested) break;
                         if (AutoTranslatorSettings.IsSkipCurrentRequested)
                         {
@@ -235,8 +244,7 @@ namespace AutoTranslator_Core
                         int aiTranslatedCount = 0;
                         if (langRoots.Count == 0 && defsRoots.Count == 0)
                         {
-                            AutoTranslatorSettings.AddLog("ATC_Log_SkipMod".Translate());
-                            ModUpdateDetector.MarkModAsTranslated(mod.PackageId, mod.RootDir.FullName, false);
+                            AutoTranslatorSettings.AddLog("⏭️ " + "ATC_Log_SkipMod".Translate());
                             continue;
                         }
 
@@ -244,12 +252,8 @@ namespace AutoTranslator_Core
                         {
                             foreach (var langRoot in langRoots)
                             {
-                                string englishKeyed = Path.Combine(langRoot, "English/Keyed");
-                                if (Directory.Exists(englishKeyed))
-                                {
-                                    settings.SubTaskName = "ATC_SubTask_TranslatingKeyed".Translate();
-                                    aiTranslatedCount += await ProcessModKeyed(mod, englishKeyed);
-                                }
+                                settings.SubTaskName = "ATC_SubTask_TranslatingKeyed".Translate();
+                                aiTranslatedCount += await ProcessModKeyedSources(mod, langRoot);
                             }
                         }
 
@@ -337,7 +341,7 @@ namespace AutoTranslator_Core
             {
                 try
                 {
-                    EnsurePackInitialized(runFullMaintenance: true);
+                    EnsurePackInitialized(runFullMaintenance: false);
                     if (AutoTranslatorSettings.IsCancellationRequested) return;
 
 
@@ -353,25 +357,37 @@ namespace AutoTranslator_Core
                         return;
                     }
 
+                    HashSet<string> updatedPackageIds = AutoTranslatorMod.Settings.AutoClearOldOnUpdate
+                        ? new HashSet<string>(
+                            ModUpdateDetector.GetUpdatedOrNewModsBlocking()
+                                .Where(m => m != null && !string.IsNullOrEmpty(m.PackageId))
+                                .Select(m => m.PackageId),
+                            StringComparer.OrdinalIgnoreCase)
+                        : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+                    if (updatedPackageIds.Count > 0)
+                    {
+                        var updatedModsToClear = targetMods
+                            .Where(m => m != null &&
+                                        !IsTranslationPatchMod(m) &&
+                                        updatedPackageIds.Contains(m.PackageId))
+                            .ToList();
+                        if (updatedModsToClear.Count > 0)
+                        {
+                            ClearOldTranslationFiles(updatedModsToClear);
+                        }
+                    }
+
                     BuildGlobalTranslationDatabase(activeMods);
                     int current = 0;
                     foreach (var mod in targetMods)
                     {
-                        if (ShouldSkipNativeTargetTranslation(mod, settings.TargetLang, true))
+                        if (ShouldSkipTranslationPatchMod(mod))
                         {
                             ModUpdateDetector.MarkModAsTranslated(mod.PackageId, mod.RootDir.FullName, false);
                             continue;
                         }
 
-
-                        if (AutoTranslatorMod.Settings.AutoClearOldOnUpdate)
-                        {
-                            var updatedTracker = ModUpdateDetector.GetUpdatedOrNewModsCached();
-                            if (updatedTracker.Any(m => m.PackageId == mod.PackageId))
-                            {
-                                ClearOldTranslationFiles(new List<ModMetaData> { mod });
-                            }
-                        }
                         if (AutoTranslatorSettings.IsCancellationRequested) break;
                         if (AutoTranslatorSettings.IsSkipCurrentRequested)
                         {
@@ -392,8 +408,7 @@ namespace AutoTranslator_Core
                         int aiTranslatedCount = 0;
                         if (langRoots.Count == 0 && defsRoots.Count == 0)
                         {
-                            AutoTranslatorSettings.AddLog("ATC_Log_SkipMod".Translate());
-                            ModUpdateDetector.MarkModAsTranslated(mod.PackageId, mod.RootDir.FullName, false);
+                            AutoTranslatorSettings.AddLog("⏭️ " + "ATC_Log_SkipMod".Translate());
                             continue;
                         }
 
@@ -401,12 +416,8 @@ namespace AutoTranslator_Core
                         {
                             foreach (var langRoot in langRoots)
                             {
-                                string englishKeyed = Path.Combine(langRoot, "English/Keyed");
-                                if (Directory.Exists(englishKeyed))
-                                {
-                                    settings.SubTaskName = "ATC_SubTask_TranslatingKeyed".Translate();
-                                    aiTranslatedCount += await ProcessModKeyed(mod, englishKeyed);
-                                }
+                                settings.SubTaskName = "ATC_SubTask_TranslatingKeyed".Translate();
+                                aiTranslatedCount += await ProcessModKeyedSources(mod, langRoot);
                             }
                         }
 
@@ -470,40 +481,11 @@ namespace AutoTranslator_Core
 
         // 這個方法負責判斷 ShouldSkipNative目標翻譯 條件是否成立。
         // EN: This method checks should skip native target translation.
-        private static bool ShouldSkipNativeTargetTranslation(ModMetaData mod, TargetLanguage targetLang, bool clearLocalOverride)
+        private static bool ShouldSkipTranslationPatchMod(ModMetaData mod)
         {
             if (mod == null) return true;
             if (IsTranslationPatchMod(mod)) return true;
-            if (!HasNativeTargetLanguage(mod, targetLang))
-            {
-                if (TryGetActiveExternalTargetLanguagePatch(mod, targetLang, out string patchName, out string patchPackageId))
-                {
-                    AutoTranslatorSettings.AddLog($"[System] {mod.Name} is covered by translation patch {patchName} ({patchPackageId}); skipping AI overwrite.");
-                    if (clearLocalOverride)
-                    {
-                        ClearOldTranslationFiles(new List<ModMetaData> { mod });
-                    }
-                    return true;
-                }
-
-                return false;
-            }
-
-            AutoTranslatorSettings.AddLog($"🛡️ [System] {mod.Name} already has native {GetFolderNameByLanguage(targetLang)} translations; skipping AI overwrite.");
-            if (clearLocalOverride)
-            {
-                ClearOldTranslationFiles(new List<ModMetaData> { mod });
-            }
-            return true;
-        }
-
-        // 這個方法負責判斷 HasNativeOrExternal目標語言 條件是否成立。
-        // EN: This method checks has native or external target language.
-        private static bool HasNativeOrExternalTargetLanguage(ModMetaData mod, TargetLanguage targetLang)
-        {
-            if (mod == null) return false;
-            if (HasNativeTargetLanguage(mod, targetLang)) return true;
-            return HasActiveExternalTargetLanguagePatch(mod, targetLang);
+            return false;
         }
     }
 }

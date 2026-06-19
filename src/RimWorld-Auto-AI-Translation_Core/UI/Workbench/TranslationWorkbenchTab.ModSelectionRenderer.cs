@@ -273,13 +273,15 @@ namespace AutoTranslator_Core
             List<ModMetaData> validMods = AutoTranslatorMod.GetValidModsCached() ?? new List<ModMetaData>();
             string searchText = _modSearchText ?? "";
             bool translateNames = AutoTranslatorMod.Settings.TranslateWorkbenchModNames;
+            int translatedHash = GetStablePackageHash(translatedPackageIds);
 
             if (_cachedModSelectionList != null &&
                 _cachedModSelectionSearch == searchText &&
                 _cachedModSelectionShowTranslatedOnly == _showOnlyTranslated &&
                 _cachedModSelectionTranslateNames == translateNames &&
                 _cachedModSelectionValidCount == validMods.Count &&
-                _cachedModSelectionTranslatedCount == translatedPackageIds.Count)
+                _cachedModSelectionTranslatedCount == translatedPackageIds.Count &&
+                _cachedModSelectionTranslatedHash == translatedHash)
             {
                 return _cachedModSelectionList;
             }
@@ -306,7 +308,24 @@ namespace AutoTranslator_Core
             _cachedModSelectionTranslateNames = translateNames;
             _cachedModSelectionValidCount = validMods.Count;
             _cachedModSelectionTranslatedCount = translatedPackageIds.Count;
+            _cachedModSelectionTranslatedHash = translatedHash;
             return _cachedModSelectionList;
+        }
+
+        private static int GetStablePackageHash(HashSet<string> packageIds)
+        {
+            if (packageIds == null || packageIds.Count == 0) return 0;
+
+            unchecked
+            {
+                int hash = 17;
+                foreach (string packageId in packageIds.OrderBy(x => x, StringComparer.OrdinalIgnoreCase))
+                {
+                    hash = hash * 31 + StringComparer.OrdinalIgnoreCase.GetHashCode(packageId ?? "");
+                }
+
+                return hash;
+            }
         }
 
         // 這個方法負責排入 Visible模組名稱Translations 佇列。

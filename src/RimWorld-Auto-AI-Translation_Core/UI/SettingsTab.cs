@@ -396,6 +396,7 @@ private void DrawRuntimeProfilePanel(Listing_Standard l, Rect viewRect)
                         System.IO.File.SetAttributes(file, System.IO.FileAttributes.Normal);
                     }
                     System.IO.Directory.Delete(langsPath, true);
+                    AutoTranslatorScanner.NotifyTranslationFilesChanged(langsPath);
                 }
 
                 UIInterceptor.ClearUICache();

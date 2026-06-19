@@ -21,9 +21,25 @@ namespace AutoTranslator_Core
             // EN: This method requests refresh.
             public static void RequestRefresh()
             {
+                _translatedModsCacheGeneration++;
                 _translatedPackageIds = null;
                 _cachedModSelectionList = null;
                 _translatedModsCacheError = null;
+                _isTranslatedModsCacheLoading = false;
+            }
+
+            public static void MarkPackageTranslated(string packageId)
+            {
+                if (string.IsNullOrWhiteSpace(packageId)) return;
+                _translatedModsCacheGeneration++;
+                _isTranslatedModsCacheLoading = false;
+                if (_translatedPackageIds == null)
+                {
+                    _translatedPackageIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                }
+
+                _translatedPackageIds.Add(packageId);
+                _cachedModSelectionList = null;
             }
 
 
@@ -36,6 +52,7 @@ namespace AutoTranslator_Core
 
                 _isTranslatedModsCacheLoading = true;
                 _translatedModsCacheError = null;
+                int generation = _translatedModsCacheGeneration;
                 System.Threading.Tasks.Task.Run(() =>
                 {
                     HashSet<string> result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -51,6 +68,11 @@ namespace AutoTranslator_Core
 
                     ATC_Dispatcher.RunOnMainThread(() =>
                     {
+                        if (generation != _translatedModsCacheGeneration)
+                        {
+                            return;
+                        }
+
                         _translatedPackageIds = result;
                         _translatedModsCacheError = error;
                         _cachedModSelectionList = null;
@@ -84,7 +106,7 @@ namespace AutoTranslator_Core
 
                 if (System.IO.Directory.Exists(langRoot))
                 {
-                    foreach (var file in System.IO.Directory.GetFiles(langRoot, "*.xml", System.IO.SearchOption.AllDirectories))
+                    foreach (var file in AutoTranslatorScanner.GetXmlFilesForTranslationCache(langRoot, System.IO.SearchOption.AllDirectories))
                     {
                         string pid = ExtractPackageIdFromTranslationFile(file);
                         if (!string.IsNullOrEmpty(pid)) result.Add(pid);
@@ -138,7 +160,7 @@ namespace AutoTranslator_Core
 
                         foreach (var dir in searchDirs)
                         {
-                            var allXmls = System.IO.Directory.GetFiles(dir, "*.xml", System.IO.SearchOption.AllDirectories);
+                            var allXmls = AutoTranslatorScanner.GetXmlFilesForTranslationCache(dir, System.IO.SearchOption.AllDirectories);
                             foreach (var file in allXmls)
                             {
                                 string fileName = System.IO.Path.GetFileName(file);
@@ -171,7 +193,7 @@ namespace AutoTranslator_Core
 
                             foreach (var dir in searchDirs)
                             {
-                                var allXmls = System.IO.Directory.GetFiles(dir, "*.xml", System.IO.SearchOption.AllDirectories);
+                                var allXmls = AutoTranslatorScanner.GetXmlFilesForTranslationCache(dir, System.IO.SearchOption.AllDirectories);
                                 foreach (var file in allXmls) filesToScan.Add((file, mod));
                             }
                         }

@@ -39,6 +39,23 @@ namespace AutoTranslator_Core
             }
         }
 
+        private static bool TryConsumeNewTranslationScanBudget()
+        {
+            long nowTicks = DateTime.UtcNow.Ticks;
+            lock (_newTranslationScanLock)
+            {
+                if (nowTicks >= _nextNewTranslationScanTicks)
+                {
+                    _nextNewTranslationScanTicks = nowTicks + NewTranslationScanInterval.Ticks;
+                    _queuedThisScanWindow = 0;
+                }
+
+                if (_queuedThisScanWindow >= MaxNewQueueItemsPerScanWindow) return false;
+                _queuedThisScanWindow++;
+                return true;
+            }
+        }
+
 
         // 這個方法負責排入 For翻譯 佇列。
         // EN: This method queues for translation.
@@ -109,6 +126,7 @@ namespace AutoTranslator_Core
                 return;
             }
 
+            if (!TryConsumeNewTranslationScanBudget()) return;
             if (!TryConsumeQueueBudget()) return;
 
             if (PendingTranslations.TryAdd(cacheKey, true))

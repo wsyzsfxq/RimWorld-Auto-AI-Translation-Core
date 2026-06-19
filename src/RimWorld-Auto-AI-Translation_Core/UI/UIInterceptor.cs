@@ -36,9 +36,12 @@ namespace AutoTranslator_Core
         // 這個常數定義 MaxNew佇列ItemsPerFrame 的固定值。
         // EN: This constant defines the fixed value for max new queue items per frame.
         private const int MaxNewQueueItemsPerFrame = 6;
+        private const int MaxNewQueueItemsPerScanWindow = 24;
+        private static readonly TimeSpan NewTranslationScanInterval = TimeSpan.FromMilliseconds(1500);
         // 這個常數定義 MaxIgnored快取Size 的固定值。
         // EN: This constant defines the fixed value for max ignored cache size.
         private const int MaxIgnoredCacheSize = 20000;
+        private const int MaxTextDecisionCacheSize = 20000;
         // 這個欄位保存 queuedApproxCount 的執行狀態或快取資料。
         // EN: This field stores queued approx count runtime state or cached data.
         private static int _queuedApproxCount = 0;
@@ -49,6 +52,9 @@ namespace AutoTranslator_Core
         // EN: This field stores queued this frame runtime state or cached data.
         private static int _queuedThisFrame = 0;
         private static readonly object _frameBudgetLock = new object();
+        private static long _nextNewTranslationScanTicks = 0L;
+        private static int _queuedThisScanWindow = 0;
+        private static readonly object _newTranslationScanLock = new object();
         // 這個欄位保存 cacheDirty 的執行狀態或快取資料。
         // EN: This field stores cache dirty runtime state or cached data.
         private static volatile bool _cacheDirty = false;
@@ -72,6 +78,11 @@ namespace AutoTranslator_Core
         private static readonly Regex StackCountRegex = new Regex(@"^\s*[\p{L}\p{IsCJKUnifiedIdeographs}\p{IsHiragana}\p{IsKatakana}\p{IsHangulSyllables}\p{IsCyrillic}\s'\-·・]+[xX×]\s*\d{1,6}\s*$", RegexOptions.Compiled);
         private static readonly Regex InternalKeyRegex = new Regex(@"^\s*[A-Za-z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)+(?:Label|Def|Path|Worker|Job|Recipe|Tool|Group|Tab|Menu|Key)?\s*$|^\s*[A-Za-z][A-Za-z0-9]+(?:Label|Def|Path|Worker|Job|Recipe|Tool|Group|Tab|Menu|Key)\s*$", RegexOptions.Compiled);
         private static readonly Regex NumericStatusRegex = new Regex(@"(?:\d+(?:\.\d+)?\s*[%/]|[=/|]\s*\d+(?:\.\d+)?|\d+(?:\.\d+)?\s*(?:h|mm|cm|kg|g|W|kW|XP)\b)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex MusicPlaybackStatusRegex = new Regex(@"^\s*(?:Now\s+playing|Currently\s+playing|Playing)\s*[:：]\s*.+$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        private static readonly Regex DynamicNumberRegex = new Regex(@"(?<![A-Za-z0-9_])[-+]?\d+(?:[\.,]\d+)?(?:\s*(?:%|ms|s|h|d|kg|g|W|kW|MW|XP))?(?![A-Za-z0-9_])", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex DynamicNumberPlaceholderRegex = new Regex(@"\{num\d+\}", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly ConcurrentDictionary<string, bool> TextDecisionCache = new ConcurrentDictionary<string, bool>();
 
         static UIInterceptor()
         {
@@ -81,10 +92,7 @@ namespace AutoTranslator_Core
             LoadCache();
             LoadIgnoredCache();
 
-            AutoTranslatorScanner.RunAdvancedDetoxScanner();
-            AutoTranslatorScanner.RunNewlineDetoxScanner();
-            AutoTranslatorScanner.CleanupPatchModTwins();
-            AutoTranslatorScanner.MemoryDrop_InjectNow();
+            AutoTranslatorScanner.RequestKeyedMemoryDrop();
 
             Task.Run(() => BackgroundTranslationWorker());
 
@@ -103,7 +111,7 @@ namespace AutoTranslator_Core
 
                 if (AutoTranslatorMod.Settings.AutoTranslateOnUpdate)
                 {
-                    var updates = ModUpdateDetector.GetUpdatedOrNewModsCached();
+                    var updates = ModUpdateDetector.GetUpdatedOrNewModsBlocking();
                     if (updates.Count > 0)
                     {
                         AutoTranslatorSettings.AddLog("ATC_Log_AutoStartUpdateScan".Translate(updates.Count));

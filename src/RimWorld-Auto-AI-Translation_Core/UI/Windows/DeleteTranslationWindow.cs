@@ -1,7 +1,6 @@
 using RimWorld;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -310,44 +309,18 @@ namespace AutoTranslator_Core
         {
             try
             {
-                string packPath = AutoTranslatorScanner.GetLocalPackPath();
-                string langsPath = Path.Combine(packPath, "Languages");
-                if (!Directory.Exists(langsPath)) return;
+                AutoTranslatorScanner.LocalTranslationDeleteResult result =
+                    AutoTranslatorScanner.DeleteLocalTranslationFiles(modsToDelete);
 
-                int deletedFiles = 0;
-                string[] allXmls = Directory.GetFiles(langsPath, "*.xml", SearchOption.AllDirectories);
-
-                foreach (var mod in modsToDelete)
+                if (result.HasErrors)
                 {
-                    string id1 = (mod.PackageId ?? "").ToLowerInvariant();
-                    string id2 = (mod.PackageId ?? "").Replace(".", "_").ToLowerInvariant();
-
-                    foreach (var file in allXmls)
-                    {
-                        string fileName = Path.GetFileName(file).ToLowerInvariant();
-                        if (fileName.StartsWith(id1 + "_") ||
-                            fileName.StartsWith(id1 + ".") ||
-                            fileName.StartsWith(id2 + "_") ||
-                            fileName.StartsWith(id2 + "."))
-                        {
-                            File.SetAttributes(file, FileAttributes.Normal);
-                            File.Delete(file);
-                            deletedFiles++;
-                        }
-                    }
-
-                    AutoTranslatorMod.Settings.ModLastVerifiedTimes.Remove(mod.PackageId);
-                    AutoTranslatorMod.Settings.ModLastVerifiedFingerprints.Remove(mod.PackageId);
+                    string error = string.IsNullOrEmpty(result.FirstError) ? "Unknown error" : result.FirstError;
+                    AutoTranslatorSettings.AddErrorLog("ATC_Message_DeleteTransError".Translate(error));
+                    Messages.Message("ATC_Message_DeleteTransError".Translate(error), MessageTypeDefOf.RejectInput, false);
+                    return;
                 }
 
-                LoadedModManager.GetMod<AutoTranslatorMod>().WriteSettings();
-                ModUpdateDetector.ClearStatusCache();
-                TranslationWorkbenchTab.RequestRefresh();
-
-                string logMsg = "ATC_Log_DeleteTransSuccess".Translate(modsToDelete.Count, deletedFiles);
-                AutoTranslatorSettings.AddLog(logMsg);
-                Log.Message($"[AutoTranslationCore] {logMsg}");
-                Messages.Message("ATC_Message_DeleteTransSuccess".Translate(deletedFiles), MessageTypeDefOf.PositiveEvent, false);
+                Messages.Message("ATC_Message_DeleteTransSuccess".Translate(result.DeletedFiles), MessageTypeDefOf.PositiveEvent, false);
             }
             catch (Exception ex)
             {
@@ -360,40 +333,7 @@ namespace AutoTranslator_Core
         // EN: This method checks is code only mod.
         public static bool IsCodeOnlyMod(ModMetaData mod)
         {
-            if (mod == null || mod.RootDir == null) return true;
-
-            var folders = mod.LoadFoldersForVersion(VersionControl.CurrentVersionStringWithoutBuild);
-            var pathsToCheck = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-            if (folders != null && folders.Any())
-            {
-                foreach (var folder in folders)
-                {
-                    pathsToCheck.Add(Path.Combine(mod.RootDir.FullName, folder.folderName));
-                }
-            }
-
-            pathsToCheck.Add(mod.RootDir.FullName);
-            pathsToCheck.Add(Path.Combine(mod.RootDir.FullName, VersionControl.CurrentVersionStringWithoutBuild));
-            pathsToCheck.Add(Path.Combine(mod.RootDir.FullName, "1.5"));
-            pathsToCheck.Add(Path.Combine(mod.RootDir.FullName, "1.4"));
-            pathsToCheck.Add(Path.Combine(mod.RootDir.FullName, "Common"));
-
-            foreach (var basePath in pathsToCheck)
-            {
-                if (!Directory.Exists(basePath)) continue;
-
-                string defPath = Path.Combine(basePath, "Defs");
-                string patchPath = Path.Combine(basePath, "Patches");
-                string langPath = Path.Combine(basePath, "Languages");
-
-                if (Directory.Exists(defPath) || Directory.Exists(patchPath) || Directory.Exists(langPath))
-                {
-                    return false;
-                }
-            }
-
-            return true;
+            return !AutoTranslatorScanner.HasScannableTranslationSources(mod);
         }
     }
 }

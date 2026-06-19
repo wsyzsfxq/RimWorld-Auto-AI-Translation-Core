@@ -55,6 +55,49 @@ namespace AutoTranslator_Core
 
         // 這個方法負責判斷 ShouldInterceptText 條件是否成立。
         // EN: This method checks should intercept text.
+        private static void RememberTextDecision(string decisionKey, bool shouldIntercept)
+        {
+            if (string.IsNullOrEmpty(decisionKey)) return;
+            if (TextDecisionCache.Count >= MaxTextDecisionCacheSize) TextDecisionCache.Clear();
+            TextDecisionCache[decisionKey] = shouldIntercept;
+        }
+
+        private static string NormalizeDynamicNumberTemplate(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return text;
+            if (!text.Any(char.IsDigit)) return text;
+
+            int index = 0;
+            string normalized = DynamicNumberRegex.Replace(text, match =>
+            {
+                index++;
+                return "{num" + index.ToString() + "}";
+            });
+
+            return index > 0 ? normalized : text;
+        }
+
+        private static string RestoreDynamicNumbers(string original, string translated)
+        {
+            if (string.IsNullOrWhiteSpace(original) || string.IsNullOrWhiteSpace(translated)) return translated;
+            if (translated.IndexOf("{num", StringComparison.OrdinalIgnoreCase) < 0) return translated;
+
+            var numbers = DynamicNumberRegex.Matches(original)
+                .Cast<System.Text.RegularExpressions.Match>()
+                .Select(match => match.Value)
+                .ToArray();
+            if (numbers.Length == 0) return translated;
+
+            return DynamicNumberPlaceholderRegex.Replace(translated, match =>
+            {
+                string rawIndex = match.Value.Substring(4, match.Value.Length - 5);
+                if (!int.TryParse(rawIndex, out int numberIndex)) return match.Value;
+
+                int arrayIndex = numberIndex - 1;
+                return arrayIndex >= 0 && arrayIndex < numbers.Length ? numbers[arrayIndex] : match.Value;
+            });
+        }
+
         internal static bool ShouldInterceptText(string text)
         {
             return ShouldInterceptText(text, true);
@@ -64,14 +107,28 @@ namespace AutoTranslator_Core
         // EN: This method checks should intercept text.
         private static bool ShouldInterceptText(string text, bool rememberSkipped)
         {
+            if (string.IsNullOrWhiteSpace(text)) return false;
+
+            string decisionKey = BuildCacheKey(GetTranslationLookupText(text));
+            if (TextDecisionCache.TryGetValue(decisionKey, out bool cachedDecision))
+            {
+                return cachedDecision;
+            }
+
             UITranslationTextContext context = BuildTextContext(text);
+            bool shouldIntercept;
             if (context.HasLogTimestamp && !AutoTranslatorMod.Settings.EnableUIErrorLogInterception)
             {
                 if (rememberSkipped) RememberIgnored(text);
-                return false;
+                shouldIntercept = false;
+            }
+            else
+            {
+                shouldIntercept = !ShouldSkipUITranslationText(context.TranslationText);
             }
 
-            return !ShouldSkipUITranslationText(context.TranslationText);
+            RememberTextDecision(decisionKey, shouldIntercept);
+            return shouldIntercept;
         }
 
         // 這個方法負責判斷 ShouldLoadCachedText 條件是否成立。
@@ -86,7 +143,7 @@ namespace AutoTranslator_Core
         // EN: This method gets translation lookup text.
         internal static string GetTranslationLookupText(string text)
         {
-            return BuildTextContext(text).TranslationText;
+            return NormalizeDynamicNumberTemplate(BuildTextContext(text).TranslationText);
         }
 
         // 這個方法負責處理 Restore翻譯DisplayText 相關流程。
@@ -94,7 +151,8 @@ namespace AutoTranslator_Core
         internal static string RestoreTranslationDisplayText(string original, string translated)
         {
             UITranslationTextContext context = BuildTextContext(original);
-            return context.HasLogTimestamp ? context.Prefix + translated : translated;
+            string restored = RestoreDynamicNumbers(context.TranslationText, translated);
+            return context.HasLogTimestamp ? context.Prefix + restored : restored;
         }
 
         // 這個方法負責判斷 ShouldSkipUITranslationText 條件是否成立。
@@ -106,6 +164,7 @@ namespace AutoTranslator_Core
             string trimmed = text.Trim();
             if (trimmed.Length < 2) return true;
             if (trimmed.StartsWith("\u200B", StringComparison.Ordinal)) return true;
+            if (!LetterRegex.IsMatch(trimmed)) return true;
             if (LooksLikeVolatileReadout(trimmed)) return true;
             if (LooksLikeStructuredData(trimmed)) return true;
             if (LooksLikeRimWorldRichText(trimmed)) return true;
@@ -129,6 +188,7 @@ namespace AutoTranslator_Core
             cleaned = cleaned.Trim();
 
             if (string.IsNullOrWhiteSpace(cleaned)) return null;
+            if (HasDynamicNumberTemplate(original) && HasDynamicNumberTemplateLoss(original, cleaned)) return null;
             if (LooksLikeStructuredData(cleaned))
             {
                 string unwrapped = TryExtractKeyValueText(cleaned);
@@ -137,6 +197,19 @@ namespace AutoTranslator_Core
             }
 
             return LanguageDetector.NormalizeChineseVariant(cleaned, AutoTranslatorMod.Settings.TargetLang);
+        }
+
+        private static bool HasDynamicNumberTemplate(string text)
+        {
+            return !string.IsNullOrEmpty(text) && DynamicNumberPlaceholderRegex.IsMatch(text);
+        }
+
+        private static bool HasDynamicNumberTemplateLoss(string original, string translated)
+        {
+            int originalCount = DynamicNumberPlaceholderRegex.Matches(original ?? "").Count;
+            if (originalCount == 0) return false;
+            int translatedCount = DynamicNumberPlaceholderRegex.Matches(translated ?? "").Count;
+            return translatedCount < originalCount;
         }
 
         // 這個方法負責嘗試執行 清理UIReplacementText 並回報是否成功。

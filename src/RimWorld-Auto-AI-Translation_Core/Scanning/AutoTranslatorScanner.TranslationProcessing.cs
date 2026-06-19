@@ -22,7 +22,24 @@ namespace AutoTranslator_Core
     {
         // 這個方法負責處理 模組Keyed 流程。
         // EN: This method processes mod Keyed.
-        private static async Task<int> ProcessModKeyed(ModMetaData mod, string englishPath)
+        private static async Task<int> ProcessModKeyedSources(ModMetaData mod, string langRoot)
+        {
+            int aiTranslatedCount = 0;
+            var settings = AutoTranslatorMod.Settings;
+            List<string> keyedSourcePaths = GetTranslatableLanguageBucketPaths(langRoot, settings.TargetLang, "Keyed", false);
+            if (keyedSourcePaths.Count == 0) return 0;
+
+            AutoTranslatorSettings.AddLog("⚙️ " + "ATC_Log_KeyedScan".Translate());
+            HashSet<string> processedKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (string keyedPath in keyedSourcePaths)
+            {
+                aiTranslatedCount += await ProcessModKeyed(mod, langRoot, keyedPath, processedKeys);
+            }
+
+            return aiTranslatedCount;
+        }
+
+        private static async Task<int> ProcessModKeyed(ModMetaData mod, string langRoot, string sourceKeyedPath, HashSet<string> processedKeys)
         {
             int aiTranslatedCount = 0;
             var settings = AutoTranslatorMod.Settings;
@@ -36,9 +53,10 @@ namespace AutoTranslator_Core
             else if (settings.TargetLang == TargetLanguage.Simplified)
                 secondaryTag = "ATC_Tag_FromTraditional".Translate().ToString();
 
-            string[] files = Directory.GetFiles(englishPath, "*.xml", SearchOption.AllDirectories);
-            int totalFiles = files.Length;
+            List<string> files = GetXmlFilesCached(sourceKeyedPath, SearchOption.AllDirectories);
+            int totalFiles = files.Count;
             int currentFile = 0;
+            string sourceKeyedRoot = Path.GetFullPath(sourceKeyedPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
             foreach (string file in files)
             {
@@ -56,28 +74,30 @@ namespace AutoTranslator_Core
 
                     var packDict = LoadXmlFileToDict(targetFile);
                     Dictionary<string, string> nativeTargetDict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-                    string relativeKeyedFile = "";
-                    string englishKeyedMarker = Path.Combine("English", "Keyed");
-                    int englishKeyedIndex = file.IndexOf(englishKeyedMarker, StringComparison.OrdinalIgnoreCase);
-                    if (englishKeyedIndex >= 0)
+                    string relativeKeyedFile = Path.GetFileName(file);
+                    string fullFile = Path.GetFullPath(file);
+                    if (fullFile.StartsWith(sourceKeyedRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ||
+                        fullFile.StartsWith(sourceKeyedRoot + Path.AltDirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
                     {
-                        relativeKeyedFile = file.Substring(englishKeyedIndex + englishKeyedMarker.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                        relativeKeyedFile = fullFile.Substring(sourceKeyedRoot.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
                     }
 
-                    string langRoot = englishKeyedIndex >= 0 ? file.Substring(0, englishKeyedIndex).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) : "";
                     foreach (string targetLangDir in ResolveLanguageFolders(langRoot, targetFolder))
                     {
-                        string targetKeyedFile = Path.Combine(targetLangDir, "Keyed", relativeKeyedFile);
-                        foreach (var kv in LoadXmlFileToDict(targetKeyedFile, settings.TargetLang))
+                        foreach (string targetKeyedDir in GetLanguageBucketPaths(targetLangDir, "Keyed"))
                         {
-                            nativeTargetDict[kv.Key] = kv.Value;
+                            string targetKeyedFile = Path.Combine(targetKeyedDir, relativeKeyedFile);
+                            foreach (var kv in LoadXmlFileToDict(targetKeyedFile, settings.TargetLang))
+                            {
+                                nativeTargetDict[kv.Key] = kv.Value;
+                            }
                         }
                     }
 
                     XmlDocument doc = new XmlDocument();
                     doc.Load(file);
 
-                    Dictionary<string, string> finalData = new Dictionary<string, string>();
+                    Dictionary<string, string> finalData = new Dictionary<string, string>(packDict, StringComparer.OrdinalIgnoreCase);
                     List<string> keysToAI = new List<string>();
                     List<string> valuesToAI = new List<string>();
 
@@ -94,6 +114,7 @@ namespace AutoTranslator_Core
                     {
                         if (node.NodeType != XmlNodeType.Element || string.IsNullOrEmpty(node.InnerText)) continue;
                         string key = node.Name;
+                        if (processedKeys != null && processedKeys.Contains(key)) continue;
 
                         if (nativeTargetDict.TryGetValue(key, out string nativeVal)) finalData[key] = nativeVal;
                         else if (packDict.TryGetValue(key, out string packVal))
@@ -105,13 +126,15 @@ namespace AutoTranslator_Core
 
 
                             keysToAI.Add(key);
-                            valuesToAI.Add(sVal);
+                            valuesToAI.Add(PrepareSecondaryTranslationSource(sVal, node.InnerText));
                         }
                         else if (keyedFileLooksLikeTarget || LanguageDetector.LooksLikeTargetLanguage(node.InnerText, settings.TargetLang))
                         {
                             finalData[key] = node.InnerText;
                         }
                         else { keysToAI.Add(key); valuesToAI.Add(node.InnerText); }
+
+                        if (processedKeys != null && finalData.ContainsKey(key)) processedKeys.Add(key);
                     }
 
                     if (keysToAI.Count > 0)
@@ -131,13 +154,8 @@ namespace AutoTranslator_Core
                                     continue;
                                 }
 
-
-                                if (k.ToLower().EndsWith("label"))
-                                {
-                                    v = v.Replace("[", "【").Replace("]", "】").Replace("{", "（").Replace("}", "）");
-                                }
-
                                 finalData[k] = v;
+                                if (processedKeys != null) processedKeys.Add(k);
                                 acceptedCount++;
                             }
 
@@ -148,7 +166,7 @@ namespace AutoTranslator_Core
                     }
                     AutoTranslatorSettings.AddLog("✅ " + AutoTranslatorAPI.TranslateText("ATC_Log_NoMissing", Path.GetFileName(file)));
 
-                    if (finalData.Count > 0 && nativeTargetDict.Count == 0) SaveXml(targetFile, finalData);
+                    if (finalData.Count > 0) SaveXml(targetFile, finalData);
                 }
                 catch (XmlException xmlEx)
                 {
@@ -184,8 +202,6 @@ namespace AutoTranslator_Core
             var englishKeys = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
             var modSelfTargetLang = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
             var modSelfSecondaryLang = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
-            var rawDefTypesAlreadyTarget = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            var rawDefLanguageSamples = new List<string>();
 
 
             Action<string, Dictionary<string, Dictionary<string, string>>, TargetLanguage?> LoadDefsToDict = (path, targetDict, lang) => {
@@ -195,13 +211,13 @@ namespace AutoTranslator_Core
                     string defType = Path.GetFileName(typeDir);
                     if (!targetDict.ContainsKey(defType))
                         targetDict[defType] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-                    foreach (var file in Directory.GetFiles(typeDir, "*.xml", SearchOption.AllDirectories))
+                    foreach (var file in GetXmlFilesCached(typeDir, SearchOption.AllDirectories))
                     {
                         var d = LoadXmlFileToDict(file, lang);
                         foreach (var kv in d) targetDict[defType][kv.Key] = kv.Value;
                     }
                 }
-                foreach (var file in Directory.GetFiles(path, "*.xml"))
+                foreach (var file in GetXmlFilesCached(path, SearchOption.TopDirectoryOnly))
                 {
                     if (!targetDict.ContainsKey("General"))
                         targetDict["General"] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -215,39 +231,27 @@ namespace AutoTranslator_Core
                 var extracted = ExtractEnglishFromRawDefs(dRoot);
                 foreach (var kv in extracted)
                 {
-                    rawDefLanguageSamples.AddRange(kv.Value.Values.Where(v => !string.IsNullOrWhiteSpace(v)).Take(40));
-                    string rawDefSample = string.Join("\n", kv.Value.Values.Where(v => !string.IsNullOrWhiteSpace(v)).Take(120).ToArray());
-                    if (LanguageDetector.LooksLikeTargetLanguage(rawDefSample, settings.TargetLang))
-                    {
-                        rawDefTypesAlreadyTarget.Add(kv.Key);
-                    }
-
                     if (!englishKeys.ContainsKey(kv.Key))
                         englishKeys[kv.Key] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
                     foreach (var inner in kv.Value) englishKeys[kv.Key][inner.Key] = inner.Value;
                 }
             }
-            bool rawDefsLookLikeTarget = LanguageDetector.LooksLikeTargetLanguage(
-                string.Join("\n", rawDefLanguageSamples.Take(240).ToArray()),
-                settings.TargetLang);
 
 
             foreach (var lRoot in langRoots)
             {
-                LoadDefsToDict(Path.Combine(lRoot, "English", "DefInjected"), englishKeys, null);
-                LoadDefsToDict(Path.Combine(lRoot, targetFolder, "DefInjected"), modSelfTargetLang, settings.TargetLang);
-                if (!string.IsNullOrEmpty(otherFolder))
+                List<string> sourceDefDirs = GetTranslatableLanguageBucketPaths(lRoot, settings.TargetLang, "DefInjected", false);
+                for (int i = sourceDefDirs.Count - 1; i >= 0; i--)
                 {
-                    TargetLanguage secLang = settings.TargetLang == TargetLanguage.Traditional ? TargetLanguage.Simplified : TargetLanguage.Traditional;
-                    LoadDefsToDict(Path.Combine(lRoot, otherFolder, "DefInjected"), modSelfSecondaryLang, secLang);
+                    LoadDefsToDict(sourceDefDirs[i], englishKeys, null);
                 }
-            }
 
-            foreach (var lRoot in langRoots)
-            {
                 foreach (string targetLangDir in ResolveLanguageFolders(lRoot, targetFolder))
                 {
-                    LoadDefsToDict(Path.Combine(targetLangDir, "DefInjected"), modSelfTargetLang, settings.TargetLang);
+                    foreach (string targetDefDir in GetLanguageBucketPaths(targetLangDir, "DefInjected"))
+                    {
+                        LoadDefsToDict(targetDefDir, modSelfTargetLang, settings.TargetLang);
+                    }
                 }
 
                 if (!string.IsNullOrEmpty(otherFolder))
@@ -255,7 +259,33 @@ namespace AutoTranslator_Core
                     TargetLanguage secLang = settings.TargetLang == TargetLanguage.Traditional ? TargetLanguage.Simplified : TargetLanguage.Traditional;
                     foreach (string secondaryLangDir in ResolveLanguageFolders(lRoot, otherFolder))
                     {
-                        LoadDefsToDict(Path.Combine(secondaryLangDir, "DefInjected"), modSelfSecondaryLang, secLang);
+                        foreach (string secondaryDefDir in GetLanguageBucketPaths(secondaryLangDir, "DefInjected"))
+                        {
+                            LoadDefsToDict(secondaryDefDir, modSelfSecondaryLang, secLang);
+                        }
+                    }
+                }
+            }
+
+            foreach (var lRoot in langRoots)
+            {
+                foreach (string targetLangDir in ResolveLanguageFolders(lRoot, targetFolder))
+                {
+                    foreach (string targetDefDir in GetLanguageBucketPaths(targetLangDir, "DefInjected"))
+                    {
+                        LoadDefsToDict(targetDefDir, modSelfTargetLang, settings.TargetLang);
+                    }
+                }
+
+                if (!string.IsNullOrEmpty(otherFolder))
+                {
+                    TargetLanguage secLang = settings.TargetLang == TargetLanguage.Traditional ? TargetLanguage.Simplified : TargetLanguage.Traditional;
+                    foreach (string secondaryLangDir in ResolveLanguageFolders(lRoot, otherFolder))
+                    {
+                        foreach (string secondaryDefDir in GetLanguageBucketPaths(secondaryLangDir, "DefInjected"))
+                        {
+                            LoadDefsToDict(secondaryDefDir, modSelfSecondaryLang, secLang);
+                        }
                     }
                 }
             }
@@ -343,7 +373,7 @@ namespace AutoTranslator_Core
                              && !string.IsNullOrEmpty(secondaryTag))
                     {
                         keysToAI.Add(key);
-                        valuesToAI.Add(secVal);
+                        valuesToAI.Add(PrepareSecondaryTranslationSource(secVal, engDict != null && engDict.TryGetValue(key, out string secondarySourceVal) ? secondarySourceVal : ""));
                     }
 
                     else if ((GlobalSecondaryDefDict.TryGetValue(globalKey, out string sVal)
@@ -351,13 +381,13 @@ namespace AutoTranslator_Core
                              && !string.IsNullOrEmpty(secondaryTag))
                     {
                         keysToAI.Add(key);
-                        valuesToAI.Add(sVal);
+                        valuesToAI.Add(PrepareSecondaryTranslationSource(sVal, engDict != null && engDict.TryGetValue(key, out string globalSecondarySourceVal) ? globalSecondarySourceVal : ""));
                     }
 
                     else if (engDict != null && engDict.TryGetValue(key, out string engVal)
                              && !string.IsNullOrEmpty(engVal))
                     {
-                        if (rawDefsLookLikeTarget || rawDefTypesAlreadyTarget.Contains(defType) || LanguageDetector.LooksLikeTargetLanguage(engVal, settings.TargetLang))
+                        if (LanguageDetector.LooksLikeTargetLanguage(engVal, settings.TargetLang))
                         {
                             finalData[key] = engVal;
                         }
@@ -587,14 +617,50 @@ namespace AutoTranslator_Core
         // EN: This method handles use existing or queue for AI.
         private static void UseExistingOrQueueForAI(Dictionary<string, string> finalData, List<string> keysToAI, List<string> valuesToAI, string key, string existingTranslation, string sourceText)
         {
-            if (!string.IsNullOrWhiteSpace(sourceText) && TranslationHasLikelyEnglishResidual(existingTranslation, sourceText, true))
+            if (!string.IsNullOrWhiteSpace(sourceText) && IsUntranslatableGrammarRule(sourceText))
+            {
+                finalData[key] = sourceText;
+                return;
+            }
+
+            string candidate = existingTranslation;
+            if (!string.IsNullOrWhiteSpace(sourceText))
+            {
+                candidate = SanitizeTranslationResult(existingTranslation, sourceText);
+            }
+
+            if (!string.IsNullOrWhiteSpace(sourceText) &&
+                (HasProtectedTokenMismatch(candidate, sourceText) || HasFormatArgumentMismatch(candidate, sourceText)))
+            {
+                AddValidationStat(s => s.ProtectedTokenMismatchDetected++);
+                keysToAI.Add(key);
+                valuesToAI.Add(sourceText);
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(sourceText) && TranslationHasLikelyEnglishResidual(candidate, sourceText, true))
             {
                 keysToAI.Add(key);
                 valuesToAI.Add(sourceText);
                 return;
             }
 
-            finalData[key] = existingTranslation;
+            finalData[key] = candidate;
+        }
+
+        private static string PrepareSecondaryTranslationSource(string secondaryTranslation, string primarySourceText)
+        {
+            if (string.IsNullOrWhiteSpace(primarySourceText)) return secondaryTranslation;
+            if (IsUntranslatableGrammarRule(primarySourceText)) return primarySourceText;
+
+            string candidate = SanitizeTranslationResult(secondaryTranslation, primarySourceText);
+            if (HasProtectedTokenMismatch(candidate, primarySourceText) || HasFormatArgumentMismatch(candidate, primarySourceText))
+            {
+                AddValidationStat(s => s.ProtectedTokenMismatchDetected++);
+                return primarySourceText;
+            }
+
+            return candidate;
         }
 
 
@@ -648,10 +714,21 @@ namespace AutoTranslator_Core
             for (int i = 0; i < translatedTexts.Count; i++)
             {
                 string sanitized = SanitizeTranslationResult(translatedTexts[i], sourceTexts[i]);
-                if (!TranslationHasLikelyEnglishResidual(sanitized, sourceTexts[i], true))
+                bool tokenMismatch = HasProtectedTokenMismatch(sanitized, sourceTexts[i]) ||
+                    HasFormatArgumentMismatch(sanitized, sourceTexts[i]);
+                bool englishResidual = false;
+                if (tokenMismatch)
                 {
-                    translatedTexts[i] = sanitized;
-                    continue;
+                    AddValidationStat(s => s.ProtectedTokenMismatchDetected++);
+                }
+                else
+                {
+                    englishResidual = TranslationHasLikelyEnglishResidual(sanitized, sourceTexts[i], true);
+                    if (!englishResidual)
+                    {
+                        translatedTexts[i] = sanitized;
+                        continue;
+                    }
                 }
 
                 if (AutoTranslatorSettings.IsCancellationRequested || AutoTranslatorSettings.IsSkipCurrentRequested)
@@ -659,19 +736,60 @@ namespace AutoTranslator_Core
                     return translatedTexts;
                 }
 
-                AddValidationStat(s => s.EnglishResidualRetried++);
+                if (englishResidual)
+                {
+                    AddValidationStat(s => s.EnglishResidualRetried++);
+                }
+                if (tokenMismatch)
+                {
+                    AddValidationStat(s => s.ProtectedTokenMismatchRetried++);
+                }
                 List<string> single = await AutoTranslatorAPI.TranslateBatchAsync(new List<string> { sourceTexts[i] }, suppressFinalParseError: true);
                 if (single != null && single.Count > 0)
                 {
                     string singleSanitized = SanitizeTranslationResult(single[0], sourceTexts[i]);
-                    if (!TranslationHasLikelyEnglishResidual(singleSanitized, sourceTexts[i], false))
+                    if (!HasProtectedTokenMismatch(singleSanitized, sourceTexts[i]) &&
+                        !HasFormatArgumentMismatch(singleSanitized, sourceTexts[i]) &&
+                        !TranslationHasLikelyEnglishResidual(singleSanitized, sourceTexts[i], false))
                     {
                         translatedTexts[i] = singleSanitized;
                         continue;
                     }
                 }
 
-                MarkEnglishResidualRejected(contextInfo);
+                if (TrySplitGrammarRule(sourceTexts[i], out string grammarPrefix, out string grammarRuleName, out string grammarRightSide) &&
+                    ShouldTranslateGrammarRuleRightSide(grammarRuleName, grammarRightSide))
+                {
+                    List<string> rightSideOnly = await AutoTranslatorAPI.TranslateBatchAsync(new List<string> { grammarRightSide.Trim() }, suppressFinalParseError: true);
+                    if (rightSideOnly != null && rightSideOnly.Count > 0)
+                    {
+                        string merged = grammarPrefix + rightSideOnly[0].TrimStart();
+                        string mergedSanitized = SanitizeTranslationResult(merged, sourceTexts[i]);
+                        if (!HasProtectedTokenMismatch(mergedSanitized, sourceTexts[i]) &&
+                            !HasFormatArgumentMismatch(mergedSanitized, sourceTexts[i]) &&
+                            !TranslationHasLikelyEnglishResidual(mergedSanitized, sourceTexts[i], false))
+                        {
+                            translatedTexts[i] = mergedSanitized;
+                            continue;
+                        }
+                    }
+                }
+
+                if (englishResidual)
+                {
+                    MarkEnglishResidualRejected(contextInfo);
+                    translatedTexts[i] = sanitized;
+                    continue;
+                }
+                if (tokenMismatch)
+                {
+                    AddValidationStat(s => s.ProtectedTokenMismatchFallback++);
+                    if (!string.IsNullOrWhiteSpace(contextInfo))
+                    {
+                        AutoTranslatorSettings.AddLog(
+                            AutoTranslatorAPI.TranslateText("ATC_Log_ProtectedTokenMismatchRejected", contextInfo));
+                    }
+                }
                 translatedTexts[i] = null;
             }
 
@@ -688,13 +806,40 @@ namespace AutoTranslator_Core
                 return false;
             }
 
+            if (HasProtectedTokenMismatch(sanitized, sourceText))
+            {
+                AddValidationStat(s => s.ProtectedTokenMismatchFallback++);
+                return false;
+            }
+
+            if (HasFormatArgumentMismatch(sanitized, sourceText))
+            {
+                AddValidationStat(s => s.ProtectedTokenMismatchFallback++);
+                return false;
+            }
+
+            if (RequiresProtectedTokenParity(sourceText) &&
+                !LanguageDetector.LooksLikeTargetLanguage(sourceText, AutoTranslatorMod.Settings.TargetLang) &&
+                string.Equals(sanitized, sourceText, StringComparison.Ordinal))
+            {
+                AddValidationStat(s => s.ProtectedTokenMismatchFallback++);
+                return false;
+            }
+
             if (!TranslationHasLikelyEnglishResidual(sanitized, sourceText, false))
             {
                 return true;
             }
 
-            MarkEnglishResidualRejected(null);
-            return false;
+            return !IsUnchangedLikelyEnglishSource(sanitized, sourceText);
+        }
+
+        private static bool IsUnchangedLikelyEnglishSource(string translated, string sourceText)
+        {
+            if (string.IsNullOrWhiteSpace(translated) || string.IsNullOrWhiteSpace(sourceText)) return false;
+            if (!string.Equals(translated.Trim(), sourceText.Trim(), StringComparison.OrdinalIgnoreCase)) return false;
+            if (LanguageDetector.LooksLikeTargetLanguage(sourceText, AutoTranslatorMod.Settings.TargetLang)) return false;
+            return TranslationHasLikelyEnglishResidual(translated, sourceText, false);
         }
 
         // 這個方法負責標記 EnglishResidualRejected 狀態。
@@ -704,7 +849,17 @@ namespace AutoTranslator_Core
             AddValidationStat(s => s.EnglishResidualFallback++);
             if (!string.IsNullOrWhiteSpace(contextInfo))
             {
-                AutoTranslatorSettings.AddLog($"🩺 [Validation] English residual still unresolved after retry: {contextInfo}");
+                bool shouldLog;
+                lock (_loggedEnglishResidualContexts)
+                {
+                    shouldLog = _loggedEnglishResidualContexts.Add(contextInfo);
+                }
+
+                if (shouldLog)
+                {
+                    AutoTranslatorSettings.AddLog("🩺 " +
+                        AutoTranslatorAPI.TranslateText("ATC_Log_EnglishResidualRejected", contextInfo));
+                }
             }
         }
     }

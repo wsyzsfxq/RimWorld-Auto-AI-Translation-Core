@@ -29,10 +29,19 @@ namespace AutoTranslator_Core
                 string cleanPackageId = _editingMod.PackageId.Replace(".", "_").ToLower();
                 string workspaceBaseDir = System.IO.Path.Combine(packPath, "Upload_Workspace");
                 int savedCount = 0;
+                bool touchedTranslationFiles = false;
+                var clearKeysByDefType = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
 
                 foreach (var categoryPair in _categorizedData)
                 {
+                    bool categoryModified = categoryPair.Value.Any(item => item.IsModified || !string.Equals(item.TranslatedText ?? "", item.OriginalTranslatedText ?? "", StringComparison.Ordinal));
+                    if (!categoryModified) continue;
+
                     string category = categoryPair.Key;
+                    clearKeysByDefType[category] = new HashSet<string>(
+                        categoryPair.Value.Where(item => !string.IsNullOrWhiteSpace(item.Key)).Select(item => item.Key),
+                        StringComparer.OrdinalIgnoreCase);
+
                     string targetDir = category == "Keyed"
                         ? System.IO.Path.Combine(packPath, "Languages", targetLangFolder, "Keyed")
                         : System.IO.Path.Combine(packPath, "Languages", targetLangFolder, "DefInjected", category);
@@ -43,13 +52,20 @@ namespace AutoTranslator_Core
                     System.IO.Directory.CreateDirectory(targetDir);
                     System.IO.Directory.CreateDirectory(workspaceDir);
 
-                    foreach (var oldFile in System.IO.Directory.GetFiles(workspaceDir, "*.xml")) System.IO.File.Delete(oldFile);
-                    foreach (var oldFile in System.IO.Directory.GetFiles(targetDir, "*.xml"))
+                    foreach (var oldFile in AutoTranslatorScanner.GetXmlFilesForTranslationCache(workspaceDir, System.IO.SearchOption.TopDirectoryOnly))
+                    {
+                        System.IO.File.Delete(oldFile);
+                        AutoTranslatorScanner.NotifyTranslationFileChanged(oldFile);
+                        touchedTranslationFiles = true;
+                    }
+                    foreach (var oldFile in AutoTranslatorScanner.GetXmlFilesForTranslationCache(targetDir, System.IO.SearchOption.TopDirectoryOnly))
                     {
                         if (System.IO.Path.GetFileName(oldFile).ToLower().Contains(cleanPackageId))
                         {
                             System.IO.File.SetAttributes(oldFile, System.IO.FileAttributes.Normal);
                             System.IO.File.Delete(oldFile);
+                            AutoTranslatorScanner.NotifyTranslationFileChanged(oldFile);
+                            touchedTranslationFiles = true;
                         }
                     }
 
@@ -60,23 +76,44 @@ namespace AutoTranslator_Core
                     foreach (var item in categoryPair.Value)
                     {
                         if (!string.IsNullOrWhiteSpace(item.TranslatedText)) fullDictToSave[item.Key] = item.TranslatedText;
-                        if (item.IsModified) { item.IsModified = false; savedCount++; }
+                        if (item.IsModified) { item.IsModified = false; item.OriginalTranslatedText = item.TranslatedText; savedCount++; }
                     }
 
                     if (fullDictToSave.Count > 0)
                     {
                         AutoTranslatorScanner.SaveXml(targetFile, fullDictToSave);
                         AutoTranslatorScanner.SaveXml(workspaceFile, fullDictToSave);
+                        touchedTranslationFiles = true;
                     }
                 }
 
                 AutoTranslatorSettings.AddLog("💾 " + "ATC_Log_WorkbenchSaved".Translate(savedCount));
-                AutoTranslatorScanner.RequestMemoryDrop();
-                UIInterceptor.ClearUICache();
+                if (touchedTranslationFiles)
+                {
+                    AutoTranslatorScanner.RequestMemoryDropForPackage(_editingMod.PackageId, clearKeysByDefType);
+                    UIInterceptor.RefreshRuntimeUICache();
+                }
 
                 InitTranslatedModsCache();
-                _translatedPackageIds.Add(_editingMod.PackageId);
-                ModUpdateDetector.MarkModAsTranslated(_editingMod.PackageId, _editingMod.RootDir.FullName);
+                if (HasAnySavedTranslationForCurrentMod(targetLangFolder, cleanPackageId))
+                {
+                    MarkPackageTranslated(_editingMod.PackageId);
+                    ModUpdateDetector.MarkModAsTranslated(_editingMod.PackageId, _editingMod.RootDir.FullName);
+                }
+            }
+
+            private static bool HasAnySavedTranslationForCurrentMod(string targetLangFolder, string cleanPackageId)
+            {
+                string langRoot = System.IO.Path.Combine(AutoTranslatorScanner.GetLocalPackPath(), "Languages", targetLangFolder);
+                if (!System.IO.Directory.Exists(langRoot)) return false;
+
+                foreach (var file in AutoTranslatorScanner.GetXmlFilesForTranslationCache(langRoot, System.IO.SearchOption.AllDirectories))
+                {
+                    if (!System.IO.Path.GetFileName(file).ToLower().Contains(cleanPackageId)) continue;
+                    if (AutoTranslatorScanner.LoadXmlFileToDict(file).Count > 0) return true;
+                }
+
+                return false;
             }
         }
 }

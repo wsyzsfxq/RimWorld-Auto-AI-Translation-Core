@@ -50,7 +50,7 @@ namespace AutoTranslator_Core
                     string id2 = pkgId.Replace(".", "_").ToLower();
                     bool isWorkspace = sDir.Contains("Upload_Workspace");
 
-                    foreach (string file in Directory.GetFiles(sDir, "*.xml", SearchOption.AllDirectories))
+                    foreach (string file in AutoTranslatorScanner.GetXmlFilesForTranslationCache(sDir, SearchOption.AllDirectories))
                     {
                         string fileName = Path.GetFileName(file).ToLower();
                         bool isValid = isWorkspace || fileName.StartsWith(id1 + "_") || fileName.StartsWith(id1 + ".") || fileName.StartsWith(id2 + "_") || fileName.StartsWith(id2 + ".");

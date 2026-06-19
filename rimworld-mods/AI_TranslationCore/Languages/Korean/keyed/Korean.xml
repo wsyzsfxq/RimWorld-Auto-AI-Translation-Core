@@ -47,7 +47,7 @@
   <ATC_Log_InitDone>[Init] 완료! 총 {0}개의 Def 번역을 수집했습니다.</ATC_Log_InitDone>
   <ATC_Log_StartScan>Auto Translation Core 시작! 대상 모드 수: {0}</ATC_Log_StartScan>
   <ATC_Log_ScanMod> [Start] 모드 스캔: {0}</ATC_Log_ScanMod>
-  <ATC_Log_SkipMod> [Skip] Languages도 Defs도 없는 순수 코드 모드입니다.</ATC_Log_SkipMod>
+  <ATC_Log_SkipMod> [Skip] 스캔 가능한 Languages/Defs 번역 소스를 찾지 못해 건너뜁니다.</ATC_Log_SkipMod>
   <ATC_Log_KeyedScan> [Keyed] 스캔 중...</ATC_Log_KeyedScan>
   <ATC_Log_DefScan> [DefInjected] 정밀 스캔 및 전역 비교 시작...</ATC_Log_DefScan>
   <ATC_Log_FoundMissing> [{0}] {1}개의 누락 발견! AI 지원을 요청하는 중...</ATC_Log_FoundMissing>
@@ -95,6 +95,7 @@
   <ATC_Log_ApiFallback>[API] 블록 번역이 완전히 실패했습니다! '강등 1대1 모드'를 활성화하여 한 문장씩 독파 중...</ATC_Log_ApiFallback>
   <ATC_LogError_ApiCritical>[API 치명적 에러] 【{0}】 경로의 텍스트 번역이 완전히 실패했습니다! 원문으로 유지됩니다.</ATC_LogError_ApiCritical>
   <ATC_TranslateMultiMod>단일 / 다중 선택 번역</ATC_TranslateMultiMod>
+  <ATC_CheckingModStatus>모드 번역 상태 확인 중...</ATC_CheckingModStatus>
   <ATC_SkipCurrentMod>현재 모드 건너뛰기</ATC_SkipCurrentMod>
   <ATC_MultiSelect_Title>번역할 모드 선택 (다중 선택 가능)</ATC_MultiSelect_Title>
   <ATC_MultiSelect_Search>여기에 모드 이름을 입력하여 검색...</ATC_MultiSelect_Search>
@@ -140,6 +141,10 @@
   <ATC_Log_AIFormatRecovered>[API] 재번역이 완료되었고 AI 응답 형식이 정상입니다.</ATC_Log_AIFormatRecovered>
   <ATC_Log_ValidationClean>[검증] 번역 구조 검사가 완료되었습니다. 수정할 형식 문제가 없습니다.</ATC_Log_ValidationClean>
   <ATC_Log_ValidationSummary>[검증] 자동 수정：줄바꿈 {0}, 규칙 접두사 {1}, 보호 token {2}, 고위험 되돌림 {3}, 잘못된 XML key 건너뜀 {4}.</ATC_Log_ValidationSummary>
+  <ATC_Log_EnglishResidualSummary>[검증] 영어 잔류 검사: 발견 {0}, 재시도 {1}, 아직 미해결 {2}.</ATC_Log_EnglishResidualSummary>
+  <ATC_Log_EnglishResidualRejected>[검증] 재시도 후에도 영어 잔류가 해결되지 않음: {0}</ATC_Log_EnglishResidualRejected>
+  <ATC_Log_ProtectedTokenMismatchRejected>[검증] 재시도 후에도 보호 token 불일치가 해결되지 않음: {0}</ATC_Log_ProtectedTokenMismatchRejected>
+  <ATC_Log_PlaceholderRepairSummary>[검증] 생성된 번역 파일 {1}개에서 자리표시자 token {0}개를 복구했습니다.</ATC_Log_PlaceholderRepairSummary>
   <ATC_Profile_Current>현재 전략：배치당 {0}개, 형식 재시도 {1}회, 타임아웃 하한 {2}초</ATC_Profile_Current>
   <ATC_Profile_DeepSeek>DeepSeek：빈 응답 또는 잘못된 JSON을 줄이기 위해 보수적인 배치를 사용합니다.</ATC_Profile_DeepSeek>
   <ATC_Profile_Google>Google/Gemini：안정적인 대량 번역용 표준 배치입니다.</ATC_Profile_Google>
@@ -167,7 +172,9 @@
   <ATC_LogError_RateLimit>[API 요청 제한] 제공업체 [{0}]가 429를 반환했습니다. 대기 시간을 자동으로 연장합니다.</ATC_LogError_RateLimit>
   <ATC_Tag_FromSimplified>[간체로부터]</ATC_Tag_FromSimplified>
   <ATC_Tag_FromTraditional>[번체로부터]</ATC_Tag_FromTraditional>
-  <ATC_Log_SkipExistingTranslation>[Skip] 모드 [{0}]에 이미 {1}개의 번역이 내장되어 있어 중복 번역을 건너뜁니다.</ATC_Log_SkipExistingTranslation>
+  <ATC_Log_SkipExistingTranslation>[유지] 모드 [{0}]에 기존 번역 {1}개가 있어 보존하고 누락 항목만 보완합니다.</ATC_Log_SkipExistingTranslation>
+  <ATC_Log_NativeTranslationSkip>[시스템] 모드 [{0}]에 완전한 {1} 내장 번역이 있어 보존하고 AI 덮어쓰기를 건너뜁니다.</ATC_Log_NativeTranslationSkip>
+  <ATC_Log_ExternalTranslationPatchSkip>[시스템] 모드 [{0}]는 번역 패치 [{1}] ({2})로 처리되어 AI 덮어쓰기를 건너뜁니다.</ATC_Log_ExternalTranslationPatchSkip>
   <ATC_Lang_DeepL_FreeNote>DeepL Free (자동 감지)</ATC_Lang_DeepL_FreeNote>
   <ATC_Lang_DeepL_ProNote>DeepL Pro (자동 감지)</ATC_Lang_DeepL_ProNote>
   <ATC_LogError_DeepL_LangNotSupport>[DeepL] 대상 언어 [{0}]는 DeepL에서 지원하지 않습니다. 다른 AI 제공업체를 이용해 주세요.</ATC_LogError_DeepL_LangNotSupport>
@@ -305,7 +312,7 @@
   <ATC_Setting_Timeout>API 최대 허용 초과 시간: {0}초</ATC_Setting_Timeout>
   <ATC_Setting_Timeout_Tooltip>설정한 초 동안 답신이 지체되면 처리를 파기하고 복구 재검토를 진행합니다. 권장치 60~120\n(단, 추론/심층 생각 모델을 지정 시 내부적으로 강제 300초가 동시 가산 적용됩니다)</ATC_Setting_Timeout_Tooltip>
   <ATC_FilteredCodeOnly>{0}개의 순수 구동 장치 전용 모드를 걸러냈습니다. 번역 데이터가 불필요합니다.</ATC_FilteredCodeOnly>
-  <ATC_FilteredModsCount>{0}개의 미번역 속성 모드 선별 차단 완료 (순수 코드/순수 디자인 에셋 리소스)</ATC_FilteredModsCount>
+  <ATC_FilteredModsCount>스캔 가능한 번역 소스가 없는 모드 {0}개를 필터링했습니다</ATC_FilteredModsCount>
   <ATC_Log_DeepL_EndpointDetected>✅ DeepL［{0}］엔드포인트 연동이 완료되었습니다.</ATC_Log_DeepL_EndpointDetected>
   <ATC_Log_FetchModelsRetry>모델 목록 탐색 과정 중 HTTP {0} 수신. 제 {1}차 복원을 시도합니다…</ATC_Log_FetchModelsRetry>
   <ATC_Log_FetchModelsAutoRetryQueued>[{0}] Model lookup failed. Auto retry in {1}s (attempt {2}).</ATC_Log_FetchModelsAutoRetryQueued>
@@ -348,12 +355,23 @@
   <ATC_Msg_BatchSuccess>✅ 일괄 데이터 갱신 완료! 총 {0} / {1}개의 모드에 번역을 주입했습니다!</ATC_Msg_BatchSuccess>
   <ATC_Cloud_Btn_OpenWorkspace>📂 토탈 작업장 위치 열기</ATC_Cloud_Btn_OpenWorkspace>
   <ATC_Cloud_Btn_BatchUpload>⬆️ 임시 폴더 일괄 기여 전송</ATC_Cloud_Btn_BatchUpload>
+  <ATC_Cloud_Btn_BatchUploadPack>⬆️ Batch Upload Local Pack</ATC_Cloud_Btn_BatchUploadPack>
   <ATC_Msg_WorkspaceEmpty>⚠️ 작업 구역 디렉토리가 생성되지 않았거나 하부 폴더를 식별할 수 없습니다!</ATC_Msg_WorkspaceEmpty>
+  <ATC_Msg_BatchUploadPackEmpty>⚠️ No uploadable mod translation files were found in the local translation pack!</ATC_Msg_BatchUploadPackEmpty>
   <ATC_Msg_BatchUploadStart>🚀 대량 정밀 분석 시작, {0}개 모드의 일괄 클라우드 등록 진행 중...</ATC_Msg_BatchUploadStart>
   <ATC_Msg_BatchUploadSuccess>일괄 업로드 완료! {0}개 모드를 {1} 유형으로 업로드했습니다.</ATC_Msg_BatchUploadSuccess>
   <ATC_Cloud_BatchUploadLogLabel>일괄 업로드 업데이트 설명:</ATC_Cloud_BatchUploadLogLabel>
   <ATC_Cloud_BatchUploadLogHint>일괄 업로드에는 필수입니다. 이번 변경 내용을 간단히 적어 주세요.</ATC_Cloud_BatchUploadLogHint>
   <ATC_Msg_BatchUploadLogRequired>일괄 업로드에는 5자 이상의 업데이트 설명이 필요합니다.</ATC_Msg_BatchUploadLogRequired>
+  <ATC_Log_BatchUploadMissingFolder>Batch upload skipped "{0}": source folder was not found.</ATC_Log_BatchUploadMissingFolder>
+  <ATC_Log_BatchUploadNoXml>Batch upload skipped "{0}": no uploadable XML files were found.</ATC_Log_BatchUploadNoXml>
+  <ATC_Log_BatchUploadItemFailed>Batch upload skipped "{0}": {1}</ATC_Log_BatchUploadItemFailed>
+  <ATC_Log_BatchUploadWorkerFailed>Batch upload worker failed: {0}</ATC_Log_BatchUploadWorkerFailed>
+  <ATC_Log_BatchUploadFailedList>Batch upload failed or skipped {0} mod(s): {1}</ATC_Log_BatchUploadFailedList>
+  <ATC_Cloud_ShowMineOnly>Show My Uploads Only</ATC_Cloud_ShowMineOnly>
+  <ATC_Cloud_MyUploadsCount>My uploads: {0}</ATC_Cloud_MyUploadsCount>
+  <ATC_Cloud_NoMyUploads>No cloud translations uploaded from this device were found.</ATC_Cloud_NoMyUploads>
+  <ATC_Cloud_Status_NotInstalled>Uploaded {0} / {1} / not installed locally</ATC_Cloud_Status_NotInstalled>
   <ATC_Cloud_Type_Select>📝 공유할 번역 양식 정보:</ATC_Cloud_Type_Select>
   <ATC_Cloud_Type_AI>🤖 기계(AI) 번역</ATC_Cloud_Type_AI>
   <ATC_Cloud_Type_Manual>✍️ 사람의 수동 정밀수정</ATC_Cloud_Type_Manual>
@@ -460,6 +478,7 @@
   <ATC_ModStatus_Translated>번역됨</ATC_ModStatus_Translated>
   <ATC_ModStatus_Untranslated>미번역</ATC_ModStatus_Untranslated>
   <ATC_ModStatus_Outdated>오래되었을 수 있음</ATC_ModStatus_Outdated>
+  <ATC_ModStatus_Filtered>필터됨</ATC_ModStatus_Filtered>
   <ATC_Msg_CloudUploadPatchModBlocked>&#xC5C5;&#xB85C;&#xB4DC;&#xAC00; &#xCC28;&#xB2E8;&#xB418;&#xC5C8;&#xC2B5;&#xB2C8;&#xB2E4;: {0}&#xC740; &#xD604;&#xC9C0;&#xD654; &#xB610;&#xB294; &#xBC88;&#xC5ED; &#xD328;&#xCE58; &#xBAA8;&#xB4DC;&#xB85C; &#xBCF4;&#xC785;&#xB2C8;&#xB2E4;. &#xD074;&#xB77C;&#xC6B0;&#xB4DC; &#xACF5;&#xC720;&#xB294; &#xC6D0;&#xBCF8; &#xBAA8;&#xB4DC;&#xC6A9; &#xC8FC;&#xC785;&#xC2DD; &#xBC88;&#xC5ED;&#xB9CC; &#xBC1B;&#xC2B5;&#xB2C8;&#xB2E4;.</ATC_Msg_CloudUploadPatchModBlocked>
   <ATC_Msg_CloudBatchPatchModsSkipped>&#xD604;&#xC9C0;&#xD654; &#xB610;&#xB294; &#xBC88;&#xC5ED; &#xD328;&#xCE58; &#xBAA8;&#xB4DC; {0}&#xAC1C;&#xB97C; &#xAC74;&#xB108;&#xB6F0;&#xC5C8;&#xC2B5;&#xB2C8;&#xB2E4;. &#xD074;&#xB77C;&#xC6B0;&#xB4DC; &#xACF5;&#xC720;&#xC5D0; &#xC5C5;&#xB85C;&#xB4DC;&#xB418;&#xC9C0; &#xC54A;&#xC2B5;&#xB2C8;&#xB2E4;.</ATC_Msg_CloudBatchPatchModsSkipped>
 </LanguageData>

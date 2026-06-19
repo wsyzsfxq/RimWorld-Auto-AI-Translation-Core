@@ -37,11 +37,12 @@ namespace AutoTranslator_Core
 
                 if (Directory.Exists(langsPath))
                 {
-                    string[] allXmlFiles = Directory.GetFiles(langsPath, "*.xml", SearchOption.AllDirectories);
-                    if (allXmlFiles.Length > 0)
+                    List<string> allXmlFiles = GetXmlFilesCached(langsPath, SearchOption.AllDirectories);
+                    if (allXmlFiles.Count > 0)
                     {
 
                         Directory.Delete(langsPath, true);
+                        NotifyTranslationFilesChanged(langsPath);
 
 
                         AutoTranslatorSettings.AddErrorLog("🚨 " + "ATC_LogError_OldToxicFiles".Translate());
@@ -62,6 +63,104 @@ namespace AutoTranslator_Core
 
         // 這個方法負責處理 RunDetox掃描器 相關流程。
         // EN: This method handles run detox scanner.
+        private static void ApplyOfficialDlcKeyedHotfix()
+        {
+            try
+            {
+                string packPath = GetLocalPackPath();
+                string languagesPath = Path.Combine(packPath, "Languages");
+                Directory.CreateDirectory(languagesPath);
+
+                ApplyOfficialDlcKeyedHotfixForLanguage(
+                    Path.Combine(languagesPath, "ChineseTraditional", "Keyed", "auto_translation_core_official_dlc_hotfix.xml"),
+                    new Dictionary<string, string>
+                    {
+                        { "MessageTransmutedStuff", "{PAWN_nameDef}\u5DF2\u5C07{1}\u8F49\u5316\u70BA{TRANSMUTED_labelShortIndef}\u3002" },
+                        { "MessageTransmutedStuffPlural", "{PAWN_nameDef}\u5DF2\u5C07{1}\u8F49\u5316\u70BA{TRANSMUTED_labelPluralIndef}\u3002" },
+                        { "ConfirmSealHatch", "\u5C01\u9589\u53E4\u8001\u5132\u85CF\u5340\u5165\u53E3\u5F8C\u5C07\u7121\u6CD5\u5FA9\u539F\u3002\u4EFB\u4F55\u7559\u5728\u4E0B\u65B9\u7684\u7269\u54C1\u6216\u4EBA\u90FD\u6703\u6C38\u9060\u5931\u53BB\u3002{0}\\n\\n\u4F60\u78BA\u5B9A\u8981\u7E7C\u7E8C\u55CE\uFF1F" }
+                    });
+
+                ApplyOfficialDlcKeyedHotfixForLanguage(
+                    Path.Combine(languagesPath, "ChineseSimplified", "Keyed", "auto_translation_core_official_dlc_hotfix.xml"),
+                    new Dictionary<string, string>
+                    {
+                        { "MessageTransmutedStuff", "{PAWN_nameDef}\u5DF2\u5C06{1}\u8F6C\u5316\u4E3A{TRANSMUTED_labelShortIndef}\u3002" },
+                        { "MessageTransmutedStuffPlural", "{PAWN_nameDef}\u5DF2\u5C06{1}\u8F6C\u5316\u4E3A{TRANSMUTED_labelPluralIndef}\u3002" },
+                        { "ConfirmSealHatch", "\u5C01\u95ED\u53E4\u8001\u50A8\u85CF\u533A\u5165\u53E3\u540E\u5C06\u65E0\u6CD5\u590D\u539F\u3002\u4EFB\u4F55\u7559\u5728\u4E0B\u65B9\u7684\u7269\u54C1\u6216\u4EBA\u90FD\u4F1A\u6C38\u8FDC\u5931\u53BB\u3002{0}\\n\\n\u4F60\u786E\u5B9A\u8981\u7EE7\u7EED\u5417\uFF1F" }
+                    });
+            }
+            catch (Exception ex)
+            {
+                Log.Warning($"[AutoTranslationCore] Official DLC keyed hotfix failed: {ex.Message}");
+            }
+        }
+
+        private static void ApplyBuiltInKeyedHotfix()
+        {
+            try
+            {
+                string packPath = GetLocalPackPath();
+                string languagesPath = Path.Combine(packPath, "Languages");
+                Directory.CreateDirectory(languagesPath);
+
+                ApplyOfficialDlcKeyedHotfixForLanguage(
+                    Path.Combine(languagesPath, "ChineseTraditional", "Keyed", "auto_translation_core_builtin_keyed_hotfix.xml"),
+                    new Dictionary<string, string>
+                    {
+                        { "RS_Mod", "Rimstro" },
+                        { "RS_TestLog", "測試記錄" },
+                        { "RS_ResetAllSetting", "重置所有設定" }
+                    });
+
+                ApplyOfficialDlcKeyedHotfixForLanguage(
+                    Path.Combine(languagesPath, "ChineseSimplified", "Keyed", "auto_translation_core_builtin_keyed_hotfix.xml"),
+                    new Dictionary<string, string>
+                    {
+                        { "RS_Mod", "Rimstro" },
+                        { "RS_TestLog", "测试日志" },
+                        { "RS_ResetAllSetting", "重置所有设置" }
+                    });
+            }
+            catch (Exception ex)
+            {
+                Log.Warning($"[AutoTranslationCore] Built-in keyed hotfix failed: {ex.Message}");
+            }
+        }
+
+        public static void ApplyStartupKeyedHotfixes()
+        {
+            try
+            {
+                EnsurePackSkeleton();
+                ApplyBuiltInKeyedHotfix();
+            }
+            catch (Exception ex)
+            {
+                Log.Warning($"[AutoTranslationCore] Startup keyed hotfix failed: {ex.Message}");
+            }
+        }
+
+        private static void ApplyOfficialDlcKeyedHotfixForLanguage(string filePath, Dictionary<string, string> entries)
+        {
+            if (string.IsNullOrEmpty(filePath) || entries == null || entries.Count == 0) return;
+
+            var data = LoadXmlFileToDict(filePath);
+            bool changed = false;
+
+            foreach (var pair in entries)
+            {
+                if (data.TryGetValue(pair.Key, out string existing) && string.Equals(existing, pair.Value, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                data[pair.Key] = pair.Value;
+                changed = true;
+            }
+
+            if (changed) SaveXml(filePath, data);
+        }
+
         public static void RunDetoxScanner()
             {
             try
@@ -70,7 +169,7 @@ namespace AutoTranslator_Core
                 string langsPath = Path.Combine(packPath, "Languages");
                 if (!Directory.Exists(langsPath)) return;
 
-                var xmlFiles = Directory.GetFiles(langsPath, "*.xml", SearchOption.AllDirectories);
+                var xmlFiles = GetXmlFilesCached(langsPath, SearchOption.AllDirectories);
                 int fixedFiles = 0;
                 int removedTags = 0;
 
@@ -96,6 +195,7 @@ namespace AutoTranslator_Core
                         cleanContent = Regex.Replace(cleanContent, @"^\s+$[\r\n]*", "", RegexOptions.Multiline);
 
                         File.WriteAllText(file, cleanContent);
+                        NotifyTranslationFileChanged(file);
                         fixedFiles++;
                         removedTags += matchCount;
                     }
@@ -130,7 +230,7 @@ namespace AutoTranslator_Core
                 string langsPath = Path.Combine(packPath, "Languages");
                 if (!Directory.Exists(langsPath)) return;
 
-                var xmlFiles = Directory.GetFiles(langsPath, "*.xml", SearchOption.AllDirectories);
+                var xmlFiles = GetXmlFilesCached(langsPath, SearchOption.AllDirectories);
                 int fixedFiles = 0;
                 int removedTags = 0;
 
@@ -147,6 +247,7 @@ namespace AutoTranslator_Core
 
                         System.IO.File.SetAttributes(file, System.IO.FileAttributes.Normal);
                         System.IO.File.Delete(file);
+                        NotifyTranslationFileChanged(file);
                         fixedFiles++;
                         continue;
                     }
@@ -193,6 +294,7 @@ namespace AutoTranslator_Core
                             removedTags++;
                         }
                         doc.Save(file);
+                        NotifyTranslationFileChanged(file);
                         fixedFiles++;
                     }
                 }
@@ -221,7 +323,7 @@ namespace AutoTranslator_Core
                 string langsPath = Path.Combine(packPath, "Languages");
                 if (!Directory.Exists(langsPath)) return;
 
-                var xmlFiles = Directory.GetFiles(langsPath, "*.xml", SearchOption.AllDirectories);
+                var xmlFiles = GetXmlFilesCached(langsPath, SearchOption.AllDirectories);
                 int fixedFiles = 0;
 
                 foreach (var file in xmlFiles)
@@ -237,6 +339,7 @@ namespace AutoTranslator_Core
 
 
                         File.WriteAllText(file, content);
+                        NotifyTranslationFileChanged(file);
                         fixedFiles++;
                     }
                 }
@@ -244,6 +347,8 @@ namespace AutoTranslator_Core
                 if (fixedFiles > 0)
                 {
 
+                    NotifyTranslationFilesChanged(langsPath);
+                    RequestKeyedMemoryDrop();
                     AutoTranslatorSettings.AddLog($"✨ [ATC System] 歷史業障超渡成功！共修復了 {fixedFiles} 個帶有換行 Bug 的舊檔案！");
                     Log.Message($"[AutoTranslationCore] Newline Detox complete: Fixed {fixedFiles} legacy files.");
                 }

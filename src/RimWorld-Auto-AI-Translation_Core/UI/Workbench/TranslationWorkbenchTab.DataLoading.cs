@@ -33,11 +33,13 @@ namespace AutoTranslator_Core
 
                 foreach (var langRoot in langRoots)
                 {
-                    string engKeyedPath = System.IO.Path.Combine(langRoot, "English", "Keyed");
-                    if (System.IO.Directory.Exists(engKeyedPath))
+                    foreach (string sourceKeyedPath in AutoTranslatorScanner.GetTranslatableLanguageBucketPaths(langRoot, AutoTranslatorMod.Settings.TargetLang, "Keyed", false))
                     {
-                        var dict = AutoTranslatorScanner.LoadXmlFilesToDict(engKeyedPath);
-                        foreach (var kv in dict) engKeyed[kv.Key] = kv.Value;
+                        var dict = AutoTranslatorScanner.LoadXmlFilesToDict(sourceKeyedPath);
+                        foreach (var kv in dict)
+                        {
+                            if (!engKeyed.ContainsKey(kv.Key)) engKeyed[kv.Key] = kv.Value;
+                        }
                     }
                     string modTransKeyedPath = System.IO.Path.Combine(langRoot, targetLangFolder, "Keyed");
                     if (System.IO.Directory.Exists(modTransKeyedPath))
@@ -51,7 +53,7 @@ namespace AutoTranslator_Core
                 if (System.IO.Directory.Exists(packKeyedDir))
                 {
                     string idMatch = targetMod.PackageId.Replace(".", "_").ToLower();
-                    foreach (var file in System.IO.Directory.GetFiles(packKeyedDir, "*.xml", System.IO.SearchOption.AllDirectories))
+                    foreach (var file in AutoTranslatorScanner.GetXmlFilesForTranslationCache(packKeyedDir, System.IO.SearchOption.AllDirectories))
                     {
                         if (System.IO.Path.GetFileName(file).ToLower().Contains(idMatch))
                         {
@@ -64,7 +66,7 @@ namespace AutoTranslator_Core
                 string workspaceKeyedDir = System.IO.Path.Combine(AutoTranslatorScanner.GetLocalPackPath(), "Upload_Workspace", targetMod.PackageId, targetLangFolder, "Keyed");
                 if (System.IO.Directory.Exists(workspaceKeyedDir))
                 {
-                    foreach (var file in System.IO.Directory.GetFiles(workspaceKeyedDir, "*.xml", System.IO.SearchOption.AllDirectories))
+                    foreach (var file in AutoTranslatorScanner.GetXmlFilesForTranslationCache(workspaceKeyedDir, System.IO.SearchOption.AllDirectories))
                     {
                         var d = AutoTranslatorScanner.LoadXmlFileToDict(file);
                         foreach (var kv in d) transKeyed[kv.Key] = kv.Value;
@@ -75,7 +77,10 @@ namespace AutoTranslator_Core
                 {
                     var list = new List<WorkbenchItem>();
                     foreach (var kv in engKeyed)
-                        list.Add(new WorkbenchItem { Key = kv.Key, OriginalText = kv.Value, TranslatedText = transKeyed.ContainsKey(kv.Key) ? transKeyed[kv.Key] : "" });
+                    {
+                        string translated = transKeyed.ContainsKey(kv.Key) ? transKeyed[kv.Key] : "";
+                        list.Add(new WorkbenchItem { Key = kv.Key, OriginalText = kv.Value, TranslatedText = translated, OriginalTranslatedText = translated });
+                    }
                     resultData["Keyed"] = list;
                 }
 
@@ -110,7 +115,7 @@ namespace AutoTranslator_Core
                     foreach (var typeDir in System.IO.Directory.GetDirectories(packDefDir))
                     {
                         string defType = System.IO.Path.GetFileName(typeDir);
-                        foreach (var file in System.IO.Directory.GetFiles(typeDir, "*.xml"))
+                        foreach (var file in AutoTranslatorScanner.GetXmlFilesForTranslationCache(typeDir, System.IO.SearchOption.TopDirectoryOnly))
                         {
                             if (System.IO.Path.GetFileName(file).ToLower().Contains(targetMod.PackageId.Replace(".", "_").ToLower()))
                             {
@@ -129,7 +134,7 @@ namespace AutoTranslator_Core
                     {
                         string defType = System.IO.Path.GetFileName(typeDir);
                         if (!transDefs.ContainsKey(defType)) transDefs[defType] = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-                        foreach (var file in System.IO.Directory.GetFiles(typeDir, "*.xml"))
+                        foreach (var file in AutoTranslatorScanner.GetXmlFilesForTranslationCache(typeDir, System.IO.SearchOption.TopDirectoryOnly))
                         {
                             var d = AutoTranslatorScanner.LoadXmlFileToDict(file);
                             foreach (var kv in d) transDefs[defType][kv.Key] = kv.Value;
@@ -148,7 +153,7 @@ namespace AutoTranslator_Core
                             translated = transDefs[defType][kv.Key];
                         else if (rawDefsLookLikeTarget || rawDefTypesAlreadyTarget.Contains(defType) || LanguageDetector.LooksLikeTargetLanguage(kv.Value, AutoTranslatorMod.Settings.TargetLang))
                             translated = kv.Value;
-                        list.Add(new WorkbenchItem { Key = kv.Key, OriginalText = kv.Value, TranslatedText = translated });
+                        list.Add(new WorkbenchItem { Key = kv.Key, OriginalText = kv.Value, TranslatedText = translated, OriginalTranslatedText = translated });
                     }
                     if (list.Count > 0) resultData[defType] = list;
                 }

@@ -48,7 +48,7 @@
   <ATC_Log_InitDone>[Init] 完成！共收集到 {0} 條 Def 翻譯。</ATC_Log_InitDone>
   <ATC_Log_StartScan>Auto Translation Core 啟動！目標模組數: {0}</ATC_Log_StartScan>
   <ATC_Log_ScanMod> [Start] 掃描模組: {0}</ATC_Log_ScanMod>
-  <ATC_Log_SkipMod> [Skip] 無 Languages 也無 Defs，純代碼模組。</ATC_Log_SkipMod>
+  <ATC_Log_SkipMod> [Skip] 找不到可掃描的 Languages/Defs 翻譯來源，已略過。</ATC_Log_SkipMod>
   <ATC_Log_KeyedScan> [Keyed] 正在掃描...</ATC_Log_KeyedScan>
   <ATC_Log_DefScan> [DefInjected] 啟動深層掃描與全域比對...</ATC_Log_DefScan>
   <ATC_Log_FoundMissing> [{0}] 發現 {1} 條缺失！呼叫 AI 支援中...</ATC_Log_FoundMissing>
@@ -96,6 +96,7 @@
   <ATC_Log_ApiFallback>[API] 區塊翻譯徹底失敗，啟動「降級單挑模式」逐句破解...</ATC_Log_ApiFallback>
   <ATC_LogError_ApiCritical>[API嚴重錯誤] 位於 【{0}】 的文本翻譯徹底失敗！已保留原文。</ATC_LogError_ApiCritical>
   <ATC_TranslateMultiMod>單獨/多選翻譯</ATC_TranslateMultiMod>
+  <ATC_CheckingModStatus>正在檢查模組翻譯狀態...</ATC_CheckingModStatus>
   <ATC_SkipCurrentMod>跳過當前 Mod</ATC_SkipCurrentMod>
   <ATC_MultiSelect_Title>選擇要翻譯的模組 (可多選)</ATC_MultiSelect_Title>
   <ATC_MultiSelect_Search>在此輸入模組名稱來搜尋...</ATC_MultiSelect_Search>
@@ -141,6 +142,10 @@
   <ATC_Log_AIFormatRecovered>[API] 已重新翻譯，AI 回傳格式正確。</ATC_Log_AIFormatRecovered>
   <ATC_Log_ValidationClean>[驗證] 翻譯結構檢查完成，未發現需要修復的格式問題。</ATC_Log_ValidationClean>
   <ATC_Log_ValidationSummary>[驗證] 自動修復：換行 {0}、規則前綴 {1}、保護 token {2}、高風險回退 {3}、非法 XML key 跳過 {4}。</ATC_Log_ValidationSummary>
+  <ATC_Log_EnglishResidualSummary>[驗證] 英文殘留掃描：發現 {0} 條，已重試 {1} 條，仍未解決 {2} 條。</ATC_Log_EnglishResidualSummary>
+  <ATC_Log_EnglishResidualRejected>[驗證] 英文殘留重試後仍未解決：{0}</ATC_Log_EnglishResidualRejected>
+  <ATC_Log_ProtectedTokenMismatchRejected>[驗證] 保護 token 重試後仍不一致：{0}</ATC_Log_ProtectedTokenMismatchRejected>
+  <ATC_Log_PlaceholderRepairSummary>[驗證] 已修復 {0} 個佔位符 token，涉及 {1} 個生成翻譯檔。</ATC_Log_PlaceholderRepairSummary>
   <ATC_Profile_Current>目前策略：每批 {0} 句，格式重試 {1} 次，逾時下限 {2} 秒</ATC_Profile_Current>
   <ATC_Profile_DeepSeek>DeepSeek：保守批量，優先降低空白/錯誤 JSON 風險。</ATC_Profile_DeepSeek>
   <ATC_Profile_Google>Google/Gemini：標準批量，適合穩定的大量翻譯。</ATC_Profile_Google>
@@ -168,7 +173,9 @@
   <ATC_LogError_RateLimit>[API 限流] 供應商 [{0}] 回報 429，已自動延長等待時間。</ATC_LogError_RateLimit>
   <ATC_Tag_FromSimplified>[來自簡中]</ATC_Tag_FromSimplified>
   <ATC_Tag_FromTraditional>[來自繁中]</ATC_Tag_FromTraditional>
-  <ATC_Log_SkipExistingTranslation>[Skip] 模組 [{0}] 已自帶 {1} 條翻譯，跳過重複翻譯。</ATC_Log_SkipExistingTranslation>
+  <ATC_Log_SkipExistingTranslation>[保留] 模組 [{0}] 已自帶 {1} 條翻譯，將保留既有譯文並只補缺失條目。</ATC_Log_SkipExistingTranslation>
+  <ATC_Log_NativeTranslationSkip>[系統] 模組 [{0}] 已完整自帶 {1} 翻譯，保留原生翻譯並跳過 AI 覆蓋。</ATC_Log_NativeTranslationSkip>
+  <ATC_Log_ExternalTranslationPatchSkip>[系統] 模組 [{0}] 已由翻譯補丁 [{1}] ({2}) 覆蓋，跳過 AI 覆蓋。</ATC_Log_ExternalTranslationPatchSkip>
   <ATC_Lang_DeepL_FreeNote>DeepL Free (自動偵測)</ATC_Lang_DeepL_FreeNote>
   <ATC_Lang_DeepL_ProNote>DeepL Pro (自動偵測)</ATC_Lang_DeepL_ProNote>
   <ATC_LogError_DeepL_LangNotSupport>[DeepL] 目標語系 [{0}] DeepL 不支援，請改用其他 AI 供應商。</ATC_LogError_DeepL_LangNotSupport>
@@ -324,7 +331,7 @@
   <ATC_Setting_Timeout>API 請求超時上限: {0} 秒</ATC_Setting_Timeout>
   <ATC_Setting_Timeout_Tooltip>當 AI 在這個時間內未回應，系統會自動中斷並降溫重試。建議設定 60~120\n(如果使用深度思考模型，後台會強制保底等待 300 秒)</ATC_Setting_Timeout_Tooltip>
   <ATC_FilteredCodeOnly>已過濾 {0} 個純代碼模組，無需翻譯。</ATC_FilteredCodeOnly>
-  <ATC_FilteredModsCount>已過濾 {0} 個非翻譯模組（純代碼/純素材）</ATC_FilteredModsCount>
+  <ATC_FilteredModsCount>已過濾 {0} 個沒有可掃描翻譯來源的模組</ATC_FilteredModsCount>
   <ATC_Log_DeepL_EndpointDetected>✅ DeepL［{0}］端點偵測完成。 </ATC_Log_DeepL_EndpointDetected>
   <ATC_Log_FetchModelsRetry>Fetch Models 遇到 HTTP {0}，準備第 {1} 次重試…</ATC_Log_FetchModelsRetry>
   <ATC_Log_FetchModelsAutoRetryQueued>[{0}] 模型獲取失敗，將於 {1} 秒後自動重試（第 {2} 次）。</ATC_Log_FetchModelsAutoRetryQueued>
@@ -370,12 +377,23 @@
   <ATC_Msg_BatchSuccess>✅ 批量空投完成！成功載入 {0} / {1} 個翻譯庫！</ATC_Msg_BatchSuccess>
   <ATC_Cloud_Btn_OpenWorkspace>📂 開啟總工作區</ATC_Cloud_Btn_OpenWorkspace>
   <ATC_Cloud_Btn_BatchUpload>⬆️ 批量上傳工作區</ATC_Cloud_Btn_BatchUpload>
+  <ATC_Cloud_Btn_BatchUploadPack>⬆️ 批量上傳翻譯包</ATC_Cloud_Btn_BatchUploadPack>
   <ATC_Msg_WorkspaceEmpty>⚠️ 工作區不存在或沒有任何模組資料夾！</ATC_Msg_WorkspaceEmpty>
+  <ATC_Msg_BatchUploadPackEmpty>⚠️ 本地翻譯包沒有找到可上傳的模組翻譯檔！</ATC_Msg_BatchUploadPackEmpty>
   <ATC_Msg_BatchUploadStart>🚀 開始批量掃描並上傳 {0} 個模組...</ATC_Msg_BatchUploadStart>
   <ATC_Msg_BatchUploadSuccess>批量上傳完成！成功以「{1}」類型上傳 {0} 個模組。</ATC_Msg_BatchUploadSuccess>
   <ATC_Cloud_BatchUploadLogLabel>批量上傳更新日誌：</ATC_Cloud_BatchUploadLogLabel>
   <ATC_Cloud_BatchUploadLogHint>批量上傳必填。請簡短描述這次更新內容。</ATC_Cloud_BatchUploadLogHint>
   <ATC_Msg_BatchUploadLogRequired>批量上傳需要填寫至少 5 個字的更新日誌。</ATC_Msg_BatchUploadLogRequired>
+  <ATC_Log_BatchUploadMissingFolder>批量上傳略過「{0}」：找不到來源資料夾。</ATC_Log_BatchUploadMissingFolder>
+  <ATC_Log_BatchUploadNoXml>批量上傳略過「{0}」：找不到可上傳的 XML 檔案。</ATC_Log_BatchUploadNoXml>
+  <ATC_Log_BatchUploadItemFailed>批量上傳略過「{0}」：{1}</ATC_Log_BatchUploadItemFailed>
+  <ATC_Log_BatchUploadWorkerFailed>批量上傳背景工作失敗：{0}</ATC_Log_BatchUploadWorkerFailed>
+  <ATC_Log_BatchUploadFailedList>批量上傳失敗或略過 {0} 個模組：{1}</ATC_Log_BatchUploadFailedList>
+  <ATC_Cloud_ShowMineOnly>只顯示我的上傳</ATC_Cloud_ShowMineOnly>
+  <ATC_Cloud_MyUploadsCount>我的上傳：{0}</ATC_Cloud_MyUploadsCount>
+  <ATC_Cloud_NoMyUploads>目前沒有找到你上傳過的雲端翻譯。</ATC_Cloud_NoMyUploads>
+  <ATC_Cloud_Status_NotInstalled>{0} 上傳 / {1} / 本機未安裝</ATC_Cloud_Status_NotInstalled>
   <!-- V3.5 翻譯類型與狀態擴充 -->
   <ATC_Cloud_Type_Select>📝 您的翻譯類型：</ATC_Cloud_Type_Select>
   <ATC_Cloud_Type_AI>🤖 AI 機翻</ATC_Cloud_Type_AI>
@@ -490,6 +508,29 @@
   <ATC_ModStatus_Translated>已翻譯</ATC_ModStatus_Translated>
   <ATC_ModStatus_Untranslated>未翻譯</ATC_ModStatus_Untranslated>
   <ATC_ModStatus_Outdated>可能過時</ATC_ModStatus_Outdated>
+  <ATC_ModStatus_Filtered>已過濾</ATC_ModStatus_Filtered>
   <ATC_Msg_CloudUploadPatchModBlocked>&#x5DF2;&#x963B;&#x6B62;&#x4E0A;&#x50B3;&#xFF1A;{0} &#x770B;&#x8D77;&#x4F86;&#x662F;&#x6F22;&#x5316;&#x6216;&#x7FFB;&#x8B6F;&#x88DC;&#x4E01;&#x6A21;&#x7D44;&#xFF0C;&#x96F2;&#x7AEF;&#x5171;&#x4EAB;&#x53EA;&#x63A5;&#x53D7;&#x539F;&#x59CB;&#x6A21;&#x7D44;&#x7684;&#x6CE8;&#x5165;&#x5F0F;&#x7FFB;&#x8B6F;&#x3002;</ATC_Msg_CloudUploadPatchModBlocked>
   <ATC_Msg_CloudBatchPatchModsSkipped>&#x5DF2;&#x8DF3;&#x904E; {0} &#x500B;&#x6F22;&#x5316;&#x6216;&#x7FFB;&#x8B6F;&#x88DC;&#x4E01;&#x6A21;&#x7D44;&#xFF0C;&#x4E0D;&#x6703;&#x4E0A;&#x50B3;&#x5230;&#x96F2;&#x7AEF;&#x5171;&#x4EAB;&#x3002;</ATC_Msg_CloudBatchPatchModsSkipped>
+  <MessageTransmutedStuff>{PAWN_nameDef}&#x5DF2;&#x5C07;{1}&#x8F49;&#x5316;&#x70BA;{TRANSMUTED_labelShortIndef}&#x3002;</MessageTransmutedStuff>
+  <MessageTransmutedStuffPlural>{PAWN_nameDef}&#x5DF2;&#x5C07;{1}&#x8F49;&#x5316;&#x70BA;{TRANSMUTED_labelPluralIndef}&#x3002;</MessageTransmutedStuffPlural>
+  <ConfirmSealHatch>&#x5C01;&#x9589;&#x53E4;&#x8001;&#x5132;&#x85CF;&#x5340;&#x5165;&#x53E3;&#x5F8C;&#x5C07;&#x7121;&#x6CD5;&#x5FA9;&#x539F;&#x3002;&#x4EFB;&#x4F55;&#x7559;&#x5728;&#x4E0B;&#x65B9;&#x7684;&#x7269;&#x54C1;&#x6216;&#x4EBA;&#x90FD;&#x6703;&#x6C38;&#x9060;&#x5931;&#x53BB;&#x3002;{0}\n\n&#x4F60;&#x78BA;&#x5B9A;&#x8981;&#x7E7C;&#x7E8C;&#x55CE;&#xFF1F;</ConfirmSealHatch>
+  <ATC_Correction_Title>提交實機修正 - {0}</ATC_Correction_Title>
+  <ATC_Correction_MetaPackage>套件</ATC_Correction_MetaPackage>
+  <ATC_Correction_MetaEntry>詞條</ATC_Correction_MetaEntry>
+  <ATC_Correction_SourceLabel>原文</ATC_Correction_SourceLabel>
+  <ATC_Correction_CurrentLabel>目前翻譯</ATC_Correction_CurrentLabel>
+  <ATC_Correction_ProposedLabel>建議修正</ATC_Correction_ProposedLabel>
+  <ATC_Correction_ReasonLabel>修正理由</ATC_Correction_ReasonLabel>
+  <ATC_Correction_ReasonHint>請說明為什麼這個修正更好，例如實機語境、術語一致性、佔位符安全或錯字。</ATC_Correction_ReasonHint>
+  <ATC_Correction_SubmitBtn>提交修正</ATC_Correction_SubmitBtn>
+  <ATC_Correction_Submitting>提交中...</ATC_Correction_Submitting>
+  <ATC_Correction_RowBtn>提交修正</ATC_Correction_RowBtn>
+  <ATC_Correction_RowBtnTip>將這一條作為實機驗證修正提交。</ATC_Correction_RowBtnTip>
+  <ATC_Correction_Msg_EmptyProposed>請先輸入建議修正。</ATC_Correction_Msg_EmptyProposed>
+  <ATC_Correction_Msg_Unchanged>建議修正與目前翻譯相同。</ATC_Correction_Msg_Unchanged>
+  <ATC_Correction_Msg_ReasonRequired>請填寫至少 8 個字的修正理由。</ATC_Correction_Msg_ReasonRequired>
+  <ATC_Correction_Msg_Submitted>修正已提交，將進入雲端審核佇列。</ATC_Correction_Msg_Submitted>
+  <ATC_Correction_Msg_SubmitFailedOutbox>目前無法提交修正，已保存本機待送副本。</ATC_Correction_Msg_SubmitFailedOutbox>
+  <ATC_Cloud_CorrectionSubmitFallback>雲端暫時無法連線，正在保存待送副本...</ATC_Cloud_CorrectionSubmitFallback>
+  <ATC_Cloud_CorrectionSubmitSavedOutbox>修正已保存到本機待送副本：{0}</ATC_Cloud_CorrectionSubmitSavedOutbox>
 </LanguageData>
