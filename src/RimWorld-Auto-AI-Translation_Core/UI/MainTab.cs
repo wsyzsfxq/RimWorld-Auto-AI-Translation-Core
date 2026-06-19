@@ -4,16 +4,22 @@ using System.Linq;
 using UnityEngine;
 using Verse;
 using static AutoTranslator_Core.DeleteTranslationWindow;
+// 這個檔案負責主畫面分頁的按鈕、進度條與日誌區塊。
+// EN: This file draws the main tab controls, progress bars, and log panels.
 
 namespace AutoTranslator_Core
 {
+    // 這個類別負責 自動翻譯器模組 的主要流程與狀態。
+    // EN: This class manages the main workflow and state for AutoTranslatorMod.
     public partial class AutoTranslatorMod : Mod
     {
-        // 🖥️ 第一分頁：主控制台 (操作與日誌)
-        // ==========================================
+
+
+        // 這個方法負責繪製 主畫面分頁 介面。
+        // EN: This method draws main tab.
         private void DrawMainTab(Listing_Standard l, Rect viewRect)
         {
-            // 1. 頂部四個功能按鈕
+
             Rect topBarRect = l.GetRect(30f);
             float btnWidth = (topBarRect.width - 30f) / 4f;
             float gap = 10f;
@@ -37,8 +43,8 @@ namespace AutoTranslator_Core
             GUI.color = Color.white;
             l.Gap(15f);
 
-            // 2. 翻譯行動按鈕區塊
-            var updatedMods = ModUpdateDetector.GetUpdatedOrNewModsCached(); // 獲取快取更新清單
+
+            var updatedMods = ModUpdateDetector.GetUpdatedOrNewModsCached();
 
             Rect actionRow = l.GetRect(40f);
             Rect singleModRect = new Rect(actionRow.x, actionRow.y, actionRow.width * 0.3f, actionRow.height);
@@ -64,7 +70,7 @@ namespace AutoTranslator_Core
                 if (Widgets.ButtonText(skipRect, "ATC_SkipCurrentMod".Translate()))
                 {
                     AutoTranslatorSettings.IsSkipCurrentRequested = true;
-                    AutoTranslatorSettings.AddLog("⏭️ " + "ATC_Log_SkipRequested".Translate()); // ✨ 這裡拔除了寫死的中文！
+                    AutoTranslatorSettings.AddLog("⏭️ " + "ATC_Log_SkipRequested".Translate());
                 }
                 GUI.color = new Color(1f, 0.4f, 0.4f);
                 if (Widgets.ButtonText(stopRect, "🛑 " + "ATC_EmergencyStop".Translate()))
@@ -91,7 +97,7 @@ namespace AutoTranslator_Core
             }
             l.Gap(15f);
 
-            // 3. 一鍵熱重載
+
             Rect reloadRow = l.GetRect(35f);
             GUI.color = new Color(0.4f, 1f, 0.8f);
             if (Widgets.ButtonText(reloadRow, "🔄 " + "ATC_Button_HotReload".Translate()))
@@ -101,7 +107,7 @@ namespace AutoTranslator_Core
             GUI.color = Color.white;
             l.Gap(15f);
 
-            // 4. 進度條區塊
+
             string displayTask = string.IsNullOrEmpty(Settings.CurrentTaskName) ? "ATC_Idle".Translate().ToString() : Settings.CurrentTaskName;
             l.Label("ATC_CurrentTask".Translate() + $": {displayTask}");
             Rect barRect = l.GetRect(25f);
@@ -119,7 +125,7 @@ namespace AutoTranslator_Core
             Text.Font = GameFont.Small;
             l.Gap(15f);
 
-            // 5. 統計數據儀表板
+
             Rect statsRect = l.GetRect(50f);
             Rect statsLeft = new Rect(statsRect.x, statsRect.y, statsRect.width * 0.48f, statsRect.height);
             Rect statsRight = new Rect(statsRect.xMax - statsRect.width * 0.48f, statsRect.y, statsRect.width * 0.48f, statsRect.height);
@@ -135,8 +141,7 @@ namespace AutoTranslator_Core
             }
             l.Gap(15f);
 
-            // 5.5 動態過濾提示
-            // 改從 AutoTranslatorSettings 讀取變數
+
             if (AutoTranslatorSettings.FilteredModsCount > 0)
             {
                 GUI.color = Color.gray;
@@ -148,7 +153,7 @@ namespace AutoTranslator_Core
                 GUI.color = Color.white;
                 l.Gap(10f);
             }
-            // 6. 雙日誌紀錄面板
+
             Rect headerRect = l.GetRect(24f);
             float leftWidth = headerRect.width * 0.6f;
             float rightWidth = headerRect.width * 0.4f - 10f;
@@ -167,7 +172,7 @@ namespace AutoTranslator_Core
             Widgets.DrawBox(rightRect, 1);
             DrawLogView(rightRect, AutoTranslatorSettings.ErrorLogs, ref AutoTranslatorSettings.errorScrollPos, true);
 
-            // 7. Rickroll 彩蛋
+
             Rect eggRect = new Rect(viewRect.width - 150f, l.CurHeight + 5f, 140f, 20f);
             GUI.color = new Color(1f, 1f, 1f, 0.15f);
             Text.Font = GameFont.Tiny;
@@ -183,12 +188,16 @@ namespace AutoTranslator_Core
         }
 
 
+// 這個方法負責判斷 HasValid設定 條件是否成立。
+// EN: This method checks has valid config.
 private bool HasValidConfig()
         {
             return AutoTranslatorAPI.HasAnyReadyConfig();
         }
 
 
+// 這個方法負責繪製 LogView 介面。
+// EN: This method draws log view.
 private void DrawLogView(Rect rect, List<string> logs, ref Vector2 scrollPos, bool isErrorBox)
         {
             const int runtimeDisplayLimit = 180;

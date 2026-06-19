@@ -6,11 +6,17 @@ using System.Linq;
 using UnityEngine;
 using Verse;
 using static AutoTranslator_Core.DeleteTranslationWindow;
+// 這個檔案負責雲端翻譯服務的 自動翻譯器模組雲端Actions，處理 registry、上傳、下載或刪除流程。
+// EN: This file contains auto translator mod cloud actions support code.
 
 namespace AutoTranslator_Core
 {
+    // 這個類別負責 自動翻譯器模組 的主要流程與狀態。
+    // EN: This class manages the main workflow and state for AutoTranslatorMod.
     public partial class AutoTranslatorMod : Mod
     {
+        // 這個方法負責判斷 ShouldSkip雲端Sharing模組 條件是否成立。
+        // EN: This method checks should skip cloud sharing mod.
         internal static bool ShouldSkipCloudSharingMod(ModMetaData mod, string packageId = null, string displayName = null)
         {
             if (mod != null && AutoTranslatorScanner.IsTranslationPatchMod(mod)) return true;
@@ -53,15 +59,15 @@ namespace AutoTranslator_Core
             return pid.EndsWith("zh") || pid.EndsWith("zhtw") || pid.EndsWith("zhcn");
         }
 
-        // ==========================================
-        // 🚀 批量空投引擎 (背景執行，不卡畫面) 語言隔離 + 本地化版
-        // ==========================================
+
+        // 這個方法負責執行 Batch下載 動作。
+        // EN: This method executes batch download.
         private void ExecuteBatchDownload(string targetType)
         {
             ATC_Dispatcher.EnsureAlive();
             var localMods = Verse.ModLister.AllInstalledMods.Where(m => m.Active && !ShouldSkipCloudSharingMod(m)).ToList();
 
-            // ✨ 取得當前設定的語言，確保只下載符合玩家語系的翻譯！
+
             string targetLangStr = AutoTranslatorScanner.GetFolderNameByLanguage(AutoTranslatorMod.Settings.CloudTargetLang);
 
             var recordsByPackage = AutoTranslatorSettings.CloudRegistry
@@ -80,7 +86,7 @@ namespace AutoTranslator_Core
                     },
                     StringComparer.OrdinalIgnoreCase);
 
-            // 找出本地有安裝，且雲端符合目標類型的模組
+
             var modsToDownload = new List<Verse.ModMetaData>();
             foreach (var record in recordsByPackage.Values)
             {
@@ -102,18 +108,18 @@ namespace AutoTranslator_Core
                 int failCount = 0;
                 List<string> failedMods = new List<string>();
                 List<string> repairedPackages = new List<string>();
-                // ✨ 架構師優化：鎖定系統狀態，讓主畫面的進度條開始運作
+
                 AutoTranslatorSettings.IsRunning = true;
 
                 for (int i = 0; i < modsToDownload.Count; i++)
                 {
                     var mod = modsToDownload[i];
 
-                    // ✨ 實時更新進度條與任務名稱
+
                     AutoTranslatorMod.Settings.CurrentTaskName = "ATC_Cloud_Downloading".Translate(mod.Name);
                     AutoTranslatorMod.Settings.CurrentProgress = (float)i / modsToDownload.Count;
 
-                    // 找出這個 mod 對應的雲端紀錄
+
                     recordsByPackage.TryGetValue(mod.PackageId, out CloudModRecord record);
 
                     bool success = await AutoTranslatorCloudClient.DownloadAndInjectAsync(mod.PackageId, targetLangStr, record, requestMemoryDrop: false);
@@ -137,7 +143,7 @@ namespace AutoTranslator_Core
 
                 ATC_Dispatcher.RunOnMainThread(() =>
                 {
-                    // ✨ 任務結束，解除鎖定並歸零進度條
+
                     AutoTranslatorSettings.IsRunning = false;
                     AutoTranslatorMod.Settings.CurrentTaskName = "";
                     AutoTranslatorMod.Settings.CurrentProgress = 0f;
@@ -150,14 +156,16 @@ namespace AutoTranslator_Core
                 });
             });
         }
-        // ==========================================
-        // 🚀 批量上傳引擎 (專為漢化組打造，全自動掃描工作區)
-        // ==========================================
+
+
+        // 這個方法負責執行 Batch上傳 動作。
+        // EN: This method executes batch upload.
         private void ExecuteBatchUpload()
         {
             string packPath = AutoTranslatorScanner.GetLocalPackPath();
             string workspaceRoot = System.IO.Path.Combine(packPath, "Upload_Workspace");
             string targetLangFolder = AutoTranslatorScanner.GetFolderNameByLanguage(Settings.CloudTargetLang);
+            string liveLangDir = System.IO.Path.Combine(packPath, "Languages", targetLangFolder);
             string uNickname = Settings.CloudNickname;
             string uToken = Settings.CloudAdminToken;
             string uploadType = NormalizeCloudUploadType(Settings.CloudUploadType, !string.IsNullOrWhiteSpace(uToken));
@@ -167,16 +175,10 @@ namespace AutoTranslator_Core
             Settings.CloudUploadType = uploadType;
             WriteSettings();
 
-            // 1. 檢查總工作區存不存在
-            if (!System.IO.Directory.Exists(workspaceRoot))
-            {
-                Messages.Message("ATC_Msg_WorkspaceEmpty".Translate(), MessageTypeDefOf.RejectInput, false);
-                return;
-            }
 
-            // 2. 獲取裡面所有的資料夾 (每一個資料夾名稱就是一個 PackageId)
             int skippedPatchModCount = 0;
-            var modDirs = System.IO.Directory.GetDirectories(workspaceRoot)
+            var modDirs = System.IO.Directory.Exists(workspaceRoot)
+                ? System.IO.Directory.GetDirectories(workspaceRoot)
                 .Where(modDir =>
                 {
                     string packageId = System.IO.Path.GetFileName(modDir);
@@ -189,61 +191,89 @@ namespace AutoTranslator_Core
                     }
                     return true;
                 })
-                .ToArray();
+                .ToArray()
+                : new string[0];
+            var uploadSources = new List<string>();
+            foreach (string modDir in modDirs)
+            {
+                string packageId = System.IO.Path.GetFileName(modDir);
+                string langDir = System.IO.Path.Combine(modDir, targetLangFolder);
+                if (!HasUploadableTranslationFiles(langDir, packageId, true)) continue;
+                uploadSources.Add(modDir);
+            }
+            var queuedPackages = new HashSet<string>(
+                uploadSources.Select(modDir => System.IO.Path.GetFileName(modDir)),
+                StringComparer.OrdinalIgnoreCase);
+            foreach (var mod in Verse.ModLister.AllInstalledMods)
+            {
+                if (mod == null || string.IsNullOrEmpty(mod.PackageId) || queuedPackages.Contains(mod.PackageId)) continue;
+                if (ShouldSkipCloudSharingMod(mod)) continue;
+                if (!HasUploadableTranslationFiles(liveLangDir, mod.PackageId, false)) continue;
+
+                uploadSources.Add(mod.PackageId + "|" + liveLangDir);
+                queuedPackages.Add(mod.PackageId);
+            }
             if (skippedPatchModCount > 0)
             {
                 Messages.Message("ATC_Msg_CloudBatchPatchModsSkipped".Translate(skippedPatchModCount), MessageTypeDefOf.NeutralEvent, false);
             }
-            if (modDirs.Length == 0)
+            if (uploadSources.Count == 0)
             {
                 Messages.Message("ATC_Msg_WorkspaceEmpty".Translate(), MessageTypeDefOf.RejectInput, false);
                 return;
             }
 
-            Messages.Message("ATC_Msg_BatchUploadStart".Translate(modDirs.Length), MessageTypeDefOf.NeutralEvent, false);
+            Messages.Message("ATC_Msg_BatchUploadStart".Translate(uploadSources.Count), MessageTypeDefOf.NeutralEvent, false);
 
             System.Threading.Tasks.Task.Run(async () =>
             {
                 int successCount = 0;
-                // ✨ 架構師優化：鎖定系統狀態
+
                 AutoTranslatorSettings.IsRunning = true;
 
-                for (int i = 0; i < modDirs.Length; i++)
+                for (int i = 0; i < uploadSources.Count; i++)
                 {
-                    var modDir = modDirs[i];
-                    // 資料夾名稱即為 PackageId
-                    string packageId = System.IO.Path.GetFileName(modDir);
+                    var modDir = uploadSources[i];
 
-                    // 嘗試從本地模組清單抓取模組名稱
+                    string packageId = System.IO.Path.GetFileName(modDir);
+                    string sourceOverride = null;
+                    int sourceSplit = modDir.IndexOf('|');
+                    if (sourceSplit >= 0)
+                    {
+                        packageId = modDir.Substring(0, sourceSplit);
+                        sourceOverride = modDir.Substring(sourceSplit + 1);
+                    }
+
+
                     var tempMeta = Verse.ModLister.AllInstalledMods.FirstOrDefault(m => string.Equals(m.PackageId, packageId, StringComparison.OrdinalIgnoreCase));
                     string displayName = tempMeta != null ? tempMeta.Name : packageId;
 
-                    // ✨ 實時更新進度條與任務名稱
+
                     AutoTranslatorMod.Settings.CurrentTaskName = "ATC_Cloud_Uploading".Translate(displayName);
-                    AutoTranslatorMod.Settings.CurrentProgress = (float)i / modDirs.Length;
+                    AutoTranslatorMod.Settings.CurrentProgress = (float)i / uploadSources.Count;
 
-                    // 組裝語言資料夾路徑: Upload_Workspace / packageId / ChineseTraditional
-                    string langDir = System.IO.Path.Combine(modDir, targetLangFolder);
 
-                    // 如果這個語言資料夾不存在，或是裡面沒有 xml 檔，就跳過
+                    string langDir = sourceOverride ?? System.IO.Path.Combine(modDir, targetLangFolder);
+
+
                     if (!System.IO.Directory.Exists(langDir)) continue;
                     if (System.IO.Directory.GetFiles(langDir, "*.xml", System.IO.SearchOption.AllDirectories).Length == 0) continue;
 
                     string modName = tempMeta != null ? tempMeta.Name : packageId;
 
-                    // 🚀 發射到雲端！
+
                     bool success = await AutoTranslatorCloudClient.UploadTranslationAsync(packageId, targetLangFolder, modName, uNickname, uploadType, langDir, uToken, updateLog);
 
                     if (success)
                     {
                         successCount++;
-                        // ✨ 神級細節：上傳成功後，順便把檔案複製到遊戲真正的 Languages 目錄
-                        string liveLangDir = System.IO.Path.Combine(packPath, "Languages", targetLangFolder);
+                        if (sourceOverride != null) continue;
+
                         foreach (string file in System.IO.Directory.GetFiles(langDir, "*.xml", System.IO.SearchOption.AllDirectories))
                         {
                             string relPath = file.Substring(langDir.Length).TrimStart('\\', '/');
 
-                            // ✨ 架構師修復：批量上傳的本地複製，一樣強制冠上前綴！
+
                             string justFileName = System.IO.Path.GetFileName(file);
                             string justFileNameLower = justFileName.ToLower();
                             string id1 = packageId.ToLower();
@@ -266,17 +296,43 @@ namespace AutoTranslator_Core
 
                 ATC_Dispatcher.RunOnMainThread(() =>
                 {
-                    // ✨ 任務結束，解除鎖定並歸零進度條
+
                     AutoTranslatorSettings.IsRunning = false;
                     AutoTranslatorMod.Settings.CurrentTaskName = "";
                     AutoTranslatorMod.Settings.CurrentProgress = 0f;
 
                     Verse.Messages.Message("ATC_Msg_BatchUploadSuccess".Translate(successCount, uploadTypeLabel), RimWorld.MessageTypeDefOf.PositiveEvent, false);
-                    AutoTranslatorSettings.HasFetchedCloudThisSession = false; // 強制下次重整清單，讓 UI 變金色！
+                    AutoTranslatorSettings.HasFetchedCloudThisSession = false;
+                    ModUpdateDetector.ClearStatusCache();
+                    TranslationWorkbenchTab.RequestRefresh();
                 });
             });
         }
 
+        // 這個方法負責判斷 HasUploadable翻譯Files 條件是否成立。
+        // EN: This method checks has uploadable translation files.
+        private static bool HasUploadableTranslationFiles(string sourceDir, string packageId, bool isWorkspace)
+        {
+            if (string.IsNullOrEmpty(sourceDir) || string.IsNullOrEmpty(packageId) || !System.IO.Directory.Exists(sourceDir)) return false;
+            string id1 = packageId.ToLower();
+            string id2 = packageId.Replace(".", "_").ToLower();
+
+            foreach (string file in System.IO.Directory.GetFiles(sourceDir, "*.xml", System.IO.SearchOption.AllDirectories))
+            {
+                if (isWorkspace) return true;
+
+                string fileName = System.IO.Path.GetFileName(file).ToLower();
+                if (fileName.StartsWith(id1 + "_") || fileName.StartsWith(id1 + ".") ||
+                    fileName.StartsWith(id2 + "_") || fileName.StartsWith(id2 + "."))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+        // 這個方法負責清理並標準化 雲端上傳Type 內容。
+        // EN: This method cleans and normalizes cloud upload type.
         internal static string NormalizeCloudUploadType(string uploadType, bool allowOfficial = true)
         {
             if (uploadType == "Manual") return uploadType;
@@ -284,6 +340,8 @@ namespace AutoTranslator_Core
             return "AI_Auto";
         }
 
+        // 這個方法負責取得 雲端上傳TypeLabel 資料。
+        // EN: This method gets cloud upload type label.
         private static string GetCloudUploadTypeLabel(string uploadType)
         {
             switch (NormalizeCloudUploadType(uploadType))

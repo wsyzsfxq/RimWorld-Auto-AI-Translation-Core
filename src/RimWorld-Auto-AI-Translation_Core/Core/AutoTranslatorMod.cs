@@ -1,27 +1,5 @@
-﻿/*
-    ___________________________________________________
-   /  VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV  \
-  /   >>>>>  GUAI GUAI - GREEN COCONUT FLAVOR  <<<<<   \
- |    _____________________________________________     |
- |   |                                             |    |
- |   |    _     _           【 守 護 代 碼 】      |    |
- |   |   ( )___( )                                 |    |
- |   |   /  - -  \        Name: ANLN666            |    |
- |   |  (  > O <  )       Task: Keep Server Safe   |    |
- |   |___/   W   \___                              |    |
- |   /               \      🍀 🍀 🍀 🍀 🍀         |    |
- |  |  [ 🟢 乖 乖 ]   |    代碼乖乖 ‧ 不准報錯      |    |
- |  |   奶油椰子口味   |    機房重地 ‧ 閒人莫入      |    |
- |   \_______________/                             |    |
- |       |  |  |           EXP: Forever Green      |    |
- |      (   |   )                                  |    |
- |      (___|___)          MFG: 名揚電腦工作室      |    |
- |   |_____________________________________________|    |
- |                                                      |
- |    [ OK ]  NO ERROR    [ OK ]  NO LAG    [ 666 ]     |
-  \   <<<<<  MAY THE SOURCE BE WITH YOU  >>>>>         /
-   \__AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA____/
-*/
+﻿
+
 
 using HarmonyLib;
 using Newtonsoft.Json;
@@ -30,37 +8,62 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Net.Http;
 using System.Threading.Tasks;
 using UnityEngine;
 using Verse;
 using static AutoTranslator_Core.DeleteTranslationWindow;
+// 這個檔案負責模組初始化、語言同步與設定載入。
+// EN: This file handles module initialization, language synchronization, and settings loading.
 
 namespace AutoTranslator_Core
 {
-    // ✨ 架構師升級：全語系制霸！加入法、德、西、義、波、葡、土
+
+    // 這個類別負責 自動翻譯器模組 的主要流程與狀態。
+    // EN: This class manages the main workflow and state for AutoTranslatorMod.
     public partial class AutoTranslatorMod : Mod
     {
+        // 這個欄位保存 設定 的執行狀態或快取資料。
+        // EN: This field stores settings runtime state or cached data.
         public static AutoTranslatorSettings Settings;
 
-        // 🌟 新增一個靜態變數，用來記住遊戲的主執行緒
+
+        // 這個欄位保存 主畫面執行緒Context 的執行狀態或快取資料。
+        // EN: This field stores main thread context runtime state or cached data.
         public static System.Threading.SynchronizationContext MainThreadContext;
 
-        // =========================================================
-        // ✨ 架構師極速優化：全域快取引擎，徹底終結 FPS 暴跌！
-        // =========================================================
+
+        // 這個欄位保存 cachedValid模組 的執行狀態或快取資料。
+        // EN: This field stores cached valid mods runtime state or cached data.
         private static List<ModMetaData> _cachedValidMods = null;
+        // 這個欄位保存 lastActive模組Count 的執行狀態或快取資料。
+        // EN: This field stores last active mod count runtime state or cached data.
         private static int _lastActiveModCount = -1;
+        // 這個欄位保存 cached雲端Lookup 的執行狀態或快取資料。
+        // EN: This field stores cached cloud lookup runtime state or cached data.
         private static Dictionary<string, List<CloudModRecord>> _cachedCloudLookup = null;
+        // 這個欄位保存 last雲端登錄Count 的執行狀態或快取資料。
+        // EN: This field stores last cloud registry count runtime state or cached data.
         private static int _lastCloudRegistryCount = -1;
+        // 這個欄位保存 last雲端語言Folder 的執行狀態或快取資料。
+        // EN: This field stores last cloud language folder runtime state or cached data.
         private static string _lastCloudLangFolder = "";
         private static readonly Dictionary<string, float> _logHeightCache = new Dictionary<string, float>();
+        // 這個欄位保存 lastActive分頁 的執行狀態或快取資料。
+        // EN: This field stores last active tab runtime state or cached data.
         private static int _lastActiveTab = -1;
+        // 這個欄位保存 cached雲端Display模組 的執行狀態或快取資料。
+        // EN: This field stores cached cloud display mods runtime state or cached data.
         private static List<ModMetaData> _cachedCloudDisplayMods = null;
+        // 這個欄位保存 cached雲端搜尋Text 的執行狀態或快取資料。
+        // EN: This field stores cached cloud search text runtime state or cached data.
         private static string _cachedCloudSearchText = null;
+        // 這個欄位保存 cached雲端Valid模組Count 的執行狀態或快取資料。
+        // EN: This field stores cached cloud valid mod count runtime state or cached data.
         private static int _cachedCloudValidModCount = -1;
 
-        // 取得有效模組清單 (附帶 O(1) 快取，避開每幀硬碟掃描)
+
+        // 這個方法負責取得 Valid模組Cached 資料。
+        // EN: This method gets valid mods cached.
         public static List<ModMetaData> GetValidModsCached()
         {
             int currentCount = Verse.ModLister.AllInstalledMods.Count(m => m.Active);
@@ -71,18 +74,19 @@ namespace AutoTranslator_Core
                     m.PackageId.ToLower() != "auto.aitranslation.core" &&
                     m.PackageId.ToLower() != "aitranslation.pack" &&
                     !m.PackageId.ToLower().StartsWith("ludeon.rimworld") &&
-                    !IsCodeOnlyMod(m) // 這裡的硬碟掃描現在只會執行一次！
+                    !IsCodeOnlyMod(m)
                 ).OrderBy(m => m.Name).ToList();
                 _lastActiveModCount = currentCount;
             }
             return _cachedValidMods;
         }
-        // =========================================================
 
+
+        // 這個方法負責處理 base 相關流程。
+        // EN: This constructor initializes auto translator mod.
         public AutoTranslatorMod(ModContentPack content) : base(content)
         {
-            MainThreadContext = System.Threading.SynchronizationContext.Current;
-            ATC_Dispatcher.EnsureAlive();
+            EnsureNetworkDispatchReady();
 
             Settings = GetSettings<AutoTranslatorSettings>();
             if (Settings.ApiConfigs == null || Settings.ApiConfigs.Count == 0)
@@ -92,7 +96,21 @@ namespace AutoTranslator_Core
 
             TryAutoSyncLanguageWithGame(resetCaches: false, log: false, writeSettings: true);
             AutoTranslatorScanner.QueueExternalPatchCoveredOverrideCleanup();
+
+            AutoTranslator_LongEventCompat.ExecuteWhenFinished(EnsureNetworkDispatchReady);
         }
+
+        // 這個方法負責確保 NetworkDispatchReady 已準備完成。
+        // EN: This method ensures network dispatch ready is ready.
+        internal static void EnsureNetworkDispatchReady()
+        {
+            if (!UnityData.IsInMainThread) return;
+
+            MainThreadContext = System.Threading.SynchronizationContext.Current;
+            ATC_Dispatcher.EnsureAlive();
+        }
+        // 這個方法負責取得 語言Label 資料。
+        // EN: This method gets language label.
         private string GetLangLabel(TargetLanguage lang)
         {
             switch (lang)
@@ -104,7 +122,7 @@ namespace AutoTranslator_Core
                 case TargetLanguage.Russian: return "ATC_Lang_Russian".Translate();
                 case TargetLanguage.Ukrainian: return "ATC_Lang_Ukrainian".Translate();
                 case TargetLanguage.English: return "ATC_Lang_English".Translate();
-                // ✨ 架構師擴充：將新語言連結到 XML 翻譯系統
+
                 case TargetLanguage.French: return "ATC_Lang_French".Translate();
                 case TargetLanguage.German: return "ATC_Lang_German".Translate();
                 case TargetLanguage.Spanish: return "ATC_Lang_Spanish".Translate();
@@ -116,19 +134,23 @@ namespace AutoTranslator_Core
             }
         }
 
-        // ==========================================
-        // 🌟 咪咪的自動語系同步雷達
-        // ==========================================
+
+        // 這個方法負責處理 Sync語言WithGame 相關流程。
+        // EN: This method handles sync language with game.
         private void SyncLanguageWithGame()
         {
             TryAutoSyncLanguageWithGame(resetCaches: true, log: true, writeSettings: true);
         }
 
+        // 這個方法負責設定 目標語言 狀態。
+        // EN: This method sets target language.
         private void SetTargetLanguage(TargetLanguage targetLang)
         {
             ApplyTargetLanguageChange(targetLang, true);
         }
 
+        // 這個方法負責套用 目標語言Change 設定。
+        // EN: This method applies target language change.
         private void ApplyTargetLanguageChange(TargetLanguage targetLang, bool manualSelection)
         {
             bool changed = Settings.TargetLang != targetLang;
@@ -145,6 +167,8 @@ namespace AutoTranslator_Core
             WriteSettings();
         }
 
+        // 這個方法負責重置 語言DependentCaches 狀態。
+        // EN: This method resets language dependent caches.
         private static void ResetLanguageDependentCaches()
         {
             ResetCloudFetchStateForLanguageChange();
@@ -155,6 +179,8 @@ namespace AutoTranslator_Core
             AutoTranslatorScanner.RequestMemoryDrop();
         }
 
+        // 這個方法負責嘗試執行 自動Sync語言WithGame 並回報是否成功。
+        // EN: This method tries to auto sync language with game and reports whether it succeeded.
         public static bool TryAutoSyncLanguageWithGame(bool resetCaches, bool log, bool writeSettings)
         {
             if (Settings == null || Settings.HasManualTargetLanguage) return false;
@@ -186,6 +212,8 @@ namespace AutoTranslator_Core
             return true;
         }
 
+        // 這個方法負責嘗試執行 Get目標語言FromActiveGame語言 並回報是否成功。
+        // EN: This method tries to get target language from active game language and reports whether it succeeded.
         private static bool TryGetTargetLanguageFromActiveGameLanguage(out TargetLanguage targetLang, out string activeFolder)
         {
             targetLang = TargetLanguage.English;
@@ -212,6 +240,8 @@ namespace AutoTranslator_Core
             }
         }
 
+        // 這個方法負責重置 雲端取得狀態For語言Change 狀態。
+        // EN: This method resets cloud fetch state for language change.
         private static void ResetCloudFetchStateForLanguageChange()
         {
             AutoTranslatorSettings.CloudFetchGeneration++;
@@ -227,6 +257,8 @@ namespace AutoTranslator_Core
             _lastCloudLangFolder = "";
         }
 
+        // 這個方法負責啟動 雲端登錄取得 流程。
+        // EN: This method starts cloud registry fetch.
         public static void StartCloudRegistryFetch(bool silent = false)
         {
             ATC_Dispatcher.EnsureAlive();
@@ -301,6 +333,8 @@ namespace AutoTranslator_Core
             });
         }
 
+        // 這個方法負責確保 雲端取得StartedForActive分頁 已準備完成。
+        // EN: This method ensures cloud fetch started for active tab is ready.
         private static void EnsureCloudFetchStartedForActiveTab()
         {
             if (AutoTranslatorSettings.ActiveTab != 2) return;
@@ -309,11 +343,15 @@ namespace AutoTranslator_Core
             StartCloudRegistryFetch();
         }
 
+        // 這個方法負責處理 Do設定視窗Contents 相關流程。
+        // EN: This method handles do settings window contents.
         public override void DoSettingsWindowContents(Rect inRect)
         {
-            // 🌟 咪咪的自動語系同步雷達：一打開設定畫面，就先檢查語言有沒有被切換！
+            EnsureNetworkDispatchReady();
+            AutoTranslatorAPI.MaintainModelFetchState();
+
             SyncLanguageWithGame();
-            // 🛡️ 免死金牌：設定頁面絕不被攔截器影響
+
             Patch_GUI_Label_GUIContent.BypassInterceptor = true;
             try
             {
@@ -323,7 +361,7 @@ namespace AutoTranslator_Core
                     Find.WindowStack.Add(new Dialog_MessageBox("ATC_FinishMessage_Text".Translate(), "ATC_FinishMessage_OK".Translate(), null, null, null, "ATC_FinishMessage_Title".Translate()));
                 }
 
-                // 🌟 V3.0 介面革命：重新排序，將編輯器升級為獨立主分頁！
+
                 List<TabRecord> tabs = new List<TabRecord>
                 {
                     new TabRecord("ATC_Tab_Main".Translate(), () => AutoTranslatorSettings.ActiveTab = 0, AutoTranslatorSettings.ActiveTab == 0),
@@ -346,7 +384,7 @@ namespace AutoTranslator_Core
                     EnsureCloudFetchStartedForActiveTab();
                 }
 
-                // 設定捲動視窗範圍 (向下推移以避開 Tabs)
+
                 Rect viewRect = new Rect(0, 0, inRect.width - 20f, AutoTranslatorSettings.lastSettingsViewHeight);
                 Rect scrollRect = new Rect(0, 65f, inRect.width, inRect.height - 65f);
 
@@ -360,14 +398,14 @@ namespace AutoTranslator_Core
                     listingStarted = true;
                     l.Gap(5f);
 
-                    // 根據當前分頁呼叫對應的畫面
+
                     if (AutoTranslatorSettings.ActiveTab == 0)
                     {
                         DrawMainTab(l, viewRect);
                     }
                     else if (AutoTranslatorSettings.ActiveTab == 1)
                     {
-                        // ✨ 呼叫我們全新打造的全域編輯器分頁！
+
                         TranslationWorkbenchTab.DrawEditorTab(l, viewRect);
                     }
                     else if (AutoTranslatorSettings.ActiveTab == 2)
@@ -388,11 +426,13 @@ namespace AutoTranslator_Core
             }
             finally
             {
-                // 🛡️ 收回免死金牌
+
                 Patch_GUI_Label_GUIContent.BypassInterceptor = false;
             }
         }
 
+        // 這個方法負責設定 tingsCategory 狀態。
+        // EN: This method sets tings category.
         public override string SettingsCategory() => "ATC_ModTitle".Translate();
     }
 

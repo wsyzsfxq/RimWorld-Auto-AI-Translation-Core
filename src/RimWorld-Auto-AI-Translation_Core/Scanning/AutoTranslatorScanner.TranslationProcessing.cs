@@ -11,25 +11,31 @@ using System.Threading.Tasks;
 using System.Xml;
 using Verse;
 using static AutoTranslator_Core.DeleteTranslationWindow;
+// 這個檔案負責 Keyed 與 DefInjected 翻譯處理。
+// EN: This file processes Keyed and DefInjected translation data.
 
 namespace AutoTranslator_Core
 {
+    // 這個類別負責 自動翻譯器掃描器 的主要流程與狀態。
+    // EN: This class manages the main workflow and state for AutoTranslatorScanner.
     public static partial class AutoTranslatorScanner
     {
+        // 這個方法負責處理 模組Keyed 流程。
+        // EN: This method processes mod Keyed.
         private static async Task<int> ProcessModKeyed(ModMetaData mod, string englishPath)
         {
-            int aiTranslatedCount = 0; // ✨ 咪咪特製：AI 翻譯計數器
+            int aiTranslatedCount = 0;
             var settings = AutoTranslatorMod.Settings;
             string targetFolder = GetFolderNameByLanguage(settings.TargetLang);
             string packKeyedDir = Path.Combine(GetLocalPackPath(), "Languages", targetFolder, "Keyed");
 
-            // 修正 Bug D：標籤本地化 + 後續送 AI 前會剝離，避免污染翻譯結果
+
             string secondaryTag = "";
             if (settings.TargetLang == TargetLanguage.Traditional)
                 secondaryTag = "ATC_Tag_FromSimplified".Translate().ToString();
             else if (settings.TargetLang == TargetLanguage.Simplified)
                 secondaryTag = "ATC_Tag_FromTraditional".Translate().ToString();
-            //✨ 咪咪特製：加入檔案數量計算，並實時更新小進度條！
+
             string[] files = Directory.GetFiles(englishPath, "*.xml", SearchOption.AllDirectories);
             int totalFiles = files.Length;
             int currentFile = 0;
@@ -38,7 +44,7 @@ namespace AutoTranslator_Core
             {
                 if (AutoTranslatorSettings.IsCancellationRequested || AutoTranslatorSettings.IsSkipCurrentRequested) return aiTranslatedCount;
 
-                // 實時更新進度！
+
                 currentFile++;
                 AutoTranslatorMod.Settings.SubProgress = (float)currentFile / totalFiles;
 
@@ -96,10 +102,10 @@ namespace AutoTranslator_Core
                             UseExistingOrQueueForAI(finalData, keysToAI, valuesToAI, key, pVal, node.InnerText);
                         else if (GlobalSecondaryKeyedDict.TryGetValue(key, out string sVal) && !string.IsNullOrEmpty(secondaryTag))
                         {
-                            // 修正 Bug D：不再把 tag 拼進送 AI 的字串
-                            // 改為：送純淨文本給 AI，後處理時再判斷是否要加 tag
+
+
                             keysToAI.Add(key);
-                            valuesToAI.Add(sVal);  // 只送純淨內容，不帶 [來自簡中]
+                            valuesToAI.Add(sVal);
                         }
                         else if (keyedFileLooksLikeTarget || LanguageDetector.LooksLikeTargetLanguage(node.InnerText, settings.TargetLang))
                         {
@@ -110,32 +116,37 @@ namespace AutoTranslator_Core
 
                     if (keysToAI.Count > 0)
                     {
-                        AutoTranslatorSettings.AddLog("🔌 " + AutoTranslatorAPI.TranslateText("ATC_Log_FoundMissing", "Keyed", keysToAI.Count)); // 🔌代表通訊
+                        AutoTranslatorSettings.AddLog("🔌 " + AutoTranslatorAPI.TranslateText("ATC_Log_FoundMissing", "Keyed", keysToAI.Count));
                         var res = await SafeTranslateBatch(valuesToAI, $"{mod.Name} / {Path.GetFileName(file)}"); if (res != null)
                         {
+                            int acceptedCount = 0;
                             for (int i = 0; i < keysToAI.Count; i++)
                             {
                                 string k = keysToAI[i];
                                 string v = res[i];
 
-                                // 新增：AI 回應的智慧清理
-                                v = SanitizeTranslationResult(v, valuesToAI[i]);
 
-                                // 🌟 咪咪的防玩家靠北魔法：遇到 label 結尾就換符號！(Keyed專用區)
+                                if (!TryAcceptTranslatedValue(v, valuesToAI[i], out v))
+                                {
+                                    continue;
+                                }
+
+
                                 if (k.ToLower().EndsWith("label"))
                                 {
                                     v = v.Replace("[", "【").Replace("]", "】").Replace("{", "（").Replace("}", "）");
                                 }
 
                                 finalData[k] = v;
+                                acceptedCount++;
                             }
-                            // 🌟 這裡修好啦！Keyed 沒有 defType，所以直接傳字串 "Keyed"
-                            AutoTranslatorSettings.AddLog("✨ " + "ATC_Log_AIFinish".Translate("Keyed")); // ✨代表成功完成
-                            aiTranslatedCount += keysToAI.Count; // ✨ 累加成功翻譯的數量
+
+                            AutoTranslatorSettings.AddLog("✨ " + "ATC_Log_AIFinish".Translate("Keyed"));
+                            aiTranslatedCount += acceptedCount;
                         }
-                        else AutoTranslatorSettings.AddLog("⚠️ " + "ATC_Log_AIFail".Translate("Keyed")); // ⚠️代表警告失敗
+                        else AutoTranslatorSettings.AddLog("⚠️ " + "ATC_Log_AIFail".Translate("Keyed"));
                     }
-                    AutoTranslatorSettings.AddLog("✅ " + AutoTranslatorAPI.TranslateText("ATC_Log_NoMissing", Path.GetFileName(file))); // ✅代表不缺字串
+                    AutoTranslatorSettings.AddLog("✅ " + AutoTranslatorAPI.TranslateText("ATC_Log_NoMissing", Path.GetFileName(file)));
 
                     if (finalData.Count > 0 && nativeTargetDict.Count == 0) SaveXml(targetFile, finalData);
                 }
@@ -150,13 +161,15 @@ namespace AutoTranslator_Core
                     Log.Warning($"[AutoTranslationCore] Process Error ({mod.Name}): {ex.Message}");
                 }
             }
-            return aiTranslatedCount; // ✨ 回傳總數量
+            return aiTranslatedCount;
         }
 
 
+        // 這個方法負責處理 模組DefInjected 流程。
+        // EN: This method processes mod Def Injected.
         private static async Task<int> ProcessModDefInjected(ModMetaData mod, List<string> langRoots, List<string> defsRoots)
         {
-            int aiTranslatedCount = 0; // ✨ 咪咪特製：AI 翻譯計數器
+            int aiTranslatedCount = 0;
             var settings = AutoTranslatorMod.Settings;
             string targetFolder = GetFolderNameByLanguage(settings.TargetLang);
             string otherFolder = GetSecondaryFolderNameByLanguage(settings.TargetLang);
@@ -167,17 +180,14 @@ namespace AutoTranslator_Core
                 secondaryTag = "ATC_Tag_FromTraditional".Translate().ToString();
             string packDefBaseDir = Path.Combine(GetLocalPackPath(), "Languages", targetFolder, "DefInjected");
 
-            // 修正 Bug E：分離三層字典，分別記錄不同來源，避免混淆
-            // 1. 英文原文（從 Defs 提取 + 從 English/DefInjected 提取）→ 用於確認哪些 key 需要被翻譯
-            // 2. 模組自帶的目標語言（例如選簡中時的 ChineseSimplified）→ 優先採用，跳過 AI
-            // 3. 模組自帶的次級語言（簡↔繁互填）→ 次優先，標記 tag
+
             var englishKeys = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
             var modSelfTargetLang = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
             var modSelfSecondaryLang = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
             var rawDefTypesAlreadyTarget = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             var rawDefLanguageSamples = new List<string>();
 
-            // ✨ 架構師改造：加上 lang 參數
+
             Action<string, Dictionary<string, Dictionary<string, string>>, TargetLanguage?> LoadDefsToDict = (path, targetDict, lang) => {
                 if (string.IsNullOrEmpty(path) || !Directory.Exists(path)) return;
                 foreach (var typeDir in Directory.GetDirectories(path))
@@ -199,7 +209,7 @@ namespace AutoTranslator_Core
                     foreach (var kv in d) targetDict["General"][kv.Key] = kv.Value;
                 }
             };
-            // 1. 從 Defs 提取英文原文
+
             foreach (var dRoot in defsRoots)
             {
                 var extracted = ExtractEnglishFromRawDefs(dRoot);
@@ -221,15 +231,15 @@ namespace AutoTranslator_Core
                 string.Join("\n", rawDefLanguageSamples.Take(240).ToArray()),
                 settings.TargetLang);
 
-            // 在第 545 行附近的呼叫改為：
+
             foreach (var lRoot in langRoots)
             {
-                LoadDefsToDict(Path.Combine(lRoot, "English", "DefInjected"), englishKeys, null); // 英文不檢查
-                LoadDefsToDict(Path.Combine(lRoot, targetFolder, "DefInjected"), modSelfTargetLang, settings.TargetLang); // 檢查目標語言
+                LoadDefsToDict(Path.Combine(lRoot, "English", "DefInjected"), englishKeys, null);
+                LoadDefsToDict(Path.Combine(lRoot, targetFolder, "DefInjected"), modSelfTargetLang, settings.TargetLang);
                 if (!string.IsNullOrEmpty(otherFolder))
                 {
                     TargetLanguage secLang = settings.TargetLang == TargetLanguage.Traditional ? TargetLanguage.Simplified : TargetLanguage.Traditional;
-                    LoadDefsToDict(Path.Combine(lRoot, otherFolder, "DefInjected"), modSelfSecondaryLang, secLang); // 檢查次級語言
+                    LoadDefsToDict(Path.Combine(lRoot, otherFolder, "DefInjected"), modSelfSecondaryLang, secLang);
                 }
             }
 
@@ -253,7 +263,7 @@ namespace AutoTranslator_Core
             if (englishKeys.Count == 0 && modSelfTargetLang.Count == 0)
                 return aiTranslatedCount;
 
-            // 修正 Bug E：統計模組自帶翻譯量，給玩家看
+
             int modSelfTargetCount = modSelfTargetLang.Sum(kv => kv.Value.Count);
             if (modSelfTargetCount > 0)
             {
@@ -261,7 +271,7 @@ namespace AutoTranslator_Core
                     AutoTranslatorAPI.TranslateText("ATC_Log_SkipExistingTranslation", mod.Name, modSelfTargetCount));
             }
 
-            // 合併 englishKeys 與 modSelfTargetLang 的所有 defType（取聯集）
+
             var allDefTypes = new HashSet<string>(englishKeys.Keys, StringComparer.OrdinalIgnoreCase);
             foreach (var k in modSelfTargetLang.Keys) allDefTypes.Add(k);
 
@@ -275,7 +285,7 @@ namespace AutoTranslator_Core
                 currentDef++;
                 AutoTranslatorMod.Settings.SubProgress = (float)currentDef / totalDefs;
 
-                // 🛡️ 臉部模組終極防禦：這幾個 DefType 絕對不准翻譯，否則必定破圖！
+
                 string defTypeLower = defType.ToLower();
                 if (defTypeLower.Contains("facedef") || defTypeLower.Contains("eyedef") ||
                     defTypeLower.Contains("browdef") || defTypeLower.Contains("liddef") ||
@@ -287,7 +297,7 @@ namespace AutoTranslator_Core
                     continue;
                 }
 
-                // 收集這個 defType 下所有 key（英文原文的 key 集合）
+
                 var keysForThisType = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 if (englishKeys.TryGetValue(defType, out var engDict))
                     foreach (var k in engDict.Keys) keysForThisType.Add(k);
@@ -309,42 +319,41 @@ namespace AutoTranslator_Core
                     string globalKey = $"{defType}/{key}";
                     string globalKeyGen = $"General/{key}";
 
-                    // 修正 Bug E：優先級重排
-                    // 優先級 1：本機 Pack 已翻譯（玩家上次跑出來的結果）
+
                     if (selfDict != null && selfDict.TryGetValue(key, out string selfVal)
                              && !string.IsNullOrWhiteSpace(selfVal))
                     {
                         finalData[key] = selfVal;
                     }
-                    // 優先級 2：模組自帶目標語言翻譯（例如模組原作者寫的簡中）
-                    //          這是修正核心：直接採用，不送 AI
+
+
                     else if (packDict.TryGetValue(key, out string packVal))
                     {
                         UseExistingOrQueueForAI(finalData, keysToAI, valuesToAI, key, packVal, engDict != null && engDict.TryGetValue(key, out string packSourceVal) ? packSourceVal : "");
                     }
-                    // 優先級 3：全域字典（其他模組或全域 Languages 的目標語言）
+
                     else if (GlobalPrimaryDefDict.TryGetValue(globalKey, out string pVal)
                              || GlobalPrimaryDefDict.TryGetValue(globalKeyGen, out pVal))
                     {
                         UseExistingOrQueueForAI(finalData, keysToAI, valuesToAI, key, pVal, engDict != null && engDict.TryGetValue(key, out string globalSourceVal) ? globalSourceVal : "");
                     }
-                    // 優先級 4：模組自帶次級語言（簡↔繁互填，送 AI 做語系轉換）
+
                     else if (modSelfSecondaryLang.TryGetValue(defType, out var secDict)
                              && secDict.TryGetValue(key, out string secVal)
                              && !string.IsNullOrEmpty(secondaryTag))
                     {
                         keysToAI.Add(key);
-                        valuesToAI.Add(secVal);  // 純淨送出，不帶 tag
+                        valuesToAI.Add(secVal);
                     }
-                    // 優先級 5：全域次級語言字典
+
                     else if ((GlobalSecondaryDefDict.TryGetValue(globalKey, out string sVal)
                               || GlobalSecondaryDefDict.TryGetValue(globalKeyGen, out sVal))
                              && !string.IsNullOrEmpty(secondaryTag))
                     {
                         keysToAI.Add(key);
-                        valuesToAI.Add(sVal);  // 純淨送出
+                        valuesToAI.Add(sVal);
                     }
-                    // 優先級 6：用英文原文送 AI
+
                     else if (engDict != null && engDict.TryGetValue(key, out string engVal)
                              && !string.IsNullOrEmpty(engVal))
                     {
@@ -367,18 +376,23 @@ namespace AutoTranslator_Core
                     if (AutoTranslatorSettings.IsCancellationRequested || AutoTranslatorSettings.IsSkipCurrentRequested) return aiTranslatedCount;
                     if (res != null)
                     {
+                        int acceptedCount = 0;
                         for (int i = 0; i < keysToAI.Count; i++)
                         {
                             string k = keysToAI[i];
                             string v = res[i];
 
-                            // 新增：AI 回應的智慧清理
-                            v = SanitizeTranslationResult(v, valuesToAI[i]);
+
+                            if (!TryAcceptTranslatedValue(v, valuesToAI[i], out v))
+                            {
+                                continue;
+                            }
 
                             finalData[k] = v;
+                            acceptedCount++;
                         }
                         AutoTranslatorSettings.AddLog("✨ " + AutoTranslatorAPI.TranslateText("ATC_Log_AIFinish", defType));
-                        aiTranslatedCount += keysToAI.Count; // ✨ 累加成功翻譯的數量
+                        aiTranslatedCount += acceptedCount;
                     }
                     else AutoTranslatorSettings.AddLog("⚠️ " + AutoTranslatorAPI.TranslateText("ATC_Log_AIFail", defType));
                 }
@@ -389,10 +403,12 @@ namespace AutoTranslator_Core
 
                 if (finalData.Count > 0) SaveXml(targetFile, finalData);
             }
-            return aiTranslatedCount; // ✨ 回傳總數量
+            return aiTranslatedCount;
         }
-        // 🌟 咪咪特製終極版翻譯引擎：分塊 + 併發 + 去重 + 指數退避 (全本地化 + 精準報錯版)！
-        // 🌟 咪咪特製終極版翻譯引擎：分塊 + 併發 + 去重 + 指數退避 (全本地化 + 安全日誌防護版)！
+
+
+        // 這個方法負責處理 Safe翻譯Batch 相關流程。
+        // EN: This method handles safe translate batch.
         private static async Task<List<string>> SafeTranslateBatch(List<string> texts, string contextInfo)
         {
             if (texts == null || texts.Count == 0) return new List<string>();
@@ -443,7 +459,7 @@ namespace AutoTranslator_Core
 
                                 AutoTranslatorSettings.AddLog("⚠️ " + AutoTranslatorAPI.TranslateText("ATC_Log_ApiRetry", baseDelay / 1000));
 
-                                // 🛡️ 安全寫入開發者日誌
+
                                 ATC_Dispatcher.RunOnMainThread(() =>
                                     Verse.Log.Warning($"[AutoTranslationCore] " + AutoTranslatorAPI.TranslateText("ATC_Log_ApiRetry", baseDelay / 1000))
                                 );
@@ -488,7 +504,7 @@ namespace AutoTranslator_Core
                                         {
                                             AutoTranslatorSettings.AddErrorLog("❌ " + AutoTranslatorAPI.TranslateText("ATC_LogError_ApiCritical", contextInfo));
 
-                                            // 🛡️ 安全寫入開發者日誌
+
                                             ATC_Dispatcher.RunOnMainThread(() =>
                                                 Verse.Log.Error($"[AutoTranslationCore] ❌ " + AutoTranslatorAPI.TranslateText("ATC_LogError_ApiCritical", contextInfo))
                                             );
@@ -542,6 +558,8 @@ namespace AutoTranslator_Core
             return finalResults;
         }
 
+        // 這個方法負責處理 SafeSlice 相關流程。
+        // EN: This method handles safe slice.
         private static List<string> SafeSlice(List<string> source, int start, int count)
         {
             if (source == null || start < 0 || count <= 0 || start >= source.Count)
@@ -565,6 +583,8 @@ namespace AutoTranslator_Core
         }
 
 
+        // 這個方法負責處理 UseExistingOr佇列ForAI 相關流程。
+        // EN: This method handles use existing or queue for AI.
         private static void UseExistingOrQueueForAI(Dictionary<string, string> finalData, List<string> keysToAI, List<string> valuesToAI, string key, string existingTranslation, string sourceText)
         {
             if (!string.IsNullOrWhiteSpace(sourceText) && TranslationHasLikelyEnglishResidual(existingTranslation, sourceText, true))
@@ -578,6 +598,8 @@ namespace AutoTranslator_Core
         }
 
 
+        // 這個方法負責翻譯 AdaptiveSmallChunks 內容。
+        // EN: This method translates adaptive small chunks.
         private static async Task<List<string>> TranslateAdaptiveSmallChunks(List<string> chunk, string contextInfo)
         {
             if (chunk == null || chunk.Count <= 1) return null;
@@ -614,6 +636,8 @@ namespace AutoTranslator_Core
         }
 
 
+        // 這個方法負責處理 RetryLikelyEnglishResiduals 相關流程。
+        // EN: This method handles retry likely english residuals.
         private static async Task<List<string>> RetryLikelyEnglishResiduals(List<string> sourceTexts, List<string> translatedTexts, string contextInfo)
         {
             if (sourceTexts == null || translatedTexts == null || sourceTexts.Count != translatedTexts.Count)
@@ -647,12 +671,41 @@ namespace AutoTranslator_Core
                     }
                 }
 
-                AddValidationStat(s => s.EnglishResidualFallback++);
-                AutoTranslatorSettings.AddLog($"🩺 [Validation] English residual still unresolved after retry: {contextInfo}");
-                translatedTexts[i] = sanitized;
+                MarkEnglishResidualRejected(contextInfo);
+                translatedTexts[i] = null;
             }
 
             return translatedTexts;
+        }
+
+        // 這個方法負責嘗試執行 AcceptTranslatedValue 並回報是否成功。
+        // EN: This method tries to accept translated value and reports whether it succeeded.
+        private static bool TryAcceptTranslatedValue(string translated, string sourceText, out string sanitized)
+        {
+            sanitized = SanitizeTranslationResult(translated, sourceText);
+            if (string.IsNullOrWhiteSpace(sanitized))
+            {
+                return false;
+            }
+
+            if (!TranslationHasLikelyEnglishResidual(sanitized, sourceText, false))
+            {
+                return true;
+            }
+
+            MarkEnglishResidualRejected(null);
+            return false;
+        }
+
+        // 這個方法負責標記 EnglishResidualRejected 狀態。
+        // EN: This method marks english residual rejected.
+        private static void MarkEnglishResidualRejected(string contextInfo)
+        {
+            AddValidationStat(s => s.EnglishResidualFallback++);
+            if (!string.IsNullOrWhiteSpace(contextInfo))
+            {
+                AutoTranslatorSettings.AddLog($"🩺 [Validation] English residual still unresolved after retry: {contextInfo}");
+            }
         }
     }
 }

@@ -10,27 +10,53 @@ using System.Threading.Tasks;
 using UnityEngine;
 using Verse;
 using static AutoTranslator_Core.DeleteTranslationWindow;
+// 這個檔案負責 UI 文字攔截與快取控制。
+// EN: This file coordinates UI text interception and cache state.
 
 namespace AutoTranslator_Core
 {
     [StaticConstructorOnStartup]
+    // 這個類別負責 UIInterceptor 的主要流程與狀態。
+    // EN: This class manages the main workflow and state for UIInterceptor.
     public static partial class UIInterceptor
     {
         public static ConcurrentDictionary<string, string> Cache = new ConcurrentDictionary<string, string>();
         public static ConcurrentDictionary<string, bool> IgnoredCache = new ConcurrentDictionary<string, bool>();
         private static ConcurrentQueue<string> TranslationQueue = new ConcurrentQueue<string>();
         private static ConcurrentDictionary<string, bool> PendingTranslations = new ConcurrentDictionary<string, bool>();
+        // 這個欄位保存 快取File路徑 的執行狀態或快取資料。
+        // EN: This field stores cache file path runtime state or cached data.
         private static readonly string CacheFilePath;
+        // 這個欄位保存 Ignored快取File路徑 的執行狀態或快取資料。
+        // EN: This field stores ignored cache file path runtime state or cached data.
         private static readonly string IgnoredCacheFilePath;
+        // 這個常數定義 MaxQueuedTranslations 的固定值。
+        // EN: This constant defines the fixed value for max queued translations.
         private const int MaxQueuedTranslations = 500;
+        // 這個常數定義 MaxNew佇列ItemsPerFrame 的固定值。
+        // EN: This constant defines the fixed value for max new queue items per frame.
         private const int MaxNewQueueItemsPerFrame = 6;
+        // 這個常數定義 MaxIgnored快取Size 的固定值。
+        // EN: This constant defines the fixed value for max ignored cache size.
         private const int MaxIgnoredCacheSize = 20000;
+        // 這個欄位保存 queuedApproxCount 的執行狀態或快取資料。
+        // EN: This field stores queued approx count runtime state or cached data.
         private static int _queuedApproxCount = 0;
+        // 這個欄位保存 last佇列Frame 的執行狀態或快取資料。
+        // EN: This field stores last queue frame runtime state or cached data.
         private static int _lastQueueFrame = -1;
+        // 這個欄位保存 queuedThisFrame 的執行狀態或快取資料。
+        // EN: This field stores queued this frame runtime state or cached data.
         private static int _queuedThisFrame = 0;
         private static readonly object _frameBudgetLock = new object();
+        // 這個欄位保存 cacheDirty 的執行狀態或快取資料。
+        // EN: This field stores cache dirty runtime state or cached data.
         private static volatile bool _cacheDirty = false;
+        // 這個欄位保存 ignored快取Dirty 的執行狀態或快取資料。
+        // EN: This field stores ignored cache dirty runtime state or cached data.
         private static volatile bool _ignoredCacheDirty = false;
+        // 這個欄位保存 last快取SaveTicks 的執行狀態或快取資料。
+        // EN: This field stores last cache save ticks runtime state or cached data.
         private static long _lastCacheSaveTicks = 0L;
 
         private static readonly Regex LetterRegex = new Regex(@"\p{L}", RegexOptions.Compiled);

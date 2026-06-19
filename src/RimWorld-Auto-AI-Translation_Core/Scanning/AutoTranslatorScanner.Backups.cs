@@ -11,15 +11,19 @@ using System.Threading.Tasks;
 using System.Xml;
 using Verse;
 using static AutoTranslator_Core.DeleteTranslationWindow;
+// 這個檔案負責翻譯包備份、還原與舊檔清理。
+// EN: This file creates backups, restores files, and clears old translation output.
 
 namespace AutoTranslator_Core
 {
+    // 這個類別負責 自動翻譯器掃描器 的主要流程與狀態。
+    // EN: This class manages the main workflow and state for AutoTranslatorScanner.
     public static partial class AutoTranslatorScanner
     {
 
-        // ==========================================
-        // 🌟 咪咪特製：V5.0 智能縫合身分證更新器！(精準判定版)
-        // ==========================================
+
+        // 這個方法負責處理 UpdateLocal模組Meta 相關流程。
+        // EN: This method handles update local mod meta.
         public static void UpdateLocalModMeta(string packageId, string targetLangFolder, int newAiCount)
         {
             try
@@ -56,7 +60,7 @@ namespace AutoTranslator_Core
                     catch { }
                 }
 
-                // ✨ 咪咪精準邏輯：只有繼承雲端大老的檔案，才算「智能縫合」並計數！
+
                 if (hasCloudIdentity)
                 {
                     meta.IsSmartMerged = true;
@@ -64,7 +68,7 @@ namespace AutoTranslator_Core
                 }
                 else
                 {
-                    // 純 AI 機翻，不掛縫合標籤，縫合次數保持 0
+
                     meta.IsSmartMerged = false;
                     meta.MergedAiCount = 0;
                 }
@@ -74,17 +78,17 @@ namespace AutoTranslator_Core
                 File.WriteAllText(metaPath, JsonConvert.SerializeObject(meta, Newtonsoft.Json.Formatting.Indented));
                 AutoTranslatorSettings.AddLog("📝 " + "ATC_Log_MetaUpdated".Translate(newAiCount));
 
-                // ✨ 呼叫剛才寫好的廣播接口，通知全域編輯器「名單更新啦！」
-                TranslationWorkbenchTab.RequestRefresh();
+
             }
             catch (Exception ex)
             {
                 Log.Warning($"[AutoTranslationCore] UpdateLocalModMeta error: {ex.Message}");
             }
-        }       
-        // ==========================================
-        // 🌟 咪咪特製：V5.0 本機 LRU 備份引擎
-        // ==========================================
+        }
+
+
+        // 這個方法負責建立 備份BeforeClear 物件或檔案。
+        // EN: This method creates backup before clear.
         private static void CreateBackupBeforeClear(ModMetaData mod, List<string> filesToBackup)
         {
             if (filesToBackup == null || filesToBackup.Count == 0) return;
@@ -94,14 +98,14 @@ namespace AutoTranslator_Core
                 string backupRoot = Path.Combine(packPath, "Backups", mod.PackageId);
                 Directory.CreateDirectory(backupRoot);
 
-                // 建立一個暫存資料夾來放準備打包的檔案
+
                 string stagingDir = Path.Combine(Path.GetTempPath(), "ATC_Backup_" + mod.PackageId);
                 if (Directory.Exists(stagingDir)) Directory.Delete(stagingDir, true);
                 Directory.CreateDirectory(stagingDir);
 
                 string langsPath = Path.Combine(packPath, "Languages");
 
-                // 把要刪除的檔案先複製一份到暫存區 (保留原本的資料夾結構)
+
                 foreach (string file in filesToBackup)
                 {
                     string relPath = file.Substring(langsPath.Length).TrimStart('\\', '/');
@@ -110,7 +114,7 @@ namespace AutoTranslator_Core
                     File.Copy(file, destPath, true);
                 }
 
-                // 打包成 ZIP
+
                 string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
                 string zipPath = Path.Combine(backupRoot, $"{mod.PackageId}_{timestamp}.zip");
 
@@ -118,7 +122,7 @@ namespace AutoTranslator_Core
                 System.IO.Compression.ZipFile.CreateFromDirectory(stagingDir, zipPath);
                 Directory.Delete(stagingDir, true);
 
-                // ✨ LRU 最少使用淘汰演算法：永遠只保留最新的 3 個備份檔！
+
                 var zipFiles = new DirectoryInfo(backupRoot).GetFiles("*.zip")
                                 .OrderByDescending(f => f.CreationTimeUtc).ToList();
 
@@ -136,9 +140,8 @@ namespace AutoTranslator_Core
         }
 
 
-        // ==========================================
-        // 🌟 咪咪特製：背景無感自動清理舊翻譯引擎 (帶備份版)
-        // ==========================================
+        // 這個方法負責清除 Old翻譯Files 資料。
+        // EN: This method clears old translation files.
         public static void ClearOldTranslationFiles(List<ModMetaData> modsToClear)
         {
             try
@@ -155,12 +158,12 @@ namespace AutoTranslator_Core
                     string id1 = mod.PackageId.ToLower();
                     string id2 = mod.PackageId.Replace(".", "_").ToLower();
 
-                    // ✨ 先準備一個清單，收集要刪除的檔案
+
                     List<string> filesToDelete = new List<string>();
 
                     foreach (var file in allXmls)
                     {
-                        // 🛡️ 絕對防禦：如果檔案路徑包含 Upload_Workspace，直接跳過，神仙來了都不准刪！
+
                         if (file.Contains("Upload_Workspace")) continue;
 
                         string fileName = Path.GetFileName(file).ToLower();
@@ -171,14 +174,14 @@ namespace AutoTranslator_Core
                         }
                     }
 
-                    // ✨ 如果有找到舊檔案，先備份，再執行物理刪除！
+
                     if (filesToDelete.Count > 0)
                     {
-                        CreateBackupBeforeClear(mod, filesToDelete); // 呼叫 LRU 備份引擎
+                        CreateBackupBeforeClear(mod, filesToDelete);
 
                         foreach (var file in filesToDelete)
                         {
-                            // 🛡️ 強制爆破：剝奪唯讀權限後再刪除
+
                             System.IO.File.SetAttributes(file, System.IO.FileAttributes.Normal);
                             File.Delete(file);
                             deletedFiles++;
@@ -199,6 +202,8 @@ namespace AutoTranslator_Core
         }
 
 
+        // 這個方法負責處理 RestoreLatest備份 相關流程。
+        // EN: This method handles restore latest backups.
         public static int RestoreLatestBackups(List<ModMetaData> modsToRestore)
         {
             if (modsToRestore == null || modsToRestore.Count == 0) return 0;

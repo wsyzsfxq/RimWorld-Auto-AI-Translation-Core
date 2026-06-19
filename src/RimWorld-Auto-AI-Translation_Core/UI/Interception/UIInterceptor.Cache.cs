@@ -10,11 +10,17 @@ using System.Threading.Tasks;
 using UnityEngine;
 using Verse;
 using static AutoTranslator_Core.DeleteTranslationWindow;
+// 這個檔案負責 UI 快取清理與熱重載。
+// EN: This file manages UI translation cache clearing and hot reload.
 
 namespace AutoTranslator_Core
 {
+    // 這個類別負責 UIInterceptor 的主要流程與狀態。
+    // EN: This class manages the main workflow and state for UIInterceptor.
     public static partial class UIInterceptor
     {
+        // 這個方法負責讀取 快取 資料。
+        // EN: This method loads cache.
         private static void LoadCache()
         {
             if (!EnsureCacheFileReadable(CacheFilePath)) return;
@@ -77,6 +83,8 @@ namespace AutoTranslator_Core
             }
         }
 
+        // 這個方法負責讀取 Ignored快取 資料。
+        // EN: This method loads ignored cache.
         private static void LoadIgnoredCache()
         {
             try
@@ -109,6 +117,8 @@ namespace AutoTranslator_Core
         }
 
 
+        // 這個方法負責保存 快取 資料。
+        // EN: This method saves cache.
         public static void SaveCache()
         {
             try
@@ -131,6 +141,8 @@ namespace AutoTranslator_Core
             }
         }
 
+        // 這個方法負責保存 Ignored快取 資料。
+        // EN: This method saves ignored cache.
         private static void SaveIgnoredCache()
         {
             try
@@ -162,6 +174,8 @@ namespace AutoTranslator_Core
             }
         }
 
+        // 這個方法負責讀取 Existing快取FileForMerge 資料。
+        // EN: This method loads existing cache file for merge.
         private static Dictionary<string, string> LoadExistingCacheFileForMerge(string path, bool quarantineOnError)
         {
             try
@@ -181,6 +195,8 @@ namespace AutoTranslator_Core
             }
         }
 
+        // 這個方法負責讀取 ExistingIgnored快取FileForMerge 資料。
+        // EN: This method loads existing ignored cache file for merge.
         private static Dictionary<string, bool> LoadExistingIgnoredCacheFileForMerge(string path)
         {
             var result = new Dictionary<string, bool>(StringComparer.Ordinal);
@@ -208,6 +224,8 @@ namespace AutoTranslator_Core
             return result;
         }
 
+        // 這個欄位保存 RemoveCurrent語言Entries 的執行狀態或快取資料。
+        // EN: This field stores remove current language entries runtime state or cached data.
         private static void RemoveCurrentLanguageEntries<T>(IDictionary<string, T> dict)
         {
             string prefix = AutoTranslatorMod.Settings.TargetLang + "|";
@@ -221,6 +239,8 @@ namespace AutoTranslator_Core
             }
         }
 
+        // 這個方法負責判斷 Has語言Prefix 條件是否成立。
+        // EN: This method checks has language prefix.
         private static bool HasLanguagePrefix(string cacheKey)
         {
             if (string.IsNullOrEmpty(cacheKey)) return false;
@@ -236,6 +256,8 @@ namespace AutoTranslator_Core
             return false;
         }
 
+        // 這個方法負責保存 AllTextAtomic 資料。
+        // EN: This method saves all text atomic.
         private static void WriteAllTextAtomic(string path, string text)
         {
             string directory = Path.GetDirectoryName(path);
@@ -247,6 +269,8 @@ namespace AutoTranslator_Core
             File.Move(tempPath, path);
         }
 
+        // 這個方法負責確保 快取FileReadable 已準備完成。
+        // EN: This method ensures cache file readable is ready.
         private static bool EnsureCacheFileReadable(string path)
         {
             if (!File.Exists(path)) return false;
@@ -265,6 +289,8 @@ namespace AutoTranslator_Core
             }
         }
 
+        // 這個方法負責處理 QuarantineBroken快取File 相關流程。
+        // EN: This method handles quarantine broken cache file.
         private static void QuarantineBrokenCacheFile(string path)
         {
             try
@@ -281,6 +307,8 @@ namespace AutoTranslator_Core
             }
         }
 
+        // 這個方法負責處理 Flush快取 相關流程。
+        // EN: This method handles flush cache.
         public static void FlushCache()
         {
             if (_cacheDirty)
@@ -295,20 +323,32 @@ namespace AutoTranslator_Core
         }
 
 
+        // 這個方法負責取得 佇列Count 資料。
+        // EN: This method gets queue count.
         public static int GetQueueCount() { return Math.Max(0, System.Threading.Volatile.Read(ref _queuedApproxCount)); }
+        // 這個方法負責取得 PendingCount 資料。
+        // EN: This method gets pending count.
         public static int GetPendingCount() { return PendingTranslations.Count; }
+        // 這個方法負責取得 IgnoredCount 資料。
+        // EN: This method gets ignored count.
         public static int GetIgnoredCount() { return IgnoredCache.Count; }
 
+        // 這個方法負責建立 快取Key 所需資料。
+        // EN: This method builds cache key.
         public static string BuildCacheKey(string text)
         {
             return $"{AutoTranslatorMod.Settings.TargetLang}|{text}";
         }
 
+        // 這個方法負責嘗試執行 GetOriginalTextFrom快取Key 並回報是否成功。
+        // EN: This method tries to get original text from cache key and reports whether it succeeded.
         private static bool TryGetOriginalTextFromCacheKey(string cacheKey, out string original)
         {
             return TryGetOriginalTextFromCacheKey(cacheKey, out original, out _);
         }
 
+        // 這個方法負責嘗試執行 GetOriginalTextFrom快取Key 並回報是否成功。
+        // EN: This method tries to get original text from cache key and reports whether it succeeded.
         private static bool TryGetOriginalTextFromCacheKey(string cacheKey, out string original, out TargetLanguage? keyLanguage)
         {
             original = cacheKey;
@@ -329,11 +369,15 @@ namespace AutoTranslator_Core
             return true;
         }
 
+        // 這個方法負責判斷 IsIgnored 條件是否成立。
+        // EN: This method checks is ignored.
         public static bool IsIgnored(string text)
         {
             return IgnoredCache.ContainsKey(BuildCacheKey(GetTranslationLookupText(text)));
         }
 
+        // 這個方法負責處理 ReloadFor語言Change 相關流程。
+        // EN: This method handles reload for language change.
         public static void ReloadForLanguageChange()
         {
             Cache.Clear();
@@ -349,6 +393,8 @@ namespace AutoTranslator_Core
             LoadIgnoredCache();
         }
 
+        // 這個方法負責嘗試執行 GetCached翻譯 並回報是否成功。
+        // EN: This method tries to get cached translation and reports whether it succeeded.
         public static bool TryGetCachedTranslation(string text, out string translated)
         {
             translated = null;
@@ -385,6 +431,8 @@ namespace AutoTranslator_Core
             return false;
         }
 
+        // 這個方法負責嘗試執行 NormalizeCached翻譯 並回報是否成功。
+        // EN: This method tries to normalize cached translation and reports whether it succeeded.
         private static bool TryNormalizeCachedTranslation(string cacheKey, string original, string translated, out string normalized)
         {
             normalized = SanitizeUITranslationResult(original, translated);
@@ -413,6 +461,8 @@ namespace AutoTranslator_Core
             return true;
         }
 
+        // 這個方法負責判斷 IsCached翻譯CompatibleWithCurrent語言 條件是否成立。
+        // EN: This method checks is cached translation compatible with current language.
         private static bool IsCachedTranslationCompatibleWithCurrentLanguage(string translated)
         {
             if (string.IsNullOrWhiteSpace(translated)) return false;
@@ -431,6 +481,8 @@ namespace AutoTranslator_Core
         }
 
 
+        // 這個方法負責處理 RememberIgnored 相關流程。
+        // EN: This method handles remember ignored.
         private static void RememberIgnored(string text)
         {
             if (IgnoredCache.Count < MaxIgnoredCacheSize)
@@ -444,6 +496,8 @@ namespace AutoTranslator_Core
         }
 
 
+        // 這個方法負責保存 快取IfDue 資料。
+        // EN: This method saves cache if due.
         private static void SaveCacheIfDue(bool force = false)
         {
             if (!_cacheDirty && !_ignoredCacheDirty) return;
@@ -456,12 +510,11 @@ namespace AutoTranslator_Core
         }
 
 
-        // ==========================================
-        // 🔄 咪咪特製：物理超渡前台 UI 緩存！(含實體檔案刪除)
-        // ==========================================
+        // 這個方法負責清除 UICache 資料。
+        // EN: This method clears UI cache.
         public static void ClearUICache()
         {
-            // 1. 清空記憶體裡的所有字典 (包含翻譯結果、黑名單、視窗快取)
+
             Cache.Clear();
             IgnoredCache.Clear();
             Patch_GUI_Label_GUIContent.ClearCache();
@@ -471,7 +524,7 @@ namespace AutoTranslator_Core
             _cacheDirty = false;
             _ignoredCacheDirty = false;
 
-            // 2. 物理超渡硬碟裡的實體字典檔案！
+
             try
             {
                 if (File.Exists(CacheFilePath))
@@ -491,9 +544,10 @@ namespace AutoTranslator_Core
 
             Verse.Log.Message("[AutoTranslationCore] 🔄 " + "ATC_Log_UICacheClearedFull".Translate());
         }
-        // ==========================================
-        // 🚀 咪咪特製：一鍵熱重載注入總樞紐！
-        // ==========================================
+
+
+        // 這個方法負責處理 Refresh執行期UICache 相關流程。
+        // EN: This method handles refresh runtime UI cache.
         public static void RefreshRuntimeUICache()
         {
             Patch_GUI_Label_GUIContent.ClearCache();
@@ -503,18 +557,19 @@ namespace AutoTranslator_Core
             Verse.Log.Message("[AutoTranslationCore] UI render cache refreshed without deleting saved translations.");
         }
 
+        // 這個方法負責送出 HotReload 請求。
+        // EN: This method requests hot reload.
         public static void RequestHotReload()
         {
             try
             {
-                // 1. 清空前台 UI 緩存與黑名單，強制重新翻譯
+
                 RefreshRuntimeUICache();
 
-                // 2. 重新讀取實體 XML 快取並灌入記憶體
+
                 AutoTranslatorScanner.MemoryDrop_InjectNow();
 
-                // 3. 右上角彈出成功提示
-                // ✅ 完美修復 CS8957：加上 .ToString() 統一兩邊的資料類型為 string！
+
                 Messages.Message("ATC_Message_HotReloadSuccess".CanTranslate()
                     ? "ATC_Message_HotReloadSuccess".Translate().ToString()
                     : "🪂 [記憶體空投] 翻譯已即時注入，UI 視窗快取已完全刷新！",

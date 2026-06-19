@@ -6,18 +6,32 @@ using System.Text;
 using UnityEngine;
 using Verse;
 using RimWorld;
+// 這個檔案負責導出模組選取與確認視窗。
+// EN: This file draws the export selection and confirmation window.
 
 namespace AutoTranslator_Core
 {
+    // 這個類別負責 視窗導出 的主要流程與狀態。
+    // EN: This class manages the main workflow and state for Window_Export.
     public class Window_Export : Window
     {
+        // 這個欄位保存 searchText 的執行狀態或快取資料。
+        // EN: This field stores search text runtime state or cached data.
         private string _searchText = "";
+        // 這個欄位保存 scrollPos 的執行狀態或快取資料。
+        // EN: This field stores scroll pos runtime state or cached data.
         private Vector2 _scrollPos = Vector2.zero;
         private HashSet<string> _selectedPackageIds = new HashSet<string>();
+        // 這個欄位保存 available模組 的執行狀態或快取資料。
+        // EN: This field stores available mods runtime state or cached data.
         private List<ExportableModInfo> _availableMods;
 
+        // 這個屬性提供 InitialSize 的讀寫或計算結果。
+        // EN: This method handles vector2.
         public override Vector2 InitialSize => new Vector2(750f, 700f);
 
+        // 這個方法負責處理 視窗導出 相關流程。
+        // EN: This constructor initializes window export.
         public Window_Export()
         {
             doCloseButton = false;
@@ -27,6 +41,8 @@ namespace AutoTranslator_Core
             _availableMods = ScanAvailableMods();
         }
 
+        // 這個方法負責處理 Do視窗Contents 相關流程。
+        // EN: This method handles do window contents.
         public override void DoWindowContents(Rect inRect)
         {
             Text.Font = GameFont.Medium;
@@ -35,7 +51,7 @@ namespace AutoTranslator_Core
             Text.Font = GameFont.Small;
             Widgets.DrawLineHorizontal(0, 35f, inRect.width);
 
-            // 沒有可導出的模組
+
             if (_availableMods.Count == 0)
             {
                 GUI.color = new Color(1f, 0.6f, 0.6f);
@@ -45,7 +61,7 @@ namespace AutoTranslator_Core
                 return;
             }
 
-            // 搜尋列
+
             Rect searchRect = new Rect(0, 45f, inRect.width, 30f);
             _searchText = Widgets.TextField(searchRect, _searchText);
             if (string.IsNullOrEmpty(_searchText))
@@ -56,14 +72,14 @@ namespace AutoTranslator_Core
                 GUI.color = Color.white;
             }
 
-            // 篩選
+
             var filtered = string.IsNullOrEmpty(_searchText)
                 ? _availableMods
                 : _availableMods.Where(m =>
                     m.ModName.ToLower().Contains(_searchText.ToLower()) ||
                     m.PackageId.ToLower().Contains(_searchText.ToLower())).ToList();
 
-            // 統計提示
+
             Widgets.Label(new Rect(0, 80f, inRect.width, 22f),
                 "ATC_ExportWindow_DetectedCount".Translate(_availableMods.Count));
 
@@ -74,7 +90,7 @@ namespace AutoTranslator_Core
 
             Widgets.DrawLineHorizontal(0, 130f, inRect.width);
 
-            // 模組列表
+
             float listY = 140f;
             float listHeight = inRect.height - 240f;
             Rect listOutRect = new Rect(0, listY, inRect.width, listHeight);
@@ -91,7 +107,7 @@ namespace AutoTranslator_Core
                 Widgets.DrawHighlightIfMouseover(rowRect);
                 if (isSelected) Widgets.DrawHighlight(rowRect);
 
-                // 點擊整列切換勾選
+
                 if (Mouse.IsOver(rowRect) && Event.current.type == EventType.MouseDown && Event.current.button == 0)
                 {
                     if (isSelected) _selectedPackageIds.Remove(mod.PackageId);
@@ -99,16 +115,16 @@ namespace AutoTranslator_Core
                     Event.current.Use();
                 }
 
-                // Checkbox
+
                 Vector2 checkPos = new Vector2(rowRect.x + 5f, rowRect.y + (rowRect.height - 24f) / 2f);
                 Widgets.CheckboxDraw(checkPos.x, checkPos.y, isSelected, false, 24f, null, null);
 
-                // 模組名稱
+
                 Text.Anchor = TextAnchor.UpperLeft;
                 Rect nameRect = new Rect(rowRect.x + 40f, rowRect.y + 4f, rowRect.width - 50f, 22f);
                 Widgets.Label(nameRect, $"<b>{mod.ModName}</b>  <color=#888888>({mod.PackageId})</color>");
 
-                // 翻譯統計
+
                 GUI.color = new Color(0.7f, 0.7f, 0.7f);
                 Rect statRect = new Rect(rowRect.x + 40f, rowRect.y + 28f, rowRect.width - 50f, 22f);
                 Text.Font = GameFont.Tiny;
@@ -121,14 +137,14 @@ namespace AutoTranslator_Core
             }
             Widgets.EndScrollView();
 
-            // 底部資訊
+
             float infoY = listY + listHeight + 10f;
             string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
             string folderName = $"RimWorld_Translations_{DateTime.Now:yyyy-MM-dd_HHmmss}";
             Widgets.Label(new Rect(0, infoY, inRect.width, 22f),
                 "ATC_ExportWindow_OutputPath".Translate(Path.Combine(desktopPath, folderName)));
 
-            // P3 第二階段：冷卻狀態顯示
+
             CooldownState cooldown = ExportCooldownManager.GetCurrentState();
             GUI.color = cooldown.CanExport
                 ? new Color(0.6f, 1f, 0.6f)
@@ -144,11 +160,11 @@ namespace AutoTranslator_Core
                 "ATC_ExportWindow_WatermarkNotice".Translate());
             GUI.color = Color.white;
 
-            // 確認按鈕
+
             float btnY = inRect.height - 45f;
             Rect btnRect = new Rect(0, btnY, inRect.width, 40f);
 
-            // P3 第二階段：根據冷卻狀態決定按鈕顏色
+
             bool canClickConfirm = cooldown.CanExport && _selectedPackageIds.Count > 0;
             if (canClickConfirm)
             {
@@ -162,7 +178,7 @@ namespace AutoTranslator_Core
             if (Widgets.ButtonText(btnRect,
                 "ATC_ExportWindow_ConfirmBtn".Translate(_selectedPackageIds.Count)))
             {
-                // P3 第二階段：完整的前置檢查
+
                 if (_selectedPackageIds.Count == 0)
                 {
                     Messages.Message("ATC_ExportWindow_NoModSelected".Translate(),
@@ -202,9 +218,9 @@ namespace AutoTranslator_Core
             GUI.color = Color.white;
         }
 
-        /// <summary>
-        /// 掃描 !Translation_AI_Pack/Languages 找出所有有翻譯的模組
-        /// </summary>
+
+        // 這個方法負責掃描 Available模組 資料。
+        // EN: This method scans available mods.
         private List<ExportableModInfo> ScanAvailableMods()
         {
             var result = new List<ExportableModInfo>();
@@ -213,13 +229,12 @@ namespace AutoTranslator_Core
 
             if (!Directory.Exists(langsPath)) return result;
 
-            // 收集所有翻譯檔的 packageId 與條目數
-            // 檔案命名規則：{packageId_with_underscores}_xxx.xml
+
             var modStats = new Dictionary<string, (int defCount, int keyedCount)>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var langDir in Directory.GetDirectories(langsPath))
             {
-                // DefInjected
+
                 string defDir = Path.Combine(langDir, "DefInjected");
                 if (Directory.Exists(defDir))
                 {
@@ -238,7 +253,7 @@ namespace AutoTranslator_Core
                     }
                 }
 
-                // Keyed
+
                 string keyedDir = Path.Combine(langDir, "Keyed");
                 if (Directory.Exists(keyedDir))
                 {
@@ -255,10 +270,10 @@ namespace AutoTranslator_Core
                 }
             }
 
-            // 對應到實際的 ModMetaData
+
             foreach (var kv in modStats)
             {
-                // 從底線版反推回點號版
+
                 string normalizedId = kv.Key.Replace("_", ".").ToLower();
                 var mod = ModLister.AllInstalledMods.FirstOrDefault(m =>
                     m.PackageId.ToLower() == normalizedId ||
@@ -278,7 +293,7 @@ namespace AutoTranslator_Core
                 }
                 else
                 {
-                    // 模組已被解除安裝，但翻譯檔還在
+
                     result.Add(new ExportableModInfo
                     {
                         ModName = $"[已解除安裝] {kv.Key}",
@@ -294,22 +309,24 @@ namespace AutoTranslator_Core
             return result.OrderBy(m => m.ModName).ToList();
         }
 
+        // 這個方法負責處理 ExtractPackageIdFromFile名稱 相關流程。
+        // EN: This method handles extract package id from file name.
         private static string ExtractPackageIdFromFileName(string fileName)
         {
-            // 檔名格式：{packageId_with_underscores}_AutoTranslated 或 {packageId_with_underscores}_原檔名
-            // 用啟發式：取第一個底線到第二個底線之間的內容判斷
-            // 實際上 packageId 可能有底線，所以我們取「直到 _AutoTranslated 或 _Keyed」為止
+
+
             int idx = fileName.IndexOf("_AutoTranslated", StringComparison.OrdinalIgnoreCase);
             if (idx > 0) return fileName.Substring(0, idx);
 
-            // Keyed 檔案的命名規則是 {packageId}_{原始檔名}
-            // 找不到 _AutoTranslated 就嘗試解析（最後一個底線之前）
+
             int lastIdx = fileName.LastIndexOf('_');
             if (lastIdx > 0) return fileName.Substring(0, lastIdx);
 
             return fileName;
         }
 
+        // 這個方法負責處理 CountEntriesInXml 相關流程。
+        // EN: This method handles count entries in XML.
         private static int CountEntriesInXml(string filePath)
         {
             try

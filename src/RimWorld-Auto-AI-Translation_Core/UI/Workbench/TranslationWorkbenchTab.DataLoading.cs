@@ -7,19 +7,25 @@ using System.Threading.Tasks;
 using UnityEngine;
 using Verse;
 using static AutoTranslator_Core.DeleteTranslationWindow;
+// 這個檔案負責 翻譯工作台分頁資料載入 相關邏輯，支援 Auto Translation Core 的執行流程。
+// EN: This file contains translation workbench tab data loading support code.
 
 namespace AutoTranslator_Core
 {
+        // 這個類別負責 翻譯工作台分頁 的主要流程與狀態。
+        // EN: This class manages the main workflow and state for TranslationWorkbenchTab.
         public static partial class TranslationWorkbenchTab
         {
 
+            // 這個方法負責讀取 Real資料 資料。
+            // EN: This method loads real data.
             private static void LoadRealData(Verse.ModMetaData targetMod)
             {
                 var resultData = new Dictionary<string, List<WorkbenchItem>>();
                 var langRoots = AutoTranslatorScanner.GetAllEffectiveLangPaths(targetMod);
                 var defsRoots = AutoTranslatorScanner.GetAllEffectiveDefsPaths(targetMod);
 
-                // ✨ 咪咪修復：讀取時也必須使用 TargetLang！
+
                 string targetLangFolder = AutoTranslatorScanner.GetFolderNameByLanguage(AutoTranslatorMod.Settings.TargetLang);
 
                 var engKeyed = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);

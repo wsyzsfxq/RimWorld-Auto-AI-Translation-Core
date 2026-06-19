@@ -11,15 +11,25 @@ using System.Threading.Tasks;
 using System.Xml;
 using Verse;
 using static AutoTranslator_Core.DeleteTranslationWindow;
+// 這個檔案負責翻譯包維護與舊資料整理。
+// EN: This file maintains the local translation pack and legacy data layout.
 
 namespace AutoTranslator_Core
 {
+    // 這個類別負責 自動翻譯器掃描器 的主要流程與狀態。
+    // EN: This class manages the main workflow and state for AutoTranslatorScanner.
     public static partial class AutoTranslatorScanner
     {
         private static readonly object PackMaintenanceLock = new object();
+        // 這個欄位保存 packMaintenanceQueued 的執行狀態或快取資料。
+        // EN: This field stores pack maintenance queued runtime state or cached data.
         private static int _packMaintenanceQueued;
+        // 這個欄位保存 packMaintenanceRunning 的執行狀態或快取資料。
+        // EN: This field stores pack maintenance running runtime state or cached data.
         private static int _packMaintenanceRunning;
 
+        // 這個方法負責處理 MigrateOldTranslations 相關流程。
+        // EN: This method handles migrate old translations.
         public static void MigrateOldTranslations()
         {
             try
@@ -89,6 +99,8 @@ namespace AutoTranslator_Core
         }
 
 
+        // 這個方法負責清理並標準化 upSelfTranslations 內容。
+        // EN: This method cleans and normalizes up self translations.
         private static void CleanupSelfTranslations()
         {
             try
@@ -120,7 +132,8 @@ namespace AutoTranslator_Core
         }
 
 
-        // 🌟 AI 架構師特製：清理過去不小心幫「漢化補丁」生成的雙胞胎殘留檔案！(V2 無敵除靈版)
+        // 這個方法負責清理並標準化 up補丁模組Twins 內容。
+        // EN: This method cleans and normalizes up patch mod twins.
         public static void CleanupPatchModTwins()
         {
             try
@@ -132,23 +145,23 @@ namespace AutoTranslator_Core
                 int deletedFiles = 0;
                 var allXmls = Directory.GetFiles(langsPath, "*.xml", SearchOption.AllDirectories);
 
-                // ✨ 咪咪的黑名單特徵碼：只要檔名含有這些，絕對是漢化包的幽靈殘留！
+
                 string[] ghostTokens = {
                     ".zh", "_zh", "-zh", "zh-pack", ".zhtc", "_zhtc", "-zhtc", ".zhcn", "_zhcn",
                     "-zhcn", ".cn", "_cn", "-cn", ".tw", "_tw", "-tw", "l10n",
-                    "漢化", "汉化", "翻譯", "翻译", "translation", "language", "l10n", "中文", 
+                    "漢化", "汉化", "翻譯", "翻译", "translation", "language", "l10n", "中文",
                     "zh-tw", "zh-cn", "簡繁", "简繁", "繁簡", "繁简"
                 };
 
                 foreach (var file in allXmls)
                 {
-                    // 🛡️ 絕對防禦：工作區的檔案神仙來了都不准刪
+
                     if (file.Contains("Upload_Workspace")) continue;
 
                     string fileName = Path.GetFileName(file).ToLower();
                     bool isGhost = false;
 
-                    // 🔍 暴力比對：檔名是不是中了毒瘤特徵？
+
                     foreach (var token in ghostTokens)
                     {
                         if (fileName.Contains(token.ToLower()))
@@ -158,16 +171,16 @@ namespace AutoTranslator_Core
                         }
                     }
 
-                    // 另外加一個保底防禦：如果檔名剛好是 zh_autotranslated.xml 這種極端情況
+
                     if (!isGhost && (fileName.StartsWith("zh_") || fileName.StartsWith("zhtc_") || fileName.StartsWith("zhcn_")))
                     {
                         isGhost = true;
                     }
 
-                    // 🔪 只要判定是幽靈檔案，就地正法！
+
                     if (isGhost)
                     {
-                        // 剝奪唯讀屬性並強制刪除
+
                         File.SetAttributes(file, FileAttributes.Normal);
                         File.Delete(file);
                         deletedFiles++;
@@ -176,17 +189,19 @@ namespace AutoTranslator_Core
 
                 if (deletedFiles > 0)
                 {
-                    // ✨ 咪咪知錯了：完美呼叫本地化接口！
+
                     AutoTranslatorSettings.AddLog("🧹 " + "ATC_Log_CleanedGhostTwins".Translate(deletedFiles));
                     Verse.Log.Message($"[AutoTranslationCore] Cleaned up {deletedFiles} ghost twin translation files.");
                 }
             }
             catch (Exception ex)
             {
-                // ✨ 開發者日誌（Player.log）保持全英文，方便未來除錯
+
                 Verse.Log.Warning($"[AutoTranslationCore] Ghost twin cleanup error: {ex.Message}");
             }
         }
+        // 這個方法負責確保 翻譯包Initialized 已準備完成。
+        // EN: This method ensures pack initialized is ready.
         public static void EnsurePackInitialized(bool runFullMaintenance = false)
         {
             EnsurePackSkeleton();
@@ -201,6 +216,8 @@ namespace AutoTranslator_Core
             }
         }
 
+        // 這個方法負責確保 翻譯包Skeleton 已準備完成。
+        // EN: This method ensures pack skeleton is ready.
         private static void EnsurePackSkeleton()
         {
             string packPath = GetLocalPackPath();
@@ -212,6 +229,8 @@ namespace AutoTranslator_Core
             }
         }
 
+        // 這個方法負責排入 Background翻譯包MaintenanceOnce 佇列。
+        // EN: This method queues background pack maintenance once.
         private static void QueueBackgroundPackMaintenanceOnce(int delayMs = 750)
         {
             if (Interlocked.Exchange(ref _packMaintenanceQueued, 1) == 1) return;
@@ -230,6 +249,8 @@ namespace AutoTranslator_Core
             });
         }
 
+        // 這個方法負責處理 Run翻譯包Maintenance 相關流程。
+        // EN: This method handles run pack maintenance.
         private static void RunPackMaintenance(bool waitForExisting = false)
         {
             if (Interlocked.CompareExchange(ref _packMaintenanceRunning, 1, 0) != 0)
@@ -250,8 +271,8 @@ namespace AutoTranslator_Core
                     CleanupSelfTranslations();
                     MigrateOldTranslations();
                     ApplyEmergencyHotfix();
-                    RunDetoxScanner(); // 這是原本清垃圾空白的
-                    RunAdvancedDetoxScanner(); // 🌟 咪咪新增：這是我們保護玩家錢包的高級手術！
+                    RunDetoxScanner();
+                    RunAdvancedDetoxScanner();
                     AutoTranslatorLegacyRepairer.QueueBackgroundRepairOnce();
                 }
             }

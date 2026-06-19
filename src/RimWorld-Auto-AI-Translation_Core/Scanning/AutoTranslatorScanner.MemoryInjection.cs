@@ -11,24 +11,34 @@ using System.Threading.Tasks;
 using System.Xml;
 using Verse;
 using static AutoTranslator_Core.DeleteTranslationWindow;
+// 這個檔案負責把翻譯資料注入記憶體與主執行緒。
+// EN: This file injects translation data into memory through the main thread.
 
 namespace AutoTranslator_Core
 {
+    // 這個類別負責 自動翻譯器掃描器 的主要流程與狀態。
+    // EN: This class manages the main workflow and state for AutoTranslatorScanner.
     public static partial class AutoTranslatorScanner
     {
 
+        // 這個方法負責重置 ValidationStats 狀態。
+        // EN: This method resets validation stats.
         private static void ResetValidationStats()
         {
             lock (_validationStats) _validationStats.Reset();
         }
 
 
+        // 這個方法負責處理 AddValidationStat 相關流程。
+        // EN: This method handles add validation stat.
         private static void AddValidationStat(Action<TranslationValidationStats> update)
         {
             lock (_validationStats) update(_validationStats);
         }
 
 
+        // 這個方法負責處理 LogValidationSummary 相關流程。
+        // EN: This method handles log validation summary.
         private static void LogValidationSummary()
         {
             TranslationValidationStats snapshot;
@@ -69,6 +79,8 @@ namespace AutoTranslator_Core
         }
 
 
+        // 這個方法負責送出 記憶體Drop 請求。
+        // EN: This method requests memory drop.
         public static void RequestMemoryDrop()
         {
             if (UnityData.IsInMainThread)
@@ -86,9 +98,8 @@ namespace AutoTranslator_Core
         }
 
 
-        /// <summary>
-        /// 主執行緒派發器（由 GameComponent 每 Tick 呼叫）
-        /// </summary>
+        // 這個方法負責處理 Pump主畫面執行緒派發器 相關流程。
+        // EN: This method handles pump main thread dispatcher.
         internal static void PumpMainThreadDispatcher()
         {
             bool shouldInject = false;
@@ -107,10 +118,8 @@ namespace AutoTranslator_Core
         }
 
 
-        // ==========================================
-        // 🚀 手術 1：把咪咪的神級空投引擎放在這！
-        // (放在 GetSecondaryFolderNameByLanguage 和 IsOldVersionPath 之間)
-        // ==========================================
+        // 這個方法負責處理 記憶體DropInjectNow 相關流程。
+        // EN: This method handles memory drop inject now.
         public static void MemoryDrop_InjectNow()
         {
             System.Diagnostics.Stopwatch timer = System.Diagnostics.Stopwatch.StartNew();
@@ -125,16 +134,16 @@ namespace AutoTranslator_Core
                 string targetFolder = GetFolderNameByLanguage(AutoTranslatorMod.Settings.TargetLang);
                 string langRoot = Path.Combine(packPath, "Languages", targetFolder);
 
-                if (!Directory.Exists(langRoot)) return; // 沒快取就不用空投
+                if (!Directory.Exists(langRoot)) return;
 
-                // 🪂 1. 空投 Keyed 字串
+
                 string keyedPath = Path.Combine(langRoot, "Keyed");
                 if (Directory.Exists(keyedPath))
                 {
                     var keyedDict = LoadXmlFilesToDict(keyedPath);
                     foreach (var kvp in keyedDict)
                     {
-                        // ✅ 修復 CS0117: 拔掉 isModded
+
                         activeLang.keyedReplacements[kvp.Key] = new LoadedLanguage.KeyedReplacement
                         {
                             key = kvp.Key,
@@ -144,7 +153,7 @@ namespace AutoTranslator_Core
                     }
                 }
 
-                // 🪂 2. 空投 DefInjected (構造官方包裹)
+
                 string defPath = Path.Combine(langRoot, "DefInjected");
                 if (Directory.Exists(defPath))
                 {
@@ -154,7 +163,7 @@ namespace AutoTranslator_Core
                         Type defType = GenTypes.GetTypeInAnyAssembly(defTypeName);
                         if (defType == null) continue;
 
-                        // 尋找或建立官方包裹
+
                         DefInjectionPackage package = activeLang.defInjections.FirstOrDefault(p => p.defType == defType);
                         if (package == null)
                         {
@@ -162,14 +171,14 @@ namespace AutoTranslator_Core
                             activeLang.defInjections.Add(package);
                         }
 
-                        // ✅ 修復 CS0029: injections 是 Dictionary 而不是 List
+
                         if (package.injections == null)
                             package.injections = new Dictionary<string, DefInjectionPackage.DefInjection>();
 
                         var defDict = LoadXmlFilesToDict(typeDir);
                         foreach (var kvp in defDict)
                         {
-                            // ✅ 修復 CS1061: 既然是字典，就不需要 RemoveAll，直接覆寫！
+
                             package.injections[kvp.Key] = new DefInjectionPackage.DefInjection
                             {
                                 path = kvp.Key,
@@ -180,20 +189,20 @@ namespace AutoTranslator_Core
                     }
                 }
 
-                // 💥 3. 引爆空投！強制呼叫官方的神聖綁定儀式！
+
                 activeLang.InjectIntoData_BeforeImpliedDefs();
                 activeLang.InjectIntoData_AfterImpliedDefs();
 
-                // 🔧 咪咪特製：強制刷新隱式配方 (RecipeDef)！專治工作台清單不翻譯的 RimWorld 底層大坑！
+
                 foreach (var recipe in DefDatabase<RecipeDef>.AllDefsListForReading)
                 {
-                    // 抓出由 recipeMaker 自動生成的配方 (通常命名為 Make_XXX，且有產物)
+
                     if (recipe.defName.StartsWith("Make_") && recipe.products != null && recipe.products.Count > 0)
                     {
                         var productDef = recipe.products[0].thingDef;
                         if (productDef != null && !string.IsNullOrEmpty(productDef.label))
                         {
-                            // 強制用官方的翻譯格式重新綁定最新的中文物品名！
+
                             recipe.label = "RecipeMake".Translate(productDef.label).Resolve();
                             if (recipe.jobString != null)
                             {
@@ -202,26 +211,26 @@ namespace AutoTranslator_Core
                         }
                     }
                 }
-                // 🔧 咪咪特製：強制刷新動物與種族的衍生物品 (屍體、肉、專屬皮)！
-                // 專治動態生成導致空投後依然是英文的 Bug！
+
+
                 foreach (var thingDef in DefDatabase<ThingDef>.AllDefsListForReading)
                 {
-                    // 只要這個物件有「種族/動物屬性 (race)」，且它已經有了翻譯好的中文名字
+
                     if (thingDef.race != null && !string.IsNullOrEmpty(thingDef.label))
                     {
-                        // 1. 刷新屍體名稱 (🌟 防呆：只改系統為牠專門生成的屍體，例如 Corpse_Human，絕對不碰共用資源！)
+
                         if (thingDef.race.corpseDef != null && thingDef.race.corpseDef.defName == "Corpse_" + thingDef.defName)
                         {
                             thingDef.race.corpseDef.label = "CorpseLabel".Translate(thingDef.label).Resolve();
                         }
 
-                        // 2. 刷新肉類名稱 (🌟 防呆：邊緣世界裡機械族的肉是「鋼鐵」，絕不能把鋼鐵改名！)
+
                         if (thingDef.race.meatDef != null && thingDef.race.meatDef.defName == "Meat_" + thingDef.defName)
                         {
                             thingDef.race.meatDef.label = "MeatLabel".Translate(thingDef.label).Resolve();
                         }
 
-                        // 3. 刷新皮革名稱 (🌟 防呆：只改專屬皮革，不碰原版的輕皮革、平原皮革等共用皮)
+
                         if (thingDef.race.leatherDef != null && !string.IsNullOrEmpty(thingDef.race.leatherDef.label) && thingDef.race.leatherDef.defName == "Leather_" + thingDef.defName)
                         {
                             string engName = thingDef.defName;
@@ -239,14 +248,14 @@ namespace AutoTranslator_Core
                 }
                 if (injectedKeyed > 0 || injectedDefs > 0)
                 {
-                    // 🌟 咪咪特製：全面本地化！
+
                     AutoTranslatorSettings.AddLog("🪂 " + AutoTranslatorAPI.TranslateText("ATC_Log_MemoryDropSuccess", injectedKeyed, injectedDefs));
                     Log.Message($"[AutoTranslationCore] Memory Drop Success: Injected {injectedKeyed} Keyed & {injectedDefs} Defs without restart.");
                 }
             }
             catch (Exception ex)
             {
-                // 🌟 咪咪特製：錯誤訊息也要本地化！
+
                 AutoTranslatorSettings.AddErrorLog("❌ " + AutoTranslatorAPI.TranslateText("ATC_LogError_MemoryDropFailed", ex.Message));
                 Log.Error($"[AutoTranslationCore] Memory Drop Failed: {ex.Message}");
             }
@@ -257,6 +266,8 @@ namespace AutoTranslator_Core
             }
         }
 
+        // 這個方法負責清除 Global翻譯Database 資料。
+        // EN: This method clears global translation database.
         private static void ClearGlobalTranslationDatabase()
         {
             GlobalPrimaryDefDict.Clear();
@@ -267,6 +278,8 @@ namespace AutoTranslator_Core
         }
 
 
+        // 這個方法負責建立 Global翻譯Database 所需資料。
+        // EN: This method builds global translation database.
         private static void BuildGlobalTranslationDatabase(List<ModMetaData> mods)
         {
             AutoTranslatorSettings.AddLog("📦 " + "ATC_Log_Init".Translate());
@@ -309,7 +322,7 @@ namespace AutoTranslator_Core
                         }
                     }
 
-                    // ✨ 架構師改造：加上 lang 參數
+
                     Action<string, Dictionary<string, string>, TargetLanguage?> loadDef = (path, dict, lang) => {
                         if (!Directory.Exists(path)) return;
                         foreach (var typeDir in Directory.GetDirectories(path))
@@ -328,7 +341,7 @@ namespace AutoTranslator_Core
                         }
                     };
 
-                    // 下方呼叫時加上語系判定
+
                     foreach (string targetLangDir in ResolveLanguageFolders(langRoot, targetFolder))
                     {
                         loadDef(Path.Combine(targetLangDir, "DefInjected"), GlobalPrimaryDefDict, settings.TargetLang);

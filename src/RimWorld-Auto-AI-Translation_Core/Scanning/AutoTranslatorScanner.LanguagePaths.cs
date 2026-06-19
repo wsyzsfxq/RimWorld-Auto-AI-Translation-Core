@@ -11,12 +11,18 @@ using System.Threading.Tasks;
 using System.Xml;
 using Verse;
 using static AutoTranslator_Core.DeleteTranslationWindow;
+// 這個檔案負責解析各版本 RimWorld 的語言路徑。
+// EN: This file resolves language paths across supported RimWorld versions.
 
 namespace AutoTranslator_Core
 {
+    // 這個類別負責 自動翻譯器掃描器 的主要流程與狀態。
+    // EN: This class manages the main workflow and state for AutoTranslatorScanner.
     public static partial class AutoTranslatorScanner
     {
-        // 🌟 咪咪特製：漢化包與翻譯模組超高速過濾器！(V2 強化版)
+
+        // 這個方法負責判斷 Is翻譯補丁模組 條件是否成立。
+        // EN: This method checks is translation patch mod.
         public static bool IsTranslationPatchMod(ModMetaData mod)
         {
             if (mod == null || string.IsNullOrEmpty(mod.PackageId)) return false;
@@ -33,27 +39,29 @@ namespace AutoTranslator_Core
                 return true;
             }
 
-            // 1. 檢查模組名稱常見的漢化關鍵字
+
             string[] patchKeywords = { "漢化", "汉化", "翻譯", "翻译", "translation", "language", "l10n", "中文", "zh-tw", "zh-cn", "簡繁", "简繁", "繁簡", "繁简" };
             foreach (var kw in patchKeywords)
             {
                 if (name.Contains(kw)) return true;
             }
 
-            // 2. 檢查 PackageId 常見的語言代碼後綴或特徵 (加入 zh-pack, _zh 等)
+
             string[] pidSuffixes = { ".zh", "_zh", "-zh", "zh-pack", ".zhtc", "_zhtc", "-zhtc", ".zhcn", "_zhcn", "-zhcn", ".cn", "_cn", "-cn", ".tw", "_tw", "-tw", "l10n" };
             foreach (var suf in pidSuffixes)
             {
-                // 如果直接等於這些後綴，或者包含這些特徵
+
                 if (pid.EndsWith(suf) || pid.Contains(suf + ".") || pid.Contains(suf + "_")) return true;
             }
 
-            // 3. 終極防線：如果 PackageId 剛好就叫 zh (極少數情況)
+
             if (pid.EndsWith("zh")) return true;
 
             return false;
-        }        // ===== 主執行緒分派器 (修正 P2-1) =====
+        }
 
+        // 這個方法負責取得 Local翻譯包路徑 資料。
+        // EN: This method gets local pack path.
         public static string GetLocalPackPath()
         {
             string rimWorldRoot = Path.GetFullPath(AppDomain.CurrentDomain.BaseDirectory);
@@ -61,6 +69,8 @@ namespace AutoTranslator_Core
         }
 
 
+        // 這個方法負責取得 Folder名稱By語言 資料。
+        // EN: This method gets folder name by language.
         public static string GetFolderNameByLanguage(TargetLanguage lang)
         {
             switch (lang)
@@ -72,19 +82,21 @@ namespace AutoTranslator_Core
                 case TargetLanguage.Russian: return "Russian";
                 case TargetLanguage.Ukrainian: return "Ukrainian";
                 case TargetLanguage.English: return "English";
-                // ✨ 架構師升級：對應官方的語言資料夾名稱
+
                 case TargetLanguage.French: return "French";
                 case TargetLanguage.German: return "German";
                 case TargetLanguage.Spanish: return "Spanish";
                 case TargetLanguage.Italian: return "Italian";
                 case TargetLanguage.Polish: return "Polish";
-                case TargetLanguage.Portuguese: return "PortugueseBrazilian"; // 邊緣世界通常用巴西葡語
+                case TargetLanguage.Portuguese: return "PortugueseBrazilian";
                 case TargetLanguage.Turkish: return "Turkish";
                 default: return "English";
             }
         }
 
 
+        // 這個方法負責取得 SecondaryFolder名稱By語言 資料。
+        // EN: This method gets secondary folder name by language.
         public static string GetSecondaryFolderNameByLanguage(TargetLanguage lang)
         {
             switch (lang)
@@ -96,6 +108,8 @@ namespace AutoTranslator_Core
         }
 
 
+        // 這個方法負責判斷 Is語言FolderMatch 條件是否成立。
+        // EN: This method checks is language folder match.
         private static bool IsLanguageFolderMatch(string folderName, string expectedFolder)
         {
             if (string.IsNullOrWhiteSpace(folderName) || string.IsNullOrWhiteSpace(expectedFolder)) return false;
@@ -130,6 +144,8 @@ namespace AutoTranslator_Core
             return false;
         }
 
+        // 這個方法負責清理並標準化 語言Folder名稱 內容。
+        // EN: This method cleans and normalizes language folder name.
         private static string NormalizeLanguageFolderName(string folderName)
         {
             if (string.IsNullOrWhiteSpace(folderName)) return "";
@@ -137,6 +153,8 @@ namespace AutoTranslator_Core
         }
 
 
+        // 這個方法負責處理 Resolve語言Folders 相關流程。
+        // EN: This method handles resolve language folders.
         private static List<string> ResolveLanguageFolders(string langRoot, string folderName)
         {
             List<string> matches = new List<string>();
@@ -161,6 +179,8 @@ namespace AutoTranslator_Core
         }
 
 
+        // 這個方法負責判斷 IsOld版本路徑 條件是否成立。
+        // EN: This method checks is old version path.
         private static bool IsOldVersionPath(string modRoot, string fullPath)
         {
             string relative = fullPath.Substring(modRoot.Length).Replace('\\', '/');
@@ -190,6 +210,8 @@ namespace AutoTranslator_Core
             }
         }
 
+        // 這個方法負責取得 CurrentLoadFolderVersions 資料。
+        // EN: This method gets current load folder versions.
         private static string[] GetCurrentLoadFolderVersions()
         {
 #if RIMWORLD_1_5
@@ -199,6 +221,8 @@ namespace AutoTranslator_Core
 #endif
         }
 
+        // 這個方法負責清理並標準化 版本Folder 內容。
+        // EN: This method cleans and normalizes version folder.
         private static string NormalizeVersionFolder(string folderName)
         {
             if (string.IsNullOrWhiteSpace(folderName)) return null;
@@ -231,6 +255,8 @@ namespace AutoTranslator_Core
         }
 
 
+        // 這個方法負責解析 LoadFolders 內容。
+        // EN: This method parses load folders.
         private static List<string> ParseLoadFolders(ModMetaData mod)
         {
             List<string> activeFolders = new List<string>();
@@ -277,6 +303,8 @@ namespace AutoTranslator_Core
         }
 
 
+        // 這個方法負責取得 AllEffective語言路徑 資料。
+        // EN: This method gets all effective language paths.
         public static List<string> GetAllEffectiveLangPaths(ModMetaData mod)
         {
             List<string> result = new List<string>();
@@ -311,6 +339,8 @@ namespace AutoTranslator_Core
             return result.Distinct().ToList();
         }
 
+        // 這個方法負責判斷 HasNative目標語言 條件是否成立。
+        // EN: This method checks has native target language.
         public static bool HasNativeTargetLanguage(ModMetaData mod, TargetLanguage targetLang)
         {
             if (mod == null) return false;
@@ -335,6 +365,8 @@ namespace AutoTranslator_Core
         }
 
 
+        // 這個方法負責取得 AllEffectiveDefs路徑 資料。
+        // EN: This method gets all effective defs paths.
         public static List<string> GetAllEffectiveDefsPaths(ModMetaData mod)
         {
             List<string> result = new List<string>();

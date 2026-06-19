@@ -1,19 +1,35 @@
 using Newtonsoft.Json.Linq;
 using System;
 using System.Linq;
+// 這個檔案負責 UI 文字安全檢查。
+// EN: This file checks whether UI text is safe to translate.
 
 namespace AutoTranslator_Core
 {
+    // 這個類別負責 UIInterceptor 的主要流程與狀態。
+    // EN: This class manages the main workflow and state for UIInterceptor.
     public static partial class UIInterceptor
     {
+        // 這個結構保存 UITranslationTextContext 所需的資料欄位。
+        // EN: This struct stores data used by UITranslationTextContext.
         private struct UITranslationTextContext
         {
+            // 這個欄位保存 OriginalText 的執行狀態或快取資料。
+            // EN: This field stores original text runtime state or cached data.
             public string OriginalText;
+            // 這個欄位保存 翻譯Text 的執行狀態或快取資料。
+            // EN: This field stores translation text runtime state or cached data.
             public string TranslationText;
+            // 這個欄位保存 Prefix 的執行狀態或快取資料。
+            // EN: This field stores prefix runtime state or cached data.
             public string Prefix;
+            // 這個欄位保存 HasLogTimestamp 的執行狀態或快取資料。
+            // EN: This field stores has log timestamp runtime state or cached data.
             public bool HasLogTimestamp;
         }
 
+        // 這個方法負責建立 TextContext 所需資料。
+        // EN: This method builds text context.
         private static UITranslationTextContext BuildTextContext(string text)
         {
             UITranslationTextContext context = new UITranslationTextContext
@@ -37,11 +53,15 @@ namespace AutoTranslator_Core
             return context;
         }
 
+        // 這個方法負責判斷 ShouldInterceptText 條件是否成立。
+        // EN: This method checks should intercept text.
         internal static bool ShouldInterceptText(string text)
         {
             return ShouldInterceptText(text, true);
         }
 
+        // 這個方法負責判斷 ShouldInterceptText 條件是否成立。
+        // EN: This method checks should intercept text.
         private static bool ShouldInterceptText(string text, bool rememberSkipped)
         {
             UITranslationTextContext context = BuildTextContext(text);
@@ -54,23 +74,31 @@ namespace AutoTranslator_Core
             return !ShouldSkipUITranslationText(context.TranslationText);
         }
 
+        // 這個方法負責判斷 ShouldLoadCachedText 條件是否成立。
+        // EN: This method checks should load cached text.
         private static bool ShouldLoadCachedText(string text)
         {
             UITranslationTextContext context = BuildTextContext(text);
             return !ShouldSkipUITranslationText(context.TranslationText);
         }
 
+        // 這個方法負責取得 翻譯LookupText 資料。
+        // EN: This method gets translation lookup text.
         internal static string GetTranslationLookupText(string text)
         {
             return BuildTextContext(text).TranslationText;
         }
 
+        // 這個方法負責處理 Restore翻譯DisplayText 相關流程。
+        // EN: This method handles restore translation display text.
         internal static string RestoreTranslationDisplayText(string original, string translated)
         {
             UITranslationTextContext context = BuildTextContext(original);
             return context.HasLogTimestamp ? context.Prefix + translated : translated;
         }
 
+        // 這個方法負責判斷 ShouldSkipUITranslationText 條件是否成立。
+        // EN: This method checks should skip UI translation text.
         private static bool ShouldSkipUITranslationText(string text)
         {
             if (string.IsNullOrWhiteSpace(text)) return true;
@@ -90,6 +118,8 @@ namespace AutoTranslator_Core
             return false;
         }
 
+        // 這個方法負責清理並標準化 UITranslationResult 內容。
+        // EN: This method cleans and normalizes UI translation result.
         private static string SanitizeUITranslationResult(string original, string translated)
         {
             if (string.IsNullOrWhiteSpace(translated)) return null;
@@ -109,6 +139,8 @@ namespace AutoTranslator_Core
             return LanguageDetector.NormalizeChineseVariant(cleaned, AutoTranslatorMod.Settings.TargetLang);
         }
 
+        // 這個方法負責嘗試執行 清理UIReplacementText 並回報是否成功。
+        // EN: This method tries to sanitize UI replacement text and reports whether it succeeded.
         internal static bool TrySanitizeUIReplacementText(string original, string translated, out string sanitized)
         {
             sanitized = null;
@@ -123,6 +155,8 @@ namespace AutoTranslator_Core
             return true;
         }
 
+        // 這個方法負責處理 LooksLikeStructured資料 相關流程。
+        // EN: This method handles looks like structured data.
         private static bool LooksLikeStructuredData(string text)
         {
             if (string.IsNullOrWhiteSpace(text)) return false;
@@ -148,6 +182,8 @@ namespace AutoTranslator_Core
             return false;
         }
 
+        // 這個方法負責處理 LooksLikeVolatileReadout 相關流程。
+        // EN: This method handles looks like volatile readout.
         private static bool LooksLikeVolatileReadout(string text)
         {
             if (string.IsNullOrWhiteSpace(text)) return false;
@@ -157,6 +193,8 @@ namespace AutoTranslator_Core
                 || TemperatureReadoutRegex.IsMatch(trimmed);
         }
 
+        // 這個方法負責處理 LooksLikeStackCountReadout 相關流程。
+        // EN: This method handles looks like stack count readout.
         private static bool LooksLikeStackCountReadout(string text)
         {
             if (string.IsNullOrWhiteSpace(text)) return false;
@@ -183,6 +221,8 @@ namespace AutoTranslator_Core
             }
         }
 
+        // 這個方法負責處理 LooksLikeInternalKey 相關流程。
+        // EN: This method handles looks like internal key.
         private static bool LooksLikeInternalKey(string text)
         {
             if (string.IsNullOrWhiteSpace(text)) return false;
@@ -193,6 +233,8 @@ namespace AutoTranslator_Core
             return InternalKeyRegex.IsMatch(trimmed);
         }
 
+        // 這個方法負責處理 LooksLikeNumericStatusText 相關流程。
+        // EN: This method handles looks like numeric status text.
         private static bool LooksLikeNumericStatusText(string text)
         {
             if (string.IsNullOrWhiteSpace(text)) return false;
@@ -209,6 +251,8 @@ namespace AutoTranslator_Core
             return false;
         }
 
+        // 這個方法負責處理 LooksLikeDeveloperLogText 相關流程。
+        // EN: This method handles looks like developer log text.
         private static bool LooksLikeDeveloperLogText(string text)
         {
             if (string.IsNullOrWhiteSpace(text)) return false;
@@ -240,6 +284,8 @@ namespace AutoTranslator_Core
             return false;
         }
 
+        // 這個方法負責處理 LooksLikeRimWorldRichText 相關流程。
+        // EN: This method handles looks like rim world rich text.
         private static bool LooksLikeRimWorldRichText(string text)
         {
             if (string.IsNullOrWhiteSpace(text)) return false;
@@ -254,6 +300,8 @@ namespace AutoTranslator_Core
                 || ContainsIgnoreCase(text, "</i>");
         }
 
+        // 這個方法負責處理 LooksLike模組ListCompositeText 相關流程。
+        // EN: This method handles looks like mod list composite text.
         private static bool LooksLikeModListCompositeText(string text)
         {
             if (string.IsNullOrWhiteSpace(text) || text.IndexOf('\n') < 0) return false;
@@ -267,6 +315,8 @@ namespace AutoTranslator_Core
             return lines.Any(IsPackageIdLike);
         }
 
+        // 這個方法負責判斷 IsPackageIdLike 條件是否成立。
+        // EN: This method checks is package id like.
         private static bool IsPackageIdLike(string line)
         {
             if (string.IsNullOrWhiteSpace(line)) return false;
@@ -286,11 +336,15 @@ namespace AutoTranslator_Core
                 c == '-');
         }
 
+        // 這個方法負責處理 ContainsIgnoreCase 相關流程。
+        // EN: This method handles contains ignore case.
         private static bool ContainsIgnoreCase(string text, string value)
         {
             return text.IndexOf(value, StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
+        // 這個方法負責嘗試執行 ExtractWrappedText 並回報是否成功。
+        // EN: This method tries to extract wrapped text and reports whether it succeeded.
         private static string TryExtractWrappedText(string text)
         {
             string fromJson = TryExtractJsonObjectText(text);
@@ -302,6 +356,8 @@ namespace AutoTranslator_Core
             return null;
         }
 
+        // 這個方法負責嘗試執行 ExtractJSONObjectText 並回報是否成功。
+        // EN: This method tries to extract json object text and reports whether it succeeded.
         private static string TryExtractJsonObjectText(string text)
         {
             try
@@ -336,6 +392,8 @@ namespace AutoTranslator_Core
             return null;
         }
 
+        // 這個方法負責嘗試執行 ExtractKeyValueText 並回報是否成功。
+        // EN: This method tries to extract key value text and reports whether it succeeded.
         private static string TryExtractKeyValueText(string text)
         {
             var match = DataKeyValueRegex.Match(text);

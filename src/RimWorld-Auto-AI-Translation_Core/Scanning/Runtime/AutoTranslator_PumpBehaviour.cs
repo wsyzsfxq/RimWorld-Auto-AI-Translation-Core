@@ -11,20 +11,26 @@ using System.Threading.Tasks;
 using System.Xml;
 using Verse;
 using static AutoTranslator_Core.DeleteTranslationWindow;
+// 這個檔案負責主選單階段的派發掛鉤。
+// EN: This file pumps queued work while the game is at the main menu.
 
 namespace AutoTranslator_Core
 {
 
-        /// <summary>
-        /// MonoBehaviour 主執行緒派發器（覆蓋主選單階段）
-        /// </summary>
+
+        // 這個類別負責 自動翻譯器PumpBehaviour 的主要流程與狀態。
+        // EN: This class manages the main workflow and state for AutoTranslator_PumpBehaviour.
         public class AutoTranslator_PumpBehaviour : UnityEngine.MonoBehaviour
         {
+            // 這個欄位保存 accumulator 的執行狀態或快取資料。
+            // EN: This field stores accumulator runtime state or cached data.
             private float _accumulator = 0f;
 
+            // 這個方法負責處理 Update 相關流程。
+            // EN: This method handles update.
             private void Update()
             {
-                // 每 0.5 秒檢查一次佇列，避免每幀都 lock
+
                 _accumulator += UnityEngine.Time.unscaledDeltaTime;
                 if (_accumulator >= 0.5f)
                 {

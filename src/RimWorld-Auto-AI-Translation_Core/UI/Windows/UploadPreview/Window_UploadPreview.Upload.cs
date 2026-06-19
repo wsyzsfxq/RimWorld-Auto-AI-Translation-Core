@@ -5,17 +5,22 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Net.Http;
 using System.Threading.Tasks;
 using UnityEngine;
 using Verse;
 using static AutoTranslator_Core.DeleteTranslationWindow;
+// 這個檔案負責上傳預覽的實際送出流程。
+// EN: This file sends the upload preview payload to the cloud.
 
 namespace AutoTranslator_Core
 {
+        // 這個類別負責 視窗上傳Preview 的主要流程與狀態。
+        // EN: This class manages the main workflow and state for Window_UploadPreview.
         public partial class Window_UploadPreview : Window
         {
 
+        // 這個方法負責執行 Actual上傳 動作。
+        // EN: This method executes actual upload.
         private void ExecuteActualUpload()
         {
             if (AutoTranslatorMod.ShouldSkipCloudSharingMod(_mod, _mod != null ? _mod.PackageId : null, _modName))
@@ -70,7 +75,7 @@ namespace AutoTranslator_Core
                     string tempZipFile = Path.Combine(Path.GetTempPath(), $"{pkgId}_{mLang}_upload.zip");
                     if (File.Exists(tempZipFile)) File.Delete(tempZipFile);
 
-                    // 🛡️ 核心修復 1：ZIP 壓縮強制套用 UTF-8
+
                     System.IO.Compression.ZipFile.CreateFromDirectory(stagingDir, tempZipFile, System.IO.Compression.CompressionLevel.Optimal, false, System.Text.Encoding.UTF8);
                     Directory.Delete(stagingDir, true);
 
@@ -116,7 +121,7 @@ namespace AutoTranslator_Core
                     System.Text.Encoding tolerantUtf8 = new System.Text.UTF8Encoding(false, false);
                     byte[] payloadBytes = tolerantUtf8.GetBytes(jsonPayload);
 
-                    // 🛡️ 核心修復 2：全面換裝 UnityWebRequest 網路引擎
+
                     var tcs = new TaskCompletionSource<bool>();
                     ATC_Dispatcher.RunOnMainThread(() =>
                     {

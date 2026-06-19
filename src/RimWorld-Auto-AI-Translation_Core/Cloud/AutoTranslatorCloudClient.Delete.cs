@@ -3,16 +3,21 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
-using System.Net.Http;
 using System.Threading.Tasks;
 using Verse;
 using static AutoTranslator_Core.DeleteTranslationWindow;
+// 這個檔案負責雲端刪除流程。
+// EN: This file deletes cloud translation records.
 
 namespace AutoTranslator_Core
 {
+    // 這個類別負責 自動翻譯器雲端Client 的主要流程與狀態。
+    // EN: This class manages the main workflow and state for AutoTranslatorCloudClient.
     public static partial class AutoTranslatorCloudClient
     {
 
+        // 這個方法負責刪除 雲端RecordAsync 資料。
+        // EN: This method removes cloud record async.
         public static async Task<bool> DeleteCloudRecordAsync(string packageId, string language, string recordId, string adminToken)
         {
             int maxRetries = 4;

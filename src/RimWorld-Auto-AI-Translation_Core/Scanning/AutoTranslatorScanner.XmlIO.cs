@@ -11,13 +11,19 @@ using System.Threading.Tasks;
 using System.Xml;
 using Verse;
 using static AutoTranslator_Core.DeleteTranslationWindow;
+// 這個檔案負責翻譯 XML 的讀寫與輸出驗證。
+// EN: This file reads, writes, and validates translation XML.
 
 namespace AutoTranslator_Core
 {
+    // 這個類別負責 自動翻譯器掃描器 的主要流程與狀態。
+    // EN: This class manages the main workflow and state for AutoTranslatorScanner.
     public static partial class AutoTranslatorScanner
     {
 
-        // ✨ 架構師改造：向下傳遞 expectedLang
+
+        // 這個方法負責讀取 XmlFilesToDict 資料。
+        // EN: This method loads XML files to dict.
         public static Dictionary<string, string> LoadXmlFilesToDict(string path, TargetLanguage? expectedLang = null)
         {
             var dict = new Dictionary<string, string>();
@@ -29,7 +35,9 @@ namespace AutoTranslator_Core
             }
             return dict;
         }
-        // ✨ 架構師改造：加入 expectedLang 參數
+
+        // 這個方法負責讀取 XmlFileToDict 資料。
+        // EN: This method loads XML file to dict.
         public static Dictionary<string, string> LoadXmlFileToDict(string filePath, TargetLanguage? expectedLang = null)
         {
             var dict = new Dictionary<string, string>();
@@ -51,17 +59,19 @@ namespace AutoTranslator_Core
                     }
                 }
 
-                // ✨ 海關檢查：如果是假語言檔，直接沒收整份檔案！
+
                 if (expectedLang.HasValue && LanguageDetector.IsFakeLanguage(dict, expectedLang.Value))
                 {
                     AutoTranslatorSettings.AddLog($"🕵️ [System] " + "ATC_Log_FakeLanguageDetected".Translate(Path.GetFileName(filePath)).ToString());
-                    return new Dictionary<string, string>(); // 回傳空字典，假裝這個檔案不存在
+                    return new Dictionary<string, string>();
                 }
             }
             catch { }
             return dict;
         }
 
+        // 這個方法負責保存 Xml 資料。
+        // EN: This method saves XML.
         public static void SaveXml(string path, Dictionary<string, string> data)
         {
             Directory.CreateDirectory(Path.GetDirectoryName(path));
@@ -72,12 +82,11 @@ namespace AutoTranslator_Core
 
             foreach (var p in data)
             {
-                // 防禦 1：value 是空白/控制字元，跳過
+
                 if (Regex.IsMatch(p.Value ?? "", @"^[\s\u200B\u200C\u200D\uFEFF\u00A0\x00-\x1F]*$"))
                     continue;
 
-                // 防禦 2：key 為空或不符合 XML 命名規則，跳過並記錄
-                // 解決 Bug C：AI 回傳的 key 若包含 '{' (0x7B) 或其他非法字元，CreateElement 會炸
+
                 if (string.IsNullOrWhiteSpace(p.Key) || !ValidXmlNameRegex.IsMatch(p.Key))
                 {
                     AddValidationStat(s => s.XmlKeySkipped++);
@@ -93,7 +102,7 @@ namespace AutoTranslator_Core
                 }
                 catch (XmlException ex)
                 {
-                    // 防禦 3：最後一道防線，CreateElement 仍可能因特殊 Unicode 拋例外
+
                     AddValidationStat(s => s.XmlKeySkipped++);
                     AutoTranslatorSettings.AddErrorLog("⚠️ " + "ATC_LogError_InvalidXmlKey".Translate($"{p.Key} ({ex.Message})"));
                     continue;
@@ -103,6 +112,8 @@ namespace AutoTranslator_Core
             d.AppendChild(r);
             d.Save(path);
         }
+        // 這個方法負責取得 Short路徑 資料。
+        // EN: This method gets short path.
         private static string GetShortPath(string fullPath)
         {
             if (string.IsNullOrEmpty(fullPath)) return "";

@@ -10,12 +10,18 @@ using System.Threading.Tasks;
 using UnityEngine;
 using Verse;
 using static AutoTranslator_Core.DeleteTranslationWindow;
+// 這個檔案負責背景攔截佇列與過濾條件。
+// EN: This file manages the background UI interception queue and filters.
 
 namespace AutoTranslator_Core
 {
+    // 這個類別負責 UIInterceptor 的主要流程與狀態。
+    // EN: This class manages the main workflow and state for UIInterceptor.
     public static partial class UIInterceptor
     {
 
+        // 這個方法負責嘗試執行 Consume佇列Budget 並回報是否成功。
+        // EN: This method tries to consume queue budget and reports whether it succeeded.
         private static bool TryConsumeQueueBudget()
         {
             int frame = Time.frameCount;
@@ -34,7 +40,8 @@ namespace AutoTranslator_Core
         }
 
 
-        // 🌟 把發現的野生生字丟進排隊區
+        // 這個方法負責排入 For翻譯 佇列。
+        // EN: This method queues for translation.
         public static void QueueForTranslation(string text)
         {
             if (!AutoTranslatorMod.Settings.EnableUINewTranslation) return;
@@ -46,15 +53,15 @@ namespace AutoTranslator_Core
                 return;
             }
 
-            // 🚀 超高速攔截：如果在黑名單裡，看都不看直接踢掉！
+
             if (IsIgnored(text)) return;
 
-            // 已經在排隊了也踢掉
+
             string lookupText = GetTranslationLookupText(text);
             string cacheKey = BuildCacheKey(lookupText);
             if (PendingTranslations.ContainsKey(cacheKey)) return;
 
-            // 如果純數字或連個字母都沒有，拉黑！
+
             if (lookupText.All(char.IsDigit) || !LetterRegex.IsMatch(lookupText))
             {
                 RememberIgnored(text);
@@ -64,7 +71,7 @@ namespace AutoTranslator_Core
             var targetLang = AutoTranslatorMod.Settings.TargetLang;
             bool isForeignText = false;
 
-            // 🔍 使用預先編譯的超高速正則表達式！
+
             bool hasEnglish = EnglishRegex.IsMatch(lookupText);
             bool hasCyrillic = CyrillicRegex.IsMatch(lookupText);
             bool hasKana = KanaRegex.IsMatch(lookupText);
@@ -95,7 +102,7 @@ namespace AutoTranslator_Core
                     break;
             }
 
-            // 🛑 如果判斷這不是外語生肉，加進黑名單！這輩子都別再浪費效能檢查它了！
+
             if (!isForeignText)
             {
                 RememberIgnored(text);
@@ -112,6 +119,8 @@ namespace AutoTranslator_Core
         }
 
 
+        // 這個方法負責處理 Background翻譯Worker 相關流程。
+        // EN: This method handles background translation worker.
         private static async Task BackgroundTranslationWorker()
         {
             var token = _workerCts.Token;
@@ -170,19 +179,21 @@ namespace AutoTranslator_Core
                 }
                 catch (TaskCanceledException)
                 {
-                    // 正常退出
+
                     break;
                 }
                 catch (Exception ex)
                 {
-                    // 記錄錯誤，不再默默吞掉
+
                     Log.Warning($"[AutoTranslationCore] BackgroundTranslationWorker error: {ex.Message}");
-                    // 出錯後延長等待，避免狂噴
+
                     try { await Task.Delay(5000, token); } catch (TaskCanceledException) { break; }
                 }
             }
         }
 
+        // 這個方法負責處理 DiscardQueuedTranslations 相關流程。
+        // EN: This method handles discard queued translations.
         private static void DiscardQueuedTranslations()
         {
             while (TranslationQueue.TryDequeue(out string text))

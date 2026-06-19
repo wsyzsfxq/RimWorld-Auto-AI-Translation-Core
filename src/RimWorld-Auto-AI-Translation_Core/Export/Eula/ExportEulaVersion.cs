@@ -6,15 +6,19 @@ using System.Text;
 using UnityEngine;
 using Verse;
 using RimWorld;
+// 這個檔案保存導出條款版本號。
+// EN: This file stores the export EULA version.
 
 namespace AutoTranslator_Core
 {
-    /// <summary>
-    /// EULA 版本控制：條款有重大修改時遞增此常數
-    /// 玩家如果同意的是舊版本，會被強制重新閱讀新版
-    /// </summary>
+
+
+    // 這個類別負責 導出Eula版本 的主要流程與狀態。
+    // EN: This class manages the main workflow and state for ExportEulaVersion.
     public static class ExportEulaVersion
     {
+        // 這個常數定義 Current版本 的固定值。
+        // EN: This constant defines the fixed value for current version.
         public const string CurrentVersion = "1.0";
     }
 }

@@ -6,14 +6,24 @@ using System.Threading.Tasks;
 using UnityEngine;
 using Verse;
 using static AutoTranslator_Core.DeleteTranslationWindow;
+// 這個檔案負責 翻譯工作台分頁模組選取繪製 相關邏輯，支援 Auto Translation Core 的執行流程。
+// EN: This file contains translation workbench tab mod selection renderer support code.
 
 namespace AutoTranslator_Core
 {
+    // 這個類別負責 翻譯工作台分頁 的主要流程與狀態。
+    // EN: This class manages the main workflow and state for TranslationWorkbenchTab.
     public static partial class TranslationWorkbenchTab
     {
+        // 這個常數定義 模組RowHeight 的固定值。
+        // EN: This constant defines the fixed value for mod row height.
         private const float ModRowHeight = 44f;
+        // 這個常數定義 搜尋ResultRowHeight 的固定值。
+        // EN: This constant defines the fixed value for search result row height.
         private const float SearchResultRowHeight = 65f;
 
+        // 這個方法負責繪製 模組選取Mode 介面。
+        // EN: This method draws mod selection mode.
         private static void DrawModSelectionMode(Rect leftOutRect, Rect rightOutRect)
         {
             Rect searchRect = new Rect(leftOutRect.x + 5f, leftOutRect.y + 5f, leftOutRect.width - 10f, 30f);
@@ -33,6 +43,8 @@ namespace AutoTranslator_Core
             DrawGlobalSearchPanel(rightOutRect);
         }
 
+        // 這個方法負責繪製 模組List 介面。
+        // EN: This method draws mod list.
         private static void DrawModList(Rect leftOutRect)
         {
             HashSet<string> translatedPackageIds = GetTranslatedPackageIdsSafe();
@@ -94,6 +106,8 @@ namespace AutoTranslator_Core
             }
         }
 
+        // 這個方法負責繪製 Global搜尋Panel 介面。
+        // EN: This method draws global search panel.
         private static void DrawGlobalSearchPanel(Rect rightOutRect)
         {
             Text.Font = GameFont.Medium;
@@ -157,6 +171,8 @@ namespace AutoTranslator_Core
             }
         }
 
+        // 這個方法負責繪製 Global搜尋載入 介面。
+        // EN: This method draws global search loading.
         private static void DrawGlobalSearchLoading(Rect rightOutRect)
         {
             Text.Anchor = TextAnchor.MiddleCenter;
@@ -179,6 +195,8 @@ namespace AutoTranslator_Core
             Text.Anchor = TextAnchor.UpperLeft;
         }
 
+        // 這個方法負責繪製 Global搜尋Results 介面。
+        // EN: This method draws global search results.
         private static void DrawGlobalSearchResults(Rect rightOutRect)
         {
             Rect resOutRect = new Rect(rightOutRect.x, rightOutRect.y + 85f, rightOutRect.width, rightOutRect.height - 85f);
@@ -223,12 +241,16 @@ namespace AutoTranslator_Core
             }
         }
 
+        // 這個方法負責取得 CachedTranslated模組名稱 資料。
+        // EN: This method gets cached translated mod name.
         private static string GetCachedTranslatedModName(ModMetaData mod)
         {
             if (mod == null) return "";
             return ModNameTranslationCache.TryGet(mod, out string translated) ? translated : "";
         }
 
+        // 這個方法負責取得 Display模組名稱 資料。
+        // EN: This method gets display mod name.
         private static string GetDisplayModName(ModMetaData mod)
         {
             if (mod == null) return "";
@@ -243,6 +265,8 @@ namespace AutoTranslator_Core
             return $"{translated} / {mod.Name}";
         }
 
+        // 這個方法負責取得 模組選取Display模組 資料。
+        // EN: This method gets mod selection display mods.
         private static List<ModMetaData> GetModSelectionDisplayMods(HashSet<string> translatedPackageIds)
         {
             translatedPackageIds = translatedPackageIds ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -285,6 +309,8 @@ namespace AutoTranslator_Core
             return _cachedModSelectionList;
         }
 
+        // 這個方法負責排入 Visible模組名稱Translations 佇列。
+        // EN: This method queues visible mod name translations.
         private static void QueueVisibleModNameTranslations(List<ModMetaData> displayMods)
         {
             if (!AutoTranslatorMod.Settings.TranslateWorkbenchModNames) return;

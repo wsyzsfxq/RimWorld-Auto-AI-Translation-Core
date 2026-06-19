@@ -7,12 +7,18 @@ using System.Threading.Tasks;
 using UnityEngine;
 using Verse;
 using static AutoTranslator_Core.DeleteTranslationWindow;
+// 這個檔案負責 翻譯工作台分頁搜尋 相關邏輯，支援 Auto Translation Core 的執行流程。
+// EN: This file contains translation workbench tab search support code.
 
 namespace AutoTranslator_Core
 {
+        // 這個類別負責 翻譯工作台分頁 的主要流程與狀態。
+        // EN: This class manages the main workflow and state for TranslationWorkbenchTab.
         public static partial class TranslationWorkbenchTab
         {
 
+            // 這個方法負責送出 Refresh 請求。
+            // EN: This method requests refresh.
             public static void RequestRefresh()
             {
                 _translatedPackageIds = null;
@@ -21,6 +27,8 @@ namespace AutoTranslator_Core
             }
 
 
+            // 這個方法負責處理 InitTranslated模組快取 相關流程。
+            // EN: This method handles init translated mods cache.
             private static void InitTranslatedModsCache()
             {
                 if (_translatedPackageIds != null) return;
@@ -55,18 +63,22 @@ namespace AutoTranslator_Core
                 });
             }
 
+            // 這個方法負責取得 TranslatedPackageIdsSafe 資料。
+            // EN: This method gets translated package ids safe.
             private static HashSet<string> GetTranslatedPackageIdsSafe()
             {
                 InitTranslatedModsCache();
                 return _translatedPackageIds ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             }
 
+            // 這個方法負責建立 Translated模組快取 所需資料。
+            // EN: This method builds translated mods cache.
             private static void BuildTranslatedModsCache(HashSet<string> result)
             {
                 if (result == null) return;
                 string packPath = AutoTranslatorScanner.GetLocalPackPath();
 
-                // ✨ 咪咪修復：必須使用 TargetLang (遊戲當前語系)，而不是雲端的 CloudTargetLang！
+
                 string targetLangFolder = AutoTranslatorScanner.GetFolderNameByLanguage(AutoTranslatorMod.Settings.TargetLang);
                 string langRoot = System.IO.Path.Combine(packPath, "Languages", targetLangFolder);
 
@@ -74,24 +86,32 @@ namespace AutoTranslator_Core
                 {
                     foreach (var file in System.IO.Directory.GetFiles(langRoot, "*.xml", System.IO.SearchOption.AllDirectories))
                     {
-                        string fileName = System.IO.Path.GetFileName(file);
-                        int splitIdx = fileName.IndexOf("_AutoTranslated", StringComparison.OrdinalIgnoreCase);
-                        if (splitIdx == -1) splitIdx = fileName.LastIndexOf('_');
-
-                        if (splitIdx > 0 && splitIdx < fileName.Length)
-                        {
-                            string pid = fileName.Substring(0, splitIdx).Replace("_", ".");
-                            result.Add(pid);
-                        }
+                        string pid = ExtractPackageIdFromTranslationFile(file);
+                        if (!string.IsNullOrEmpty(pid)) result.Add(pid);
                     }
                 }
+
+            }
+
+            // 這個方法負責處理 ExtractPackageIdFrom翻譯File 相關流程。
+            // EN: This method handles extract package id from translation file.
+            private static string ExtractPackageIdFromTranslationFile(string file)
+            {
+                string fileName = System.IO.Path.GetFileName(file);
+                int splitIdx = fileName.IndexOf("_AutoTranslated", StringComparison.OrdinalIgnoreCase);
+                if (splitIdx == -1) splitIdx = fileName.LastIndexOf('_');
+                return splitIdx > 0 && splitIdx < fileName.Length
+                    ? fileName.Substring(0, splitIdx).Replace("_", ".")
+                    : "";
             }
 
 
+            // 這個方法負責執行 Global搜尋 動作。
+            // EN: This method executes global search.
             private static void ExecuteGlobalSearch(string keyword, TargetLanguage? langFilter)
             {
                 _isGlobalSearching = true;
-                _globalSearchProgress = 0f; // 歸零進度條
+                _globalSearchProgress = 0f;
                 _globalSearchResults.Clear();
 
                 System.Threading.Tasks.Task.Run(() => {
@@ -104,12 +124,10 @@ namespace AutoTranslator_Core
                         .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
                     string targetFolderFilter = langFilter.HasValue ? AutoTranslatorScanner.GetFolderNameByLanguage(langFilter.Value) : null;
 
-                    // ==================================================
-                    // 🚀 第一階段：極速盤點總共有多少個檔案要掃描！(只搜集路徑不讀內容)
-                    // ==================================================
+
                     var filesToScan = new List<(string FilePath, Verse.ModMetaData Mod)>();
 
-                    // 1. 盤點 AI 翻譯包
+
                     string packPath = AutoTranslatorScanner.GetLocalPackPath();
                     string langsRoot = System.IO.Path.Combine(packPath, "Languages");
                     if (System.IO.Directory.Exists(langsRoot))
@@ -137,7 +155,7 @@ namespace AutoTranslator_Core
                         }
                     }
 
-                    // 2. 盤點所有原生模組自帶翻譯
+
                     foreach (var mod in activeMods)
                     {
                         string packageId = mod.PackageId ?? "";
@@ -159,17 +177,15 @@ namespace AutoTranslator_Core
                         }
                     }
 
-                    // ==================================================
-                    // 🚀 第二階段：開始正式開挖並更新進度條！
-                    // ==================================================
+
                     int totalFiles = filesToScan.Count;
-                    if (totalFiles == 0) goto SearchDone; // 沒東西就直接結束
+                    if (totalFiles == 0) goto SearchDone;
 
                     for (int i = 0; i < totalFiles; i++)
                     {
                         var item = filesToScan[i];
 
-                        // ✨ 實時更新進度條的百分比！
+
                         _globalSearchProgress = (float)i / totalFiles;
 
                         var dict = AutoTranslatorScanner.LoadXmlFileToDict(item.FilePath);
@@ -188,7 +204,7 @@ namespace AutoTranslator_Core
                     }
 
                 SearchDone:
-                    // 確保結束時進度條是滿的
+
                     _globalSearchProgress = 1f;
 
                     ATC_Dispatcher.RunOnMainThread(() => {

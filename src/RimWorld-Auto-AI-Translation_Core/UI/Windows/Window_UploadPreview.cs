@@ -5,39 +5,76 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Net.Http;
 using System.Threading.Tasks;
 using UnityEngine;
 using Verse;
 using static AutoTranslator_Core.DeleteTranslationWindow;
+// 這個檔案負責上傳預覽視窗的主框架。
+// EN: This file owns the main upload preview window frame.
 
 namespace AutoTranslator_Core
 {
+        // 這個類別負責 視窗上傳Preview 的主要流程與狀態。
+        // EN: This class manages the main workflow and state for Window_UploadPreview.
         public partial class Window_UploadPreview : Window
         {
+            // 這個欄位保存 mod 的執行狀態或快取資料。
+            // EN: This field stores mod runtime state or cached data.
             private ModMetaData _mod;
+            // 這個欄位保存 target語言Folder 的執行狀態或快取資料。
+            // EN: This field stores target language folder runtime state or cached data.
             private string _targetLangFolder;
+            // 這個欄位保存 sourceDir 的執行狀態或快取資料。
+            // EN: This field stores source dir runtime state or cached data.
             private string _sourceDir;
+            // 這個欄位保存 mod名稱 的執行狀態或快取資料。
+            // EN: This field stores mod name runtime state or cached data.
             private string _modName;
+            // 這個欄位保存 leftScrollPos 的執行狀態或快取資料。
+            // EN: This field stores left scroll pos runtime state or cached data.
             private Vector2 _leftScrollPos = Vector2.zero;
+            // 這個欄位保存 rightScrollPos 的執行狀態或快取資料。
+            // EN: This field stores right scroll pos runtime state or cached data.
             private Vector2 _rightScrollPos = Vector2.zero;
+            // 這個欄位保存 is載入 的執行狀態或快取資料。
+            // EN: This field stores is loading runtime state or cached data.
             private bool _isLoading = true;
-            private bool _isEditable = false; // ✨ 控制左右兩側預設不可修改的狀態開關
+            // 這個欄位保存 isEditable 的執行狀態或快取資料。
+            // EN: This field stores is editable runtime state or cached data.
+            private bool _isEditable = false;
 
+            // 這個類別負責 PreviewItem 的主要流程與狀態。
+            // EN: This class manages the main workflow and state for PreviewItem.
             private class PreviewItem
             {
+                // 這個欄位保存 Key 的執行狀態或快取資料。
+                // EN: This field stores key runtime state or cached data.
                 public string Key;
+                // 這個欄位保存 OriginalText 的執行狀態或快取資料。
+                // EN: This field stores original text runtime state or cached data.
                 public string OriginalText;
+                // 這個欄位保存 TranslatedText 的執行狀態或快取資料。
+                // EN: This field stores translated text runtime state or cached data.
                 public string TranslatedText;
+                // 這個欄位保存 IsModified 的執行狀態或快取資料。
+                // EN: This field stores is modified runtime state or cached data.
                 public bool IsModified;
             }
 
             private Dictionary<string, List<PreviewItem>> _categorizedData = new Dictionary<string, List<PreviewItem>>();
+            // 這個欄位保存 selectedCategory 的執行狀態或快取資料。
+            // EN: This field stores selected category runtime state or cached data.
             private string _selectedCategory = "";
-            private string _updateLogText = ""; // ✨ 用來裝更新說明的暫存字串
+            // 這個欄位保存 updateLogText 的執行狀態或快取資料。
+            // EN: This field stores update log text runtime state or cached data.
+            private string _updateLogText = "";
 
+            // 這個屬性提供 InitialSize 的讀寫或計算結果。
+            // EN: This method handles vector2.
             public override Vector2 InitialSize => new Vector2(1000f, 780f);
 
+            // 這個方法負責處理 視窗上傳Preview 相關流程。
+            // EN: This method handles window upload preview.
             public Window_UploadPreview(ModMetaData mod, string targetLangFolder, string sourceDir, string modName)
             {
                 _mod = mod;
@@ -51,9 +88,11 @@ namespace AutoTranslator_Core
 
                 System.Threading.Tasks.Task.Run(() => LoadPreviewData());
             }
+            // 這個方法負責處理 Do視窗Contents 相關流程。
+            // EN: This method handles do window contents.
             public override void DoWindowContents(Rect inRect)
             {
-            // 🛡️ 咪咪的免死金牌：預覽畫面也必須保護原文！
+
             Patch_GUI_Label_GUIContent.BypassInterceptor = true;
             try
             {
@@ -69,7 +108,7 @@ namespace AutoTranslator_Core
                     Text.Anchor = TextAnchor.UpperLeft;
                     return;
                 }
-                // ✨ 加上防呆提示：如果過濾完發現根本沒有這個模組的翻譯
+
                 if (_categorizedData.Count == 0)
                 {
                     GUI.color = new Color(1f, 0.6f, 0.6f);
@@ -77,24 +116,24 @@ namespace AutoTranslator_Core
                     Widgets.Label(new Rect(0, 0, inRect.width, inRect.height), "⚠️ " + "ATC_UploadPreview_NoTranslation".Translate()); Text.Anchor = TextAnchor.UpperLeft;
                     GUI.color = Color.white;
 
-                    // 畫一個大大的取消按鈕讓他離開
+
                     if (Widgets.ButtonText(new Rect(inRect.width / 2f - 75f, inRect.height - 60f, 150f, 40f), "ATC_Btn_Cancel".Translate()))
                     {
                         this.Close();
                     }
-                    return; // 🛡️ 直接提早結束，不畫底下的上傳按鈕，徹底防止空包彈！
+                    return;
                 }
-                // 頂部核心配置區
+
                 float topOffset = 45f;
                 float leftWidth = 220f;
                 float spacing = 15f;
                 float rightWidth = inRect.width - leftWidth - spacing;
-                float contentHeight = inRect.height - topOffset - 150f; // 留 150px 給底部的更新日誌輸入格與按鈕
+                float contentHeight = inRect.height - topOffset - 150f;
 
                 Rect leftOutRect = new Rect(0, topOffset, leftWidth, contentHeight);
                 Rect rightOutRect = new Rect(leftWidth + spacing, topOffset, rightWidth, contentHeight);
 
-                // 👈 左側：分類選單
+
                 Widgets.DrawBoxSolid(leftOutRect, new Color(0.1f, 0.1f, 0.1f, 0.5f));
                 Rect leftViewRect = new Rect(0, 0, leftOutRect.width - 20f, _categorizedData.Count * 35f);
                 Widgets.BeginScrollView(leftOutRect, ref _leftScrollPos, leftViewRect);
@@ -113,7 +152,7 @@ namespace AutoTranslator_Core
                 }
                 Widgets.EndScrollView();
 
-                // 👉 右側：清單檢視區
+
                 Widgets.DrawBoxSolid(rightOutRect, new Color(0.05f, 0.05f, 0.05f, 0.5f));
                 if (!string.IsNullOrEmpty(_selectedCategory) && _categorizedData.ContainsKey(_selectedCategory))
                 {
@@ -136,7 +175,7 @@ namespace AutoTranslator_Core
                         GUI.color = Color.white;
                         Rect transRect = new Rect(itemRect.x, itemRect.y + 15f, itemRect.width, itemRect.height - 15f);
 
-                        // ✨ 智慧鎖：根據 _isEditable 旗標決定玩家能不能直接打字修改
+
                         if (_isEditable)
                         {
                             string newText = Widgets.TextArea(transRect, item.TranslatedText ?? "");
@@ -152,7 +191,7 @@ namespace AutoTranslator_Core
                     Widgets.EndScrollView();
                 }
 
-                // 📜 底部一整橫條：Steam 口味「更新日誌 / 填寫說明區」
+
                 float logAreaY = topOffset + contentHeight + 10f;
                 Rect logLabelRect = new Rect(0, logAreaY, inRect.width, 22f);
                 Widgets.Label(logLabelRect, "📝 " + "ATC_Upload_LogLabel".Translate());
@@ -166,28 +205,28 @@ namespace AutoTranslator_Core
                     GUI.color = Color.white;
                 }
 
-                // 🔘 最底部：三顆經典交互按鈕
+
                 float btnY = inRect.height - 35f;
 
-                // 按鈕一 (最左邊)：取消上傳
+
                 GUI.color = new Color(1f, 0.5f, 0.5f);
                 if (Widgets.ButtonText(new Rect(0, btnY, 130f, 35f), "ATC_Btn_Cancel".Translate()))
                 {
                     this.Close();
                 }
 
-                // 按鈕二 (中間)：修改內容
+
                 if (_isEditable) GUI.color = Color.yellow;
                 else GUI.color = new Color(0.7f, 0.7f, 1f);
                 if (Widgets.ButtonText(new Rect(145f, btnY, 150f, 35f), _isEditable ? "✍️ " + "ATC_Upload_EditingMode".Translate() : "⚙️ " + "ATC_Upload_UnlockEdit".Translate()))
                 {
-                    _isEditable = !_isEditable; // 切換解鎖狀態
+                    _isEditable = !_isEditable;
                 }
 
-                // 按鈕三 (最右邊)：安全檢查完畢，發射上傳！
+
                 bool isAdmin = !string.IsNullOrEmpty(AutoTranslatorMod.Settings.CloudAdminToken);
                 bool hasValidLog = !string.IsNullOrWhiteSpace(_updateLogText) && _updateLogText.Trim().Length >= 5;
-                bool canUpload = isAdmin || hasValidLog; // 🌟 咪咪防禦網：沒有特權的普通玩家，必須乖乖寫滿 5 個字的更新日誌！
+                bool canUpload = isAdmin || hasValidLog;
 
                 GUI.color = canUpload ? new Color(0.4f, 1f, 0.4f) : new Color(0.5f, 0.5f, 0.5f);
 
@@ -195,15 +234,15 @@ namespace AutoTranslator_Core
                 {
                     if (!canUpload)
                     {
-                        // 拒絕上傳，並彈出本地化警告！
+
                         Verse.Messages.Message("ATC_Msg_UploadLogRequired".Translate(), RimWorld.MessageTypeDefOf.RejectInput, false);
                         return;
                     }
 
-                    // 如果玩家有就地動手修改，先幫他儲存到磁碟中
+
                     SaveChangesIfAny();
 
-                    // 喚醒原本的 CloudClient 上傳，並把我們打好的日誌一起打包丟去 Worker 資料庫
+
                     ExecuteActualUpload();
                     this.Close();
                 }
@@ -211,10 +250,10 @@ namespace AutoTranslator_Core
             }
             finally
             {
-                // 🛡️ 收回免死金牌
+
                 Patch_GUI_Label_GUIContent.BypassInterceptor = false;
             }
         }
     }
-            // Upload preview support methods are split into partial files in UI/Windows/UploadPreview/.
+
 }

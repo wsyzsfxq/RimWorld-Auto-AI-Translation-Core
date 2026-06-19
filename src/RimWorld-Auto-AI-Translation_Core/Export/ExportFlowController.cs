@@ -6,17 +6,22 @@ using System.Text;
 using UnityEngine;
 using Verse;
 using RimWorld;
+// 這個檔案負責導出流程的步驟控制。
+// EN: This file controls the export workflow steps.
 
 namespace AutoTranslator_Core
 {
-    /// <summary>
-    /// 導出流程控制器：負責判斷該走 EULA 流程還是快速提醒流程
-    /// </summary>
+
+
+    // 這個類別負責 導出流程控制器 的主要流程與狀態。
+    // EN: This class manages the main workflow and state for ExportFlowController.
     public static class ExportFlowController
     {
+        // 這個方法負責啟動 導出流程 流程。
+        // EN: This method starts export flow.
         public static void StartExportFlow()
         {
-            // 先檢查是否有可導出的內容
+
             string packPath = AutoTranslatorScanner.GetLocalPackPath();
             string langsPath = Path.Combine(packPath, "Languages");
             if (!Directory.Exists(langsPath))
@@ -28,8 +33,7 @@ namespace AutoTranslator_Core
 
             var settings = AutoTranslatorMod.Settings;
 
-            // EULA 仍有效 → 走快速提醒
-            // EULA 過期/未同意/版本不一致 → 走完整 EULA
+
             if (settings.IsEulaStillValid())
             {
                 Find.WindowStack.Add(new Dialog_ExportReminder(OnReminderConfirmed));
@@ -40,25 +44,29 @@ namespace AutoTranslator_Core
             }
         }
 
+        // 這個方法負責處理 OnEulaAccepted 相關流程。
+        // EN: This method handles on eula accepted.
         private static void OnEulaAccepted()
         {
-            // 寫入同意紀錄
+
             var settings = AutoTranslatorMod.Settings;
             settings.HasAcceptedExportEula = true;
-            settings.EulaAcceptedTimestamp = DateTime.Now.ToString("o"); // ISO 8601
+            settings.EulaAcceptedTimestamp = DateTime.Now.ToString("o");
             settings.EulaAcceptedVersion = ExportEulaVersion.CurrentVersion;
             settings.EulaAcceptCount++;
 
             AutoTranslatorSettings.AddLog("📝 " +
                 "ATC_Log_EulaAccepted".Translate(ExportEulaVersion.CurrentVersion));
 
-            // 立刻寫入磁碟（避免玩家關閉遊戲沒存檔）
+
             LoadedModManager.GetMod<AutoTranslatorMod>().WriteSettings();
 
-            // 進入模組選擇視窗
+
             Find.WindowStack.Add(new Window_Export());
         }
 
+        // 這個方法負責處理 OnReminderConfirmed 相關流程。
+        // EN: This method handles on reminder confirmed.
         private static void OnReminderConfirmed()
         {
             Find.WindowStack.Add(new Window_Export());

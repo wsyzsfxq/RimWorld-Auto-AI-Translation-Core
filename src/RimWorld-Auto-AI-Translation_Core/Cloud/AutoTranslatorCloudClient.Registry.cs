@@ -3,16 +3,21 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
-using System.Net.Http;
 using System.Threading.Tasks;
 using Verse;
 using static AutoTranslator_Core.DeleteTranslationWindow;
+// 這個檔案負責雲端登錄清單同步。
+// EN: This file fetches and refreshes the cloud registry list.
 
 namespace AutoTranslator_Core
 {
+    // 這個類別負責 自動翻譯器雲端Client 的主要流程與狀態。
+    // EN: This class manages the main workflow and state for AutoTranslatorCloudClient.
     public static partial class AutoTranslatorCloudClient
     {
 
+        // 這個方法負責向外部服務取得 登錄Async。
+        // EN: This method fetches registry async.
         public static async Task<List<CloudModRecord>> FetchRegistryAsync()
         {
             int maxRetries = 4;
@@ -29,13 +34,11 @@ namespace AutoTranslator_Core
                 {
                     string url = $"{CloudApiBaseUrl}/registry?t={DateTime.UtcNow.Ticks}";
 
-                    // 🌟 架構師核彈級替換：徹底捨棄 Mono 充滿 Bug 的 HttpClient！
-                    // 改用 Unity 原生 C++ 網路引擎 (UnityWebRequest)，完全無視 Windows GBK 語系干擾！
+
                     var tcs = new TaskCompletionSource<string>();
                     int timeoutSeconds = 15 + attempt * 15;
 
-                    // 必須在主執行緒發射 UnityWebRequest
-                    // 必須在主執行緒發射 UnityWebRequest
+
                     ATC_Dispatcher.RunOnMainThread(() =>
                     {
                         try
@@ -45,14 +48,14 @@ namespace AutoTranslator_Core
 
                             var operation = request.SendWebRequest();
 
-                            // 利用 completed 回調，不需要寫 Coroutine 就能完成異步等待
+
                             operation.completed += (op) =>
                             {
                                 try
                                 {
                                     if (UnityWebRequestCompat.IsSuccess(request))
                                     {
-                                        // 🌟 終極防禦：直接抓最純粹的 byte[]，用寬容模式解析 UTF-8！
+
                                         byte[] rawData = request.downloadHandler.data;
                                         if (rawData != null && rawData.Length > 0)
                                         {
@@ -67,7 +70,7 @@ namespace AutoTranslator_Core
                                     }
                                     else
                                     {
-                                        // 把網路錯誤拋出去，讓外層的 Catch 捕捉並進入指數退避重試
+
                                         tcs.TrySetException(new Exception(request.error));
                                     }
                                 }
@@ -77,7 +80,7 @@ namespace AutoTranslator_Core
                                 }
                                 finally
                                 {
-                                    request.Dispose(); // 絕對不能漏掉釋放記憶體
+                                    request.Dispose();
                                 }
                             };
                         }
@@ -87,7 +90,7 @@ namespace AutoTranslator_Core
                         }
                     });
 
-                    // 背景執行緒非阻塞等待主執行緒空投資料
+
                     string jsonResponse = await WaitForCloudTask(tcs.Task, timeoutSeconds + 10, "registry fetch");
 
                     if (!string.IsNullOrEmpty(jsonResponse))
@@ -98,7 +101,7 @@ namespace AutoTranslator_Core
                 }
                 catch (Exception ex)
                 {
-                    // 攔截到錯誤（包含 Timeout），如果已經是最後一次重試就報錯
+
                     if (attempt == maxRetries)
                     {
                         LogCloudTranslatedWarning("ATC_Cloud_ConnectionFailed", ex.Message);
@@ -106,7 +109,7 @@ namespace AutoTranslator_Core
                     }
                 }
 
-                // 觸發退避重試機制
+
                 int delayMs = (int)Math.Pow(2, attempt + 1) * 1000 + new System.Random().Next(100, 500);
                 LogCloudTranslatedMessage("ATC_Cloud_RetryAttemptLog", attempt + 1);
                 await Task.Delay(delayMs);

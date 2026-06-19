@@ -6,11 +6,17 @@ using System.Text;
 using UnityEngine;
 using Verse;
 using RimWorld;
+// 這個檔案負責實際導出檔案的組裝與輸出。
+// EN: This file assembles and writes exported translation files.
 
 namespace AutoTranslator_Core
 {
+    // 這個類別負責 導出管理器 的主要流程與狀態。
+    // EN: This class manages the main workflow and state for ExportManager.
     public static class ExportManager
     {
+        // 這個方法負責執行 導出 動作。
+        // EN: This method executes export.
         public static void ExecuteExport(List<ExportableModInfo> mods)
         {
             string timestamp = DateTime.Now.ToString("yyyy-MM-dd_HHmmss");
@@ -31,7 +37,7 @@ namespace AutoTranslator_Core
                     totalFiles += ExportSingleMod(mod, exportRoot);
                 }
 
-                // 開啟資料夾
+
                 try
                 {
                     System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
@@ -47,10 +53,10 @@ namespace AutoTranslator_Core
 
                 AutoTranslatorSettings.AddLog("ATC_Log_ExportComplete".Translate(mods.Count, totalFiles));
 
-                // P3 第二階段：記錄冷卻
+
                 ExportCooldownManager.RecordExport();
 
-                // P3 第二階段：彈出帶「聯絡作者」按鈕的成功訊息
+
                 ShowSuccessDialogWithContactOption(mods, totalFiles, exportRoot);
             }
             catch (Exception ex)
@@ -62,9 +68,7 @@ namespace AutoTranslator_Core
             }
         }
 
-        /// <summary>
-        /// 顯示完成訊息，並提供「聯絡原作者」入口
-        /// </summary>
+
         private static void ShowSuccessDialogWithContactOption(
             List<ExportableModInfo> mods, int totalFiles, string exportPath)
         {
@@ -83,9 +87,10 @@ namespace AutoTranslator_Core
                 title: title
             ));
         }
-        /// <summary>
-        /// 導出單一模組，回傳檔案數
-        /// </summary>
+
+
+        // 這個方法負責處理 導出Single模組 相關流程。
+        // EN: This method handles export single mod.
         private static int ExportSingleMod(ExportableModInfo mod, string exportRoot)
         {
             int fileCount = 0;
@@ -93,15 +98,14 @@ namespace AutoTranslator_Core
             string sourcePackPath = AutoTranslatorScanner.GetLocalPackPath();
             string sourceLangsRoot = Path.Combine(sourcePackPath, "Languages");
 
-            // 建立目標資料夾結構
-            // {exportRoot}/{cleanModName}/1.6/Languages/{TargetLang}/...
+
             string safeModName = MakeSafeFolderName(mod.ModName);
             string modExportRoot = Path.Combine(exportRoot, $"AutoTrans_{safeModName}");
             string targetLangPath = Path.Combine(modExportRoot, "1.6", "Languages", targetFolder);
 
             Directory.CreateDirectory(targetLangPath);
 
-            // 複製 + 加水印 DefInjected
+
             foreach (var langDir in Directory.GetDirectories(sourceLangsRoot))
             {
                 string defInjectedDir = Path.Combine(langDir, "DefInjected");
@@ -122,7 +126,7 @@ namespace AutoTranslator_Core
                     }
                 }
 
-                // Keyed
+
                 string keyedDir = Path.Combine(langDir, "Keyed");
                 if (Directory.Exists(keyedDir))
                 {
@@ -139,20 +143,20 @@ namespace AutoTranslator_Core
                 }
             }
 
-            // 寫入 About.xml
+
             WriteAboutXml(modExportRoot, mod);
             fileCount++;
 
-            // 寫入 LoadFolders.xml
+
             WriteLoadFoldersXml(modExportRoot);
             fileCount++;
 
             return fileCount;
         }
 
-        /// <summary>
-        /// 判斷一個翻譯檔是否屬於指定模組
-        /// </summary>
+
+        // 這個方法負責判斷 IsFileForThis模組 條件是否成立。
+        // EN: This method checks is file for this mod.
         private static bool IsFileForThisMod(string filePath, ExportableModInfo mod)
         {
             string fileName = Path.GetFileName(filePath).ToLower();
@@ -162,16 +166,15 @@ namespace AutoTranslator_Core
                    fileName.StartsWith(id2 + "_") || fileName.StartsWith(id2 + ".");
         }
 
-        /// <summary>
-        /// 將原檔案複製到目標位置，並在開頭插入水印註解
-        /// </summary>
+
+        // 這個方法負責保存 FileWithWatermark 資料。
+        // EN: This method saves file with watermark.
         private static void WriteFileWithWatermark(string sourceFile, string targetFile, ExportableModInfo mod)
         {
             string content = File.ReadAllText(sourceFile, Encoding.UTF8);
             string watermark = ExportTemplates.GetXmlWatermark(mod);
 
-            // 在 XML 宣告之後插入水印註解
-            // 找到 ?> 後插入
+
             int declarationEnd = content.IndexOf("?>");
             string result;
             if (declarationEnd > 0)
@@ -181,13 +184,15 @@ namespace AutoTranslator_Core
             }
             else
             {
-                // 沒有 XML 宣告，直接前置
+
                 result = watermark + content;
             }
 
             File.WriteAllText(targetFile, result, Encoding.UTF8);
         }
 
+        // 這個方法負責保存 AboutXml 資料。
+        // EN: This method saves about XML.
         private static void WriteAboutXml(string modExportRoot, ExportableModInfo mod)
         {
             string aboutDir = Path.Combine(modExportRoot, "About");
@@ -198,6 +203,8 @@ namespace AutoTranslator_Core
             File.WriteAllText(aboutPath, content, Encoding.UTF8);
         }
 
+        // 這個方法負責保存 LoadFoldersXml 資料。
+        // EN: This method saves load folders XML.
         private static void WriteLoadFoldersXml(string modExportRoot)
         {
             string path = Path.Combine(modExportRoot, "LoadFolders.xml");
@@ -210,6 +217,8 @@ namespace AutoTranslator_Core
             File.WriteAllText(path, content, Encoding.UTF8);
         }
 
+        // 這個方法負責保存 Readme 資料。
+        // EN: This method saves readme.
         private static void WriteReadme(string exportRoot, List<ExportableModInfo> mods)
         {
             string path = Path.Combine(exportRoot, "README_IMPORTANT.txt");
@@ -217,6 +226,8 @@ namespace AutoTranslator_Core
             File.WriteAllText(path, content, Encoding.UTF8);
         }
 
+        // 這個方法負責保存 ConsentRecord 資料。
+        // EN: This method saves consent record.
         private static void WriteConsentRecord(string exportRoot)
         {
             string path = Path.Combine(exportRoot, "EULA_Consent_Record.txt");
@@ -229,9 +240,9 @@ namespace AutoTranslator_Core
             File.WriteAllText(path, content, Encoding.UTF8);
         }
 
-        /// <summary>
-        /// 將模組名稱轉為安全的資料夾名稱（去除非法字元）
-        /// </summary>
+
+        // 這個方法負責處理 MakeSafeFolder名稱 相關流程。
+        // EN: This method handles make safe folder name.
         private static string MakeSafeFolderName(string name)
         {
             char[] invalid = Path.GetInvalidFileNameChars();

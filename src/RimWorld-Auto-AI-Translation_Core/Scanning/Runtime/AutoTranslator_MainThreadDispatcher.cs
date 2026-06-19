@@ -11,19 +11,25 @@ using System.Threading.Tasks;
 using System.Xml;
 using Verse;
 using static AutoTranslator_Core.DeleteTranslationWindow;
+// 這個檔案負責主執行緒派發器。
+// EN: This file dispatches queued scanner work on the main thread.
 
 namespace AutoTranslator_Core
 {
-        /// <summary>
-        /// 主執行緒派發器：每個 Tick 檢查是否有待處理的跨執行緒請求
-        /// (修正 P2-1：MemoryDrop 主執行緒守護)
-        /// </summary>
+
+
+        // 這個類別負責 自動翻譯器主畫面執行緒派發器 的主要流程與狀態。
+        // EN: This class manages the main workflow and state for AutoTranslator_MainThreadDispatcher.
         public class AutoTranslator_MainThreadDispatcher : GameComponent
         {
-            // 為了讓 Component 在主選單也能跑（沒有 Game 物件時），
-            // 我們另外用 LongEventHandler 做雙保險
+
+
+            // 這個方法負責處理 自動翻譯器主畫面執行緒派發器 相關流程。
+            // EN: This constructor initializes auto translator main thread dispatcher.
             public AutoTranslator_MainThreadDispatcher(Game game) { }
 
+            // 這個方法負責處理 GameComponentUpdate 相關流程。
+            // EN: This method handles game component update.
             public override void GameComponentUpdate()
             {
                 AutoTranslatorScanner.PumpMainThreadDispatcher();

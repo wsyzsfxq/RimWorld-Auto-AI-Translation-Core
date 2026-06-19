@@ -6,14 +6,20 @@ using System.Linq;
 using UnityEngine;
 using Verse;
 using static AutoTranslator_Core.DeleteTranslationWindow;
+// 這個檔案負責雲端翻譯服務的 自動翻譯器模組雲端繪製，處理 registry、上傳、下載或刪除流程。
+// EN: This file contains auto translator mod cloud renderers support code.
 
 namespace AutoTranslator_Core
 {
+    // 這個類別負責 自動翻譯器模組 的主要流程與狀態。
+    // EN: This class manages the main workflow and state for AutoTranslatorMod.
     public partial class AutoTranslatorMod : Mod
     {
+        // 這個方法負責繪製 雲端ToolbarAnd設定 介面。
+        // EN: This method draws cloud toolbar and settings.
         private void DrawCloudToolbarAndSettings(Listing_Standard l, Rect viewRect)
         {
-            // --- 1. 第一排頂部工具列 (一般玩家操作) ---
+
             Rect topBarRect1 = l.GetRect(30f);
             if (AutoTranslatorSettings.IsFetchingCloud && AutoTranslatorSettings.CloudFetchStartedUtcTicks > 0)
             {
@@ -54,7 +60,7 @@ namespace AutoTranslator_Core
 
             l.Gap(5f);
 
-            // --- ✨ 第二排頂部工具列 (漢化組大佬專區) ---
+
             Rect topBarRect2 = l.GetRect(30f);
 
             GUI.color = new Color(1f, 0.9f, 0.6f);
@@ -62,20 +68,20 @@ namespace AutoTranslator_Core
             {
                 string packPath = AutoTranslatorScanner.GetLocalPackPath();
                 string workspaceRoot = System.IO.Path.Combine(packPath, "Upload_Workspace");
-                System.IO.Directory.CreateDirectory(workspaceRoot); // 確保總管資料夾存在
-                UnityEngine.Application.OpenURL("file://" + workspaceRoot); // 彈出 Windows 資料夾
+                System.IO.Directory.CreateDirectory(workspaceRoot);
+                UnityEngine.Application.OpenURL("file://" + workspaceRoot);
             }
 
             GUI.color = new Color(1f, 0.6f, 0.2f);
             if (Widgets.ButtonText(new Rect(topBarRect2.x + 150f, topBarRect2.y, 140f, topBarRect2.height), "ATC_Cloud_Btn_BatchUpload".Translate()))
             {
-                ExecuteBatchUpload(); // 呼叫批量上傳引擎
+                ExecuteBatchUpload();
             }
             GUI.color = Color.white;
 
             l.Gap(5f);
 
-            // 暱稱與特權碼輸入區
+
             Rect userRow = l.GetRect(24f);
             Widgets.Label(new Rect(userRow.x, userRow.y + 2f, 100f, 24f), "ATC_Cloud_Nickname".Translate());
             Settings.CloudNickname = Widgets.TextField(new Rect(userRow.x + 100f, userRow.y, 150f, 24f), Settings.CloudNickname);
@@ -84,7 +90,7 @@ namespace AutoTranslator_Core
             Settings.CloudAdminToken = GUI.PasswordField(new Rect(userRow.x + 380f, userRow.y, 150f, 24f), Settings.CloudAdminToken, '*');
             bool hasPrivilegeCode = !string.IsNullOrWhiteSpace(Settings.CloudAdminToken);
 
-            // ✨ V3.5 上傳類型選擇區 (放在密碼框的下一行)
+
             l.Gap(5f);
             Rect typeRow = l.GetRect(30f);
             string currentUploadType = NormalizeCloudUploadType(Settings.CloudUploadType, hasPrivilegeCode);
@@ -122,7 +128,7 @@ namespace AutoTranslator_Core
                 Widgets.Label(new Rect(batchLogRect.x + 5f, batchLogRect.y + 2f, batchLogRect.width - 10f, batchLogRect.height), "ATC_Cloud_BatchUploadLogHint".Translate());
                 GUI.color = Color.white;
             }
-            // ✨ V5.2 雲端專屬語言選擇器！與遊戲本體語言徹底脫鉤！
+
             l.Gap(5f);
             Rect cloudLangRow = l.GetRect(30f);
             Widgets.Label(new Rect(cloudLangRow.x, cloudLangRow.y + 5f, 120f, 24f), "ATC_Cloud_SelectLang".Translate());
@@ -143,6 +149,8 @@ namespace AutoTranslator_Core
             l.Gap(10f);
         }
 
+        // 這個方法負責繪製 上傳TypeOption 介面。
+        // EN: This method draws upload type option.
         private static bool DrawUploadTypeOption(Rect rect, string label, bool selected)
         {
             Color oldColor = GUI.color;
@@ -177,10 +185,12 @@ namespace AutoTranslator_Core
             return clicked && !selected;
         }
 
+        // 這個方法負責建立 雲端Lookup 所需資料。
+        // EN: This method builds cloud lookup.
         private Dictionary<string, List<CloudModRecord>> BuildCloudLookup(string targetLangFolder)
         {
-            // 🚀🚀🚀 架構師極速優化大絕招 (真正解決 FPS 掉到 15 的元凶) 🚀🚀🚀
-            // 不要在每幀重建字典與排序！利用快取將 O(N*M) 降維打擊成絕對的 0 延遲！
+
+
             if (_cachedCloudLookup == null || _lastCloudRegistryCount != AutoTranslatorSettings.CloudRegistry.Count || _lastCloudLangFolder != targetLangFolder)
             {
                 _cachedCloudLookup = new Dictionary<string, List<CloudModRecord>>(StringComparer.OrdinalIgnoreCase);
@@ -196,7 +206,7 @@ namespace AutoTranslator_Core
                     }
                 }
 
-                // ✨ 提前把雲端紀錄排序好，絕對不要放在下方迴圈每秒排 60 次！
+
                 foreach (var key in _cachedCloudLookup.Keys.ToList())
                 {
                     _cachedCloudLookup[key] = _cachedCloudLookup[key]
@@ -211,20 +221,21 @@ namespace AutoTranslator_Core
             return _cachedCloudLookup;
         }
 
+        // 這個方法負責繪製 雲端模組Row 介面。
+        // EN: This method draws cloud mod row.
         private void DrawCloudModRow(ModMetaData mod, Rect rowRect, Dictionary<string, List<CloudModRecord>> cloudLookup, string targetLangFolder)
         {
                 Widgets.DrawHighlightIfMouseover(rowRect);
 
-                // ✨ V5.0 架構師優化：從剛才建好的高速字典中直接撈取，耗時趨近於 0！
-                // ✨ V5.0 架構師優化：從剛才建好的高速字典中直接撈取，耗時趨近於 0！
+
                 List<CloudModRecord> allVersions;
                 if (cloudLookup.TryGetValue(mod.PackageId, out var foundList))
                 {
-                    allVersions = foundList; // ✨ 已經在剛才的快取中排好序了！直接套用！
+                    allVersions = foundList;
                 }
                 else
                 {
-                    allVersions = new List<CloudModRecord>(); // 找不到給空清單
+                    allVersions = new List<CloudModRecord>();
                 }
 
                 AutoTranslatorSettings.SelectedCloudVersion.TryGetValue(mod.PackageId, out CloudModRecord cloudRecord);
@@ -241,7 +252,7 @@ namespace AutoTranslator_Core
                         AutoTranslatorSettings.SelectedCloudVersion.Remove(mod.PackageId);
                     }
                 }
-             // --- 狀態判斷邏輯 ---
+
                 string statusText = "";
                 Color statusColor = Color.white;
                 bool canDownload = false;
@@ -254,28 +265,28 @@ namespace AutoTranslator_Core
                 else if (cloudRecord.TranslationType == "Official_Group" || cloudRecord.IsVerified)
                 {
                     statusText = "ATC_Cloud_Status_Official".Translate();
-                    statusColor = new Color(1f, 0.8f, 0.2f); // 金色
+                    statusColor = new Color(1f, 0.8f, 0.2f);
                     canDownload = true;
                 }
                 else if (cloudRecord.TranslationType == "Manual")
                 {
                     statusText = "ATC_Cloud_Status_Manual".Translate();
-                    statusColor = new Color(0.4f, 1f, 0.4f); // 亮綠色
+                    statusColor = new Color(0.4f, 1f, 0.4f);
                     canDownload = true;
                 }
                 else
                 {
                     statusText = "ATC_Cloud_Status_Latest".Translate();
-                    statusColor = new Color(0.4f, 0.8f, 1f); // 藍色 (機翻)
+                    statusColor = new Color(0.4f, 0.8f, 1f);
                     canDownload = true;
                 }
 
-                // === 按鈕區塊 (從右到左排列，動態計算空間) ===
+
                 Text.Font = GameFont.Small;
-                float btnWidth = 85f; // ✨ 咪咪微調：加寬到 85f，確保「刪除中」、「上傳中」不會被切掉！
+                float btnWidth = 85f;
                 float cursorX = rowRect.xMax - 5f;
 
-                // 1. 特權雲端刪除
+
                 if (!string.IsNullOrEmpty(Settings.CloudAdminToken) && cloudRecord != null)
                 {
                     cursorX -= btnWidth;
@@ -283,9 +294,9 @@ namespace AutoTranslator_Core
                     if (AutoTranslatorSettings.CloudUploadTarget == mod.PackageId + "_del")
                     {
                         GUI.color = Color.red;
-                        Text.Anchor = TextAnchor.MiddleCenter; // ✨ 文字置中，完美對齊
+                        Text.Anchor = TextAnchor.MiddleCenter;
                         Widgets.Label(deleteCloudBtn, "ATC_Cloud_Deleting".Translate());
-                        Text.Anchor = TextAnchor.UpperLeft;    // ✨ 畫完記得恢復原狀
+                        Text.Anchor = TextAnchor.UpperLeft;
                     }
                     else
                     {
@@ -293,7 +304,7 @@ namespace AutoTranslator_Core
                         if (Widgets.ButtonText(deleteCloudBtn, "ATC_Cloud_Btn_DeleteCloud".Translate()))
                         {
                             AutoTranslatorSettings.CloudUploadTarget = mod.PackageId + "_del";
-                            // ✨ 修正：傳入當前下拉選單選中的那筆精準 cloudRecord.RecordId 過去
+
                             string pid = mod.PackageId; string lang = targetLangFolder; string token = Settings.CloudAdminToken; string recId = cloudRecord.RecordId;
                             System.Threading.Tasks.Task.Run(async () => {
                                 bool success = await AutoTranslatorCloudClient.DeleteCloudRecordAsync(pid, lang, recId, token); ATC_Dispatcher.RunOnMainThread(() => {
@@ -308,7 +319,7 @@ namespace AutoTranslator_Core
                     cursorX -= 5f;
                 }
 
-                // 2. 本地刪除
+
                 cursorX -= btnWidth;
                 Rect deleteLocalBtn = new Rect(cursorX, rowRect.y + 5f, btnWidth - 5f, 30f);
                 GUI.color = new Color(1f, 0.6f, 0.6f);
@@ -320,13 +331,13 @@ namespace AutoTranslator_Core
                 GUI.color = Color.white;
                 cursorX -= 5f;
 
-                // 3. 上傳按鈕
+
                 cursorX -= btnWidth;
                 Rect uploadBtn = new Rect(cursorX, rowRect.y + 5f, btnWidth - 5f, 30f);
                 if (AutoTranslatorSettings.CloudUploadTarget == mod.PackageId)
                 {
                     GUI.color = Color.yellow;
-                    Text.Anchor = TextAnchor.MiddleCenter; // ✨ 文字置中
+                    Text.Anchor = TextAnchor.MiddleCenter;
                     Widgets.Label(uploadBtn, "ATC_Cloud_Btn_Uploading".Translate());
                     Text.Anchor = TextAnchor.UpperLeft;
                     GUI.color = Color.white;
@@ -350,19 +361,18 @@ namespace AutoTranslator_Core
                         string fSource = finalSourceDir;
                         Find.WindowStack.Add(new Window_UploadPreview(mod, tFolder, fSource, mName));
 
-                        // ✨ 因為上傳的複雜邏輯已經搬到 Window_UploadPreview 裡面了，所以這裡只要負責呼叫視窗就好！
-                        // 呼叫完視窗先把狀態清空，避免按鈕一直卡在「上傳中」的黃色狀態
+
                         AutoTranslatorSettings.CloudUploadTarget = "";
                     }
                     GUI.color = Color.white;
                 }
                 cursorX -= 5f;
 
-                // ✨ 4. 新增大佬專用：打開專屬上傳工作室 (Workspace)
+
                 cursorX -= 40f;
                 Rect openFolderBtn = new Rect(cursorX, rowRect.y + 5f, 35f, 30f);
                 GUI.color = new Color(1f, 0.9f, 0.6f);
-                // 🌟 改用本地化文字，完美適配 35f 的按鈕寬度
+
                 if (Widgets.ButtonText(openFolderBtn, "ATC_Cloud_Btn_Dir".Translate()))
                 {
                     string packPath = AutoTranslatorScanner.GetLocalPackPath();
@@ -370,12 +380,12 @@ namespace AutoTranslator_Core
                     System.IO.Directory.CreateDirectory(workspaceDir);
                     UnityEngine.Application.OpenURL("file://" + workspaceDir);
                 }
-                // 🌟 清理重複的垃圾代碼，只留一個乾淨的本地化 Tooltip
+
                 if (Mouse.IsOver(openFolderBtn)) TooltipHandler.TipRegion(openFolderBtn, "ATC_Cloud_Btn_DirTooltip".Translate());
                 GUI.color = Color.white;
                 cursorX -= 5f;
 
-                // 5. 下載按鈕
+
                 if (canDownload)
                 {
                     float dlWidth = 85f;
@@ -385,7 +395,7 @@ namespace AutoTranslator_Core
                     if (Widgets.ButtonText(downloadBtn, "ATC_Cloud_Btn_Download".Translate()))
                     {
                         Messages.Message("ATC_Msg_DownloadStart".Translate(mod.Name), MessageTypeDefOf.NeutralEvent, false);
-                        // ✨ 鎖定目前的 CloudRecord 實體傳遞過去！
+
                         CloudModRecord targetRecord = cloudRecord;
                         System.Threading.Tasks.Task.Run(async () => {
                             bool success = await AutoTranslatorCloudClient.DownloadAndInjectAsync(mod.PackageId, targetLangFolder, targetRecord);
@@ -399,7 +409,7 @@ namespace AutoTranslator_Core
                     cursorX -= 5f;
                 }
 
-                // ✨ 6. V5.0 UI 革命：下拉選單 (支援全中文化與直白顯示)
+
                 if (cloudRecord != null)
                 {
                     float dropWidth = 140f;
@@ -408,7 +418,7 @@ namespace AutoTranslator_Core
 
                     string mergedTag = cloudRecord.IsSmartMerged ? "ATC_Cloud_SmartMerged".Translate().ToString() : "";
 
-                    // 🌟 咪咪的翻譯轉換器：把硬梆梆的英文代碼轉成中文
+
                     Func<string, string> getLocType = (t) => {
                         if (t == "Official_Group") return "ATC_Type_Official".Translate();
                         if (t == "Manual") return "ATC_Type_Manual".Translate();
@@ -417,7 +427,7 @@ namespace AutoTranslator_Core
                     };
 
                     string currentLocType = getLocType(cloudRecord.TranslationType);
-                    // 外面收合時，顯示「版本 + 類型」
+
                     string verLabel = $"v{cloudRecord.LatestVersion} ({currentLocType}){mergedTag}";
 
                     if (Widgets.ButtonText(verDropRect, verLabel))
@@ -427,7 +437,7 @@ namespace AutoTranslator_Core
                         {
                             string mTag = v.IsSmartMerged ? "ATC_Cloud_SmartMerged".Translate().ToString() : "";
                             string vLocType = getLocType(v.TranslationType);
-                            // 下拉展開時，清楚顯示「日期、類型、上傳者」
+
                             string optLabel = $"[{v.LastUpdated:yyyy-MM-dd}] ({vLocType}) - {v.Author}{mTag}";
                             verOptions.Add(new FloatMenuOption(optLabel, () => { AutoTranslatorSettings.SelectedCloudVersion[mod.PackageId] = v; }));
                         }
@@ -441,7 +451,7 @@ namespace AutoTranslator_Core
                         string mergeStatus = cloudRecord.IsSmartMerged ? yesStr : noStr;
                         string logDisplay = string.IsNullOrWhiteSpace(cloudRecord.UpdateLog) ? "ATC_Cloud_NoLog".Translate().ToString() : cloudRecord.UpdateLog;
 
-                        // 懸停視窗也同步顯示翻譯過後的類型
+
                         string tipStr = "ATC_Cloud_UploadDate".Translate(cloudRecord.LastUpdated.ToString("yyyy-MM-dd HH:mm")) + "\n" +
                                         "ATC_Cloud_TransType".Translate(currentLocType) + "\n" +
                                         "ATC_Cloud_IsSmartMerged".Translate(mergeStatus) + "\n" +
@@ -449,21 +459,21 @@ namespace AutoTranslator_Core
                         TooltipHandler.TipRegion(verDropRect, tipStr);
                     }
                 }
-                // === ✨ 最後繪製左側的文字 (動態計算剩餘寬度，絕對不會碰撞重疊！) ===
+
                 float leftSpace = cursorX - rowRect.x - 10f;
                 Rect nameRect = new Rect(rowRect.x + 5f, rowRect.y + 2f, leftSpace, 20f);
                 Rect statusRect = new Rect(rowRect.x + 5f, rowRect.y + 22f, leftSpace, 18f);
 
                 Text.Font = GameFont.Small;
 
-                // 🌟 咪咪防禦網：關閉自動換行，名字太長就優雅截斷，滑鼠移過去再顯示全名！
+
                 Text.WordWrap = false;
                 Widgets.Label(nameRect, mod.Name);
-                Text.WordWrap = true; // 畫完一定要開回來，不然其他地方的 UI 會壞掉！
+                Text.WordWrap = true;
 
                 if (Mouse.IsOver(nameRect))
                 {
-                    TooltipHandler.TipRegion(nameRect, mod.Name); // 滑鼠懸停顯示完整名字
+                    TooltipHandler.TipRegion(nameRect, mod.Name);
                 }
 
                 Text.Font = GameFont.Tiny;

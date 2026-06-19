@@ -6,18 +6,32 @@ using System.Text;
 using UnityEngine;
 using Verse;
 using RimWorld;
+// 這個檔案負責導出前提醒對話框。
+// EN: This file draws the pre-export reminder dialog.
 
 namespace AutoTranslator_Core
 {
+    // 這個類別負責 對話框導出Reminder 的主要流程與狀態。
+    // EN: This class manages the main workflow and state for Dialog_ExportReminder.
     public class Dialog_ExportReminder : Window
     {
+        // 這個常數定義 COUNTDOWNSECONDS 的固定值。
+        // EN: This constant defines the fixed value for countdown seconds.
         private const float COUNTDOWN_SECONDS = 2f;
 
+        // 這個欄位保存 countdownRemaining 的執行狀態或快取資料。
+        // EN: This field stores countdown remaining runtime state or cached data.
         private float _countdownRemaining = COUNTDOWN_SECONDS;
+        // 這個欄位保存 onConfirm 的執行狀態或快取資料。
+        // EN: This field stores on confirm runtime state or cached data.
         private readonly Action _onConfirm;
 
+        // 這個屬性提供 InitialSize 的讀寫或計算結果。
+        // EN: This method handles vector2.
         public override Vector2 InitialSize => new Vector2(550f, 350f);
 
+        // 這個方法負責處理 對話框導出Reminder 相關流程。
+        // EN: This constructor initializes dialog export reminder.
         public Dialog_ExportReminder(Action onConfirm)
         {
             _onConfirm = onConfirm;
@@ -27,6 +41,8 @@ namespace AutoTranslator_Core
             absorbInputAroundWindow = true;
         }
 
+        // 這個方法負責處理 Do視窗Contents 相關流程。
+        // EN: This method handles do window contents.
         public override void DoWindowContents(Rect inRect)
         {
             if (_countdownRemaining > 0f)
@@ -46,7 +62,7 @@ namespace AutoTranslator_Core
 
             float y = 50f;
 
-            // 顯示同意時間
+
             string dateStr = "";
             if (DateTime.TryParse(settings.EulaAcceptedTimestamp, out DateTime accepted))
             {
@@ -78,7 +94,7 @@ namespace AutoTranslator_Core
                 "ATC_ExportReminder_Rule3".Translate());
             y += 35f;
 
-            // 倒數提示
+
             if (!countdownDone)
             {
                 GUI.color = new Color(1f, 0.7f, 0.3f);
@@ -88,7 +104,7 @@ namespace AutoTranslator_Core
             }
             y += 30f;
 
-            // 按鈕列
+
             float btnY = inRect.height - 45f;
             float btnWidth = (inRect.width - 20f) / 2f;
             Rect rereadRect = new Rect(0, btnY, btnWidth, 40f);
@@ -99,7 +115,7 @@ namespace AutoTranslator_Core
                 Close();
                 Find.WindowStack.Add(new Dialog_ExportEula(() =>
                 {
-                    // 重新閱讀完成後寫入新的同意紀錄
+
                     var s = AutoTranslatorMod.Settings;
                     s.HasAcceptedExportEula = true;
                     s.EulaAcceptedTimestamp = DateTime.Now.ToString("o");

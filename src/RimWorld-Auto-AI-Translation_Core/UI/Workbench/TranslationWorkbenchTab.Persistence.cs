@@ -7,17 +7,23 @@ using System.Threading.Tasks;
 using UnityEngine;
 using Verse;
 using static AutoTranslator_Core.DeleteTranslationWindow;
+// 這個檔案負責 翻譯工作台分頁存取 相關邏輯，支援 Auto Translation Core 的執行流程。
+// EN: This file contains translation workbench tab persistence support code.
 
 namespace AutoTranslator_Core
 {
+        // 這個類別負責 翻譯工作台分頁 的主要流程與狀態。
+        // EN: This class manages the main workflow and state for TranslationWorkbenchTab.
         public static partial class TranslationWorkbenchTab
         {
 
+            // 這個方法負責保存 Modifications 資料。
+            // EN: This method saves modifications.
             private static void SaveModifications()
             {
                 if (_editingMod == null) return;
 
-                // ✨ 咪咪修復：存檔時也必須使用 TargetLang！
+
                 string targetLangFolder = AutoTranslatorScanner.GetFolderNameByLanguage(AutoTranslatorMod.Settings.TargetLang);
                 string packPath = AutoTranslatorScanner.GetLocalPackPath();
                 string cleanPackageId = _editingMod.PackageId.Replace(".", "_").ToLower();

@@ -11,60 +11,57 @@ using System.Threading.Tasks;
 using System.Xml;
 using Verse;
 using static AutoTranslator_Core.DeleteTranslationWindow;
+// 這個檔案負責翻譯結果清理與安全檢查。
+// EN: This file sanitizes translated text and validates unsafe output.
 
 namespace AutoTranslator_Core
 {
+    // 這個類別負責 自動翻譯器掃描器 的主要流程與狀態。
+    // EN: This class manages the main workflow and state for AutoTranslatorScanner.
     public static partial class AutoTranslatorScanner
     {
 
-        /// <summary>
-        /// 智慧清理 AI 翻譯結果
-        /// 規則：
-        /// 1. 如果原文沒有 \n，但翻譯結果有 → 移除（AI 自作多情加的）
-        /// 2. 如果原文有 \n，翻譯結果也要保留（不動）
-        /// 3. 清掉開頭/結尾多餘的空白與換行
-        /// 4. 把字面字元 \\n 統一為單一 \n（避免雙重轉義）
-        /// </summary>
+
+        // 這個方法負責清理並標準化 翻譯Result 內容。
+        // EN: This method cleans and normalizes translation result.
         private static string SanitizeTranslationResult(string translated, string original)
         {
             if (string.IsNullOrEmpty(translated)) return translated;
 
-            // 規則 1：原文沒 \n，翻譯不該有
+
             bool originalHasNewline = original.Contains("\\n") || original.Contains("\n");
             bool translatedHasNewline = translated.Contains("\\n") || translated.Contains("\n");
 
             if (!originalHasNewline && translatedHasNewline)
             {
-                // AI 亂加的，移除所有 \n
+
                 translated = translated.Replace("\\n", " ");
                 translated = translated.Replace("\n", " ");
                 translated = translated.Replace("\r", " ");
                 AddValidationStat(s => s.NewlineFixed++);
             }
 
-            // 規則 2：處理 AI 把 \n 寫成真實換行的情況
-            // 如果原文是 "\n"（字面兩字元），AI 可能回成真實換行
+
             if (original.Contains("\\n") && !translated.Contains("\\n"))
             {
-                // 把翻譯結果中的真實換行還原成字面 \n
+
                 translated = translated.Replace("\r\n", "\\n");
                 translated = translated.Replace("\n", "\\n");
                 translated = translated.Replace("\r", "\\n");
                 AddValidationStat(s => s.NewlineFixed++);
             }
 
-            // 規則 3：清掉首尾空白
+
             translated = translated.Trim();
 
-            // ✨ 咪咪的黑洞消除術：AI 常常自作聰明在結尾加上好幾個 \n，導致遊戲內出現超大片黑色空白！
-            // 這裡用正則表達式，把開頭跟結尾的字面換行符號 (\n, \r) 徹底切除！
+
             translated = System.Text.RegularExpressions.Regex.Replace(translated, @"^(?:\\n|\\r|\s)+", "");
             translated = System.Text.RegularExpressions.Regex.Replace(translated, @"(?:\\n|\\r|\s)+$", "");
 
-            // 規則 4：避免雙重轉義（\\\\n → \\n）
+
             translated = translated.Replace("\\\\n", "\\n");
 
-            // 規則 5：合併連續多個空白為單一空白（中文不需要連續空白）
+
             translated = System.Text.RegularExpressions.Regex.Replace(
                 translated,
                 @" {2,}",
@@ -79,6 +76,8 @@ namespace AutoTranslator_Core
         }
 
 
+        // 這個方法負責處理 RestoreGrammar規則Prefix 相關流程。
+        // EN: This method handles restore grammar rule prefix.
         private static string RestoreGrammarRulePrefix(string translated, string original)
         {
             if (string.IsNullOrEmpty(translated) || string.IsNullOrEmpty(original)) return translated;
@@ -104,6 +103,8 @@ namespace AutoTranslator_Core
         }
 
 
+        // 這個方法負責處理 RestoreProtectedTokens 相關流程。
+        // EN: This method handles restore protected tokens.
         private static string RestoreProtectedTokens(string translated, string original)
         {
             if (string.IsNullOrEmpty(translated) || string.IsNullOrEmpty(original)) return translated;
@@ -150,6 +151,8 @@ namespace AutoTranslator_Core
         }
 
 
+        // 這個方法負責判斷 IsStructureSensitiveText 條件是否成立。
+        // EN: This method checks is structure sensitive text.
         private static bool IsStructureSensitiveText(string original)
         {
             if (string.IsNullOrEmpty(original)) return false;
@@ -161,6 +164,8 @@ namespace AutoTranslator_Core
         }
 
 
+        // 這個方法負責處理 翻譯HasLikelyEnglishResidual 相關流程。
+        // EN: This method handles translation has likely english residual.
         private static bool TranslationHasLikelyEnglishResidual(string translated, string original, bool recordStat)
         {
             if (!HasLikelyEnglishResidual(translated, original)) return false;
@@ -173,6 +178,8 @@ namespace AutoTranslator_Core
         }
 
 
+        // 這個方法負責判斷 HasLikelyEnglishResidual 條件是否成立。
+        // EN: This method checks has likely english residual.
         private static bool HasLikelyEnglishResidual(string translated, string original)
         {
             TargetLanguage targetLang = AutoTranslatorMod.Settings.TargetLang;
@@ -215,6 +222,8 @@ namespace AutoTranslator_Core
         }
 
 
+        // 這個方法負責清理並標準化 Residual語言Sample 內容。
+        // EN: This method cleans and normalizes residual language sample.
         private static string NormalizeResidualLanguageSample(string text)
         {
             if (string.IsNullOrWhiteSpace(text)) return "";
@@ -237,6 +246,8 @@ namespace AutoTranslator_Core
         }
 
 
+        // 這個方法負責判斷 HasTranslatableLatinSource 條件是否成立。
+        // EN: This method checks has translatable latin source.
         private static bool HasTranslatableLatinSource(string sample)
         {
             CountResidualScripts(sample, out _, out _, out _, out _, out int latinCount, out int letterCount);
@@ -246,6 +257,8 @@ namespace AutoTranslator_Core
         }
 
 
+        // 這個方法負責判斷 HasEnglishSignal 條件是否成立。
+        // EN: This method checks has english signal.
         private static bool HasEnglishSignal(string sample)
         {
             if (string.IsNullOrWhiteSpace(sample)) return false;
@@ -258,6 +271,8 @@ namespace AutoTranslator_Core
         }
 
 
+        // 這個方法負責判斷 IsLatin目標語言 條件是否成立。
+        // EN: This method checks is latin target language.
         private static bool IsLatinTargetLanguage(TargetLanguage targetLang)
         {
             return targetLang == TargetLanguage.French ||
@@ -270,12 +285,16 @@ namespace AutoTranslator_Core
         }
 
 
+        // 這個方法負責判斷 IsShortUppercaseToken 條件是否成立。
+        // EN: This method checks is short uppercase token.
         private static bool IsShortUppercaseToken(string sample)
         {
             return Regex.IsMatch(sample, @"^[A-Z0-9]{2,6}$") && sample.ToUpperInvariant() == sample;
         }
 
 
+        // 這個方法負責處理 CountResidualScripts 相關流程。
+        // EN: This method handles count residual scripts.
         private static void CountResidualScripts(string text, out int hanCount, out int kanaCount, out int hangulCount, out int cyrillicCount, out int latinCount, out int letterCount)
         {
             hanCount = 0;
@@ -301,6 +320,8 @@ namespace AutoTranslator_Core
         }
 
 
+        // 這個方法負責判斷 IsHan 條件是否成立。
+        // EN: This method checks is han.
         private static bool IsHan(char c)
         {
             return (c >= '\u3400' && c <= '\u4DBF')
@@ -309,6 +330,8 @@ namespace AutoTranslator_Core
         }
 
 
+        // 這個方法負責判斷 IsKana 條件是否成立。
+        // EN: This method checks is kana.
         private static bool IsKana(char c)
         {
             return (c >= '\u3040' && c <= '\u30FF')
@@ -317,6 +340,8 @@ namespace AutoTranslator_Core
         }
 
 
+        // 這個方法負責判斷 IsHangul 條件是否成立。
+        // EN: This method checks is hangul.
         private static bool IsHangul(char c)
         {
             return (c >= '\u1100' && c <= '\u11FF')
@@ -325,6 +350,8 @@ namespace AutoTranslator_Core
         }
 
 
+        // 這個方法負責判斷 IsCyrillic 條件是否成立。
+        // EN: This method checks is cyrillic.
         private static bool IsCyrillic(char c)
         {
             return (c >= '\u0400' && c <= '\u04FF')
@@ -332,6 +359,8 @@ namespace AutoTranslator_Core
         }
 
 
+        // 這個方法負責判斷 IsLatin 條件是否成立。
+        // EN: This method checks is latin.
         private static bool IsLatin(char c)
         {
             return (c >= 'A' && c <= 'Z')
@@ -340,6 +369,8 @@ namespace AutoTranslator_Core
         }
 
 
+        // 這個方法負責處理 Percent 相關流程。
+        // EN: This method handles percent.
         private static int Percent(int part, int total)
         {
             if (total <= 0) return 0;

@@ -2,11 +2,17 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Verse;
+// 這個檔案負責翻譯 API 連線測試。
+// EN: This file tests translation API connectivity.
 
 namespace AutoTranslator_Core
 {
+    // 這個類別負責 自動翻譯器API 的主要流程與狀態。
+    // EN: This class manages the main workflow and state for AutoTranslatorAPI.
     public static partial class AutoTranslatorAPI
     {
+        // 這個方法負責處理 測試連線Async 相關流程。
+        // EN: This method handles test connection async.
         public static async Task<bool> TestConnectionAsync()
         {
             Task<List<string>> testTask = TranslateBatchAsync(new List<string> { "Connection Test" });
@@ -23,6 +29,8 @@ namespace AutoTranslator_Core
             return res != null && res.Count > 0;
         }
 
+        // 這個方法負責處理 Run連線測試 相關流程。
+        // EN: This method handles run connection test.
         public static void RunConnectionTest(ApiKeyConfig config)
         {
             if (config == null || config.IsTesting) return;
@@ -95,6 +103,8 @@ namespace AutoTranslator_Core
             });
         }
 
+        // 這個方法負責處理 AnalyzeAndLogNetworkError 相關流程。
+        // EN: This method handles analyze and log network error.
         private static void AnalyzeAndLogNetworkError(TranslatorProvider provider, Exception ex)
         {
             string msg = ex.Message.ToLower();

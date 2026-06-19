@@ -7,11 +7,17 @@ using System.Threading.Tasks;
 using UnityEngine;
 using Verse;
 using static AutoTranslator_Core.DeleteTranslationWindow;
+// 這個檔案負責 翻譯工作台分頁編輯繪製 相關邏輯，支援 Auto Translation Core 的執行流程。
+// EN: This file contains translation workbench tab editing renderer support code.
 
 namespace AutoTranslator_Core
 {
+        // 這個類別負責 翻譯工作台分頁 的主要流程與狀態。
+        // EN: This class manages the main workflow and state for TranslationWorkbenchTab.
         public static partial class TranslationWorkbenchTab
         {
+            // 這個方法負責繪製 編輯Mode 介面。
+            // EN: This method draws editing mode.
             private static void DrawEditingMode(UnityEngine.Rect leftOutRect, UnityEngine.Rect rightOutRect)
             {
                     UnityEngine.Rect backBtnRect = new UnityEngine.Rect(leftOutRect.x + 5f, leftOutRect.y + 5f, leftOutRect.width - 10f, 35f);
@@ -21,7 +27,7 @@ namespace AutoTranslator_Core
                         _editingMod = null;
                         _categorizedData.Clear();
                         InitTranslatedModsCache();
-                        return; // ✨ 加上這一行：立刻中斷 UI 繪製，防止下方程式碼報錯！
+                        return;
                     }
                     UnityEngine.GUI.color = UnityEngine.Color.white;
 
@@ -124,14 +130,14 @@ namespace AutoTranslator_Core
                                 UnityEngine.GUI.color = new UnityEngine.Color(0.8f, 0.8f, 0.8f);
                                 UnityEngine.Rect originalRect = new UnityEngine.Rect(itemRect.x, itemRect.y + 15f, halfWidth - 5f, itemRect.height - 15f);
 
-                                // 🛡️ 終極防彈裝甲：防止毒瘤原文摧毀 UI
+
                                 try { Verse.Widgets.Label(originalRect, item.OriginalText ?? ""); }
                                 catch { Verse.Widgets.Label(originalRect, "[Error: Invalid Rich Text]"); }
 
                                 UnityEngine.GUI.color = UnityEngine.Color.white;
                                 UnityEngine.Rect transRect = new UnityEngine.Rect(itemRect.x + halfWidth + 5f, itemRect.y + 15f, halfWidth - 5f, itemRect.height - 15f);
 
-                                // 🛡️ 終極防彈裝甲：防止玩家輸入毒瘤文字
+
                                 string newText = item.TranslatedText ?? "";
                                 try { newText = Verse.Widgets.TextArea(transRect, newText); }
                                 catch { newText = Verse.Widgets.TextField(transRect, newText); }

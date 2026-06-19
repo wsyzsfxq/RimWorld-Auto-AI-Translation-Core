@@ -7,33 +7,57 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Xml;
 using Verse;
+// 這個檔案負責修補舊版翻譯與遺留資料。
+// EN: This file repairs legacy translation pack data.
 
 namespace AutoTranslator_Core
 {
+    // 這個類別負責 自動翻譯器舊資料修復器 的主要流程與狀態。
+    // EN: This class manages the main workflow and state for AutoTranslatorLegacyRepairer.
     public static class AutoTranslatorLegacyRepairer
     {
         private static readonly Regex ProtectedTokenRegex = new Regex(@"(\{[^{}\r\n]+\}|\[[^\[\]\r\n]+\])", RegexOptions.Compiled);
         private static readonly Dictionary<string, LegacySourceCache> SourceCache = new Dictionary<string, LegacySourceCache>(StringComparer.OrdinalIgnoreCase);
         private static readonly object RepairLock = new object();
+        // 這個欄位保存 backgroundRepairQueued 的執行狀態或快取資料。
+        // EN: This field stores background repair queued runtime state or cached data.
         private static int _backgroundRepairQueued;
 
+        // 這個類別負責 RepairSummary 的主要流程與狀態。
+        // EN: This class manages the main workflow and state for RepairSummary.
         public class RepairSummary
         {
+            // 這個欄位保存 FilesTouched 的執行狀態或快取資料。
+            // EN: This field stores files touched runtime state or cached data.
             public int FilesTouched;
+            // 這個欄位保存 EntriesFixed 的執行狀態或快取資料。
+            // EN: This field stores entries fixed runtime state or cached data.
             public int EntriesFixed;
+            // 這個欄位保存 TokenFixes 的執行狀態或快取資料。
+            // EN: This field stores token fixes runtime state or cached data.
             public int TokenFixes;
+            // 這個欄位保存 規則PrefixFixes 的執行狀態或快取資料。
+            // EN: This field stores rule prefix fixes runtime state or cached data.
             public int RulePrefixFixes;
+            // 這個欄位保存 StructureWarnings 的執行狀態或快取資料。
+            // EN: This field stores structure warnings runtime state or cached data.
             public int StructureWarnings;
 
+            // 這個屬性提供 HasChanges 的讀寫或計算結果。
+            // EN: This property exposes has changes.
             public bool HasChanges => FilesTouched > 0 || EntriesFixed > 0 || StructureWarnings > 0;
         }
 
+        // 這個類別負責 舊資料Source快取 的主要流程與狀態。
+        // EN: This class manages the main workflow and state for LegacySourceCache.
         private class LegacySourceCache
         {
             public readonly Dictionary<string, Dictionary<string, string>> KeyedByFile = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
             public readonly Dictionary<string, Dictionary<string, string>> DefByType = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
         }
 
+        // 這個方法負責排入 BackgroundRepairOnce 佇列。
+        // EN: This method queues background repair once.
         public static void QueueBackgroundRepairOnce(int delayMs = 12000)
         {
             if (System.Threading.Interlocked.Exchange(ref _backgroundRepairQueued, 1) == 1) return;
@@ -52,6 +76,8 @@ namespace AutoTranslator_Core
             });
         }
 
+        // 這個方法負責處理 RepairCurrent語言翻譯包 相關流程。
+        // EN: This method handles repair current language pack.
         public static RepairSummary RepairCurrentLanguagePack(bool requestMemoryDrop = true)
         {
             if (AutoTranslatorMod.Settings == null) return new RepairSummary();
@@ -60,6 +86,8 @@ namespace AutoTranslator_Core
             return RepairLanguagePack(targetFolder, null, requestMemoryDrop);
         }
 
+        // 這個方法負責處理 RepairPackage 相關流程。
+        // EN: This method handles repair package.
         public static RepairSummary RepairPackage(string packageId, string targetLangFolder, bool requestMemoryDrop = true)
         {
             if (string.IsNullOrWhiteSpace(packageId)) return new RepairSummary();
@@ -73,6 +101,8 @@ namespace AutoTranslator_Core
             return RepairLanguagePack(targetLangFolder, new HashSet<string>(new[] { packageId }, StringComparer.OrdinalIgnoreCase), requestMemoryDrop);
         }
 
+        // 這個方法負責處理 RepairPackages 相關流程。
+        // EN: This method handles repair packages.
         public static RepairSummary RepairPackages(IEnumerable<string> packageIds, string targetLangFolder, bool requestMemoryDrop = true)
         {
             var filters = new HashSet<string>((packageIds ?? Enumerable.Empty<string>())
@@ -88,6 +118,8 @@ namespace AutoTranslator_Core
             return RepairLanguagePack(targetLangFolder, filters, requestMemoryDrop);
         }
 
+        // 這個方法負責處理 Repair語言翻譯包 相關流程。
+        // EN: This method handles repair language pack.
         private static RepairSummary RepairLanguagePack(string targetFolder, HashSet<string> packageIdFilters, bool requestMemoryDrop)
         {
             var summary = new RepairSummary();
@@ -132,6 +164,8 @@ namespace AutoTranslator_Core
             return summary;
         }
 
+        // 這個方法負責處理 RepairKeyedDirectory 相關流程。
+        // EN: This method handles repair Keyed directory.
         private static void RepairKeyedDirectory(string keyedDir, RepairSummary summary, HashSet<string> packageIdFilters = null)
         {
             if (!Directory.Exists(keyedDir)) return;
@@ -157,6 +191,8 @@ namespace AutoTranslator_Core
             }
         }
 
+        // 這個方法負責處理 RepairDefInjectedDirectory 相關流程。
+        // EN: This method handles repair Def Injected directory.
         private static void RepairDefInjectedDirectory(string defInjectedDir, RepairSummary summary, HashSet<string> packageIdFilters = null)
         {
             if (!Directory.Exists(defInjectedDir)) return;
@@ -182,11 +218,15 @@ namespace AutoTranslator_Core
             }
         }
 
+        // 這個方法負責處理 PackageMatchesFilter 相關流程。
+        // EN: This method handles package matches filter.
         private static bool PackageMatchesFilter(string packageId, HashSet<string> packageIdFilters)
         {
             return packageIdFilters == null || packageIdFilters.Count == 0 || packageIdFilters.Contains(packageId);
         }
 
+        // 這個方法負責處理 Repair語言資料File 相關流程。
+        // EN: This method handles repair language data file.
         private static void RepairLanguageDataFile(string file, Dictionary<string, string> sourceDict, RepairSummary summary)
         {
             XmlDocument doc = new XmlDocument();
@@ -224,6 +264,8 @@ namespace AutoTranslator_Core
             }
         }
 
+        // 這個方法負責處理 RepairValue 相關流程。
+        // EN: This method handles repair value.
         private static string RepairValue(string translated, string original, RepairSummary summary)
         {
             if (string.IsNullOrEmpty(translated) || string.IsNullOrEmpty(original)) return translated;
@@ -240,6 +282,8 @@ namespace AutoTranslator_Core
             return result;
         }
 
+        // 這個方法負責處理 RestoreGrammar規則Prefix 相關流程。
+        // EN: This method handles restore grammar rule prefix.
         private static string RestoreGrammarRulePrefix(string translated, string original, RepairSummary summary)
         {
             int originalArrow = original.IndexOf("->", StringComparison.Ordinal);
@@ -260,6 +304,8 @@ namespace AutoTranslator_Core
             return originalPrefix + translated.TrimStart();
         }
 
+        // 這個方法負責處理 RestoreProtectedTokens 相關流程。
+        // EN: This method handles restore protected tokens.
         private static string RestoreProtectedTokens(string translated, string original, RepairSummary summary)
         {
             string result = translated;
@@ -285,6 +331,8 @@ namespace AutoTranslator_Core
             return result;
         }
 
+        // 這個方法負責處理 MissingProtectedToken 相關流程。
+        // EN: This method handles missing protected token.
         private static bool MissingProtectedToken(string translated, string original)
         {
             foreach (string token in GetProtectedTokens(original))
@@ -294,6 +342,8 @@ namespace AutoTranslator_Core
             return false;
         }
 
+        // 這個方法負責取得 ProtectedTokens 資料。
+        // EN: This method gets protected tokens.
         private static List<string> GetProtectedTokens(string original)
         {
             return ProtectedTokenRegex.Matches(original)
@@ -303,6 +353,8 @@ namespace AutoTranslator_Core
                 .ToList();
         }
 
+        // 這個方法負責判斷 IsStructureSensitiveText 條件是否成立。
+        // EN: This method checks is structure sensitive text.
         private static bool IsStructureSensitiveText(string original)
         {
             return original.Contains("->") ||
@@ -312,6 +364,8 @@ namespace AutoTranslator_Core
                    original.IndexOf("[PAWN_", StringComparison.Ordinal) >= 0;
         }
 
+        // 這個方法負責取得 Source快取 資料。
+        // EN: This method gets source cache.
         private static LegacySourceCache GetSourceCache(string packageId)
         {
             if (SourceCache.TryGetValue(packageId, out LegacySourceCache cache)) return cache;
@@ -358,6 +412,8 @@ namespace AutoTranslator_Core
             return cache;
         }
 
+        // 這個方法負責讀取 KeyedSources 資料。
+        // EN: This method loads Keyed sources.
         private static void LoadKeyedSources(string dir, Dictionary<string, Dictionary<string, string>> keyedByFile)
         {
             if (!Directory.Exists(dir)) return;
@@ -370,6 +426,8 @@ namespace AutoTranslator_Core
             }
         }
 
+        // 這個方法負責讀取 DefInjectedSources 資料。
+        // EN: This method loads Def Injected sources.
         private static void LoadDefInjectedSources(string dir, Dictionary<string, Dictionary<string, string>> defByType)
         {
             if (!Directory.Exists(dir)) return;
@@ -409,6 +467,8 @@ namespace AutoTranslator_Core
             }
         }
 
+        // 這個方法負責處理 ResolvePackageIdFromGeneratedFile 相關流程。
+        // EN: This method handles resolve package id from generated file.
         private static string ResolvePackageIdFromGeneratedFile(string file)
         {
             string fileName = Path.GetFileNameWithoutExtension(file);
@@ -433,6 +493,8 @@ namespace AutoTranslator_Core
             return null;
         }
 
+        // 這個方法負責取得 SourceFile名稱FromGeneratedFile 資料。
+        // EN: This method gets source file name from generated file.
         private static string GetSourceFileNameFromGeneratedFile(string file, string packageId)
         {
             string fileName = Path.GetFileName(file);
@@ -463,6 +525,8 @@ namespace AutoTranslator_Core
             return fileName;
         }
 
+        // 這個方法負責取得 DefTypeFrom翻譯包File 資料。
+        // EN: This method gets Def type from pack file.
         private static string GetDefTypeFromPackFile(string file, string defInjectedDir)
         {
             string relative = file.Substring(defInjectedDir.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);

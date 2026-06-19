@@ -5,11 +5,17 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 using Verse;
+// 這個檔案負責 模組名稱翻譯快取 相關邏輯，支援 Auto Translation Core 的執行流程。
+// EN: This file contains mod name translation cache support code.
 
 namespace AutoTranslator_Core
 {
+    // 這個類別負責 模組名稱翻譯快取 的主要流程與狀態。
+    // EN: This class manages the main workflow and state for ModNameTranslationCache.
     internal static class ModNameTranslationCache
     {
+        // 這個常數定義 快取File名稱 的固定值。
+        // EN: This constant defines the fixed value for cache file name.
         private const string CacheFileName = "ModNameTranslations.json";
         private static readonly TimeSpan QueueInterval = TimeSpan.FromSeconds(2);
         private static readonly TimeSpan FailedRetryInterval = TimeSpan.FromSeconds(30);
@@ -17,20 +23,42 @@ namespace AutoTranslator_Core
         private static readonly HashSet<string> QueuedKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private static readonly Dictionary<string, long> FailedRetryAfterTicks = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
         private static Dictionary<string, CacheEntry> entries = new Dictionary<string, CacheEntry>(StringComparer.OrdinalIgnoreCase);
+        // 這個欄位保存 next佇列AllowedTicks 的執行狀態或快取資料。
+        // EN: This field stores next queue allowed ticks runtime state or cached data.
         private static long nextQueueAllowedTicks = 0;
+        // 這個欄位保存 lastVisible佇列Key 的執行狀態或快取資料。
+        // EN: This field stores last visible queue key runtime state or cached data.
         private static string lastVisibleQueueKey = "";
+        // 這個欄位保存 loaded 的執行狀態或快取資料。
+        // EN: This field stores loaded runtime state or cached data.
         private static bool loaded = false;
+        // 這個欄位保存 dirty 的執行狀態或快取資料。
+        // EN: This field stores dirty runtime state or cached data.
         private static bool dirty = false;
 
+        // 這個類別負責 快取Entry 的主要流程與狀態。
+        // EN: This class manages the main workflow and state for CacheEntry.
         private class CacheEntry
         {
+            // 這個欄位保存 目標語言 的執行狀態或快取資料。
+            // EN: This field stores target language runtime state or cached data.
             public string TargetLanguage;
+            // 這個欄位保存 PackageId 的執行狀態或快取資料。
+            // EN: This field stores package id runtime state or cached data.
             public string PackageId;
+            // 這個欄位保存 Source名稱 的執行狀態或快取資料。
+            // EN: This field stores source name runtime state or cached data.
             public string SourceName;
+            // 這個欄位保存 Translated名稱 的執行狀態或快取資料。
+            // EN: This field stores translated name runtime state or cached data.
             public string TranslatedName;
+            // 這個欄位保存 UpdatedUtc 的執行狀態或快取資料。
+            // EN: This field stores updated UTC runtime state or cached data.
             public string UpdatedUtc;
         }
 
+        // 這個方法負責嘗試執行 Get 並回報是否成功。
+        // EN: This method tries to get and reports whether it succeeded.
         public static bool TryGet(ModMetaData mod, out string translated)
         {
             translated = "";
@@ -55,6 +83,8 @@ namespace AutoTranslator_Core
             }
         }
 
+        // 這個方法負責嘗試執行 MarkQueued 並回報是否成功。
+        // EN: This method tries to mark queued and reports whether it succeeded.
         public static bool TryMarkQueued(ModMetaData mod)
         {
             if (!IsValidMod(mod)) return false;
@@ -73,6 +103,8 @@ namespace AutoTranslator_Core
             }
         }
 
+        // 這個方法負責嘗試執行 BeginVisible佇列 並回報是否成功。
+        // EN: This method tries to begin visible queue and reports whether it succeeded.
         public static bool TryBeginVisibleQueue(IEnumerable<ModMetaData> visibleMods)
         {
             string visibleKey = BuildVisibleKey(visibleMods);
@@ -93,6 +125,8 @@ namespace AutoTranslator_Core
             }
         }
 
+        // 這個方法負責標記 Failed 狀態。
+        // EN: This method marks failed.
         public static void MarkFailed(IEnumerable<ModMetaData> mods)
         {
             if (mods == null) return;
@@ -108,6 +142,8 @@ namespace AutoTranslator_Core
             }
         }
 
+        // 這個方法負責處理 ReleaseQueued 相關流程。
+        // EN: This method handles release queued.
         public static void ReleaseQueued(IEnumerable<ModMetaData> mods)
         {
             if (mods == null) return;
@@ -122,6 +158,8 @@ namespace AutoTranslator_Core
             }
         }
 
+        // 這個方法負責處理 Store 相關流程。
+        // EN: This method handles store.
         public static void Store(ModMetaData mod, string translated)
         {
             if (!IsValidMod(mod)) return;
@@ -144,6 +182,8 @@ namespace AutoTranslator_Core
             }
         }
 
+        // 這個方法負責清除 這段邏輯 資料。
+        // EN: This method clears .
         public static void Clear()
         {
             lock (CacheLock)
@@ -166,6 +206,8 @@ namespace AutoTranslator_Core
             }
         }
 
+        // 這個方法負責保存 IfDirty 資料。
+        // EN: This method saves if dirty.
         public static void SaveIfDirty()
         {
             Dictionary<string, CacheEntry> snapshot;
@@ -192,6 +234,8 @@ namespace AutoTranslator_Core
             }
         }
 
+        // 這個方法負責確保 Loaded 已準備完成。
+        // EN: This method ensures loaded is ready.
         private static void EnsureLoaded()
         {
             lock (CacheLock)
@@ -218,6 +262,8 @@ namespace AutoTranslator_Core
             }
         }
 
+        // 這個方法負責處理 MatchesCurrent模組 相關流程。
+        // EN: This method handles matches current mod.
         private static bool MatchesCurrentMod(CacheEntry entry, ModMetaData mod)
         {
             return entry != null &&
@@ -226,6 +272,8 @@ namespace AutoTranslator_Core
                    string.Equals(entry.SourceName, mod.Name, StringComparison.Ordinal);
         }
 
+        // 這個方法負責判斷 IsValid模組 條件是否成立。
+        // EN: This method checks is valid mod.
         private static bool IsValidMod(ModMetaData mod)
         {
             return mod != null &&
@@ -234,6 +282,8 @@ namespace AutoTranslator_Core
                    !string.IsNullOrWhiteSpace(mod.Name);
         }
 
+        // 這個方法負責建立 快取Key 所需資料。
+        // EN: This method builds cache key.
         private static string BuildCacheKey(ModMetaData mod)
         {
             string raw = $"{AutoTranslatorMod.Settings.TargetLang}\n{mod.PackageId.ToLowerInvariant()}\n{mod.Name}";
@@ -244,6 +294,8 @@ namespace AutoTranslator_Core
             }
         }
 
+        // 這個方法負責建立 VisibleKey 所需資料。
+        // EN: This method builds visible key.
         private static string BuildVisibleKey(IEnumerable<ModMetaData> visibleMods)
         {
             if (visibleMods == null) return "";
@@ -261,6 +313,8 @@ namespace AutoTranslator_Core
             return builder.ToString();
         }
 
+        // 這個方法負責取得 快取File路徑 資料。
+        // EN: This method gets cache file path.
         private static string GetCacheFilePath()
         {
             return Path.Combine(AutoTranslatorScanner.GetLocalPackPath(), "Cache", CacheFileName);

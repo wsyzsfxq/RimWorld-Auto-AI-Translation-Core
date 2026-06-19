@@ -6,51 +6,55 @@ using System.Text;
 using UnityEngine;
 using Verse;
 using RimWorld;
+// 這個檔案負責導出頻率限制與冷卻計算。
+// EN: This file calculates export limits and cooldowns.
 
 namespace AutoTranslator_Core
 {
-    /// <summary>
-    /// 智能分層冷卻管理器
-    ///
-    /// 設計原則：
-    /// - 合法使用（重試、對比）不應觸發冷卻 → 前 2 次免冷卻
-    /// - 濫用行為（連續批量導出）會逐步加重冷卻
-    /// - 距離上次導出 1 小時後計數重置 → 偶爾使用不累積負擔
-    /// </summary>
+
+
+    // 這個類別負責 導出冷卻管理器 的主要流程與狀態。
+    // EN: This class manages the main workflow and state for ExportCooldownManager.
     public static class ExportCooldownManager
     {
-        /// <summary>
-        /// 冷卻時間表：索引 = 即將執行的「1 小時內第 N 次」導出
-        /// 例如：index=0 表示這是 1 小時內第 1 次導出，免冷卻
-        /// </summary>
+
+
+        // 這個欄位保存 冷卻Schedule 的執行狀態或快取資料。
+        // EN: This field stores cooldown schedule runtime state or cached data.
         private static readonly int[] CooldownSchedule = new[]
         {
-        0,    // 第 1 次：免冷卻
-        0,    // 第 2 次：免冷卻
-        30,   // 第 3 次：30 秒
-        60,   // 第 4 次：1 分鐘
-        180,  // 第 5 次：3 分鐘
-        300   // 第 6 次以後：5 分鐘
+        0,
+        0,
+        30,
+        60,
+        180,
+        300
     };
 
-        /// <summary>1 小時內的紀錄才算「最近」</summary>
+
+        // 這個常數定義 RECENTWINDOWHOURS 的固定值。
+        // EN: This constant defines the fixed value for recent window hours.
         private const double RECENT_WINDOW_HOURS = 1.0;
 
-        /// <summary>每日導出上限</summary>
+
+        // 這個常數定義 DAILYLIMIT 的固定值。
+        // EN: This constant defines the fixed value for daily limit.
         public const int DAILY_LIMIT = 100;
 
-        /// <summary>單次最多導出模組數</summary>
+
+        // 這個常數定義 PEREXPORTMODLIMIT 的固定值。
+        // EN: This constant defines the fixed value for per export mod limit.
         public const int PER_EXPORT_MOD_LIMIT = 10;
 
-        /// <summary>
-        /// 計算當前冷卻狀態
-        /// </summary>
+
+        // 這個方法負責取得 Current狀態 資料。
+        // EN: This method gets current state.
         public static CooldownState GetCurrentState()
         {
             var settings = AutoTranslatorMod.Settings;
             var now = DateTime.Now;
 
-            // 1. 檢查每日重置
+
             string today = now.ToString("yyyy-MM-dd");
             if (settings.TodayExportDate != today)
             {
@@ -58,15 +62,15 @@ namespace AutoTranslator_Core
                 settings.TodayExportDate = today;
             }
 
-            // 2. 清理過時紀錄（超過 24 小時）
+
             var cutoff = now.AddHours(-24);
             settings.ExportHistory.RemoveAll(s =>
             {
-                if (!DateTime.TryParse(s, out DateTime t)) return true;  // 損壞紀錄一併清掉
+                if (!DateTime.TryParse(s, out DateTime t)) return true;
                 return t < cutoff;
             });
 
-            // 3. 篩選 1 小時內的紀錄
+
             var recentExports = new List<DateTime>();
             foreach (var s in settings.ExportHistory)
             {
@@ -77,17 +81,17 @@ namespace AutoTranslator_Core
                 }
             }
 
-            // 4. 檢查每日上限
+
             bool dailyReached = settings.TodayExportCount >= DAILY_LIMIT;
 
-            // 5. 計算「下次導出」需要的冷卻
-            int nextExportIndex = recentExports.Count;  // 即將是 1 小時內第 (N+1) 次
+
+            int nextExportIndex = recentExports.Count;
             int cooldownSecondsForNext = GetCooldownForIndex(nextExportIndex);
 
-            // 6. 計算「再下一次」需要的冷卻（給 UI 顯示用）
+
             int cooldownSecondsForAfter = GetCooldownForIndex(nextExportIndex + 1);
 
-            // 7. 判定能否立刻導出
+
             if (dailyReached)
             {
                 return new CooldownState
@@ -103,7 +107,7 @@ namespace AutoTranslator_Core
 
             if (cooldownSecondsForNext == 0 || recentExports.Count == 0)
             {
-                // 免冷卻
+
                 return new CooldownState
                 {
                     CanExport = true,
@@ -115,7 +119,7 @@ namespace AutoTranslator_Core
                 };
             }
 
-            // 需要冷卻：檢查距離上次導出多久
+
             DateTime lastExport = recentExports.Max();
             double elapsed = (now - lastExport).TotalSeconds;
 
@@ -145,18 +149,18 @@ namespace AutoTranslator_Core
             }
         }
 
-        /// <summary>
-        /// 紀錄一次導出（必須在實際導出成功後呼叫）
-        /// </summary>
+
+        // 這個方法負責處理 Record導出 相關流程。
+        // EN: This method handles record export.
         public static void RecordExport()
         {
             var settings = AutoTranslatorMod.Settings;
             var now = DateTime.Now;
 
-            // 寫入歷史
+
             settings.ExportHistory.Add(now.ToString("o"));
 
-            // 更新今日計數
+
             string today = now.ToString("yyyy-MM-dd");
             if (settings.TodayExportDate != today)
             {
@@ -168,10 +172,10 @@ namespace AutoTranslator_Core
                 settings.TodayExportCount++;
             }
 
-            // 持久化
+
             LoadedModManager.GetMod<AutoTranslatorMod>().WriteSettings();
 
-            // 日誌：計算下次冷卻
+
             int recentCount = CountRecentExports();
             int nextCooldown = GetCooldownForIndex(recentCount);
             if (nextCooldown > 0)
@@ -181,6 +185,8 @@ namespace AutoTranslator_Core
             }
         }
 
+        // 這個方法負責處理 CountRecentExports 相關流程。
+        // EN: This method handles count recent exports.
         private static int CountRecentExports()
         {
             var settings = AutoTranslatorMod.Settings;
@@ -196,6 +202,8 @@ namespace AutoTranslator_Core
             return count;
         }
 
+        // 這個方法負責取得 冷卻ForIndex 資料。
+        // EN: This method gets cooldown for index.
         private static int GetCooldownForIndex(int index)
         {
             if (index < 0) return 0;

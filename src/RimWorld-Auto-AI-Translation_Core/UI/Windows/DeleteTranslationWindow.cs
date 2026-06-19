@@ -6,21 +6,39 @@ using System.Linq;
 using System.Threading.Tasks;
 using UnityEngine;
 using Verse;
+// 這個檔案負責刪除翻譯的確認與執行視窗。
+// EN: This file draws and executes the delete-translation confirmation window.
 
 namespace AutoTranslator_Core
 {
+    // 這個類別負責 刪除翻譯視窗 的主要流程與狀態。
+    // EN: This class manages the main workflow and state for DeleteTranslationWindow.
     public class DeleteTranslationWindow : Window
     {
+        // 這個常數定義 RowHeight 的固定值。
+        // EN: This constant defines the fixed value for row height.
         private const float RowHeight = 56f;
 
+        // 這個欄位保存 searchText 的執行狀態或快取資料。
+        // EN: This field stores search text runtime state or cached data.
         private string searchText = "";
+        // 這個欄位保存 scrollPos 的執行狀態或快取資料。
+        // EN: This field stores scroll pos runtime state or cached data.
         private Vector2 scrollPos = Vector2.zero;
         private readonly HashSet<ModMetaData> selectedMods = new HashSet<ModMetaData>();
+        // 這個欄位保存 drag目標狀態 的執行狀態或快取資料。
+        // EN: This field stores drag target state runtime state or cached data.
         private bool? dragTargetState = null;
+        // 這個欄位保存 isTranslating模組Names 的執行狀態或快取資料。
+        // EN: This field stores is translating mod names runtime state or cached data.
         private static bool isTranslatingModNames = false;
 
+        // 這個屬性提供 InitialSize 的讀寫或計算結果。
+        // EN: This method handles vector2.
         public override Vector2 InitialSize => new Vector2(600f, 700f);
 
+        // 這個方法負責刪除 翻譯視窗 資料。
+        // EN: This constructor initializes delete translation window.
         public DeleteTranslationWindow()
         {
             doCloseButton = false;
@@ -29,6 +47,8 @@ namespace AutoTranslator_Core
             absorbInputAroundWindow = true;
         }
 
+        // 這個方法負責處理 Do視窗Contents 相關流程。
+        // EN: This method handles do window contents.
         public override void DoWindowContents(Rect inRect)
         {
             bool previousBypass = Patch_GUI_Label_GUIContent.BypassInterceptor;
@@ -60,6 +80,8 @@ namespace AutoTranslator_Core
             }
         }
 
+        // 這個方法負責取得 Display模組 資料。
+        // EN: This method gets display mods.
         private List<ModMetaData> GetDisplayMods()
         {
             IEnumerable<ModMetaData> mods = AutoTranslatorMod.GetValidModsCached()
@@ -77,6 +99,8 @@ namespace AutoTranslator_Core
             return mods.OrderBy(m => m.Name).ToList();
         }
 
+        // 這個方法負責繪製 SelectVisibleButton 介面。
+        // EN: This method draws select visible button.
         private void DrawSelectVisibleButton(Rect buttonRect, List<ModMetaData> displayMods)
         {
             bool hasVisibleMods = displayMods != null && displayMods.Count > 0;
@@ -102,6 +126,8 @@ namespace AutoTranslator_Core
             GUI.color = Color.white;
         }
 
+        // 這個方法負責繪製 模組List 介面。
+        // EN: This method draws mod list.
         private void DrawModList(Rect inRect, List<ModMetaData> displayMods)
         {
             Widgets.DrawLineHorizontal(0, 85f, inRect.width);
@@ -127,6 +153,8 @@ namespace AutoTranslator_Core
             Widgets.EndScrollView();
         }
 
+        // 這個方法負責繪製 模組Row 介面。
+        // EN: This method draws mod row.
         private void DrawModRow(ModMetaData mod, Rect rowRect)
         {
             bool isChecked = selectedMods.Contains(mod);
@@ -163,6 +191,8 @@ namespace AutoTranslator_Core
             else selectedMods.Remove(mod);
         }
 
+        // 這個方法負責繪製 刪除Button 介面。
+        // EN: This method draws delete button.
         private void DrawDeleteButton(Rect inRect)
         {
             Rect bottomBtnRect = new Rect(0, inRect.height - 40f, inRect.width, 40f);
@@ -178,12 +208,16 @@ namespace AutoTranslator_Core
             GUI.color = Color.white;
         }
 
+        // 這個方法負責取得 CachedTranslated模組名稱 資料。
+        // EN: This method gets cached translated mod name.
         private static string GetCachedTranslatedModName(ModMetaData mod)
         {
             if (mod == null) return "";
             return ModNameTranslationCache.TryGet(mod, out string translated) ? translated : "";
         }
 
+        // 這個方法負責取得 Display模組名稱 資料。
+        // EN: This method gets display mod name.
         private static string GetDisplayModName(ModMetaData mod)
         {
             if (mod == null) return "";
@@ -197,6 +231,8 @@ namespace AutoTranslator_Core
             return $"{translated} / {mod.Name}";
         }
 
+        // 這個方法負責排入 Visible模組名稱Translations 佇列。
+        // EN: This method queues visible mod name translations.
         private static void QueueVisibleModNameTranslations(List<ModMetaData> displayMods)
         {
             if (!AutoTranslatorMod.Settings.TranslateWorkbenchModNames) return;
@@ -268,6 +304,8 @@ namespace AutoTranslator_Core
             });
         }
 
+        // 這個方法負責執行 刪除 動作。
+        // EN: This method executes delete.
         private void ExecuteDelete(List<ModMetaData> modsToDelete)
         {
             try
@@ -304,6 +342,7 @@ namespace AutoTranslator_Core
 
                 LoadedModManager.GetMod<AutoTranslatorMod>().WriteSettings();
                 ModUpdateDetector.ClearStatusCache();
+                TranslationWorkbenchTab.RequestRefresh();
 
                 string logMsg = "ATC_Log_DeleteTransSuccess".Translate(modsToDelete.Count, deletedFiles);
                 AutoTranslatorSettings.AddLog(logMsg);
@@ -317,6 +356,8 @@ namespace AutoTranslator_Core
             }
         }
 
+        // 這個方法負責判斷 IsCodeOnly模組 條件是否成立。
+        // EN: This method checks is code only mod.
         public static bool IsCodeOnlyMod(ModMetaData mod)
         {
             if (mod == null || mod.RootDir == null) return true;

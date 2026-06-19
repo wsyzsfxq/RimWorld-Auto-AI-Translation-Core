@@ -11,53 +11,56 @@ using System.Threading.Tasks;
 using System.Xml;
 using Verse;
 using static AutoTranslator_Core.DeleteTranslationWindow;
+// 這個檔案負責從 Def 結構抽取可翻譯文字。
+// EN: This file extracts translatable text from RimWorld Def structures.
 
 namespace AutoTranslator_Core
 {
+    // 這個類別負責 自動翻譯器掃描器 的主要流程與狀態。
+    // EN: This class manages the main workflow and state for AutoTranslatorScanner.
     public static partial class AutoTranslatorScanner
     {
 
-        // 🌟 咪咪升級版：過濾器本人
-        // 🌟 咪咪升級版：結合標籤名稱與內容分析的終極過濾器
+
+        // 這個方法負責判斷 Is翻譯目標 條件是否成立。
+        // EN: This method checks is translation target.
         private static bool IsTranslationTarget(string tagName, string value)
         {
-            // 1. 基本檢查：太短、純數字、純符號的直接踢掉
+
             if (string.IsNullOrWhiteSpace(value) || value.Length < 2) return false;
             if (value.All(char.IsDigit) || Regex.IsMatch(value, @"^[^\w\s]+$")) return false;
 
-            // ==========================================
-            // 🌟 咪咪補破網：專殺假冒文字的底層變數！
-            // 只要結尾是這幾個字，管他叫什麼名字，一律不准翻！
-            // ==========================================
-            string lower = tagName.ToLower(); // 👈 這裡宣告一次就好了！
+
+            string lower = tagName.ToLower();
             if (lower.EndsWith("defname") || lower.EndsWith("dollname") ||
                 lower.EndsWith("dollpartname") || lower.EndsWith("methodname") ||
                 lower.EndsWith("class") || lower.EndsWith("worker") || lower.EndsWith("def"))
                 return false;
 
-            // 2. 標籤黑名單：如果是 texPath, soundDef 這種直接拒絕
+
             if (BlacklistedFields.Contains(tagName)) return false;
 
-            // 3. 內容特徵分析：
-            // 如果包含斜線但沒有空格 -> 判定為路徑
+
             if ((value.Contains("/") || value.Contains("\\")) && !value.Contains(" ")) return false;
 
-            // 如果包含底線但沒有空格 -> 判定為程式碼 ID (如 Apparel_Pants_Worker)
+
             if (value.Contains("_") && !value.Contains(" ")) return false;
 
-            // 檢查是否包含檔案副檔名
+
             if (FilePathRegex.IsMatch(value)) return false;
 
-            // 4. 最後判定：符合常用翻譯標籤或結尾才放行
+
             if (ExactTextTags.Contains(tagName)) return true;
 
-            // 👈 這裡把重複宣告的 string lower 刪掉了，直接用！
+
             return lower.EndsWith("label") || lower.EndsWith("description") ||
                    lower.EndsWith("string") || lower.EndsWith("text") ||
                    lower.EndsWith("message") || lower.EndsWith("name") ||
                    lower.EndsWith("desc");
         }
 
+        // 這個方法負責判斷 IsProtectedDef路徑 條件是否成立。
+        // EN: This method checks is protected Def path.
         private static bool IsProtectedDefPath(string path)
         {
             if (string.IsNullOrEmpty(path)) return false;
@@ -77,6 +80,8 @@ namespace AutoTranslator_Core
                    lower.Contains(".animation");
         }
 
+        // 這個方法負責處理 LooksLikeDefReferenceValue 相關流程。
+        // EN: This method handles looks like Def reference value.
         private static bool LooksLikeDefReferenceValue(string value)
         {
             if (string.IsNullOrWhiteSpace(value)) return true;
@@ -89,6 +94,8 @@ namespace AutoTranslator_Core
             return false;
         }
 
+        // 這個方法負責判斷 ShouldForce翻譯ListItem 條件是否成立。
+        // EN: This method checks should force translate list item.
         private static bool ShouldForceTranslateListItem(XmlNode parentNode, string currentPath, string text)
         {
             if (parentNode == null) return false;
@@ -102,6 +109,8 @@ namespace AutoTranslator_Core
         }
 
 
+        // 這個方法負責判斷 IsKnownTranslatable路徑 條件是否成立。
+        // EN: This method checks is known translatable path.
         private static bool IsKnownTranslatablePath(string path)
         {
             if (string.IsNullOrWhiteSpace(path)) return false;
@@ -114,6 +123,8 @@ namespace AutoTranslator_Core
                    lower.Contains(".ingredients.") && lower.EndsWith(".filter.customsummary");
         }
 
+        // 這個方法負責處理 TraverseDefNode 相關流程。
+        // EN: This method handles traverse Def node.
         private static void TraverseDefNode(XmlNode node, string currentPath, string defType, Dictionary<string, Dictionary<string, string>> result)
         {
             int liIndex = 0;
@@ -149,18 +160,18 @@ namespace AutoTranslator_Core
                 {
                     string text = child.InnerText.Trim();
 
-                    // 🌟 咪咪特製過濾垃圾
+
                     bool isGarbage = text.Length < 2 || Regex.IsMatch(text, @"^[\d\s\-\+\.\%]+$");
 
                     if (!isGarbage && !string.IsNullOrWhiteSpace(text) && !text.Contains(".xml") && !text.StartsWith("Tex/") && !text.StartsWith("UI/"))
                     {
-                        // ✅ 修復 CS7036：這裡必須傳入兩個引數
+
                         bool isKnownTranslatablePath = IsKnownTranslatablePath(childPath);
                         bool shouldTranslate = !IsProtectedDefPath(childPath) &&
                                                (isKnownTranslatablePath || !LooksLikeDefReferenceValue(text)) &&
                                                (isKnownTranslatablePath || IsTranslationTarget(child.Name, text));
 
-                        // ✅ 修復 CS7036：這裡也要傳入兩個引數
+
                         if (isListItem && ShouldForceTranslateListItem(node, currentPath, text))
                         {
                             shouldTranslate = true;
@@ -179,6 +190,8 @@ namespace AutoTranslator_Core
                 }
             }
         }
+        // 這個方法負責處理 ExtractEnglishFromRawDefs 相關流程。
+        // EN: This method handles extract english from raw defs.
         public static Dictionary<string, Dictionary<string, string>> ExtractEnglishFromRawDefs(string defsRoot)
         {
             var result = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);

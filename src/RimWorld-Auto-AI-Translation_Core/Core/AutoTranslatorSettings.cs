@@ -5,44 +5,83 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Net.Http;
 using System.Threading.Tasks;
 using UnityEngine;
 using Verse;
 using static AutoTranslator_Core.DeleteTranslationWindow;
+// 這個檔案保存模組設定、執行狀態與日誌資料。
+// EN: This file stores mod settings, runtime state, and log data.
 
 namespace AutoTranslator_Core
 {
+    // 這個類別負責 自動翻譯器設定 的主要流程與狀態。
+    // EN: This class manages the main workflow and state for AutoTranslatorSettings.
     public class AutoTranslatorSettings : ModSettings
     {
+        // 這個欄位保存 目標語言 的執行狀態或快取資料。
+        // EN: This field stores target language runtime state or cached data.
         public TargetLanguage TargetLang = TargetLanguage.Traditional;
+        // 這個欄位保存 HasManual目標語言 的執行狀態或快取資料。
+        // EN: This field stores has manual target language runtime state or cached data.
         public bool HasManualTargetLanguage = false;
+        // 這個欄位保存 Only掃描Active模組 的執行狀態或快取資料。
+        // EN: This field stores only scan active mods runtime state or cached data.
         public bool OnlyScanActiveMods = true;
+        // 這個欄位保存 MaxThreads 的執行狀態或快取資料。
+        // EN: This field stores max threads runtime state or cached data.
         public int MaxThreads = 3;
         public List<ApiKeyConfig> ApiConfigs = new List<ApiKeyConfig>();
 
+        // 這個欄位保存 CurrentProgress 的執行狀態或快取資料。
+        // EN: This field stores current progress runtime state or cached data.
         public float CurrentProgress = 0f;
+        // 這個欄位保存 CurrentTask名稱 的執行狀態或快取資料。
+        // EN: This field stores current task name runtime state or cached data.
         public string CurrentTaskName = "";
+        // 這個欄位保存 SubProgress 的執行狀態或快取資料。
+        // EN: This field stores sub progress runtime state or cached data.
         public float SubProgress = 0f;
+        // 這個欄位保存 SubTask名稱 的執行狀態或快取資料。
+        // EN: This field stores sub task name runtime state or cached data.
         public string SubTaskName = "";
+        // 這個欄位保存 Should自動Scroll 的執行狀態或快取資料。
+        // EN: This field stores should auto scroll runtime state or cached data.
         public static bool ShouldAutoScroll = true;
+        // 這個欄位保存 IsSkipCurrentRequested 的執行狀態或快取資料。
+        // EN: This field stores is skip current requested runtime state or cached data.
         public static bool IsSkipCurrentRequested = false;
 
+        // 這個欄位保存 last設定ViewHeight 的執行狀態或快取資料。
+        // EN: This field stores last settings view height runtime state or cached data.
         public static float lastSettingsViewHeight = 1000f;
+        // 這個欄位保存 ShowFinishPopup 的執行狀態或快取資料。
+        // EN: This field stores show finish popup runtime state or cached data.
         public static bool ShowFinishPopup = false;
+        // 這個欄位保存 mainScrollPos 的執行狀態或快取資料。
+        // EN: This field stores main scroll pos runtime state or cached data.
         public static Vector2 mainScrollPos = Vector2.zero;
 
+        // 這個欄位保存 logScrollPos 的執行狀態或快取資料。
+        // EN: This field stores log scroll pos runtime state or cached data.
         public static Vector2 logScrollPos = Vector2.zero;
         public static List<string> RuntimeLogs = new List<string>();
 
+        // 這個欄位保存 errorScrollPos 的執行狀態或快取資料。
+        // EN: This field stores error scroll pos runtime state or cached data.
         public static Vector2 errorScrollPos = Vector2.zero;
         public static List<string> ErrorLogs = new List<string>();
 
         public static readonly object logLock = new object();
 
+        // 這個欄位保存 IsCancellationRequested 的執行狀態或快取資料。
+        // EN: This field stores is cancellation requested runtime state or cached data.
         public static bool IsCancellationRequested = false;
+        // 這個欄位保存 IsRunning 的執行狀態或快取資料。
+        // EN: This field stores is running runtime state or cached data.
         public static bool IsRunning = false;
 
+        // 這個方法負責送出 PipelineCancellation 請求。
+        // EN: This method requests pipeline cancellation.
         public static void RequestPipelineCancellation()
         {
             IsCancellationRequested = true;
@@ -50,65 +89,129 @@ namespace AutoTranslator_Core
             AutoTranslatorAPI.AbortActiveTranslationRequests("Pipeline cancellation requested");
         }
 
+        // 這個方法負責重置 PipelineCancellation 狀態。
+        // EN: This method resets pipeline cancellation.
         public static void ResetPipelineCancellation()
         {
             IsCancellationRequested = false;
             IsSkipCurrentRequested = false;
         }
 
+        // 這個欄位保存 EnableUIInterceptor 的執行狀態或快取資料。
+        // EN: This field stores enable UI interceptor runtime state or cached data.
         public bool EnableUIInterceptor = false;
+        // 這個欄位保存 EnableUINew翻譯 的執行狀態或快取資料。
+        // EN: This field stores enable UI new translation runtime state or cached data.
         public bool EnableUINewTranslation = true;
+        // 這個欄位保存 EnableUIErrorLogInterception 的執行狀態或快取資料。
+        // EN: This field stores enable UI error log interception runtime state or cached data.
         public bool EnableUIErrorLogInterception = false;
+        // 這個欄位保存 ShowOriginalUI 的執行狀態或快取資料。
+        // EN: This field stores show original UI runtime state or cached data.
         public bool ShowOriginalUI = false;
+        // 這個欄位保存 翻譯工作台模組Names 的執行狀態或快取資料。
+        // EN: This field stores translate workbench mod names runtime state or cached data.
         public bool TranslateWorkbenchModNames = false;
 
+        // 這個欄位保存 TotalCharCount 的執行狀態或快取資料。
+        // EN: This field stores total char count runtime state or cached data.
         public long TotalCharCount = 0;
+        // 這個欄位保存 SessionCharCount 的執行狀態或快取資料。
+        // EN: This field stores cloud scroll pos runtime state or cached data.
         [NonSerialized] public long SessionCharCount = 0;
 
-        // 分頁控制 (不需存檔)
+
+        // 這個欄位保存 Active分頁 的執行狀態或快取資料。
+        // EN: This field stores cloud scroll pos runtime state or cached data.
         [NonSerialized] public static int ActiveTab = 0;
-        // ===== V3.0 雲端狀態暫存 (不需存檔) =====
+
         [NonSerialized] public static List<CloudModRecord> CloudRegistry = new List<CloudModRecord>();
+        // 這個欄位保存 IsFetching雲端 的執行狀態或快取資料。
+        // EN: This field stores cloud scroll pos runtime state or cached data.
         [NonSerialized] public static bool IsFetchingCloud = false;
+        // 這個欄位保存 HasFetched雲端ThisSession 的執行狀態或快取資料。
+        // EN: This field stores cloud scroll pos runtime state or cached data.
         [NonSerialized] public static bool HasFetchedCloudThisSession = false;
-        [NonSerialized] public static string CloudUploadTarget = ""; // 記錄目前正在上傳哪一個 PackageId
-        [NonSerialized] public static string CloudSearchText = "";   // ✨ 新增：雲端介面的搜尋框文字
-        // ✨ 新增：明確記錄連線是否失敗，防止 UI 說謊！
+        // 這個欄位保存 雲端上傳目標 的執行狀態或快取資料。
+        // EN: This field stores cloud scroll pos runtime state or cached data.
+        [NonSerialized] public static string CloudUploadTarget = "";
+        // 這個欄位保存 雲端搜尋Text 的執行狀態或快取資料。
+        // EN: This field stores cloud scroll pos runtime state or cached data.
+        [NonSerialized] public static string CloudSearchText = "";
+
+        // 這個欄位保存 雲端連線Failed 的執行狀態或快取資料。
+        // EN: This field stores cloud scroll pos runtime state or cached data.
         [NonSerialized] public static bool CloudConnectionFailed = false;
+        // 這個欄位保存 雲端取得Generation 的執行狀態或快取資料。
+        // EN: This field stores cloud scroll pos runtime state or cached data.
         [NonSerialized] public static int CloudFetchGeneration = 0;
+        // 這個欄位保存 雲端取得StartedUtcTicks 的執行狀態或快取資料。
+        // EN: This field stores cloud scroll pos runtime state or cached data.
         [NonSerialized] public static long CloudFetchStartedUtcTicks = 0;
+        // 這個欄位保存 cloudScrollPos 的執行狀態或快取資料。
+        // EN: This field stores cloud scroll pos runtime state or cached data.
         public static Vector2 cloudScrollPos = Vector2.zero;
-        // ===== V3.1 雲端使用者設定 =====
+
+        // 這個欄位保存 雲端Nickname 的執行狀態或快取資料。
+        // EN: This field stores cloud nickname runtime state or cached data.
         public string CloudNickname = "野生大佬";
+        // 這個欄位保存 雲端AdminToken 的執行狀態或快取資料。
+        // EN: This field stores cloud admin token runtime state or cached data.
         public string CloudAdminToken = "";
-        public string CloudUploadType = "AI_Auto"; // ✨ 新增：預設是 AI 機翻
+        // 這個欄位保存 雲端上傳Type 的執行狀態或快取資料。
+        // EN: This field stores cloud upload type runtime state or cached data.
+        public string CloudUploadType = "AI_Auto";
+        // 這個欄位保存 雲端Batch上傳Log 的執行狀態或快取資料。
+        // EN: This field stores cloud batch upload log runtime state or cached data.
         public string CloudBatchUploadLog = "";
-        public TargetLanguage CloudTargetLang = TargetLanguage.Traditional; // ✨ 雲端專屬目標語言！
-        // ✨ V3.0 新增：雲端多版本選取暫存 (不需要存檔，開機自動重整)
+        // 這個欄位保存 雲端目標語言 的執行狀態或快取資料。
+        // EN: This field stores cloud target language runtime state or cached data.
+        public TargetLanguage CloudTargetLang = TargetLanguage.Traditional;
+
         [NonSerialized] public static Dictionary<string, CloudModRecord> SelectedCloudVersion = new Dictionary<string, CloudModRecord>(StringComparer.OrdinalIgnoreCase);
-        // 新功能：檢測到更新是否直接全自動背景啟動翻譯
+
+        // 這個欄位保存 自動翻譯OnUpdate 的執行狀態或快取資料。
+        // EN: This field stores auto translate on update runtime state or cached data.
         public bool AutoTranslateOnUpdate = false;
+        // 這個欄位保存 TimeoutSeconds 的執行狀態或快取資料。
+        // EN: This field stores timeout seconds runtime state or cached data.
         public int TimeoutSeconds = 60;
-        // ✨ 增量翻譯開關與時間戳記憶體
-        public bool AutoClearOldOnUpdate = true; // 預設開啟智能增量
+
+        // 這個欄位保存 自動ClearOldOnUpdate 的執行狀態或快取資料。
+        // EN: This field stores auto clear old on update runtime state or cached data.
+        public bool AutoClearOldOnUpdate = true;
         public Dictionary<string, long> ModLastVerifiedTimes = new Dictionary<string, long>();
         public Dictionary<string, string> ModLastVerifiedFingerprints = new Dictionary<string, string>();
-        // ✨ 架構師新增：宣告一個公開靜態變數來記錄過濾數量
+
+        // 這個欄位保存 Filtered模組Count 的執行狀態或快取資料。
+        // EN: This field stores filtered mods count runtime state or cached data.
         public static int FilteredModsCount = 0;
-        // ===== P3 新增：EULA 同意狀態 =====
+
+        // 這個欄位保存 HasAccepted導出Eula 的執行狀態或快取資料。
+        // EN: This field stores has accepted export eula runtime state or cached data.
         public bool HasAcceptedExportEula = false;
-        public string EulaAcceptedTimestamp = "";   // ISO 8601 格式
-        public string EulaAcceptedVersion = "";      // 同意的 EULA 版本
-        public int EulaAcceptCount = 0;              // 累計同意次數
+        // 這個欄位保存 EulaAcceptedTimestamp 的執行狀態或快取資料。
+        // EN: This field stores eula accepted timestamp runtime state or cached data.
+        public string EulaAcceptedTimestamp = "";
+        // 這個欄位保存 EulaAccepted版本 的執行狀態或快取資料。
+        // EN: This field stores eula accepted version runtime state or cached data.
+        public string EulaAcceptedVersion = "";
+        // 這個欄位保存 EulaAcceptCount 的執行狀態或快取資料。
+        // EN: This field stores eula accept count runtime state or cached data.
+        public int EulaAcceptCount = 0;
 
-        // ===== P3 第二階段新增：導出冷卻與每日上限 =====
-        public List<string> ExportHistory = new List<string>();  // ISO 8601 時間字串清單
-        public string TodayExportDate = "";                       // 今日日期 yyyy-MM-dd
-        public int TodayExportCount = 0;                          // 今日導出次數
 
-        /// <summary>
-        /// 判斷 EULA 同意是否仍有效（30 天內 且 版本一致）
-        /// </summary>
+        public List<string> ExportHistory = new List<string>();
+        // 這個欄位保存 Today導出Date 的執行狀態或快取資料。
+        // EN: This field stores today export date runtime state or cached data.
+        public string TodayExportDate = "";
+        // 這個欄位保存 Today導出Count 的執行狀態或快取資料。
+        // EN: This field stores today export count runtime state or cached data.
+        public int TodayExportCount = 0;
+
+
+        // 這個方法負責判斷 IsEulaStillValid 條件是否成立。
+        // EN: This method checks is eula still valid.
         public bool IsEulaStillValid()
         {
             if (!HasAcceptedExportEula) return false;
@@ -122,15 +225,17 @@ namespace AutoTranslator_Core
             return false;
         }
 
-        /// <summary>
-        /// 取得 EULA 同意剩餘天數（負數表示已過期）
-        /// </summary>
+
+        // 這個方法負責取得 EulaRemainingDays 資料。
+        // EN: This method gets eula remaining days.
         public int GetEulaRemainingDays()
         {
             if (!DateTime.TryParse(EulaAcceptedTimestamp, out DateTime accepted)) return 0;
             return 30 - (int)(DateTime.Now - accepted).TotalDays;
         }
 
+        // 這個方法負責處理 AddLog 相關流程。
+        // EN: This method handles add log.
         public static void AddLog(string msg)
         {
             string line = $"[{DateTime.Now:HH:mm:ss}] {msg}";
@@ -142,6 +247,8 @@ namespace AutoTranslator_Core
             }
         }
 
+        // 這個方法負責處理 AddErrorLog 相關流程。
+        // EN: This method handles add error log.
         public static void AddErrorLog(string msg)
         {
             lock (logLock)
@@ -154,12 +261,31 @@ namespace AutoTranslator_Core
                 WriteLogToFile("[ERROR] " + line);
             }
 
-            // 🌟 UX 革命：呼叫跨執行緒神器，保證 100% 在左上角彈出！
+
             ATC_Dispatcher.RunOnMainThread(() =>
             {
-                Verse.Messages.Message(msg, RimWorld.MessageTypeDefOf.RejectInput, false);
+                TryShowRejectMessage(msg);
             });
         }
+
+        // 這個方法負責嘗試執行 ShowRejectMessage 並回報是否成功。
+        // EN: This method tries to show reject message and reports whether it succeeded.
+        private static void TryShowRejectMessage(string msg)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(msg)) return;
+                if (Current.ProgramState == ProgramState.MapInitializing) return;
+
+                Verse.Messages.Message(msg, RimWorld.MessageTypeDefOf.RejectInput, false);
+            }
+            catch
+            {
+
+            }
+        }
+        // 這個方法負責保存 LogToFile 資料。
+        // EN: This method saves log to file.
         private static void WriteLogToFile(string line)
         {
             try
@@ -171,6 +297,8 @@ namespace AutoTranslator_Core
             catch { }
         }
 
+        // 這個方法負責清除 Log 資料。
+        // EN: This method clears log.
         public static void ClearLog()
         {
             lock (logLock)
@@ -189,6 +317,8 @@ namespace AutoTranslator_Core
             catch { }
         }
 
+        // 這個方法負責處理 Expose資料 相關流程。
+        // EN: This method handles expose data.
         public override void ExposeData()
         {
             base.ExposeData();
@@ -203,28 +333,28 @@ namespace AutoTranslator_Core
             Scribe_Values.Look(ref ShowOriginalUI, "ShowOriginalUI", false);
             Scribe_Collections.Look(ref ApiConfigs, "ApiConfigs", LookMode.Deep);
             Scribe_Values.Look(ref TotalCharCount, "TotalCharCount", 0L);
-            // ✨ 存檔掛載
+
             Scribe_Values.Look(ref AutoClearOldOnUpdate, "AutoClearOldOnUpdate", true);
             Scribe_Collections.Look(ref ModLastVerifiedTimes, "ModLastVerifiedTimes", LookMode.Value, LookMode.Value);
             if (ModLastVerifiedTimes == null) ModLastVerifiedTimes = new Dictionary<string, long>();
             Scribe_Collections.Look(ref ModLastVerifiedFingerprints, "ModLastVerifiedFingerprints", LookMode.Value, LookMode.Value);
             if (ModLastVerifiedFingerprints == null) ModLastVerifiedFingerprints = new Dictionary<string, string>();
-            // 確保超時秒數能被存檔，預設值為 60 秒
+
             Scribe_Values.Look(ref TimeoutSeconds, "TimeoutSeconds", 60);
-            // ===== V3.1 雲端使用者設定 =====
+
             Scribe_Values.Look(ref CloudNickname, "CloudNickname", "野生大佬");
             Scribe_Values.Look(ref CloudAdminToken, "CloudAdminToken", "");
-            Scribe_Values.Look(ref CloudUploadType, "CloudUploadType", "AI_Auto"); // ✨ 新增這行存檔
+            Scribe_Values.Look(ref CloudUploadType, "CloudUploadType", "AI_Auto");
             Scribe_Values.Look(ref CloudBatchUploadLog, "CloudBatchUploadLog", "");
-            Scribe_Values.Look(ref CloudTargetLang, "CloudTargetLang", TargetLanguage.Traditional); // ✨ 存檔掛載           
-            // P3 新增：EULA 同意狀態序列化
+            Scribe_Values.Look(ref CloudTargetLang, "CloudTargetLang", TargetLanguage.Traditional);
+
             Scribe_Values.Look(ref HasAcceptedExportEula, "HasAcceptedExportEula", false);
             Scribe_Values.Look(ref EulaAcceptedTimestamp, "EulaAcceptedTimestamp", "");
             Scribe_Values.Look(ref EulaAcceptedVersion, "EulaAcceptedVersion", "");
             Scribe_Values.Look(ref EulaAcceptCount, "EulaAcceptCount", 0);
             Scribe_Values.Look(ref AutoTranslateOnUpdate, "AutoTranslateOnUpdate", false);
 
-            // P3 第二階段：冷卻欄位序列化
+
             Scribe_Collections.Look(ref ExportHistory, "ExportHistory", LookMode.Value);
             Scribe_Values.Look(ref TodayExportDate, "TodayExportDate", "");
             Scribe_Values.Look(ref TodayExportCount, "TodayExportCount", 0);
@@ -235,7 +365,7 @@ namespace AutoTranslator_Core
                 {
                     ApiConfigs = new List<ApiKeyConfig> { new ApiKeyConfig() };
                 }
-                // 防 null：舊存檔可能沒有 ExportHistory 欄位
+
                 if (ExportHistory == null) ExportHistory = new List<string>();
             }
         }

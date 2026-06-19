@@ -6,18 +6,34 @@ using System.Text;
 using UnityEngine;
 using Verse;
 using RimWorld;
+// 這個檔案負責聯絡原作者的信件產生。
+// EN: This file builds contact-author message content.
 
 namespace AutoTranslator_Core
 {
+    // 這個類別負責 對話框ContactAuthor 的主要流程與狀態。
+    // EN: This class manages the main workflow and state for Dialog_ContactAuthor.
     public class Dialog_ContactAuthor : Window
     {
+        // 這個欄位保存 exported模組 的執行狀態或快取資料。
+        // EN: This field stores exported mods runtime state or cached data.
         private readonly List<ExportableModInfo> _exportedMods;
+        // 這個欄位保存 selected模組 的執行狀態或快取資料。
+        // EN: This field stores selected mod runtime state or cached data.
         private ExportableModInfo _selectedMod;
+        // 這個欄位保存 scrollPos 的執行狀態或快取資料。
+        // EN: This field stores scroll pos runtime state or cached data.
         private Vector2 _scrollPos = Vector2.zero;
+        // 這個欄位保存 templateScrollPos 的執行狀態或快取資料。
+        // EN: This field stores template scroll pos runtime state or cached data.
         private Vector2 _templateScrollPos = Vector2.zero;
 
+        // 這個屬性提供 InitialSize 的讀寫或計算結果。
+        // EN: This method handles vector2.
         public override Vector2 InitialSize => new Vector2(750f, 700f);
 
+        // 這個方法負責處理 對話框ContactAuthor 相關流程。
+        // EN: This constructor initializes dialog contact author.
         public Dialog_ContactAuthor(List<ExportableModInfo> exportedMods)
         {
             _exportedMods = exportedMods ?? new List<ExportableModInfo>();
@@ -29,6 +45,8 @@ namespace AutoTranslator_Core
             absorbInputAroundWindow = true;
         }
 
+        // 這個方法負責處理 Do視窗Contents 相關流程。
+        // EN: This method handles do window contents.
         public override void DoWindowContents(Rect inRect)
         {
             Text.Font = GameFont.Medium;
@@ -39,7 +57,7 @@ namespace AutoTranslator_Core
 
             float y = 45f;
 
-            // 介紹文字
+
             Widgets.Label(new Rect(0, y, inRect.width, 22f),
                 "ATC_ContactAuthor_JustExported".Translate(_exportedMods.Count));
             y += 28f;
@@ -72,7 +90,7 @@ namespace AutoTranslator_Core
             Widgets.DrawLineHorizontal(0, y, inRect.width);
             y += 10f;
 
-            // 模組選擇（左欄）+ 範本預覽（右欄）
+
             float remainHeight = inRect.height - y - 60f;
             float leftWidth = 250f;
             float rightWidth = inRect.width - leftWidth - 10f;
@@ -80,7 +98,7 @@ namespace AutoTranslator_Core
             Rect leftRect = new Rect(0, y, leftWidth, remainHeight);
             Rect rightRect = new Rect(leftWidth + 10f, y, rightWidth, remainHeight);
 
-            // 左欄：模組列表
+
             Widgets.Label(new Rect(leftRect.x, leftRect.y, leftRect.width, 22f),
                 "ATC_ContactAuthor_SelectMod".Translate());
             Rect listOutRect = new Rect(leftRect.x, leftRect.y + 25f, leftRect.width, leftRect.height - 25f);
@@ -110,7 +128,7 @@ namespace AutoTranslator_Core
             }
             Widgets.EndScrollView();
 
-            // 右欄：Email 範本預覽
+
             if (_selectedMod != null)
             {
                 Widgets.Label(new Rect(rightRect.x, rightRect.y, rightRect.width, 22f),
@@ -132,14 +150,14 @@ namespace AutoTranslator_Core
                 Widgets.EndScrollView();
             }
 
-            // 底部按鈕列
+
             float btnY = inRect.height - 45f;
             float btnWidth = (inRect.width - 30f) / 3f;
             Rect copyBtnRect = new Rect(0, btnY, btnWidth, 40f);
             Rect workshopBtnRect = new Rect(btnWidth + 10f, btnY, btnWidth, 40f);
             Rect closeBtnRect = new Rect((btnWidth + 10f) * 2, btnY, btnWidth, 40f);
 
-            // 複製範本
+
             if (_selectedMod != null)
                 GUI.color = new Color(0.4f, 1f, 0.8f);
             else
@@ -156,14 +174,14 @@ namespace AutoTranslator_Core
                 }
             }
 
-            // 打開 Steam Workshop
+
             GUI.color = new Color(0.4f, 0.8f, 1f);
             if (Widgets.ButtonText(workshopBtnRect, "ATC_ContactAuthor_OpenWorkshop".Translate()))
             {
                 TryOpenWorkshopPage(_selectedMod);
             }
 
-            // 關閉
+
             GUI.color = Color.white;
             if (Widgets.ButtonText(closeBtnRect, "ATC_ContactAuthor_Close".Translate()))
             {
@@ -172,9 +190,9 @@ namespace AutoTranslator_Core
             GUI.color = Color.white;
         }
 
-        /// <summary>
-        /// 根據模組資訊建構 Email 範本
-        /// </summary>
+
+        // 這個方法負責建立 Email範本 所需資料。
+        // EN: This method builds email template.
         private string BuildEmailTemplate(ExportableModInfo mod)
         {
             string targetLang = GetTargetLanguageName();
@@ -192,6 +210,8 @@ namespace AutoTranslator_Core
             return $"Subject: {subject}\n\n{body}";
         }
 
+        // 這個方法負責取得 目標語言名稱 資料。
+        // EN: This method gets target language name.
         private string GetTargetLanguageName()
         {
             switch (AutoTranslatorMod.Settings.TargetLang)
@@ -207,6 +227,8 @@ namespace AutoTranslator_Core
             }
         }
 
+        // 這個方法負責嘗試執行 Get模組Author 並回報是否成功。
+        // EN: This method tries to get mod author and reports whether it succeeded.
         private string TryGetModAuthor(ExportableModInfo info)
         {
             if (string.IsNullOrEmpty(info.PackageId)) return null;
@@ -214,8 +236,7 @@ namespace AutoTranslator_Core
                 m.PackageId.Equals(info.PackageId, StringComparison.OrdinalIgnoreCase));
             if (meta == null) return null;
 
-            // RimWorld 1.6 API：用 AuthorsString（多作者用逗號分隔的字串）
-            // 防呆：用反射檢查屬性是否存在，確保跨版本相容
+
             try
             {
                 var authorsStringProp = typeof(ModMetaData).GetProperty("AuthorsString");
@@ -225,7 +246,7 @@ namespace AutoTranslator_Core
                     if (!string.IsNullOrWhiteSpace(s)) return s;
                 }
 
-                // Fallback：嘗試 Authors 集合（1.6 可能用 List<string>）
+
                 var authorsProp = typeof(ModMetaData).GetProperty("Authors");
                 if (authorsProp != null)
                 {
@@ -241,7 +262,7 @@ namespace AutoTranslator_Core
                     }
                 }
 
-                // 最後 fallback：舊版 Author
+
                 var authorProp = typeof(ModMetaData).GetProperty("Author");
                 if (authorProp != null)
                 {
@@ -256,12 +277,10 @@ namespace AutoTranslator_Core
 
             return null;
         }
-        /// <summary>
-        /// 嘗試開啟模組的 Steam Workshop 頁面
-        /// 步驟：
-        /// 1. 從 ModMetaData 找 Steam Workshop ID（PublishedFileId.txt）
-        /// 2. 用 steam:// 協定開啟（如果失敗 fallback 到網頁版）
-        /// </summary>
+
+
+        // 這個方法負責嘗試執行 OpenWorkshopPage 並回報是否成功。
+        // EN: This method tries to open workshop page and reports whether it succeeded.
         private void TryOpenWorkshopPage(ExportableModInfo info)
         {
             if (info == null) return;
@@ -276,7 +295,7 @@ namespace AutoTranslator_Core
                 return;
             }
 
-            // RimWorld Steam Workshop 模組會在根目錄留下 PublishedFileId.txt
+
             string idFile = Path.Combine(meta.RootDir.FullName, "About", "PublishedFileId.txt");
             if (!File.Exists(idFile))
             {
@@ -290,7 +309,7 @@ namespace AutoTranslator_Core
                     string workshopId = File.ReadAllText(idFile).Trim();
                     if (!string.IsNullOrEmpty(workshopId) && workshopId.All(char.IsDigit))
                     {
-                        // 優先嘗試 Steam 協定（直接在 Steam 客戶端打開）
+
                         string steamUrl = $"steam://url/CommunityFilePage/{workshopId}";
                         string webUrl = $"https://steamcommunity.com/sharedfiles/filedetails/?id={workshopId}";
 

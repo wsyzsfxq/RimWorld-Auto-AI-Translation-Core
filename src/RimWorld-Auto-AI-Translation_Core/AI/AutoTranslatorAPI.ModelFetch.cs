@@ -4,25 +4,88 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Verse;
+// 這個檔案負責翻譯模型清單抓取。
+// EN: This file fetches available translation model lists.
 
 namespace AutoTranslator_Core
 {
+    // 這個類別負責 自動翻譯器API 的主要流程與狀態。
+    // EN: This class manages the main workflow and state for AutoTranslatorAPI.
     public static partial class AutoTranslatorAPI
     {
+        // 這個常數定義 模型取得DispatchTimeoutMs 的固定值。
+        // EN: This constant defines the fixed value for model fetch dispatch timeout ms.
         private const int ModelFetchDispatchTimeoutMs = 5000;
+        // 這個常數定義 模型取得Max自動Retries 的固定值。
+        // EN: This constant defines the fixed value for model fetch max auto retries.
         private const int ModelFetchMaxAutoRetries = 3;
 
+        // 這個方法負責取得 模型取得Fingerprint 資料。
+        // EN: This method gets model fetch fingerprint.
         public static string GetModelFetchFingerprint(ApiKeyConfig config)
         {
             if (config == null) return "";
             return $"{config.Provider}|{CleanInput(config.CustomBaseUrl)}|{CleanInput(config.Key)}";
         }
 
+        // 這個方法負責處理 自動取得For設定 相關流程。
+        // EN: This method handles auto fetch for config.
         public static void AutoFetchForConfig(ApiKeyConfig config)
         {
             AutoFetchForConfig(config, false);
         }
 
+        // 這個方法負責處理 Maintain模型取得狀態 相關流程。
+        // EN: This method handles maintain model fetch state.
+        public static void MaintainModelFetchState()
+        {
+            if (AutoTranslatorMod.Settings?.ApiConfigs == null) return;
+
+            for (int i = 0; i < AutoTranslatorMod.Settings.ApiConfigs.Count; i++)
+            {
+                MaintainModelFetchState(AutoTranslatorMod.Settings.ApiConfigs[i]);
+            }
+        }
+
+        // 這個方法負責處理 Maintain模型取得狀態 相關流程。
+        // EN: This method handles maintain model fetch state.
+        public static void MaintainModelFetchState(ApiKeyConfig config)
+        {
+            if (config == null) return;
+
+            if (config.IsFetching && config.FetchStartedUtcTicks > 0)
+            {
+                double elapsedSeconds = (DateTime.UtcNow.Ticks - config.FetchStartedUtcTicks) / (double)TimeSpan.TicksPerSecond;
+                if (elapsedSeconds > 45.0)
+                {
+                    ResetModelFetchState(config);
+                    AutoTranslatorSettings.AddErrorLog(TranslateText("ATC_Error_FetchModelsWatchdogReleased", config.Provider.ToString()));
+                }
+            }
+
+            if (ShouldAutoFetchModels(config))
+            {
+                AutoFetchForConfig(config);
+            }
+        }
+
+        // 這個方法負責判斷 Should自動取得Models 條件是否成立。
+        // EN: This method checks should auto fetch models.
+        private static bool ShouldAutoFetchModels(ApiKeyConfig config)
+        {
+            if (config == null) return false;
+            if (!config.Enabled || config.IsFetching || AutoTranslatorSettings.IsRunning) return false;
+
+            string fetchFingerprint = GetModelFetchFingerprint(config);
+            return fetchFingerprint != config.lastFetchedKey &&
+                   CleanInput(config.Key).Length > 10 &&
+                   (string.IsNullOrEmpty(config.PendingFetchFingerprint) ||
+                    config.PendingFetchFingerprint != fetchFingerprint ||
+                    CanAutoRetryModelFetch(config, fetchFingerprint));
+        }
+
+        // 這個方法負責處理 自動取得For設定 相關流程。
+        // EN: This method handles auto fetch for config.
         public static void AutoFetchForConfig(ApiKeyConfig config, bool force)
         {
             if (config == null) return;
@@ -226,6 +289,8 @@ namespace AutoTranslator_Core
             });
         }
 
+        // 這個方法負責判斷 Can自動Retry模型取得 條件是否成立。
+        // EN: This method checks can auto retry model fetch.
         public static bool CanAutoRetryModelFetch(ApiKeyConfig config, string fingerprint)
         {
             return config != null &&
@@ -239,6 +304,8 @@ namespace AutoTranslator_Core
                    DateTime.UtcNow.Ticks >= config.NextModelFetchRetryUtcTicks;
         }
 
+        // 這個方法負責重置 模型取得狀態 狀態。
+        // EN: This method resets model fetch state.
         public static void ResetModelFetchState(ApiKeyConfig config, bool clearModels = false)
         {
             if (config == null) return;
@@ -252,6 +319,8 @@ namespace AutoTranslator_Core
             if (clearModels) config.FetchedModels.Clear();
         }
 
+        // 這個方法負責建立 Models網址 所需資料。
+        // EN: This method builds models URL.
         private static string BuildModelsUrl(ApiKeyConfig config, string baseUrl, string apiKey, bool isGoogleRaw)
         {
             string url;
@@ -276,12 +345,16 @@ namespace AutoTranslator_Core
             return url;
         }
 
+        // 這個方法負責處理 Decode回應Body 相關流程。
+        // EN: This method handles decode response body.
         private static string DecodeResponseBody(byte[] rawData)
         {
             if (rawData == null || rawData.Length == 0) return "";
             return new System.Text.UTF8Encoding(false, false).GetString(rawData);
         }
 
+        // 這個方法負責解析 模型List 內容。
+        // EN: This method parses model list.
         private static List<string> ParseModelList(string rawResponse, bool isGoogleRaw)
         {
             var obj = JObject.Parse(rawResponse);
@@ -316,6 +389,8 @@ namespace AutoTranslator_Core
             return list;
         }
 
+        // 這個方法負責標記 模型取得Success 狀態。
+        // EN: This method marks model fetch success.
         private static void MarkModelFetchSuccess(ApiKeyConfig config, string fetchFingerprint)
         {
             config.lastFetchedKey = fetchFingerprint;
@@ -324,6 +399,8 @@ namespace AutoTranslator_Core
             config.NextModelFetchRetryUtcTicks = 0L;
         }
 
+        // 這個方法負責處理 Schedule模型取得Retry 相關流程。
+        // EN: This method handles schedule model fetch retry.
         private static void ScheduleModelFetchRetry(ApiKeyConfig config, int fetchGeneration)
         {
             if (config == null) return;
@@ -347,6 +424,8 @@ namespace AutoTranslator_Core
             AutoTranslatorSettings.AddLog(TranslateText("ATC_Log_FetchModelsAutoRetryQueued", config.Provider.ToString(), delaySeconds.ToString(), config.FetchRetryCount.ToString()));
         }
 
+        // 這個方法負責處理 Log模型取得Error 相關流程。
+        // EN: This method handles log model fetch error.
         private static void LogModelFetchError(ApiKeyConfig config, ATC_WebResponse resHolder)
         {
             int statusCode = (int)resHolder.HttpCode;
@@ -370,6 +449,8 @@ namespace AutoTranslator_Core
             AutoTranslatorSettings.AddErrorLog(TranslateText(friendlyKey, config.Provider.ToString(), statusCode.ToString(), safeError));
         }
 
+        // 這個方法負責翻譯 Text 內容。
+        // EN: This method translates text.
         public static string TranslateText(string key, params object[] args)
         {
             string text = key.Translate().ToString();

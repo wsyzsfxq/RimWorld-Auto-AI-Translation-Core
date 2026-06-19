@@ -6,11 +6,17 @@ using System.Text;
 using UnityEngine;
 using Verse;
 using RimWorld;
+// 這個檔案負責導出用模板內容。
+// EN: This file generates export template text.
 
 namespace AutoTranslator_Core
 {
+    // 這個類別負責 導出範本 的主要流程與狀態。
+    // EN: This class manages the main workflow and state for ExportTemplates.
     internal static class ExportTemplates
     {
+        // 這個方法負責取得 XmlWatermark 資料。
+        // EN: This method gets XML watermark.
         public static string GetXmlWatermark(ExportableModInfo mod)
         {
             return $@"<!--
@@ -37,6 +43,8 @@ namespace AutoTranslator_Core
 ";
         }
 
+        // 這個方法負責取得 AboutXml 資料。
+        // EN: This method gets about XML.
         public static string GetAboutXml(ExportableModInfo mod)
         {
             return $@"<?xml version=""1.0"" encoding=""utf-8""?>
@@ -81,9 +89,11 @@ Generation Time: {DateTime.Now:yyyy-MM-dd HH:mm:ss}
 </ModMetaData>";
         }
 
+        // 這個方法負責取得 Readme 資料。
+        // EN: This method gets readme.
         public static string GetReadme(List<ExportableModInfo> mods)
         {
-            // 將模組清單先組裝成字串
+
             var sb = new StringBuilder();
             foreach (var m in mods)
             {
@@ -91,7 +101,7 @@ Generation Time: {DateTime.Now:yyyy-MM-dd HH:mm:ss}
                 sb.AppendLine($"      DefInjected: {m.DefInjectedCount}, Keyed: {m.KeyedCount}");
             }
 
-            // 呼叫 XML 本地化標籤，並將時間、模組數量、清單字串當作參數塞進去
+
             return "ATC_Export_Readme_Full".Translate(
                 DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
                 mods.Count,
@@ -99,9 +109,11 @@ Generation Time: {DateTime.Now:yyyy-MM-dd HH:mm:ss}
             ).ToString();
         }
 
+        // 這個方法負責取得 ConsentRecord 資料。
+        // EN: This method gets consent record.
         public static string GetConsentRecord(string timestamp, string version, int count)
         {
-            // 呼叫 XML 本地化標籤，一次將所有環境變數塞好
+
             return "ATC_Export_ConsentRecord_Full".Translate(
                 timestamp,
                 version,

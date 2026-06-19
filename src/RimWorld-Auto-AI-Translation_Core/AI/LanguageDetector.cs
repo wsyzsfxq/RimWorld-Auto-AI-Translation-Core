@@ -1,30 +1,44 @@
 using System.Collections.Generic;
 using System.Text;
 using System.Text.RegularExpressions;
+// 這個檔案負責偵測文字語言。
+// EN: This file detects text language and script characteristics.
 
 namespace AutoTranslator_Core
 {
+    // 這個類別負責 語言偵測器 的主要流程與狀態。
+    // EN: This class manages the main workflow and state for LanguageDetector.
     public static class LanguageDetector
     {
+        // 這個常數定義 SimplifiedChars 的固定值。
+        // EN: This constant defines the fixed value for simplified chars.
         private const string SimplifiedChars = "\u4EEC\u8FD9\u4E2A\u5417\u6CA1\u89C9\u6362\u53D8\u73B0\u89C1\u89C2\u8BF4\u8BDD\u8BED\u8C01\u4E13\u4E1A\u5C81\u7237\u8282\u5382\u5E7F\u961F\u5F52\u8F66\u4E1C\u519C\u9E21\u9E2D\u5C9B\u9E1F\u9C7C\u9F99\u9EA6\u9F9F\u6218\u51FB\u6740\u7C7B\u6837\u8BBE\u5907\u5C3D\u8FD8\u5E94\u8BA9\u8FC7\u53D1\u5F00\u603B\u98CE\u673A\u7535\u6C14\u9875\u98DE\u95E8\u7F51\u7EBF\u56FE\u4F53\u5934\u5B9E\u534E\u5355\u957F\u5F53\u4E66\u62A5\u4F1A\u7231\u4ECE\u4F17\u53CC\u7F51\u4E50\u6811\u968F\u590D\u94C1\u533B\u836F\u517D\u4F24\u7075\u51FB\u67AA\u5251\u88C5\u62A4\u8F7B\u91CD\u65E0\u4EA7\u5904\u5C06";
+        // 這個常數定義 TraditionalChars 的固定值。
+        // EN: This constant defines the fixed value for traditional chars.
         private const string TraditionalChars = "\u5011\u9019\u500B\u55CE\u6C92\u89BA\u63DB\u8B8A\u73FE\u898B\u89C0\u8AAA\u8A71\u8A9E\u8AB0\u5C08\u696D\u6B72\u723A\u7BC0\u5EE0\u5EE3\u968A\u6B78\u8ECA\u6771\u8FB2\u96DE\u9D28\u5CF6\u9CE5\u9B5A\u9F8D\u9EA5\u9F9C\u6230\u64CA\u6BBA\u985E\u6A23\u8A2D\u5099\u76E1\u9084\u61C9\u8B93\u904E\u767C\u958B\u7E3D\u98A8\u6A5F\u96FB\u6C23\u9801\u98DB\u9580\u7DB2\u7DDA\u5716\u9AD4\u982D\u5BE6\u83EF\u55AE\u9577\u7576\u66F8\u5831\u6703\u611B\u5F9E\u773E\u96D9\u7DB2\u6A02\u6A39\u96A8\u5FA9\u9435\u91AB\u85E5\u7378\u50B7\u9748\u64CA\u69CD\u528D\u88DD\u8B77\u8F15\u91CD\u7121\u7522\u8655\u5C07";
         private static readonly HashSet<char> SimpOnlyChars = new HashSet<char>(SimplifiedChars.ToCharArray());
         private static readonly HashSet<char> TradOnlyChars = new HashSet<char>(TraditionalChars.ToCharArray());
         private static readonly Dictionary<char, char> TradToSimpChars = BuildCharMap(TraditionalChars, SimplifiedChars, GetSupplementalTradToSimpPairs());
         private static readonly Dictionary<char, char> SimpToTradChars = BuildCharMap(SimplifiedChars, TraditionalChars, GetSupplementalSimpToTradPairs());
 
+        // 這個方法負責處理 LooksLikeSimplified 相關流程。
+        // EN: This method handles looks like simplified.
         public static bool LooksLikeSimplified(string text)
         {
             CountChineseVariants(text, out int simpCount, out int tradCount);
             return simpCount > 0 && simpCount >= tradCount;
         }
 
+        // 這個方法負責處理 LooksLikeTraditional 相關流程。
+        // EN: This method handles looks like traditional.
         public static bool LooksLikeTraditional(string text)
         {
             CountChineseVariants(text, out int simpCount, out int tradCount);
             return tradCount > 0 && tradCount >= simpCount;
         }
 
+        // 這個方法負責清理並標準化 ChineseVariant 內容。
+        // EN: This method cleans and normalizes chinese variant.
         public static string NormalizeChineseVariant(string text, TargetLanguage targetLang)
         {
             if (string.IsNullOrEmpty(text)) return text;
@@ -54,6 +68,8 @@ namespace AutoTranslator_Core
             return result == null ? text : result.ToString();
         }
 
+        // 這個方法負責處理 LooksLike目標語言 相關流程。
+        // EN: This method handles looks like target language.
         public static bool LooksLikeTargetLanguage(string text, TargetLanguage expectedLang)
         {
             string sample = NormalizeLanguageSample(text);
@@ -129,16 +145,36 @@ namespace AutoTranslator_Core
             }
         }
 
+        // 這個屬性提供 UkrainianMarkerChars 的讀寫或計算結果。
+        // EN: This property exposes ukrainian marker chars.
         private static string UkrainianMarkerChars => "\u0456\u0457\u0454\u0491\u0406\u0407\u0404\u0490";
+        // 這個屬性提供 FrenchMarkerChars 的讀寫或計算結果。
+        // EN: This property exposes french marker chars.
         private static string FrenchMarkerChars => "\u00E0\u00E2\u00E6\u00E7\u00E9\u00E8\u00EA\u00EB\u00EE\u00EF\u00F4\u0153\u00F9\u00FB\u00FC\u00FF\u00C0\u00C2\u00C6\u00C7\u00C9\u00C8\u00CA\u00CB\u00CE\u00CF\u00D4\u0152\u00D9\u00DB\u00DC\u0178";
+        // 這個屬性提供 GermanMarkerChars 的讀寫或計算結果。
+        // EN: This property exposes german marker chars.
         private static string GermanMarkerChars => "\u00E4\u00F6\u00FC\u00DF\u00C4\u00D6\u00DC\u1E9E";
+        // 這個屬性提供 SpanishMarkerChars 的讀寫或計算結果。
+        // EN: This property exposes spanish marker chars.
         private static string SpanishMarkerChars => "\u00E1\u00E9\u00ED\u00F3\u00FA\u00FC\u00F1\u00BF\u00A1\u00C1\u00C9\u00CD\u00D3\u00DA\u00DC\u00D1";
+        // 這個屬性提供 ItalianMarkerChars 的讀寫或計算結果。
+        // EN: This property exposes italian marker chars.
         private static string ItalianMarkerChars => "\u00E0\u00E8\u00E9\u00EC\u00ED\u00EE\u00F2\u00F3\u00F9\u00FA\u00C0\u00C8\u00C9\u00CC\u00CD\u00CE\u00D2\u00D3\u00D9\u00DA";
+        // 這個屬性提供 PolishMarkerChars 的讀寫或計算結果。
+        // EN: This property exposes polish marker chars.
         private static string PolishMarkerChars => "\u0105\u0107\u0119\u0142\u0144\u00F3\u015B\u017A\u017C\u0104\u0106\u0118\u0141\u0143\u00D3\u015A\u0179\u017B";
+        // 這個屬性提供 PortugueseMarkerChars 的讀寫或計算結果。
+        // EN: This property exposes portuguese marker chars.
         private static string PortugueseMarkerChars => "\u00E1\u00E2\u00E3\u00E0\u00E7\u00E9\u00EA\u00ED\u00F3\u00F4\u00F5\u00FA\u00FC\u00C1\u00C2\u00C3\u00C0\u00C7\u00C9\u00CA\u00CD\u00D3\u00D4\u00D5\u00DA\u00DC";
+        // 這個屬性提供 TurkishMarkerChars 的讀寫或計算結果。
+        // EN: This property exposes turkish marker chars.
         private static string TurkishMarkerChars => "\u00E7\u011F\u0131\u00F6\u015F\u00FC\u0130\u00C7\u011E\u00D6\u015E\u00DC";
+        // 這個屬性提供 LatinMarkerChars 的讀寫或計算結果。
+        // EN: This property exposes latin marker chars.
         private static string LatinMarkerChars => FrenchMarkerChars + GermanMarkerChars + SpanishMarkerChars + ItalianMarkerChars + PolishMarkerChars + PortugueseMarkerChars + TurkishMarkerChars;
 
+        // 這個方法負責處理 CountChineseVariants 相關流程。
+        // EN: This method handles count chinese variants.
         private static void CountChineseVariants(string text, out int simpCount, out int tradCount)
         {
             simpCount = 0;
@@ -153,6 +189,8 @@ namespace AutoTranslator_Core
             }
         }
 
+        // 這個方法負責清理並標準化 語言Sample 內容。
+        // EN: This method cleans and normalizes language sample.
         private static string NormalizeLanguageSample(string text)
         {
             if (string.IsNullOrWhiteSpace(text)) return "";
@@ -168,6 +206,8 @@ namespace AutoTranslator_Core
             return sample.Trim();
         }
 
+        // 這個方法負責處理 CountScripts 相關流程。
+        // EN: This method handles count scripts.
         private static void CountScripts(string text, out int hanCount, out int kanaCount, out int hangulCount, out int cyrillicCount, out int latinCount, out int letterCount)
         {
             hanCount = 0;
@@ -190,6 +230,8 @@ namespace AutoTranslator_Core
             }
         }
 
+        // 這個方法負責處理 LooksLikeEnglish 相關流程。
+        // EN: This method handles looks like english.
         private static bool LooksLikeEnglish(string sample, int hanCount, int kanaCount, int hangulCount, int cyrillicCount, int latinCount, int letterCount)
         {
             if (hanCount + kanaCount + hangulCount + cyrillicCount > 0) return false;
@@ -199,6 +241,8 @@ namespace AutoTranslator_Core
             return sample.Length <= 28 || CountWordMatches(sample, new[] { "the", "and", "for", "with", "from", "this", "that", "you", "your", "not" }) > 0;
         }
 
+        // 這個方法負責處理 LooksLikeLatin目標 相關流程。
+        // EN: This method handles looks like latin target.
         private static bool LooksLikeLatinTarget(string sample, int hanCount, int kanaCount, int hangulCount, int cyrillicCount, int latinCount, int letterCount, string markerChars, string[] stopWords)
         {
             if (hanCount + kanaCount + hangulCount + cyrillicCount > 0) return false;
@@ -208,6 +252,8 @@ namespace AutoTranslator_Core
             return sample.Length >= 20 && CountWordMatches(sample, stopWords) >= 2;
         }
 
+        // 這個方法負責建立 CharMap 所需資料。
+        // EN: This method builds char map.
         private static Dictionary<char, char> BuildCharMap(string sourceChars, string targetChars, Dictionary<char, char> supplementalPairs)
         {
             var map = new Dictionary<char, char>();
@@ -231,6 +277,8 @@ namespace AutoTranslator_Core
             return map;
         }
 
+        // 這個方法負責取得 SupplementalTradToSimpPairs 資料。
+        // EN: This method gets supplemental trad to simp pairs.
         private static Dictionary<char, char> GetSupplementalTradToSimpPairs()
         {
             return new Dictionary<char, char>
@@ -271,6 +319,8 @@ namespace AutoTranslator_Core
             };
         }
 
+        // 這個方法負責取得 SupplementalSimpToTradPairs 資料。
+        // EN: This method gets supplemental simp to trad pairs.
         private static Dictionary<char, char> GetSupplementalSimpToTradPairs()
         {
             var map = new Dictionary<char, char>();
@@ -284,6 +334,8 @@ namespace AutoTranslator_Core
             return map;
         }
 
+        // 這個方法負責處理 CountWordMatches 相關流程。
+        // EN: This method handles count word matches.
         private static int CountWordMatches(string text, string[] words)
         {
             int count = 0;
@@ -297,12 +349,16 @@ namespace AutoTranslator_Core
             return count;
         }
 
+        // 這個方法負責處理 Percent 相關流程。
+        // EN: This method handles percent.
         private static int Percent(int part, int total)
         {
             if (total <= 0) return 0;
             return (int)((part * 100.0) / total);
         }
 
+        // 這個方法負責處理 ContainsAny 相關流程。
+        // EN: This method handles contains any.
         private static bool ContainsAny(string text, string chars)
         {
             if (string.IsNullOrEmpty(text) || string.IsNullOrEmpty(chars)) return false;
@@ -313,6 +369,8 @@ namespace AutoTranslator_Core
             return false;
         }
 
+        // 這個方法負責判斷 IsHan 條件是否成立。
+        // EN: This method checks is han.
         private static bool IsHan(char c)
         {
             return (c >= '\u3400' && c <= '\u4DBF')
@@ -320,6 +378,8 @@ namespace AutoTranslator_Core
                 || (c >= '\uF900' && c <= '\uFAFF');
         }
 
+        // 這個方法負責判斷 IsKana 條件是否成立。
+        // EN: This method checks is kana.
         private static bool IsKana(char c)
         {
             return (c >= '\u3040' && c <= '\u30FF')
@@ -327,6 +387,8 @@ namespace AutoTranslator_Core
                 || (c >= '\uFF66' && c <= '\uFF9F');
         }
 
+        // 這個方法負責判斷 IsHangul 條件是否成立。
+        // EN: This method checks is hangul.
         private static bool IsHangul(char c)
         {
             return (c >= '\u1100' && c <= '\u11FF')
@@ -334,12 +396,16 @@ namespace AutoTranslator_Core
                 || (c >= '\uAC00' && c <= '\uD7AF');
         }
 
+        // 這個方法負責判斷 IsCyrillic 條件是否成立。
+        // EN: This method checks is cyrillic.
         private static bool IsCyrillic(char c)
         {
             return (c >= '\u0400' && c <= '\u04FF')
                 || (c >= '\u0500' && c <= '\u052F');
         }
 
+        // 這個方法負責判斷 IsLatin 條件是否成立。
+        // EN: This method checks is latin.
         private static bool IsLatin(char c)
         {
             return (c >= 'A' && c <= 'Z')
@@ -347,6 +413,8 @@ namespace AutoTranslator_Core
                 || (c >= '\u00C0' && c <= '\u024F');
         }
 
+        // 這個方法負責判斷 IsFake語言 條件是否成立。
+        // EN: This method checks is fake language.
         public static bool IsFakeLanguage(Dictionary<string, string> fileData, TargetLanguage expectedLang)
         {
             if (expectedLang != TargetLanguage.Traditional && expectedLang != TargetLanguage.Simplified)

@@ -5,16 +5,22 @@ using System.IO;
 using System.Linq;
 using UnityEngine;
 using Verse;
+// 這個檔案負責設定分頁的 UI 與參數編輯。
+// EN: This file draws the settings tab and edits runtime options.
 
 namespace AutoTranslator_Core
 {
+    // 這個類別負責 自動翻譯器模組 的主要流程與狀態。
+    // EN: This class manages the main workflow and state for AutoTranslatorMod.
     public partial class AutoTranslatorMod : Mod
     {
-        // ⚙️ 第二分頁：詳細設定 (系統與 API)
-        // ==========================================
+
+
+        // 這個方法負責繪製 設定分頁 介面。
+        // EN: This method draws config tab.
         private void DrawConfigTab(Listing_Standard l, Rect viewRect)
         {
-            // 1. 系統自動化與攔截器開關
+
             if (AutoTranslatorSettings.IsRunning) GUI.color = Color.grey;
             Widgets.CheckboxLabeled(l.GetRect(30f), "ATC_AutoClearOldOnUpdate".Translate(), ref Settings.AutoClearOldOnUpdate);
             Widgets.CheckboxLabeled(l.GetRect(30f), "ATC_AutoTranslateOnUpdate".Translate(), ref Settings.AutoTranslateOnUpdate);
@@ -31,7 +37,7 @@ namespace AutoTranslator_Core
             GUI.color = Color.white;
             l.Gap(15f);
 
-            // 2. 目標語言與掃描模式
+
             Rect row1 = l.GetRect(30f);
             Rect langRect = new Rect(row1.x, row1.y, row1.width * 0.4f, row1.height);
             if (AutoTranslatorSettings.IsRunning) GUI.color = Color.grey;
@@ -54,7 +60,7 @@ namespace AutoTranslator_Core
             GUI.color = Color.white;
             l.Gap(15f);
 
-            // 3. 最大線程數滑桿
+
             Rect threadRow = l.GetRect(30f);
             if (AutoTranslatorSettings.IsRunning) GUI.color = Color.grey;
             Settings.MaxThreads = (int)Widgets.HorizontalSlider(
@@ -64,10 +70,10 @@ namespace AutoTranslator_Core
             GUI.color = Color.white;
             l.Gap(15f);
 
-            // 🌟 3.5 API 請求超時秒數滑桿 (與線程數風格保持統一)
+
             Rect timeoutRow = l.GetRect(30f);
             if (AutoTranslatorSettings.IsRunning) GUI.color = Color.grey;
-            // 滑鼠懸停的 Tooltip 提示
+
             if (Mouse.IsOver(timeoutRow)) TooltipHandler.TipRegion(timeoutRow, "ATC_Setting_Timeout_Tooltip".Translate());
 
             Settings.TimeoutSeconds = (int)Widgets.HorizontalSlider(
@@ -86,7 +92,7 @@ namespace AutoTranslator_Core
             DrawRuntimeProfilePanel(l, viewRect);
             l.Gap(15f);
 
-            // 4. API 金鑰設定區塊 (支援多組並發輪詢)
+
             Text.Font = GameFont.Small;
             Widgets.Label(l.GetRect(24f), "🔧 " + "ATC_ApiConfigTitle".Translate());
             l.Gap(2f);
@@ -158,33 +164,6 @@ namespace AutoTranslator_Core
                 config.Key = Widgets.TextField(keyRect, config.Key);
                 if (string.IsNullOrEmpty(config.Key)) Widgets.Label(keyRect, "  " + "ATC_PasteKey".Translate());
 
-                // 自動獲取模型防呆
-                string fetchFingerprint = AutoTranslatorAPI.GetModelFetchFingerprint(config);
-                if (config.IsFetching && config.FetchStartedUtcTicks > 0)
-                {
-                    double elapsedSeconds = (DateTime.UtcNow.Ticks - config.FetchStartedUtcTicks) / (double)TimeSpan.TicksPerSecond;
-                    if (elapsedSeconds > 45.0)
-                    {
-                        AutoTranslatorAPI.ResetModelFetchState(config);
-                        AutoTranslatorSettings.AddErrorLog(AutoTranslatorAPI.TranslateText("ATC_Error_FetchModelsWatchdogReleased", config.Provider.ToString()));
-                    }
-                }
-
-                bool shouldAutoFetchModels =
-                    fetchFingerprint != config.lastFetchedKey &&
-                    AutoTranslatorAPI.CleanInput(config.Key).Length > 10 &&
-                    !config.IsFetching &&
-                    !AutoTranslatorSettings.IsRunning &&
-                    config.Enabled &&
-                    (string.IsNullOrEmpty(config.PendingFetchFingerprint) ||
-                     config.PendingFetchFingerprint != fetchFingerprint ||
-                     AutoTranslatorAPI.CanAutoRetryModelFetch(config, fetchFingerprint));
-
-                if (shouldAutoFetchModels)
-                {
-                    AutoTranslatorAPI.AutoFetchForConfig(config);
-                }
-
                 Rect modelInputRect = new Rect(rowB.x + rowB.width * 0.47f, rowB.y, rowB.width * 0.45f, rowB.height - 2f);
                 Rect modelBtnRect = new Rect(modelInputRect.xMax + 5f, rowB.y, rowB.width * 0.08f - 5f, rowB.height - 2f);
 
@@ -222,9 +201,9 @@ namespace AutoTranslator_Core
                 }
                 GUI.color = AutoTranslatorSettings.IsRunning ? Color.grey : Color.white;
 
-                // 🌟 新增 Row C：API 連線測試按鈕
+
                 Rect rowC = l.GetRect(24f);
-                Rect testBtnRect = new Rect(rowC.x, rowC.y + 2f, 120f, rowC.height); // 往下推 2px 更好看
+                Rect testBtnRect = new Rect(rowC.x, rowC.y + 2f, 120f, rowC.height);
                 Rect refetchBtnRect = new Rect(testBtnRect.xMax + 10f, rowC.y + 2f, 140f, rowC.height);
 
                 if (Widgets.ButtonText(refetchBtnRect, "↻ " + "ATC_RefetchModels".Translate()))
@@ -275,7 +254,7 @@ namespace AutoTranslator_Core
                         }
                         else if (!AutoTranslatorSettings.IsRunning)
                         {
-                            // 呼叫測試方法
+
                             AutoTranslatorAPI.RunConnectionTest(config);
                         }
                     }
@@ -292,9 +271,7 @@ namespace AutoTranslator_Core
             }
             GUI.color = Color.white;
 
-            // ==========================================
-            // ✨ 架構師新增：終極急救箱與快取管理
-            // ==========================================
+
             l.Gap(20f);
             Widgets.DrawLineHorizontal(0, l.CurHeight, viewRect.width);
             l.Gap(10f);
@@ -302,9 +279,9 @@ namespace AutoTranslator_Core
             Text.Font = GameFont.Small;
             Widgets.Label(l.GetRect(24f), "🚑 " + "ATC_EmergencyResetTitle".Translate());
 
-            // ✨ 新增：溫和的 UI 快取清理按鈕
+
             Rect clearUIBtnRect = l.GetRect(35f);
-            GUI.color = new Color(1f, 0.7f, 0.3f); // 橘色警告
+            GUI.color = new Color(1f, 0.7f, 0.3f);
             if (Widgets.ButtonText(clearUIBtnRect, "🧹 " + "ATC_Btn_ClearUICache".Translate()))
             {
                 UIInterceptor.ClearUICache();
@@ -343,9 +320,9 @@ namespace AutoTranslator_Core
             }
             l.Gap(5f);
 
-            // 原本的核彈級重置按鈕
+
             Rect resetBtnRect = l.GetRect(35f);
-            GUI.color = new Color(1f, 0.3f, 0.3f); // 亮紅色警示
+            GUI.color = new Color(1f, 0.3f, 0.3f);
             if (Widgets.ButtonText(resetBtnRect, "⚠️ " + "ATC_Btn_FactoryReset".Translate()))
             {
                 Find.WindowStack.Add(new Dialog_MessageBox(
@@ -361,6 +338,8 @@ namespace AutoTranslator_Core
         }
 
 
+// 這個方法負責繪製 執行期ProfilePanel 介面。
+// EN: This method draws runtime profile panel.
 private void DrawRuntimeProfilePanel(Listing_Standard l, Rect viewRect)
         {
             var profile = AutoTranslatorAPI.GetCurrentRuntimeProfile();
@@ -399,6 +378,8 @@ private void DrawRuntimeProfilePanel(Listing_Standard l, Rect viewRect)
         }
 
 
+        // 這個方法負責執行 FactoryReset 動作。
+        // EN: This method executes factory reset.
         private void ExecuteFactoryReset()
         {
             try
@@ -406,28 +387,28 @@ private void DrawRuntimeProfilePanel(Listing_Standard l, Rect viewRect)
                 string packPath = AutoTranslatorScanner.GetLocalPackPath();
                 string langsPath = System.IO.Path.Combine(packPath, "Languages");
 
-                // 1. 物理超渡：刪除所有實體翻譯檔案 (不管是什麼語言全部炸掉)
+
                 if (System.IO.Directory.Exists(langsPath))
                 {
-                    // 🛡️ 強制爆破：先遞迴解除資料夾內所有檔案的「唯讀」屬性，再執行核彈爆破！
+
                     foreach (string file in System.IO.Directory.GetFiles(langsPath, "*", System.IO.SearchOption.AllDirectories))
                     {
                         System.IO.File.SetAttributes(file, System.IO.FileAttributes.Normal);
                     }
                     System.IO.Directory.Delete(langsPath, true);
                 }
-                // 2. 清空前台 UI 快取記憶體與生字黑名單
+
                 UIInterceptor.ClearUICache();
 
-                // 3. 清空增量更新的記憶時間戳 (讓所有模組回到「未翻譯」的原始狀態)
+
                 AutoTranslatorMod.Settings.ModLastVerifiedTimes.Clear();
                 AutoTranslatorMod.Settings.ModLastVerifiedFingerprints.Clear();
                 LoadedModManager.GetMod<AutoTranslatorMod>().WriteSettings();
 
-                // 4. 重建基礎資料夾與免疫標記，防止系統崩潰
+
                 AutoTranslatorScanner.EnsurePackInitialized(runFullMaintenance: true);
 
-                // 5. 洗淨 Log 面板並輸出成功提示
+
                 AutoTranslatorSettings.ClearLog();
                 AutoTranslatorSettings.AddLog("🚑 " + "ATC_Log_FactoryResetSuccess".Translate());
 

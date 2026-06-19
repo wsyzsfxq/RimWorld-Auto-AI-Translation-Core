@@ -3,15 +3,20 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
-using System.Net.Http;
 using System.Threading.Tasks;
 using Verse;
 using static AutoTranslator_Core.DeleteTranslationWindow;
+// 這個檔案負責雲端下載流程。
+// EN: This file downloads translation packages from the cloud service.
 
 namespace AutoTranslator_Core
 {
+    // 這個類別負責 自動翻譯器雲端Client 的主要流程與狀態。
+    // EN: This class manages the main workflow and state for AutoTranslatorCloudClient.
     public static partial class AutoTranslatorCloudClient
     {
+        // 這個方法負責下載 AndInjectAsync 資料。
+        // EN: This method downloads and inject async.
         public static async Task<bool> DownloadAndInjectAsync(string packageId, string targetLangFolder, CloudModRecord targetRecord = null, bool requestMemoryDrop = true)
         {
             Verse.ModMetaData targetMod = null;

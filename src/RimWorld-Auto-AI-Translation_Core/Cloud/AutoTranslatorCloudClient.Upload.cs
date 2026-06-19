@@ -3,16 +3,21 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
-using System.Net.Http;
 using System.Threading.Tasks;
 using Verse;
 using static AutoTranslator_Core.DeleteTranslationWindow;
+// 這個檔案負責雲端上傳流程。
+// EN: This file uploads translation packages to the cloud service.
 
 namespace AutoTranslator_Core
 {
+    // 這個類別負責 自動翻譯器雲端Client 的主要流程與狀態。
+    // EN: This class manages the main workflow and state for AutoTranslatorCloudClient.
     public static partial class AutoTranslatorCloudClient
     {
 
+        // 這個方法負責上傳 翻譯Async 到雲端。
+        // EN: This method uploads translation async.
         public static async Task<bool> UploadTranslationAsync(string packageId, string language, string modName, string author, string translationType, string sourceFolder, string adminToken, string updateLog = "")
         {
             try

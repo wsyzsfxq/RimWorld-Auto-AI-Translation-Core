@@ -11,14 +11,20 @@ using System.Threading.Tasks;
 using System.Xml;
 using Verse;
 using static AutoTranslator_Core.DeleteTranslationWindow;
+// 這個檔案負責單模組、多模組與全域掃描的流程控制。
+// EN: This file orchestrates single-mod, multi-mod, and full translation scans.
 
 namespace AutoTranslator_Core
 {
+    // 這個類別負責 自動翻譯器掃描器 的主要流程與狀態。
+    // EN: This class manages the main workflow and state for AutoTranslatorScanner.
     public static partial class AutoTranslatorScanner
     {
-        public static void StartSingleScan(ModMetaData targetMod) // ❌ 拔掉 async
+        // 這個方法負責啟動 Single掃描 流程。
+        // EN: This method starts single scan.
+        public static void StartSingleScan(ModMetaData targetMod)
         {
-            // ✨ 順便補上：單次翻譯開始前，字數統計歸零
+
             AutoTranslatorMod.Settings.SessionCharCount = 0;
             ResetValidationStats();
 
@@ -29,11 +35,10 @@ namespace AutoTranslator_Core
             settings.CurrentTaskName = $"Translating: {targetMod.Name}";
             AutoTranslatorSettings.AddLog("🚀 " + AutoTranslatorAPI.TranslateText("ATC_Log_StartSingleMod", targetMod.Name));
 
-            // 🌟 在主執行緒安全地抓取模組清單 (這個動作極快，不會卡頓)
+
             var activeMods = ModLister.AllInstalledMods.Where(m => m.Active && !BlacklistedModules.Contains(m.PackageId.ToLower())).ToList();
 
-            // 🚀 架構師手術：把建置字典與翻譯的粗活，全部丟進背景執行緒，徹底解放主畫面 FPS！
-            // 🚀 架構師手術：把建置字典與翻譯的粗活，全部丟進背景執行緒，徹底解放主畫面 FPS！
+
             Task.Run(async () =>
             {
                 try
@@ -53,13 +58,15 @@ namespace AutoTranslator_Core
 
                     if (ShouldSkipNativeTargetTranslation(targetMod, settings.TargetLang, true))
                     {
-                        ModUpdateDetector.MarkModAsTranslated(targetMod.PackageId, targetMod.RootDir.FullName);
+                        ModUpdateDetector.MarkModAsTranslated(targetMod.PackageId, targetMod.RootDir.FullName, false);
                         settings.CurrentTaskName = "ATC_TaskDone".Translate();
                         settings.CurrentProgress = 1f;
+                        ModUpdateDetector.ClearStatusCache();
+                        TranslationWorkbenchTab.RequestRefresh();
                         return;
                     }
 
-                    // ✨ 咪咪防呆結界：開工前先打電話給 API 查勤！
+
                     settings.SubTaskName = "ATC_SubTask_TestingAPI".Translate();
                     AutoTranslatorSettings.AddLog("🔌 " + "ATC_Log_PreflightCheck".Translate());
 
@@ -69,10 +76,10 @@ namespace AutoTranslator_Core
                         AutoTranslatorSettings.AddErrorLog("❌ " + "ATC_LogError_ApiDeadAbort".Translate());
                         settings.CurrentTaskName = "ATC_TaskFailed".Translate();
                         AutoTranslatorSettings.IsRunning = false;
-                        return; // 🛑 伺服器掛了，立刻煞車，絕對不准往下跑！
+                        return;
                     }
 
-                    // 現在建置全域字典在背景跑了，UI 絕對不會再卡住！
+
                     BuildGlobalTranslationDatabase(activeMods);
                     if (AutoTranslatorSettings.IsCancellationRequested) return;
 
@@ -107,7 +114,7 @@ namespace AutoTranslator_Core
                             aiTranslatedCount += await ProcessModDefInjected(targetMod, langRoots, defsRoots);
                         }
 
-                        // ✨ 如果這次有勞煩到 AI，立刻幫翻譯包更新身分證！
+
                         if (aiTranslatedCount > 0)
                         {
                             UpdateLocalModMeta(targetMod.PackageId, GetFolderNameByLanguage(settings.TargetLang), aiTranslatedCount);
@@ -117,17 +124,19 @@ namespace AutoTranslator_Core
                     if (!AutoTranslatorSettings.IsCancellationRequested)
                     {
                         settings.CurrentTaskName = "ATC_TaskDone".Translate();
-                        // ✨ 打上時間戳記憶！下次就不會被當作未翻譯！
-                        ModUpdateDetector.MarkModAsTranslated(targetMod.PackageId, targetMod.RootDir.FullName);
+
+                        ModUpdateDetector.MarkModAsTranslated(targetMod.PackageId, targetMod.RootDir.FullName, false);
                         settings.CurrentProgress = 1f;
                         AutoTranslatorSettings.AddLog("✨ " + "ATC_Log_SingleModDone".Translate());
                         LogValidationSummary();
 
-                        // 修正 P2-1：用主執行緒守護器
+
                         RequestMemoryDrop();
 
-                        // 修正 P2-3：用 ShowFinishPopup 旗標代替直接呼叫主執行緒 API
+
                         AutoTranslatorSettings.ShowFinishPopup = true;
+                        ModUpdateDetector.ClearStatusCache();
+                        TranslationWorkbenchTab.RequestRefresh();
                     }
                 }
                 catch (Exception e)
@@ -142,21 +151,22 @@ namespace AutoTranslator_Core
                 }
             });
         }
-        public static void StartFullScan() // ❌ 拔掉 async
+        // 這個方法負責啟動 Full掃描 流程。
+        // EN: This method starts full scan.
+        public static void StartFullScan()
         {
-            AutoTranslatorMod.Settings.SessionCharCount = 0; // 🚀 大哥按下了按鈕，本次翻譯重新計數！
+            AutoTranslatorMod.Settings.SessionCharCount = 0;
             ResetValidationStats();
             AutoTranslatorSettings.IsRunning = true;
 
             var settings = AutoTranslatorMod.Settings;
-            // 🌟 在主執行緒安全地抓取模組清單，防閃退！
+
             var mods = ModLister.AllInstalledMods.Where(m =>
                             !BlacklistedModules.Contains(m.PackageId.ToLower()) &&
                             (!settings.OnlyScanActiveMods || m.Active)).ToList();
             AutoTranslatorSettings.AddLog("🌐 " + AutoTranslatorAPI.TranslateText("ATC_Log_StartScan", mods.Count));
 
-            // 🌟 進入背景執行緒做苦力
-            // 🌟 進入背景執行緒做苦力
+
             Task.Run(async () =>
             {
                 try
@@ -164,7 +174,7 @@ namespace AutoTranslator_Core
                     EnsurePackInitialized(runFullMaintenance: true);
                     if (AutoTranslatorSettings.IsCancellationRequested) return;
 
-                    // ✨ 咪咪防呆結界：開工前先打電話給 API 查勤！
+
                     settings.SubTaskName = "ATC_SubTask_TestingAPI".Translate();
                     AutoTranslatorSettings.AddLog("🔌 " + "ATC_Log_PreflightCheck".Translate());
 
@@ -174,17 +184,17 @@ namespace AutoTranslator_Core
                         AutoTranslatorSettings.AddErrorLog("❌ " + "ATC_LogError_ApiDeadAbort".Translate());
                         settings.CurrentTaskName = "ATC_TaskFailed".Translate();
                         AutoTranslatorSettings.IsRunning = false;
-                        return; // 🛑 伺服器掛了，立刻煞車，絕對不准往下跑！
+                        return;
                     }
 
-                    // 🧠 這裡傳入的 mods 包含漢化包！我們要在這裡把它們的翻譯精華全部吸進共用池！
+
                     BuildGlobalTranslationDatabase(mods);
                     int total = mods.Count;
                     int current = 0;
                     foreach (var mod in mods)
                     {
-                        // 🛑 咪咪的微創攔截：大腦建完之後，準備要翻譯了！
-                        // 如果這是漢化包，直接跳過不翻譯，避免產出雙胞胎 _zhtc_AutoTranslated.xml！
+
+
                         if (IsTranslationPatchMod(mod))
                         {
                             continue;
@@ -192,11 +202,11 @@ namespace AutoTranslator_Core
 
                         if (ShouldSkipNativeTargetTranslation(mod, settings.TargetLang, true))
                         {
-                            ModUpdateDetector.MarkModAsTranslated(mod.PackageId, mod.RootDir.FullName);
+                            ModUpdateDetector.MarkModAsTranslated(mod.PackageId, mod.RootDir.FullName, false);
                             continue;
                         }
 
-                        // ✨ 架構師手術：多選/全掃描前核彈洗地                        // ✨ 架構師手術：多選/全掃描前核彈洗地
+
                         if (AutoTranslatorMod.Settings.AutoClearOldOnUpdate)
                         {
                             var updatedTracker = ModUpdateDetector.GetUpdatedOrNewModsCached();
@@ -226,7 +236,7 @@ namespace AutoTranslator_Core
                         if (langRoots.Count == 0 && defsRoots.Count == 0)
                         {
                             AutoTranslatorSettings.AddLog("ATC_Log_SkipMod".Translate());
-                            ModUpdateDetector.MarkModAsTranslated(mod.PackageId, mod.RootDir.FullName);
+                            ModUpdateDetector.MarkModAsTranslated(mod.PackageId, mod.RootDir.FullName, false);
                             continue;
                         }
 
@@ -252,18 +262,18 @@ namespace AutoTranslator_Core
                             aiTranslatedCount += await ProcessModDefInjected(mod, langRoots, defsRoots);
                         }
 
-                        // ✨ 掃描完畢，如果沒被玩家按鈕跳過或停止，就標記此模組為已翻譯！
+
                         if (!AutoTranslatorSettings.IsSkipCurrentRequested && !AutoTranslatorSettings.IsCancellationRequested)
                         {
-                            ModUpdateDetector.MarkModAsTranslated(mod.PackageId, mod.RootDir.FullName);
+                            ModUpdateDetector.MarkModAsTranslated(mod.PackageId, mod.RootDir.FullName, false);
 
-                            // ✨ 如果這是縫合怪，寫入身分證！
+
                             if (aiTranslatedCount > 0)
                             {
                                 UpdateLocalModMeta(mod.PackageId, GetFolderNameByLanguage(settings.TargetLang), aiTranslatedCount);
                             }
                         }
-                        // 🌟 咪咪特製：如果在 Def 或底層 API 階段被跳過，要在迴圈結束前攔截並把標籤洗掉！
+
                         if (AutoTranslatorSettings.IsSkipCurrentRequested)
                         {
                             AutoTranslatorSettings.AddLog("⏭️ " + AutoTranslatorAPI.TranslateText("ATC_Log_SkippedMod", mod.Name));
@@ -281,8 +291,10 @@ namespace AutoTranslator_Core
                         AutoTranslatorSettings.AddLog("🎉 " + "ATC_Log_AllTranslationWritten".Translate());
                         LogValidationSummary();
                         RequestMemoryDrop();
-                        // 🌟 發送信號給主執行緒，讓它去彈窗！絕對不閃退！
+
                         AutoTranslatorSettings.ShowFinishPopup = true;
+                        ModUpdateDetector.ClearStatusCache();
+                        TranslationWorkbenchTab.RequestRefresh();
                     }
                 }
                 catch (Exception e)
@@ -306,10 +318,11 @@ namespace AutoTranslator_Core
         }
 
 
-        // 🌟 咪咪特製：專門處理 UI 多選的多模組非同步翻譯！
-        public static void StartMultiScan(List<ModMetaData> targetMods) // ❌ 拔掉 async
+        // 這個方法負責啟動 Multi掃描 流程。
+        // EN: This method starts multi scan.
+        public static void StartMultiScan(List<ModMetaData> targetMods)
         {
-            AutoTranslatorMod.Settings.SessionCharCount = 0; // 🚀 大哥按下了按鈕，本次翻譯重新計數！
+            AutoTranslatorMod.Settings.SessionCharCount = 0;
             ResetValidationStats();
             AutoTranslatorSettings.IsRunning = true;
 
@@ -317,7 +330,7 @@ namespace AutoTranslator_Core
             var settings = AutoTranslatorMod.Settings;
             int total = targetMods.Count;
             AutoTranslatorSettings.AddLog("🚀 " + "ATC_Log_MultiScanStart".Translate(total));
-            // 🌟 在主執行緒安全地抓取啟動清單，防閃退！
+
             var activeMods = ModLister.AllInstalledMods.Where(m => m.Active && !BlacklistedModules.Contains(m.PackageId.ToLower())).ToList();
 
             Task.Run(async () =>
@@ -327,7 +340,7 @@ namespace AutoTranslator_Core
                     EnsurePackInitialized(runFullMaintenance: true);
                     if (AutoTranslatorSettings.IsCancellationRequested) return;
 
-                    // ✨ 咪咪防呆結界：開工前先打電話給 API 查勤！
+
                     settings.SubTaskName = "ATC_SubTask_TestingAPI".Translate();
                     AutoTranslatorSettings.AddLog("🔌 " + "ATC_Log_PreflightCheck".Translate());
 
@@ -337,7 +350,7 @@ namespace AutoTranslator_Core
                         AutoTranslatorSettings.AddErrorLog("❌ " + "ATC_LogError_ApiDeadAbort".Translate());
                         settings.CurrentTaskName = "ATC_TaskFailed".Translate();
                         AutoTranslatorSettings.IsRunning = false;
-                        return; // 🛑 伺服器掛了，立刻煞車，絕對不准往下跑！
+                        return;
                     }
 
                     BuildGlobalTranslationDatabase(activeMods);
@@ -346,11 +359,11 @@ namespace AutoTranslator_Core
                     {
                         if (ShouldSkipNativeTargetTranslation(mod, settings.TargetLang, true))
                         {
-                            ModUpdateDetector.MarkModAsTranslated(mod.PackageId, mod.RootDir.FullName);
+                            ModUpdateDetector.MarkModAsTranslated(mod.PackageId, mod.RootDir.FullName, false);
                             continue;
                         }
 
-                        // ✨ 架構師手術：多選/全掃描前核彈洗地
+
                         if (AutoTranslatorMod.Settings.AutoClearOldOnUpdate)
                         {
                             var updatedTracker = ModUpdateDetector.GetUpdatedOrNewModsCached();
@@ -380,7 +393,7 @@ namespace AutoTranslator_Core
                         if (langRoots.Count == 0 && defsRoots.Count == 0)
                         {
                             AutoTranslatorSettings.AddLog("ATC_Log_SkipMod".Translate());
-                            ModUpdateDetector.MarkModAsTranslated(mod.PackageId, mod.RootDir.FullName);
+                            ModUpdateDetector.MarkModAsTranslated(mod.PackageId, mod.RootDir.FullName, false);
                             continue;
                         }
 
@@ -406,13 +419,13 @@ namespace AutoTranslator_Core
                             aiTranslatedCount += await ProcessModDefInjected(mod, langRoots, defsRoots);
                         }
 
-                        // ✨ 掃描完畢，如果沒被玩家按鈕跳過或停止，就標記此模組為已翻譯！
+
                         if (!AutoTranslatorSettings.IsSkipCurrentRequested && !AutoTranslatorSettings.IsCancellationRequested)
                         {
-                            ModUpdateDetector.MarkModAsTranslated(mod.PackageId, mod.RootDir.FullName);
+                            ModUpdateDetector.MarkModAsTranslated(mod.PackageId, mod.RootDir.FullName, false);
                         }
 
-                        // 🌟 咪咪特製：如果在 Def 或底層 API 階段被跳過，要在迴圈結束前攔截並把標籤洗掉！
+
                         if (AutoTranslatorSettings.IsSkipCurrentRequested)
                         {
                             AutoTranslatorSettings.AddLog("⏭️ " + AutoTranslatorAPI.TranslateText("ATC_Log_SkippedMod", mod.Name));
@@ -428,9 +441,11 @@ namespace AutoTranslator_Core
                         settings.SubProgress = 1f;
                         AutoTranslatorSettings.AddLog("🎉 " + "ATC_Log_MultiScanDone".Translate());
                         LogValidationSummary();
-                        RequestMemoryDrop();  // 修正 P2-1：改用主執行緒守護器                        
-                        // 🌟 發送信號給主執行緒！
+                        RequestMemoryDrop();
+
                         AutoTranslatorSettings.ShowFinishPopup = true;
+                        ModUpdateDetector.ClearStatusCache();
+                        TranslationWorkbenchTab.RequestRefresh();
                     }
                 }
                 catch (Exception e)
@@ -453,6 +468,8 @@ namespace AutoTranslator_Core
             });
         }
 
+        // 這個方法負責判斷 ShouldSkipNative目標翻譯 條件是否成立。
+        // EN: This method checks should skip native target translation.
         private static bool ShouldSkipNativeTargetTranslation(ModMetaData mod, TargetLanguage targetLang, bool clearLocalOverride)
         {
             if (mod == null) return true;
@@ -480,6 +497,8 @@ namespace AutoTranslator_Core
             return true;
         }
 
+        // 這個方法負責判斷 HasNativeOrExternal目標語言 條件是否成立。
+        // EN: This method checks has native or external target language.
         private static bool HasNativeOrExternalTargetLanguage(ModMetaData mod, TargetLanguage targetLang)
         {
             if (mod == null) return false;
