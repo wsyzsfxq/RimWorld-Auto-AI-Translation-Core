@@ -47,6 +47,12 @@ namespace AutoTranslator_Core
             public List<string> Matches;
         }
 
+        private static readonly string[] KnownRimWorldVersionFolders =
+        {
+            "1.0", "1.1", "1.2", "1.3", "1.4", "1.5", "1.6",
+            "v1.0", "v1.1", "v1.2", "v1.3", "v1.4", "v1.5", "v1.6"
+        };
+
         private static Dictionary<string, string> LoadRawXmlFileToDictCached(string filePath)
         {
             if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath))
@@ -358,7 +364,62 @@ namespace AutoTranslator_Core
             string loadFoldersPath = Path.Combine(root, "LoadFolders.xml");
             string loadFoldersSig = BuildFileSignature(loadFoldersPath);
             long rootTicks = Directory.Exists(root) ? Directory.GetLastWriteTimeUtc(root).Ticks : 0L;
-            return CurrentRimWorldVersion + "|" + (mod.PackageId ?? "") + "|" + root + "|" + rootTicks + "|" + loadFoldersSig;
+
+            List<string> activeRoots = ParseLoadFolders(mod);
+            string languageRootSig = BuildKnownContentRootSignature(root, activeRoots, "Languages");
+
+            return CurrentRimWorldVersion + "|" + (mod.PackageId ?? "") + "|" + root + "|" +
+                   rootTicks + "|" + loadFoldersSig + "|" + languageRootSig;
+        }
+
+        private static string BuildKnownContentRootSignature(string modRoot, IEnumerable<string> activeRoots, string childName)
+        {
+            if (string.IsNullOrEmpty(modRoot) || string.IsNullOrEmpty(childName))
+            {
+                return "missing";
+            }
+
+            List<string> candidates = new List<string>
+            {
+                Path.Combine(modRoot, childName)
+            };
+
+            foreach (string versionFolder in KnownRimWorldVersionFolders)
+            {
+                candidates.Add(Path.Combine(modRoot, versionFolder, childName));
+            }
+
+            if (activeRoots != null)
+            {
+                foreach (string activeRoot in activeRoots)
+                {
+                    if (!string.IsNullOrEmpty(activeRoot))
+                    {
+                        candidates.Add(Path.Combine(activeRoot, childName));
+                    }
+                }
+            }
+
+            List<string> parts = new List<string>();
+            foreach (string candidate in candidates
+                         .Where(p => !string.IsNullOrEmpty(p))
+                         .Select(NormalizeCachePath)
+                         .Distinct(StringComparer.OrdinalIgnoreCase)
+                         .OrderBy(p => p, StringComparer.OrdinalIgnoreCase))
+            {
+                if (!Directory.Exists(candidate)) continue;
+
+                long ticks = 0L;
+                try
+                {
+                    ticks = Directory.GetLastWriteTimeUtc(candidate).Ticks;
+                }
+                catch { }
+
+                parts.Add(candidate + ":" + ticks + ":" + BuildDirectoryListingFingerprint(candidate, SearchOption.AllDirectories));
+            }
+
+            return parts.Count == 0 ? "missing" : string.Join(";", parts.ToArray());
         }
 
         private static List<string> BuildEffectiveLangPathsUncached(ModMetaData mod)
@@ -481,6 +542,55 @@ namespace AutoTranslator_Core
 
                 return count + ":" + totalLength + ":" + latestTicks + ":" + hash;
             }
+        }
+
+        private static string BuildLanguageRootsFingerprint(IEnumerable<string> langRoots, string targetFolder, string secondaryFolder)
+        {
+            if (langRoots == null) return "no-lang-roots";
+
+            List<string> parts = new List<string>();
+            foreach (string langRoot in langRoots
+                         .Where(p => !string.IsNullOrEmpty(p))
+                         .Select(NormalizeCachePath)
+                         .Distinct(StringComparer.OrdinalIgnoreCase)
+                         .OrderBy(p => p, StringComparer.OrdinalIgnoreCase))
+            {
+                parts.Add(langRoot + "|" + BuildResolvedLanguageFoldersFingerprint(langRoot, targetFolder, secondaryFolder));
+            }
+
+            return parts.Count == 0 ? "no-lang-roots" : string.Join(";", parts.ToArray());
+        }
+
+        private static string BuildResolvedLanguageFoldersFingerprint(string langRoot, string targetFolder, string secondaryFolder)
+        {
+            if (string.IsNullOrEmpty(langRoot) || !Directory.Exists(langRoot)) return "missing";
+
+            List<string> folderNames = new List<string>();
+            if (!string.IsNullOrEmpty(targetFolder)) folderNames.Add(targetFolder);
+            if (!string.IsNullOrEmpty(secondaryFolder)) folderNames.Add(secondaryFolder);
+
+            List<string> parts = new List<string>();
+            foreach (string folderName in folderNames
+                         .Distinct(StringComparer.OrdinalIgnoreCase)
+                         .OrderBy(f => f, StringComparer.OrdinalIgnoreCase))
+            {
+                List<string> matches = ResolveLanguageFolders(langRoot, folderName);
+                if (matches.Count == 0)
+                {
+                    parts.Add(folderName + "=missing");
+                    continue;
+                }
+
+                foreach (string match in matches
+                             .Select(NormalizeCachePath)
+                             .Distinct(StringComparer.OrdinalIgnoreCase)
+                             .OrderBy(p => p, StringComparer.OrdinalIgnoreCase))
+                {
+                    parts.Add(folderName + ":" + match + ":" + BuildXmlTreeFingerprint(match));
+                }
+            }
+
+            return parts.Count == 0 ? "no-language-folders" : string.Join("|", parts.ToArray());
         }
 
         private static string BuildDirectoryListingFingerprint(string rootPath, SearchOption searchOption)

@@ -1280,17 +1280,22 @@ namespace AutoTranslator_Core
         {
             try
             {
-                string packLangRoot = Path.Combine(GetLocalPackPath(), "Languages", GetFolderNameByLanguage(targetLang));
-                string packFingerprint = BuildXmlTreeFingerprint(packLangRoot);
+                string targetFolder = GetFolderNameByLanguage(targetLang);
+                string secondaryFolder = GetSecondaryFolderNameByLanguage(targetLang);
+                string packLangRoot = Path.Combine(GetLocalPackPath(), "Languages");
+                string packFingerprint = BuildResolvedLanguageFoldersFingerprint(packLangRoot, targetFolder, secondaryFolder);
 
                 IEnumerable<string> modKeys = (mods ?? new List<ModMetaData>())
                     .Where(m => m != null && !string.IsNullOrEmpty(m.PackageId))
                     .Select(m =>
                     {
                         string root = m.RootDir?.FullName ?? "";
-                        string langFingerprint = BuildXmlTreeFingerprint(Path.Combine(root, "Languages"));
+                        List<string> langRoots = IsTranslationPatchMod(m)
+                            ? GetAllTranslationPatchLangPaths(m)
+                            : GetAllEffectiveLangPaths(m);
+                        string langFingerprint = BuildLanguageRootsFingerprint(langRoots, targetFolder, secondaryFolder);
                         string loadFolders = BuildFileSignature(Path.Combine(root, "LoadFolders.xml"));
-                        return (m.PackageId ?? "").ToLowerInvariant() + "|" + loadFolders + "|" + langFingerprint;
+                        return (m.PackageId ?? "").ToLowerInvariant() + "|" + NormalizeCachePath(root) + "|" + loadFolders + "|" + langFingerprint;
                     })
                     .OrderBy(s => s, StringComparer.OrdinalIgnoreCase);
 
