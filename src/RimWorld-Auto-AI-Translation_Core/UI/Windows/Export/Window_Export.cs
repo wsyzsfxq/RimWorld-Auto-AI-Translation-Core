@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 using UnityEngine;
 using Verse;
 using RimWorld;
@@ -24,7 +25,21 @@ namespace AutoTranslator_Core
         private HashSet<string> _selectedPackageIds = new HashSet<string>();
         // 這個欄位保存 available模組 的執行狀態或快取資料。
         // EN: This field stores available mods runtime state or cached data.
-        private List<ExportableModInfo> _availableMods;
+        private List<ExportableModInfo> _availableMods = new List<ExportableModInfo>();
+        private List<ExportableModInfo> _filteredMods = new List<ExportableModInfo>();
+        private string _cachedFilterText = null;
+        private int _cachedAvailableCount = -1;
+        private bool _isLoading = false;
+        private string _loadError = "";
+
+        private sealed class ExportInstalledModSnapshot
+        {
+            public string ModName;
+            public string PackageId;
+            public string NormalizedPackageId;
+            public string UnderscorePackageId;
+            public string ModRootDir;
+        }
 
         // 這個屬性提供 InitialSize 的讀寫或計算結果。
         // EN: This method handles vector2.
@@ -38,7 +53,7 @@ namespace AutoTranslator_Core
             doCloseX = true;
             forcePause = true;
             absorbInputAroundWindow = true;
-            _availableMods = ScanAvailableMods();
+            QueueAvailableModsScan();
         }
 
         // 這個方法負責處理 Do視窗Contents 相關流程。
@@ -51,6 +66,22 @@ namespace AutoTranslator_Core
             Text.Font = GameFont.Small;
             Widgets.DrawLineHorizontal(0, 35f, inRect.width);
 
+            if (_isLoading && _availableMods.Count == 0)
+            {
+                GUI.color = Color.gray;
+                Widgets.Label(new Rect(0, 50f, inRect.width, 30f),
+                    "ATC_UploadPreview_Loading".Translate());
+                GUI.color = Color.white;
+                return;
+            }
+
+            if (!string.IsNullOrEmpty(_loadError))
+            {
+                GUI.color = new Color(1f, 0.6f, 0.6f);
+                Widgets.Label(new Rect(0, 50f, inRect.width, 44f), _loadError);
+                GUI.color = Color.white;
+                return;
+            }
 
             if (_availableMods.Count == 0)
             {
@@ -72,12 +103,7 @@ namespace AutoTranslator_Core
                 GUI.color = Color.white;
             }
 
-
-            var filtered = string.IsNullOrEmpty(_searchText)
-                ? _availableMods
-                : _availableMods.Where(m =>
-                    m.ModName.ToLower().Contains(_searchText.ToLower()) ||
-                    m.PackageId.ToLower().Contains(_searchText.ToLower())).ToList();
+            var filtered = GetFilteredMods();
 
 
             Widgets.Label(new Rect(0, 80f, inRect.width, 22f),
@@ -98,10 +124,13 @@ namespace AutoTranslator_Core
             Rect viewRect = new Rect(0, 0, listOutRect.width - 20f, filtered.Count * rowHeight);
 
             Widgets.BeginScrollView(listOutRect, ref _scrollPos, viewRect);
-            float yCursor = 0f;
-            foreach (var mod in filtered)
+
+            int firstVisible = Mathf.Max(0, Mathf.FloorToInt(_scrollPos.y / rowHeight) - 2);
+            int lastVisible = Mathf.Min(filtered.Count - 1, Mathf.CeilToInt((_scrollPos.y + listOutRect.height) / rowHeight) + 2);
+            for (int i = firstVisible; i <= lastVisible; i++)
             {
-                Rect rowRect = new Rect(0, yCursor, viewRect.width, rowHeight - 4f);
+                var mod = filtered[i];
+                Rect rowRect = new Rect(0, i * rowHeight, viewRect.width, rowHeight - 4f);
                 bool isSelected = _selectedPackageIds.Contains(mod.PackageId);
 
                 Widgets.DrawHighlightIfMouseover(rowRect);
@@ -132,8 +161,6 @@ namespace AutoTranslator_Core
                     "ATC_ExportWindow_ModInfo_DefCount".Translate(mod.DefInjectedCount, mod.KeyedCount));
                 Text.Font = GameFont.Small;
                 GUI.color = Color.white;
-
-                yCursor += rowHeight;
             }
             Widgets.EndScrollView();
 
@@ -218,10 +245,83 @@ namespace AutoTranslator_Core
             GUI.color = Color.white;
         }
 
+        private List<ExportableModInfo> GetFilteredMods()
+        {
+            string search = _searchText ?? "";
+            if (_cachedFilterText == search &&
+                _cachedAvailableCount == _availableMods.Count &&
+                _filteredMods != null)
+            {
+                return _filteredMods;
+            }
+
+            if (string.IsNullOrEmpty(search))
+            {
+                _filteredMods = _availableMods;
+            }
+            else
+            {
+                string searchLower = search.ToLowerInvariant();
+                _filteredMods = _availableMods.Where(m =>
+                    (m.ModName ?? "").ToLowerInvariant().Contains(searchLower) ||
+                    (m.PackageId ?? "").ToLowerInvariant().Contains(searchLower)).ToList();
+            }
+
+            _cachedFilterText = search;
+            _cachedAvailableCount = _availableMods.Count;
+            return _filteredMods;
+        }
+
+        private void QueueAvailableModsScan()
+        {
+            if (_isLoading) return;
+
+            List<ExportInstalledModSnapshot> installedMods = ModLister.AllInstalledMods
+                .Where(m => m != null && !string.IsNullOrWhiteSpace(m.PackageId))
+                .Select(m => new ExportInstalledModSnapshot
+                {
+                    ModName = m.Name,
+                    PackageId = m.PackageId,
+                    NormalizedPackageId = (m.PackageId ?? "").ToLowerInvariant(),
+                    UnderscorePackageId = (m.PackageId ?? "").Replace(".", "_").ToLowerInvariant(),
+                    ModRootDir = m.RootDir != null ? m.RootDir.FullName : null
+                })
+                .ToList();
+
+            _isLoading = true;
+            _loadError = "";
+
+            Task.Run(() =>
+            {
+                List<ExportableModInfo> loaded = new List<ExportableModInfo>();
+                string error = "";
+
+                try
+                {
+                    loaded = ScanAvailableMods(installedMods);
+                }
+                catch (Exception ex)
+                {
+                    error = ex.Message;
+                    Log.Warning($"[AutoTranslationCore] Export window scan failed: {ex.Message}");
+                }
+
+                ATC_Dispatcher.RunOnMainThread(() =>
+                {
+                    _availableMods = loaded ?? new List<ExportableModInfo>();
+                    _filteredMods = null;
+                    _cachedFilterText = null;
+                    _cachedAvailableCount = -1;
+                    _loadError = error;
+                    _isLoading = false;
+                });
+            });
+        }
+
 
         // 這個方法負責掃描 Available模組 資料。
         // EN: This method scans available mods.
-        private List<ExportableModInfo> ScanAvailableMods()
+        private static List<ExportableModInfo> ScanAvailableMods(List<ExportInstalledModSnapshot> installedMods)
         {
             var result = new List<ExportableModInfo>();
             string packPath = AutoTranslatorScanner.GetLocalPackPath();
@@ -234,7 +334,6 @@ namespace AutoTranslator_Core
 
             foreach (var langDir in Directory.GetDirectories(langsPath))
             {
-
                 string defDir = Path.Combine(langDir, "DefInjected");
                 if (Directory.Exists(defDir))
                 {
@@ -275,18 +374,19 @@ namespace AutoTranslator_Core
             {
 
                 string normalizedId = kv.Key.Replace("_", ".").ToLower();
-                var mod = ModLister.AllInstalledMods.FirstOrDefault(m =>
-                    m.PackageId.ToLower() == normalizedId ||
-                    m.PackageId.Replace(".", "_").ToLower() == kv.Key.ToLower());
+                string underscoreId = kv.Key.ToLowerInvariant();
+                var mod = installedMods.FirstOrDefault(m =>
+                    m.NormalizedPackageId == normalizedId ||
+                    m.UnderscorePackageId == underscoreId);
 
                 if (mod != null)
                 {
                     result.Add(new ExportableModInfo
                     {
-                        ModName = mod.Name,
+                        ModName = mod.ModName,
                         PackageId = mod.PackageId,
                         PackageIdWithUnderscore = kv.Key,
-                        ModRootDir = mod.RootDir.FullName,
+                        ModRootDir = mod.ModRootDir,
                         DefInjectedCount = kv.Value.defCount,
                         KeyedCount = kv.Value.keyedCount
                     });

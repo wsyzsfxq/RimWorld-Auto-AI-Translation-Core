@@ -38,6 +38,17 @@ namespace AutoTranslator_Core
             }
         }
 
+        public class LocalTranslationDeleteTarget
+        {
+            public string PackageId;
+            public string ModName;
+        }
+
+        public class LocalTranslationRestoreTarget
+        {
+            public string PackageId;
+        }
+
 
         // 這個方法負責處理 UpdateLocal模組Meta 相關流程。
         // EN: This method handles update local mod meta.
@@ -108,15 +119,22 @@ namespace AutoTranslator_Core
         // EN: This method creates backup before clear.
         private static void CreateBackupBeforeClear(ModMetaData mod, List<string> filesToBackup)
         {
+            if (mod == null) return;
+            CreateBackupBeforeClear(mod.PackageId, mod.Name, filesToBackup);
+        }
+
+        private static void CreateBackupBeforeClear(string packageId, string modName, List<string> filesToBackup)
+        {
             if (filesToBackup == null || filesToBackup.Count == 0) return;
+            if (string.IsNullOrWhiteSpace(packageId)) return;
             try
             {
                 string packPath = GetLocalPackPath();
-                string backupRoot = Path.Combine(packPath, "Backups", mod.PackageId);
+                string backupRoot = Path.Combine(packPath, "Backups", packageId);
                 Directory.CreateDirectory(backupRoot);
 
 
-                string stagingDir = Path.Combine(Path.GetTempPath(), "ATC_Backup_" + mod.PackageId);
+                string stagingDir = Path.Combine(Path.GetTempPath(), "ATC_Backup_" + packageId);
                 if (Directory.Exists(stagingDir)) Directory.Delete(stagingDir, true);
                 Directory.CreateDirectory(stagingDir);
 
@@ -133,7 +151,7 @@ namespace AutoTranslator_Core
 
 
                 string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                string zipPath = Path.Combine(backupRoot, $"{mod.PackageId}_{timestamp}.zip");
+                string zipPath = Path.Combine(backupRoot, $"{packageId}_{timestamp}.zip");
 
                 if (File.Exists(zipPath)) File.Delete(zipPath);
                 System.IO.Compression.ZipFile.CreateFromDirectory(stagingDir, zipPath);
@@ -148,23 +166,23 @@ namespace AutoTranslator_Core
                     zipFiles[i].Delete();
                 }
 
-                AutoTranslatorSettings.AddLog("📦 " + "ATC_Log_BackupSuccess".Translate(mod.Name));
+                AutoTranslatorSettings.AddLog("📦 " + "ATC_Log_BackupSuccess".Translate(string.IsNullOrWhiteSpace(modName) ? packageId : modName));
             }
             catch (Exception ex)
             {
-                Log.Warning($"[ATC Backup] Failed to backup {mod.PackageId}: {ex.Message}");
+                Log.Warning($"[ATC Backup] Failed to backup {packageId}: {ex.Message}");
             }
         }
 
 
         // 這個方法負責清除 Old翻譯Files 資料。
         // EN: This method clears old translation files.
-        public static void ClearOldTranslationFiles(List<ModMetaData> modsToClear)
+        public static void ClearOldTranslationFiles(List<ModMetaData> modsToClear, bool requestRuntimeRefresh = true)
         {
             LocalTranslationDeleteResult result = DeleteLocalTranslationFiles(
                 modsToClear,
                 createBackup: true,
-                requestRuntimeRefresh: true,
+                requestRuntimeRefresh: requestRuntimeRefresh,
                 logResult: false);
 
             if (result.DeletedFiles > 0)
@@ -185,10 +203,32 @@ namespace AutoTranslator_Core
             bool requestRuntimeRefresh = true,
             bool logResult = true)
         {
-            var result = new LocalTranslationDeleteResult();
-            if (modsToDelete == null || modsToDelete.Count == 0) return result;
+            List<LocalTranslationDeleteTarget> targets = (modsToDelete ?? new List<ModMetaData>())
+                .Where(m => m != null && !string.IsNullOrWhiteSpace(m.PackageId))
+                .Select(m => new LocalTranslationDeleteTarget
+                {
+                    PackageId = m.PackageId,
+                    ModName = m.Name
+                })
+                .ToList();
 
-            result.RequestedMods = modsToDelete.Count(m => m != null && !string.IsNullOrWhiteSpace(m.PackageId));
+            return DeleteLocalTranslationFiles(
+                targets,
+                createBackup,
+                requestRuntimeRefresh,
+                logResult);
+        }
+
+        public static LocalTranslationDeleteResult DeleteLocalTranslationFiles(
+            List<LocalTranslationDeleteTarget> targetsToDelete,
+            bool createBackup = true,
+            bool requestRuntimeRefresh = true,
+            bool logResult = true)
+        {
+            var result = new LocalTranslationDeleteResult();
+            if (targetsToDelete == null || targetsToDelete.Count == 0) return result;
+
+            result.RequestedMods = targetsToDelete.Count(m => m != null && !string.IsNullOrWhiteSpace(m.PackageId));
 
             try
             {
@@ -206,11 +246,12 @@ namespace AutoTranslator_Core
                 var deletedPathSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 bool touchedSettings = false;
 
-                foreach (var mod in modsToDelete)
+                foreach (var target in targetsToDelete)
                 {
-                    if (mod == null || string.IsNullOrWhiteSpace(mod.PackageId)) continue;
+                    if (target == null || string.IsNullOrWhiteSpace(target.PackageId)) continue;
 
-                    string packageId = mod.PackageId;
+                    string packageId = target.PackageId;
+                    string modName = string.IsNullOrWhiteSpace(target.ModName) ? packageId : target.ModName;
                     string id1 = packageId.ToLowerInvariant();
                     string id2 = packageId.Replace(".", "_").ToLowerInvariant();
 
@@ -221,7 +262,7 @@ namespace AutoTranslator_Core
 
                     if (filesToDelete.Count > 0 && createBackup)
                     {
-                        CreateBackupBeforeClear(mod, filesToDelete.Where(File.Exists).ToList());
+                        CreateBackupBeforeClear(packageId, modName, filesToDelete.Where(File.Exists).ToList());
                     }
 
                     var clearKeysByDefType = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
@@ -239,12 +280,14 @@ namespace AutoTranslator_Core
                                 continue;
                             }
 
-                            Dictionary<string, HashSet<string>> fileClearKeys = CollectRuntimeClearKeysForTranslationFile(langsPath, file, targetFolder);
+                            Dictionary<string, HashSet<string>> fileClearKeys = requestRuntimeRefresh
+                                ? CollectRuntimeClearKeysForTranslationFile(langsPath, file, targetFolder)
+                                : null;
                             File.SetAttributes(file, FileAttributes.Normal);
                             File.Delete(file);
                             deletedPathSet.Add(file);
                             NotifyTranslationFileChanged(file);
-                            MergeClearKeys(clearKeysByDefType, fileClearKeys);
+                            if (fileClearKeys != null) MergeClearKeys(clearKeysByDefType, fileClearKeys);
                             result.DeletedFiles++;
                         }
                         catch (FileNotFoundException)
@@ -260,7 +303,7 @@ namespace AutoTranslator_Core
                         catch (Exception ex)
                         {
                             result.FailedFiles++;
-                            result.Errors.Add($"{mod.Name}: {Path.GetFileName(file)} - {ex.Message}");
+                            result.Errors.Add($"{modName}: {Path.GetFileName(file)} - {ex.Message}");
                             Log.Warning($"[AutoTranslationCore] Failed to delete local translation file {file}: {ex}");
                         }
                     }
@@ -446,7 +489,20 @@ namespace AutoTranslator_Core
         // EN: This method handles restore latest backups.
         public static int RestoreLatestBackups(List<ModMetaData> modsToRestore)
         {
-            if (modsToRestore == null || modsToRestore.Count == 0) return 0;
+            List<LocalTranslationRestoreTarget> targets = (modsToRestore ?? new List<ModMetaData>())
+                .Where(m => m != null && !string.IsNullOrWhiteSpace(m.PackageId))
+                .Select(m => new LocalTranslationRestoreTarget
+                {
+                    PackageId = m.PackageId
+                })
+                .ToList();
+
+            return RestoreLatestBackups(targets);
+        }
+
+        public static int RestoreLatestBackups(List<LocalTranslationRestoreTarget> targetsToRestore)
+        {
+            if (targetsToRestore == null || targetsToRestore.Count == 0) return 0;
 
             string packPath = GetLocalPackPath();
             string backupRoot = Path.Combine(packPath, "Backups");
@@ -454,13 +510,13 @@ namespace AutoTranslator_Core
             if (!Directory.Exists(backupRoot)) return 0;
 
             int restored = 0;
-            foreach (var mod in modsToRestore)
+            foreach (var target in targetsToRestore)
             {
-                if (mod == null || string.IsNullOrEmpty(mod.PackageId)) continue;
+                if (target == null || string.IsNullOrEmpty(target.PackageId)) continue;
 
                 try
                 {
-                    string modBackupDir = Path.Combine(backupRoot, mod.PackageId);
+                    string modBackupDir = Path.Combine(backupRoot, target.PackageId);
                     if (!Directory.Exists(modBackupDir)) continue;
 
                     FileInfo latest = new DirectoryInfo(modBackupDir)
@@ -494,7 +550,7 @@ namespace AutoTranslator_Core
                 }
                 catch (Exception ex)
                 {
-                    Log.Warning($"[ATC Backup] Failed to restore {mod.PackageId}: {ex.Message}");
+                    Log.Warning($"[ATC Backup] Failed to restore {target.PackageId}: {ex.Message}");
                 }
             }
 

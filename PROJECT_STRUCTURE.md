@@ -50,6 +50,13 @@ Version-specific assemblies belong here:
 
 `LoadFolders.xml` controls RimWorld version routing for the packaged mod.
 
+## Design context
+
+Read `DESIGN_NOTES.md` before removing or simplifying translation-pipeline features.
+Several systems, such as UI interception, static cached translation refresh, global
+translation memory, and memory injection, exist to avoid missing translations in
+RimWorld mods that do not follow standard language-file patterns.
+
 ## Build commands
 
 Current RimWorld target:

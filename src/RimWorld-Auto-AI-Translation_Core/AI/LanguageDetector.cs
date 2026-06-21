@@ -68,6 +68,103 @@ namespace AutoTranslator_Core
             return result == null ? text : result.ToString();
         }
 
+        public static bool LooksLikePlaceholderTranslation(string text, TargetLanguage targetLang)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return false;
+            if (LooksLikeQuestionMarkMojibake(text)) return true;
+
+            string normalized = NormalizePlaceholderSample(text);
+            if (string.IsNullOrEmpty(normalized)) return false;
+
+            if (IsNonLatinTargetLanguage(targetLang))
+            {
+                switch (normalized)
+                {
+                    case "todo":
+                    case "tbd":
+                    case "wip":
+                    case "n/a":
+                    case "na":
+                    case "none":
+                    case "null":
+                    case "placeholder":
+                    case "translate":
+                    case "translation":
+                    case "untranslated":
+                    case "not translated":
+                    case "translate me":
+                    case "needs translation":
+                    case "待翻譯":
+                    case "待翻译":
+                    case "未翻譯":
+                    case "未翻译":
+                    case "暫未翻譯":
+                    case "暂未翻译":
+                    case "未完成":
+                        return true;
+                }
+            }
+            else
+            {
+                string trimmed = text.Trim();
+                if (trimmed == "TODO" || trimmed == "TBD" || trimmed == "WIP" || trimmed == "N/A") return true;
+
+                switch (normalized)
+                {
+                    case "placeholder":
+                    case "translate me":
+                    case "needs translation":
+                    case "untranslated":
+                    case "not translated":
+                    case "待翻譯":
+                    case "待翻译":
+                    case "未翻譯":
+                    case "未翻译":
+                    case "暫未翻譯":
+                    case "暂未翻译":
+                        return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool LooksLikeQuestionMarkMojibake(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return false;
+
+            int questionCount = 0;
+            int meaningfulCount = 0;
+            foreach (char c in text)
+            {
+                if (char.IsWhiteSpace(c) || char.IsControl(c)) continue;
+                if (char.IsPunctuation(c) && c != '?' && c != '？') continue;
+
+                meaningfulCount++;
+                if (c == '?' || c == '？') questionCount++;
+            }
+
+            if (questionCount < 4 || meaningfulCount == 0) return false;
+            return questionCount >= meaningfulCount * 8 / 10;
+        }
+
+        private static string NormalizePlaceholderSample(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return "";
+
+            string sample = text
+                .Replace("\\n", " ")
+                .Replace("\\r", " ")
+                .Replace("\n", " ")
+                .Replace("\r", " ")
+                .Trim();
+
+            sample = Regex.Replace(sample, @"^[\[\(\{<【［（「『\s]+|[\]\)\}>】］）」』\s]+$", "");
+            sample = Regex.Replace(sample, @"[\s_\-]+", " ");
+            sample = Regex.Replace(sample, @"[.!?。！？:：;；]+$", "");
+            return sample.Trim().ToLowerInvariant();
+        }
+
         // 這個方法負責處理 LooksLike目標語言 相關流程。
         // EN: This method handles looks like target language.
         public static bool LooksLikeTargetLanguage(string text, TargetLanguage expectedLang)
@@ -375,6 +472,16 @@ namespace AutoTranslator_Core
                 if (chars.IndexOf(c) >= 0) return true;
             }
             return false;
+        }
+
+        private static bool IsNonLatinTargetLanguage(TargetLanguage targetLang)
+        {
+            return targetLang == TargetLanguage.Traditional ||
+                   targetLang == TargetLanguage.Simplified ||
+                   targetLang == TargetLanguage.Japanese ||
+                   targetLang == TargetLanguage.Korean ||
+                   targetLang == TargetLanguage.Russian ||
+                   targetLang == TargetLanguage.Ukrainian;
         }
 
         // 這個方法負責判斷 IsHan 條件是否成立。

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading.Tasks;
 using Verse;
 // 這個檔案負責 模組名稱翻譯快取 相關邏輯，支援 Auto Translation Core 的執行流程。
 // EN: This file contains mod name translation cache support code.
@@ -32,6 +33,7 @@ namespace AutoTranslator_Core
         // 這個欄位保存 loaded 的執行狀態或快取資料。
         // EN: This field stores loaded runtime state or cached data.
         private static bool loaded = false;
+        private static bool loadInProgress = false;
         // 這個欄位保存 dirty 的執行狀態或快取資料。
         // EN: This field stores dirty runtime state or cached data.
         private static bool dirty = false;
@@ -64,13 +66,24 @@ namespace AutoTranslator_Core
             translated = "";
             if (!IsValidMod(mod)) return false;
 
-            EnsureLoaded();
+            EnsureLoadStarted();
+            lock (CacheLock)
+            {
+                if (!loaded) return false;
+            }
+
             string key = BuildCacheKey(mod);
             lock (CacheLock)
             {
                 if (!entries.TryGetValue(key, out CacheEntry entry)) return false;
                 if (!MatchesCurrentMod(entry, mod)) return false;
                 if (string.IsNullOrWhiteSpace(entry.TranslatedName)) return false;
+                if (LanguageDetector.LooksLikePlaceholderTranslation(entry.TranslatedName, AutoTranslatorMod.Settings.TargetLang))
+                {
+                    entries.Remove(key);
+                    dirty = true;
+                    return false;
+                }
 
                 translated = LanguageDetector.NormalizeChineseVariant(entry.TranslatedName, AutoTranslatorMod.Settings.TargetLang);
                 if (!string.Equals(translated, entry.TranslatedName, StringComparison.Ordinal))
@@ -108,6 +121,26 @@ namespace AutoTranslator_Core
         public static bool TryBeginVisibleQueue(IEnumerable<ModMetaData> visibleMods)
         {
             string visibleKey = BuildVisibleKey(visibleMods);
+            if (string.IsNullOrEmpty(visibleKey)) return false;
+
+            long nowTicks = DateTime.UtcNow.Ticks;
+            lock (CacheLock)
+            {
+                if (string.Equals(visibleKey, lastVisibleQueueKey, StringComparison.Ordinal) &&
+                    nowTicks < nextQueueAllowedTicks)
+                {
+                    return false;
+                }
+
+                lastVisibleQueueKey = visibleKey;
+                nextQueueAllowedTicks = nowTicks + QueueInterval.Ticks;
+                return true;
+            }
+        }
+
+        public static bool TryBeginVisibleQueue(IList<ModMetaData> mods, int firstVisible, int lastVisible)
+        {
+            string visibleKey = BuildVisibleKey(mods, firstVisible, lastVisible);
             if (string.IsNullOrEmpty(visibleKey)) return false;
 
             long nowTicks = DateTime.UtcNow.Ticks;
@@ -164,9 +197,10 @@ namespace AutoTranslator_Core
         {
             if (!IsValidMod(mod)) return;
             if (string.IsNullOrWhiteSpace(translated)) return;
+            if (LanguageDetector.LooksLikePlaceholderTranslation(translated, AutoTranslatorMod.Settings.TargetLang)) return;
 
             translated = LanguageDetector.NormalizeChineseVariant(translated, AutoTranslatorMod.Settings.TargetLang);
-            EnsureLoaded();
+            EnsureLoadStarted();
             string key = BuildCacheKey(mod);
             lock (CacheLock)
             {
@@ -193,6 +227,7 @@ namespace AutoTranslator_Core
                 FailedRetryAfterTicks.Clear();
                 dirty = false;
                 loaded = true;
+                loadInProgress = false;
             }
 
             try
@@ -213,6 +248,12 @@ namespace AutoTranslator_Core
             Dictionary<string, CacheEntry> snapshot;
             lock (CacheLock)
             {
+                if (!loaded)
+                {
+                    if (!loadInProgress) EnsureLoadStarted();
+                    return;
+                }
+
                 if (!dirty) return;
                 snapshot = new Dictionary<string, CacheEntry>(entries, StringComparer.OrdinalIgnoreCase);
                 dirty = false;
@@ -236,12 +277,73 @@ namespace AutoTranslator_Core
 
         // 這個方法負責確保 Loaded 已準備完成。
         // EN: This method ensures loaded is ready.
+        public static void PreloadAsync()
+        {
+            EnsureLoadStarted();
+        }
+
+        private static void EnsureLoadStarted()
+        {
+            string path;
+            lock (CacheLock)
+            {
+                if (loaded || loadInProgress) return;
+                loadInProgress = true;
+                path = GetCacheFilePath();
+            }
+
+            Task.Run(() =>
+            {
+                Dictionary<string, CacheEntry> loadedEntries = null;
+                string error = null;
+                try
+                {
+                    if (File.Exists(path))
+                    {
+                        loadedEntries = JsonConvert.DeserializeObject<Dictionary<string, CacheEntry>>(File.ReadAllText(path));
+                    }
+                }
+                catch (Exception ex)
+                {
+                    error = ex.Message;
+                }
+
+                lock (CacheLock)
+                {
+                    bool keepDirty = dirty;
+                    if (loadedEntries != null)
+                    {
+                        Dictionary<string, CacheEntry> merged = new Dictionary<string, CacheEntry>(loadedEntries, StringComparer.OrdinalIgnoreCase);
+                        foreach (var pair in entries)
+                        {
+                            merged[pair.Key] = pair.Value;
+                        }
+                        entries = merged;
+                    }
+                    else if (entries == null)
+                    {
+                        entries = new Dictionary<string, CacheEntry>(StringComparer.OrdinalIgnoreCase);
+                    }
+
+                    dirty = keepDirty;
+                    loaded = true;
+                    loadInProgress = false;
+                }
+
+                if (!string.IsNullOrEmpty(error))
+                {
+                    Log.Warning($"[AutoTranslationCore] Mod-name translation cache load failed: {error}");
+                }
+            });
+        }
+
         private static void EnsureLoaded()
         {
             lock (CacheLock)
             {
                 if (loaded) return;
                 loaded = true;
+                loadInProgress = false;
 
                 try
                 {
@@ -303,6 +405,26 @@ namespace AutoTranslator_Core
             StringBuilder builder = new StringBuilder();
             foreach (var mod in visibleMods)
             {
+                if (!IsValidMod(mod)) continue;
+                if (builder.Length > 0) builder.Append('|');
+                builder.Append(mod.PackageId.ToLowerInvariant());
+                builder.Append(':');
+                builder.Append(mod.Name);
+            }
+
+            return builder.ToString();
+        }
+
+        private static string BuildVisibleKey(IList<ModMetaData> mods, int firstVisible, int lastVisible)
+        {
+            if (mods == null || mods.Count == 0) return "";
+
+            StringBuilder builder = new StringBuilder();
+            int first = Math.Max(0, firstVisible);
+            int last = Math.Min(mods.Count - 1, lastVisible);
+            for (int i = first; i <= last; i++)
+            {
+                var mod = mods[i];
                 if (!IsValidMod(mod)) continue;
                 if (builder.Length > 0) builder.Append('|');
                 builder.Append(mod.PackageId.ToLowerInvariant());

@@ -340,8 +340,10 @@
   <ATC_Cloud_Deleting>⏳ 소각 처리 진행 중...</ATC_Cloud_Deleting>
   <ATC_Cloud_ConnectionNormal>☁️ 클라우드 서버 연동 안정: 현 데이터베이스 내 보관 이력 총 {0}건입니다.</ATC_Cloud_ConnectionNormal>
   <ATC_Cloud_NoModsWarning>⚠️ 대조 가능한 타사 추가 모드를 발견하지 못했습니다!\n(구동 중인 환경에 순수 오리지널 DLC와 핵심 시스템 파일만 있다면 검색 결과는 누락됩니다!)</ATC_Cloud_NoModsWarning>
-  <ATC_Cloud_Btn_BatchOfficial>👑 정밀번역 일괄 에어드랍</ATC_Cloud_Btn_BatchOfficial>
+  <ATC_Cloud_Btn_BatchOfficial>👑 공식/팀 번역 일괄 다운로드</ATC_Cloud_Btn_BatchOfficial>
+  <ATC_Cloud_Btn_BatchManual>🧑 플레이어 정밀번역 일괄 다운로드</ATC_Cloud_Btn_BatchManual>
   <ATC_Cloud_Btn_BatchAI>🤖 기계번역 일괄 에어드랍</ATC_Cloud_Btn_BatchAI>
+  <ATC_Cloud_Btn_BatchBest>✨ 최적 번역 일괄 다운로드</ATC_Cloud_Btn_BatchBest>
   <ATC_Msg_DownloadStart>📥 클라우드 공유 데이터 반입 중: {0}...</ATC_Msg_DownloadStart>
   <ATC_Msg_DownloadSuccess>✅ 에어드랍 완료! {0} 번역이 활성 메모리에 무사 배치되었습니다!</ATC_Msg_DownloadSuccess>
   <ATC_Msg_DownloadFailed>❌ 클라우드 파일 반입 실패: {0}</ATC_Msg_DownloadFailed>
@@ -383,7 +385,9 @@
   <ATC_Btn_Cancel>보류</ATC_Btn_Cancel>
   <ATC_Log_FactoryResetSuccess>장치가 공장 초기화 규격으로 무사 환원되었으며 임시 번역이 전부 지워졌습니다.</ATC_Log_FactoryResetSuccess>
   <ATC_Msg_FactoryResetSuccess>초기화 처리 종결! 모든 로컬 번역 데이터가 무로 돌아갔습니다.</ATC_Msg_FactoryResetSuccess>
+  <ATC_Cloud_PreparingBatchDownload>일괄 다운로드 준비 중...</ATC_Cloud_PreparingBatchDownload>
   <ATC_Cloud_Downloading>클라우드 다운로드 수행 중: {0}</ATC_Cloud_Downloading>
+  <ATC_Cloud_RepairingBatch>다운로드한 번역 복구 중: {0}</ATC_Cloud_RepairingBatch>
   <ATC_Cloud_Uploading>클라우드 업로드 전송 중: {0}</ATC_Cloud_Uploading>
   <ATC_LogError_DownloadCorrupted>클라우드 패키지 가공 혹은 압축 유실 발생! 손상된 미사용 더미 파일을 정리했습니다. 대상 모드: {0}, 정보: {1}</ATC_LogError_DownloadCorrupted>
   <ATC_Log_CloudPrefetchSuccess>클라우드 허브의 최신 데이터 목록 수집이 무사 완료되었습니다 (실시간 {0}건 대조 목록 취득).</ATC_Log_CloudPrefetchSuccess>
@@ -469,6 +473,17 @@
   <ATC_Lang_All>🌍 전 세계 모든 공용어 (All)</ATC_Lang_All>
   <ATC_Workbench_GlobalSearching>🔄 비상 초고속 오프라인 로컬 저장소 스캔 가동...</ATC_Workbench_GlobalSearching>
   <ATC_Workbench_GlobalSearchNoResult>대조해 낼 번역 텍스트 성분이 검출되지 않았습니다.</ATC_Workbench_GlobalSearchNoResult>
+  <ATC_Workbench_SearchSnapshotLabel>"{0}" 검색 결과를 표시 중</ATC_Workbench_SearchSnapshotLabel>
+  <ATC_Workbench_SearchTextChanged>검색어가 변경되었습니다. Search를 눌러 결과를 갱신하세요.</ATC_Workbench_SearchTextChanged>
+  <ATC_Workbench_ReturnToSearchResults>전역 검색 결과로 돌아가기</ATC_Workbench_ReturnToSearchResults>
+  <ATC_Workbench_FocusedSearchResult>전역 검색에서 이동: "{0}"</ATC_Workbench_FocusedSearchResult>
+  <ATC_Workbench_NoLongerMatchesSearch>편집되어 원래 검색과 더 이상 일치하지 않습니다</ATC_Workbench_NoLongerMatchesSearch>
+  <ATC_Workbench_RevertItem>복원</ATC_Workbench_RevertItem>
+  <ATC_Workbench_ItemReverted>항목을 복원했습니다.</ATC_Workbench_ItemReverted>
+  <ATC_Workbench_SaveSynced>동기화됨</ATC_Workbench_SaveSynced>
+  <ATC_Workbench_UnsavedChanges>저장되지 않은 변경 사항이 있습니다.</ATC_Workbench_UnsavedChanges>
+  <ATC_Workbench_Saving>저장 중...</ATC_Workbench_Saving>
+  <ATC_Workbench_SavedInline>저장 및 적용되었습니다.</ATC_Workbench_SavedInline>
   <ATC_Msg_UploadLogRequired>⚠️ 업로드 데이터 관리 및 클라우드 정제 유지를 위해, 좌측 하단에 이번 교정 내역의 세부 요점을 간략히 기재해 주셔야 합니다 (최소 5글자 이상)!</ATC_Msg_UploadLogRequired>
   <ATC_Btn_RepairLegacyTranslations>&#xC774;&#xC804; &#xBC88;&#xC5ED; &#xD615;&#xC2DD; &#xBCF5;&#xAD6C;</ATC_Btn_RepairLegacyTranslations>
   <ATC_Msg_RepairLegacyTranslationsDone>&#xC774;&#xC804; &#xBC88;&#xC5ED; &#xD615;&#xC2DD; &#xBCF5;&#xAD6C; &#xC644;&#xB8CC;: {0}&#xAC1C; &#xD30C;&#xC77C;&#xC5D0;&#xC11C; {1}&#xAC1C; &#xD56D;&#xBAA9;&#xC744; &#xC218;&#xC815;&#xD588;&#xC2B5;&#xB2C8;&#xB2E4;. &#xACE0;&#xC704;&#xD5D8; &#xAD6C;&#xC870; {2}&#xAC1C;&#xB294; &#xD655;&#xC778;&#xC774; &#xD544;&#xC694;&#xD569;&#xB2C8;&#xB2E4;.</ATC_Msg_RepairLegacyTranslationsDone>

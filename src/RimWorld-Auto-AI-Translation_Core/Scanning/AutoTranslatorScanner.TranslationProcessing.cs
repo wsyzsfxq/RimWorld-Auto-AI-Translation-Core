@@ -31,49 +31,43 @@ namespace AutoTranslator_Core
 
             AutoTranslatorSettings.AddLog("⚙️ " + "ATC_Log_KeyedScan".Translate());
             HashSet<string> processedKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (string keyedPath in keyedSourcePaths)
+            foreach (List<KeyedFileWorkItem> keyedFiles in BuildKeyedFileWorkItems(mod, keyedSourcePaths))
             {
-                aiTranslatedCount += await ProcessModKeyed(mod, langRoot, keyedPath, processedKeys);
+                aiTranslatedCount += await ProcessMergedModKeyed(mod, langRoot, keyedFiles, processedKeys);
             }
 
             return aiTranslatedCount;
         }
 
-        private static async Task<int> ProcessModKeyed(ModMetaData mod, string langRoot, string sourceKeyedPath, HashSet<string> processedKeys)
+        private class KeyedFileWorkItem
         {
-            int aiTranslatedCount = 0;
-            var settings = AutoTranslatorMod.Settings;
-            string targetFolder = GetFolderNameByLanguage(settings.TargetLang);
-            string packKeyedDir = Path.Combine(GetLocalPackPath(), "Languages", targetFolder, "Keyed");
+            public string File;
+            public string RelativeKeyedFile;
+            public string TargetFileName;
+            public int SourceOrder;
+        }
 
+        private class KeyedSourceEntry
+        {
+            public string Value;
+            public bool FileLooksLikeTarget;
+            public int SourceOrder;
+        }
 
-            string secondaryTag = "";
-            if (settings.TargetLang == TargetLanguage.Traditional)
-                secondaryTag = "ATC_Tag_FromSimplified".Translate().ToString();
-            else if (settings.TargetLang == TargetLanguage.Simplified)
-                secondaryTag = "ATC_Tag_FromTraditional".Translate().ToString();
+        private static List<List<KeyedFileWorkItem>> BuildKeyedFileWorkItems(ModMetaData mod, List<string> keyedSourcePaths)
+        {
+            var groups = new Dictionary<string, List<KeyedFileWorkItem>>(StringComparer.OrdinalIgnoreCase);
+            if (mod == null || keyedSourcePaths == null) return new List<List<KeyedFileWorkItem>>();
 
-            List<string> files = GetXmlFilesCached(sourceKeyedPath, SearchOption.AllDirectories);
-            int totalFiles = files.Count;
-            int currentFile = 0;
-            string sourceKeyedRoot = Path.GetFullPath(sourceKeyedPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-
-            foreach (string file in files)
+            string modIdClean = mod.PackageId.Replace(".", "_");
+            for (int sourceOrder = 0; sourceOrder < keyedSourcePaths.Count; sourceOrder++)
             {
-                if (AutoTranslatorSettings.IsCancellationRequested || AutoTranslatorSettings.IsSkipCurrentRequested) return aiTranslatedCount;
+                string sourceKeyedPath = keyedSourcePaths[sourceOrder];
+                if (string.IsNullOrEmpty(sourceKeyedPath) || !Directory.Exists(sourceKeyedPath)) continue;
 
-
-                currentFile++;
-                AutoTranslatorMod.Settings.SubProgress = (float)currentFile / totalFiles;
-
-                try
+                string sourceKeyedRoot = Path.GetFullPath(sourceKeyedPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                foreach (string file in GetXmlFilesCached(sourceKeyedPath, SearchOption.AllDirectories))
                 {
-                    string modIdClean = mod.PackageId.Replace(".", "_");
-                    string targetFileName = $"{modIdClean}_{Path.GetFileName(file)}";
-                    string targetFile = Path.Combine(packKeyedDir, targetFileName);
-
-                    var packDict = LoadXmlFileToDict(targetFile);
-                    Dictionary<string, string> nativeTargetDict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
                     string relativeKeyedFile = Path.GetFileName(file);
                     string fullFile = Path.GetFullPath(file);
                     if (fullFile.StartsWith(sourceKeyedRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ||
@@ -82,6 +76,52 @@ namespace AutoTranslator_Core
                         relativeKeyedFile = fullFile.Substring(sourceKeyedRoot.Length).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
                     }
 
+                    string targetFileName = $"{modIdClean}_{Path.GetFileName(file)}";
+                    if (!groups.TryGetValue(targetFileName, out List<KeyedFileWorkItem> group))
+                    {
+                        group = new List<KeyedFileWorkItem>();
+                        groups[targetFileName] = group;
+                    }
+
+                    group.Add(new KeyedFileWorkItem
+                    {
+                        File = file,
+                        RelativeKeyedFile = relativeKeyedFile,
+                        TargetFileName = targetFileName,
+                        SourceOrder = sourceOrder
+                    });
+                }
+            }
+
+            return groups.Values
+                .OrderBy(g => g.Min(i => i.SourceOrder))
+                .ThenBy(g => g[0].TargetFileName, StringComparer.OrdinalIgnoreCase)
+                .Select(g => g.OrderBy(i => i.SourceOrder).ThenBy(i => i.RelativeKeyedFile, StringComparer.OrdinalIgnoreCase).ToList())
+                .ToList();
+        }
+
+        private static async Task<int> ProcessMergedModKeyed(ModMetaData mod, string langRoot, List<KeyedFileWorkItem> sourceFiles, HashSet<string> processedKeys)
+        {
+            int aiTranslatedCount = 0;
+            if (sourceFiles == null || sourceFiles.Count == 0) return 0;
+
+            var settings = AutoTranslatorMod.Settings;
+            string targetFolder = GetFolderNameByLanguage(settings.TargetLang);
+            string packKeyedDir = Path.Combine(GetLocalPackPath(), "Languages", targetFolder, "Keyed");
+            string targetFile = Path.Combine(packKeyedDir, sourceFiles[0].TargetFileName);
+            var packDict = LoadXmlFileToDict(targetFile);
+            Dictionary<string, string> nativeTargetDict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+            string secondaryTag = "";
+            if (settings.TargetLang == TargetLanguage.Traditional)
+                secondaryTag = "ATC_Tag_FromSimplified".Translate().ToString();
+            else if (settings.TargetLang == TargetLanguage.Simplified)
+                secondaryTag = "ATC_Tag_FromTraditional".Translate().ToString();
+
+            try
+            {
+                foreach (string relativeKeyedFile in sourceFiles.Select(i => i.RelativeKeyedFile).Distinct(StringComparer.OrdinalIgnoreCase))
+                {
                     foreach (string targetLangDir in ResolveLanguageFolders(langRoot, targetFolder))
                     {
                         foreach (string targetKeyedDir in GetLanguageBucketPaths(targetLangDir, "Keyed"))
@@ -93,15 +133,24 @@ namespace AutoTranslator_Core
                             }
                         }
                     }
+                }
+
+                Dictionary<string, List<KeyedSourceEntry>> sourceEntries = new Dictionary<string, List<KeyedSourceEntry>>(StringComparer.OrdinalIgnoreCase);
+                List<string> orderedKeys = new List<string>();
+                int totalFiles = sourceFiles.Count;
+                int currentFile = 0;
+
+                foreach (KeyedFileWorkItem sourceFile in sourceFiles)
+                {
+                    if (AutoTranslatorSettings.IsCancellationRequested || AutoTranslatorSettings.IsSkipCurrentRequested) return aiTranslatedCount;
+
+                    currentFile++;
+                    AutoTranslatorMod.Settings.SubProgress = totalFiles == 0 ? 0f : (float)currentFile / totalFiles;
 
                     XmlDocument doc = new XmlDocument();
-                    doc.Load(file);
-
-                    Dictionary<string, string> finalData = new Dictionary<string, string>(packDict, StringComparer.OrdinalIgnoreCase);
-                    List<string> keysToAI = new List<string>();
-                    List<string> valuesToAI = new List<string>();
-
+                    doc.Load(sourceFile.File);
                     if (doc.DocumentElement == null) continue;
+
                     string keyedLanguageSample = string.Join("\n", doc.DocumentElement.ChildNodes
                         .Cast<XmlNode>()
                         .Where(n => n.NodeType == XmlNodeType.Element && !string.IsNullOrWhiteSpace(n.InnerText))
@@ -114,77 +163,123 @@ namespace AutoTranslator_Core
                     {
                         if (node.NodeType != XmlNodeType.Element || string.IsNullOrEmpty(node.InnerText)) continue;
                         string key = node.Name;
-                        if (processedKeys != null && processedKeys.Contains(key)) continue;
+                        string value = node.InnerText;
+                        if (LanguageDetector.LooksLikePlaceholderTranslation(value, settings.TargetLang)) continue;
 
-                        if (nativeTargetDict.TryGetValue(key, out string nativeVal)) finalData[key] = nativeVal;
-                        else if (packDict.TryGetValue(key, out string packVal))
-                            UseExistingOrQueueForAI(finalData, keysToAI, valuesToAI, key, packVal, node.InnerText);
-                        else if (GlobalPrimaryKeyedDict.TryGetValue(key, out string pVal))
-                            UseExistingOrQueueForAI(finalData, keysToAI, valuesToAI, key, pVal, node.InnerText);
-                        else if (GlobalSecondaryKeyedDict.TryGetValue(key, out string sVal) && !string.IsNullOrEmpty(secondaryTag))
+                        if (!sourceEntries.TryGetValue(key, out List<KeyedSourceEntry> entries))
                         {
-
-
-                            keysToAI.Add(key);
-                            valuesToAI.Add(PrepareSecondaryTranslationSource(sVal, node.InnerText));
+                            entries = new List<KeyedSourceEntry>();
+                            sourceEntries[key] = entries;
+                            orderedKeys.Add(key);
                         }
-                        else if (keyedFileLooksLikeTarget || LanguageDetector.LooksLikeTargetLanguage(node.InnerText, settings.TargetLang))
+
+                        entries.Add(new KeyedSourceEntry
                         {
-                            finalData[key] = node.InnerText;
-                        }
-                        else { keysToAI.Add(key); valuesToAI.Add(node.InnerText); }
+                            Value = value,
+                            FileLooksLikeTarget = keyedFileLooksLikeTarget,
+                            SourceOrder = sourceFile.SourceOrder
+                        });
+                    }
+                }
 
-                        if (processedKeys != null && finalData.ContainsKey(key)) processedKeys.Add(key);
+                Dictionary<string, string> finalData = new Dictionary<string, string>(packDict, StringComparer.OrdinalIgnoreCase);
+                List<string> keysToAI = new List<string>();
+                List<string> valuesToAI = new List<string>();
+
+                foreach (string key in orderedKeys)
+                {
+                    if (processedKeys != null && processedKeys.Contains(key)) continue;
+                    if (!sourceEntries.TryGetValue(key, out List<KeyedSourceEntry> entries) || entries.Count == 0) continue;
+
+                    KeyedSourceEntry sourceEntry = PickBestKeyedSourceEntry(entries, settings.TargetLang);
+                    string sourceText = sourceEntry != null ? sourceEntry.Value : "";
+
+                    if (nativeTargetDict.TryGetValue(key, out string nativeVal)) finalData[key] = nativeVal;
+                    else if (packDict.TryGetValue(key, out string packVal))
+                        UseExistingOrQueueForAI(finalData, keysToAI, valuesToAI, key, packVal, sourceText);
+                    else if (GlobalPrimaryKeyedDict.TryGetValue(key, out string pVal))
+                        UseExistingOrQueueForAI(finalData, keysToAI, valuesToAI, key, pVal, sourceText);
+                    else if (GlobalSecondaryKeyedDict.TryGetValue(key, out string sVal) && !string.IsNullOrEmpty(secondaryTag))
+                    {
+                        keysToAI.Add(key);
+                        valuesToAI.Add(PrepareSecondaryTranslationSource(sVal, sourceText));
+                    }
+                    else if (sourceEntry != null &&
+                             (sourceEntry.FileLooksLikeTarget || LanguageDetector.LooksLikeTargetLanguage(sourceEntry.Value, settings.TargetLang)))
+                    {
+                        finalData[key] = sourceEntry.Value;
+                    }
+                    else if (sourceEntry != null)
+                    {
+                        keysToAI.Add(key);
+                        valuesToAI.Add(sourceEntry.Value);
                     }
 
-                    if (keysToAI.Count > 0)
+                    if (processedKeys != null && finalData.ContainsKey(key)) processedKeys.Add(key);
+                }
+
+                if (keysToAI.Count > 0)
+                {
+                    AutoTranslatorSettings.AddLog("🔌 " + AutoTranslatorAPI.TranslateText("ATC_Log_FoundMissing", "Keyed", keysToAI.Count));
+                    var res = await SafeTranslateBatch(valuesToAI, $"{mod.Name} / {sourceFiles[0].TargetFileName}");
+                    if (res != null)
                     {
-                        AutoTranslatorSettings.AddLog("🔌 " + AutoTranslatorAPI.TranslateText("ATC_Log_FoundMissing", "Keyed", keysToAI.Count));
-                        var res = await SafeTranslateBatch(valuesToAI, $"{mod.Name} / {Path.GetFileName(file)}"); if (res != null)
+                        int acceptedCount = 0;
+                        for (int i = 0; i < keysToAI.Count; i++)
                         {
-                            int acceptedCount = 0;
-                            for (int i = 0; i < keysToAI.Count; i++)
+                            string k = keysToAI[i];
+                            string v = res[i];
+
+                            if (!TryAcceptTranslatedValue(v, valuesToAI[i], out v))
                             {
-                                string k = keysToAI[i];
-                                string v = res[i];
-
-
-                                if (!TryAcceptTranslatedValue(v, valuesToAI[i], out v))
-                                {
-                                    continue;
-                                }
-
-                                finalData[k] = v;
-                                if (processedKeys != null) processedKeys.Add(k);
-                                acceptedCount++;
+                                continue;
                             }
 
-                            AutoTranslatorSettings.AddLog("✨ " + "ATC_Log_AIFinish".Translate("Keyed"));
-                            aiTranslatedCount += acceptedCount;
+                            finalData[k] = v;
+                            if (processedKeys != null) processedKeys.Add(k);
+                            acceptedCount++;
                         }
-                        else AutoTranslatorSettings.AddLog("⚠️ " + "ATC_Log_AIFail".Translate("Keyed"));
-                    }
-                    AutoTranslatorSettings.AddLog("✅ " + AutoTranslatorAPI.TranslateText("ATC_Log_NoMissing", Path.GetFileName(file)));
 
-                    if (finalData.Count > 0) SaveXml(targetFile, finalData);
+                        AutoTranslatorSettings.AddLog("✨ " + "ATC_Log_AIFinish".Translate("Keyed"));
+                        aiTranslatedCount += acceptedCount;
+                    }
+                    else AutoTranslatorSettings.AddLog("⚠️ " + "ATC_Log_AIFail".Translate("Keyed"));
                 }
-                catch (XmlException xmlEx)
-                {
-                    AutoTranslatorSettings.AddErrorLog("⚠️ " + AutoTranslatorAPI.TranslateText("ATC_LogError_Format", mod.Name, GetShortPath(file)));
-                    Log.Warning($"[AutoTranslationCore] XML Format Error ({mod.Name}): {xmlEx.Message}");
-                }
-                catch (Exception ex)
-                {
-                    AutoTranslatorSettings.AddErrorLog("⚠️ " + AutoTranslatorAPI.TranslateText("ATC_LogError_Unknown", mod.Name, GetShortPath(file)));
-                    Log.Warning($"[AutoTranslationCore] Process Error ({mod.Name}): {ex.Message}");
-                }
+
+                AutoTranslatorSettings.AddLog("✅ " + AutoTranslatorAPI.TranslateText("ATC_Log_NoMissing", Path.GetFileName(sourceFiles[0].File)));
+                if (finalData.Count > 0) SaveXml(targetFile, finalData);
             }
+            catch (XmlException xmlEx)
+            {
+                string file = sourceFiles.Count > 0 ? sourceFiles[0].File : "";
+                AutoTranslatorSettings.AddErrorLog("❌ " + AutoTranslatorAPI.TranslateText("ATC_LogError_Format", mod.Name, GetShortPath(file)));
+                Log.Warning($"[AutoTranslationCore] XML Format Error ({mod.Name}): {xmlEx.Message}");
+            }
+            catch (Exception ex)
+            {
+                string file = sourceFiles.Count > 0 ? sourceFiles[0].File : "";
+                AutoTranslatorSettings.AddErrorLog("❌ " + AutoTranslatorAPI.TranslateText("ATC_LogError_Unknown", mod.Name, GetShortPath(file)));
+                Log.Warning($"[AutoTranslationCore] Process Error ({mod.Name}): {ex.Message}");
+            }
+
             return aiTranslatedCount;
         }
 
+        private static KeyedSourceEntry PickBestKeyedSourceEntry(List<KeyedSourceEntry> entries, TargetLanguage targetLang)
+        {
+            if (entries == null || entries.Count == 0) return null;
 
-        // 這個方法負責處理 模組DefInjected 流程。
-        // EN: This method processes mod Def Injected.
+            foreach (KeyedSourceEntry entry in entries.OrderBy(e => e.SourceOrder))
+            {
+                if (entry.FileLooksLikeTarget || LanguageDetector.LooksLikeTargetLanguage(entry.Value, targetLang))
+                {
+                    return entry;
+                }
+            }
+
+            return entries.OrderBy(e => e.SourceOrder).FirstOrDefault();
+        }
+
         private static async Task<int> ProcessModDefInjected(ModMetaData mod, List<string> langRoots, List<string> defsRoots)
         {
             int aiTranslatedCount = 0;

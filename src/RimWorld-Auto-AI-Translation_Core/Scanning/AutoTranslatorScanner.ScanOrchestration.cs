@@ -61,7 +61,7 @@ namespace AutoTranslator_Core
                         var updatedTracker = ModUpdateDetector.GetUpdatedOrNewModsBlocking();
                         if (updatedTracker.Any(m => m.PackageId == targetMod.PackageId))
                         {
-                            ClearOldTranslationFiles(new List<ModMetaData> { targetMod });
+                            ClearOldTranslationFiles(new List<ModMetaData> { targetMod }, requestRuntimeRefresh: false);
                         }
                     }
 
@@ -202,7 +202,7 @@ namespace AutoTranslator_Core
                             .ToList();
                         if (updatedModsToClear.Count > 0)
                         {
-                            ClearOldTranslationFiles(updatedModsToClear);
+                            ClearOldTranslationFiles(updatedModsToClear, requestRuntimeRefresh: false);
                         }
                     }
 
@@ -374,7 +374,7 @@ namespace AutoTranslator_Core
                             .ToList();
                         if (updatedModsToClear.Count > 0)
                         {
-                            ClearOldTranslationFiles(updatedModsToClear);
+                            ClearOldTranslationFiles(updatedModsToClear, requestRuntimeRefresh: false);
                         }
                     }
 

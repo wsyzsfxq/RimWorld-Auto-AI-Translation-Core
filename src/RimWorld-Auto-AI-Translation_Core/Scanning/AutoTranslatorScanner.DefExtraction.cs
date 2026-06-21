@@ -28,6 +28,12 @@ namespace AutoTranslator_Core
         {
 
             if (string.IsNullOrWhiteSpace(value) || value.Length < 2) return false;
+            if (AutoTranslatorMod.Settings != null &&
+                LanguageDetector.LooksLikePlaceholderTranslation(value, AutoTranslatorMod.Settings.TargetLang))
+            {
+                return false;
+            }
+
             if (value.All(char.IsDigit) || Regex.IsMatch(value, @"^[^\w\s]+$")) return false;
 
 
@@ -69,11 +75,24 @@ namespace AutoTranslator_Core
             string lower = path.ToLowerInvariant();
             return lower.Contains(".targetjobs") ||
                    lower.Contains(".animationframes") ||
+                   lower.Contains(".alienrace.") ||
+                   lower.Contains(".alienpartgenerator") ||
                    lower.Contains(".bodyaddons") ||
                    lower.Contains(".headaddons") ||
+                   lower.Contains(".colorchannels") ||
+                   lower.Contains(".bodytypes") ||
+                   lower.Contains(".headtypes") ||
+                   lower.Contains(".bodytype") ||
+                   lower.Contains(".headtype") ||
+                   lower.Contains(".bodydef") ||
+                   lower.Contains(".bodypartlabel") ||
                    lower.Contains(".bodygraphicdata") ||
                    lower.Contains(".headgraphicdata") ||
+                   lower.Contains(".lifestagegraphics") ||
+                   lower.Contains(".graphicpaths") ||
                    lower.Contains(".graphicdata") ||
+                   lower.Contains(".customdraw") ||
+                   lower.Contains(".drawsize") ||
                    lower.Contains(".offsets") ||
                    lower.Contains(".texpath") ||
                    lower.Contains(".graphicpath") ||

@@ -28,7 +28,7 @@ namespace AutoTranslator_Core
 
             Text.Font = GameFont.Small;
             string targetLangFolder = AutoTranslatorScanner.GetFolderNameByLanguage(Settings.CloudTargetLang);
-            int currentLangCloudCount = AutoTranslatorSettings.CloudRegistry.Count(c => c != null && c.Language == targetLangFolder);
+            EnsureCloudStatsCache(targetLangFolder);
 
             if (AutoTranslatorSettings.CloudConnectionFailed)
             {
@@ -39,7 +39,7 @@ namespace AutoTranslator_Core
             else
             {
                 GUI.color = new Color(0.4f, 0.8f, 1f);
-                Widgets.Label(l.GetRect(25f), "ATC_Cloud_ConnectionNormal".Translate(currentLangCloudCount));
+                Widgets.Label(l.GetRect(25f), "ATC_Cloud_ConnectionNormal".Translate(_cachedCloudCurrentLangCount));
                 GUI.color = Color.white;
             }
 
@@ -67,12 +67,8 @@ namespace AutoTranslator_Core
                 _cachedCloudDisplayMods = null;
             }
 
-            int ownUploadCount = AutoTranslatorSettings.CloudRegistry.Count(r =>
-                r != null &&
-                r.Language == targetLangFolder &&
-                IsOwnCloudRecord(r));
             GUI.color = new Color(0.7f, 0.9f, 1f);
-            Widgets.Label(new Rect(filterRow.x + 240f, filterRow.y + 3f, filterRow.width - 240f, 24f), "ATC_Cloud_MyUploadsCount".Translate(ownUploadCount));
+            Widgets.Label(new Rect(filterRow.x + 240f, filterRow.y + 3f, filterRow.width - 240f, 24f), "ATC_Cloud_MyUploadsCount".Translate(_cachedCloudOwnUploadCount));
             GUI.color = Color.white;
             l.Gap(10f);
 
@@ -80,7 +76,7 @@ namespace AutoTranslator_Core
 
             if (AutoTranslatorSettings.CloudShowMineOnly)
             {
-                List<CloudModRecord> ownRecords = GetOwnLatestCloudRecords(targetLangFolder);
+                List<CloudModRecord> ownRecords = GetOwnLatestCloudRecordsCached(targetLangFolder);
                 if (ownRecords.Count == 0)
                 {
                     GUI.color = Color.gray;
@@ -141,7 +137,8 @@ namespace AutoTranslator_Core
 
             if (_cachedCloudDisplayMods != null &&
                 _cachedCloudSearchText == searchText &&
-                _cachedCloudValidModCount == validMods.Count)
+                _cachedCloudValidModCount == validMods.Count &&
+                _cachedCloudDisplayValidVersion == ValidModsCacheVersion)
             {
                 return _cachedCloudDisplayMods;
             }
@@ -158,7 +155,35 @@ namespace AutoTranslator_Core
             _cachedCloudDisplayMods = mods.ToList();
             _cachedCloudSearchText = searchText;
             _cachedCloudValidModCount = validMods.Count;
+            _cachedCloudDisplayValidVersion = ValidModsCacheVersion;
             return _cachedCloudDisplayMods;
+        }
+
+        private static void EnsureCloudStatsCache(string targetLangFolder)
+        {
+            int registryCount = AutoTranslatorSettings.CloudRegistry.Count;
+            int generation = AutoTranslatorSettings.CloudFetchGeneration;
+            if (_cachedCloudStatsRegistryCount == registryCount &&
+                _cachedCloudStatsGeneration == generation &&
+                string.Equals(_cachedCloudStatsLangFolder, targetLangFolder, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            int currentLangCount = 0;
+            int ownUploadCount = 0;
+            foreach (CloudModRecord record in AutoTranslatorSettings.CloudRegistry)
+            {
+                if (record == null || record.Language != targetLangFolder) continue;
+                currentLangCount++;
+                if (IsOwnCloudRecord(record)) ownUploadCount++;
+            }
+
+            _cachedCloudCurrentLangCount = currentLangCount;
+            _cachedCloudOwnUploadCount = ownUploadCount;
+            _cachedCloudStatsRegistryCount = registryCount;
+            _cachedCloudStatsGeneration = generation;
+            _cachedCloudStatsLangFolder = targetLangFolder;
         }
 
         private static bool IsOwnCloudRecord(CloudModRecord record)
@@ -167,9 +192,20 @@ namespace AutoTranslator_Core
             return string.Equals(record.UploaderID, UnityEngine.SystemInfo.deviceUniqueIdentifier, StringComparison.OrdinalIgnoreCase);
         }
 
-        private List<CloudModRecord> GetOwnLatestCloudRecords(string targetLangFolder)
+        private List<CloudModRecord> GetOwnLatestCloudRecordsCached(string targetLangFolder)
         {
             string searchText = AutoTranslatorSettings.CloudSearchText ?? "";
+            int registryCount = AutoTranslatorSettings.CloudRegistry.Count;
+            int generation = AutoTranslatorSettings.CloudFetchGeneration;
+            if (_cachedOwnCloudRecords != null &&
+                _cachedOwnCloudRecordsRegistryCount == registryCount &&
+                _cachedOwnCloudRecordsGeneration == generation &&
+                string.Equals(_cachedOwnCloudRecordsLangFolder, targetLangFolder, StringComparison.Ordinal) &&
+                string.Equals(_cachedOwnCloudRecordsSearchText, searchText, StringComparison.Ordinal))
+            {
+                return _cachedOwnCloudRecords;
+            }
+
             IEnumerable<CloudModRecord> records = AutoTranslatorSettings.CloudRegistry
                 .Where(r => r != null && r.Language == targetLangFolder && IsOwnCloudRecord(r));
 
@@ -182,11 +218,16 @@ namespace AutoTranslator_Core
                     ((r.Author ?? "").ToLowerInvariant().Contains(searchLower)));
             }
 
-            return records
+            _cachedOwnCloudRecords = records
                 .GroupBy(r => r.PackageId ?? "", StringComparer.OrdinalIgnoreCase)
                 .Select(g => g.OrderByDescending(r => r.LastUpdated).First())
                 .OrderByDescending(r => r.LastUpdated)
                 .ToList();
+            _cachedOwnCloudRecordsRegistryCount = registryCount;
+            _cachedOwnCloudRecordsGeneration = generation;
+            _cachedOwnCloudRecordsLangFolder = targetLangFolder;
+            _cachedOwnCloudRecordsSearchText = searchText;
+            return _cachedOwnCloudRecords;
         }
     }
 }

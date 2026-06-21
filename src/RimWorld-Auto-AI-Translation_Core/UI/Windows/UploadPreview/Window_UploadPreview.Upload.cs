@@ -32,6 +32,9 @@ namespace AutoTranslator_Core
             Messages.Message("ATC_Msg_UploadStart".Translate(_mod.Name), MessageTypeDefOf.NeutralEvent, false);
 
             string pkgId = _mod.PackageId; string mLang = _targetLangFolder; string mName = _modName;
+            string modRootDir = _mod.RootDir != null ? _mod.RootDir.FullName : "";
+            string latestVersion = RimWorld.VersionControl.CurrentVersionStringWithoutBuild;
+            string uploaderId = UnityEngine.SystemInfo.deviceUniqueIdentifier;
             string token = AutoTranslatorMod.Settings.CloudAdminToken;
             string uNick = AutoTranslatorMod.Settings.CloudNickname;
             string uType = AutoTranslatorMod.NormalizeCloudUploadType(AutoTranslatorMod.Settings.CloudUploadType, !string.IsNullOrWhiteSpace(token));
@@ -96,16 +99,16 @@ namespace AutoTranslator_Core
                     }
 
                     DateTime actualModUpdate = DateTime.UtcNow;
-                    if (_mod.RootDir != null && Directory.Exists(_mod.RootDir.FullName)) actualModUpdate = new DirectoryInfo(_mod.RootDir.FullName).LastWriteTimeUtc;
+                    if (!string.IsNullOrEmpty(modRootDir) && Directory.Exists(modRootDir)) actualModUpdate = new DirectoryInfo(modRootDir).LastWriteTimeUtc;
 
                     var payload = new
                     {
                         PackageId = pkgId,
                         Language = mLang,
                         ModName = mName,
-                        LatestVersion = RimWorld.VersionControl.CurrentVersionStringWithoutBuild,
+                        LatestVersion = latestVersion,
                         ModLastUpdated = actualModUpdate.ToString("O"),
-                        UploaderID = UnityEngine.SystemInfo.deviceUniqueIdentifier,
+                        UploaderID = uploaderId,
                         Author = uNick,
                         TranslationType = uType,
                         FileBase64 = base64File,

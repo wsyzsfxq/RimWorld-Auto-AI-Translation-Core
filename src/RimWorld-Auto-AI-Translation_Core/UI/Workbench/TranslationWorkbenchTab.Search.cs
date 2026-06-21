@@ -24,6 +24,7 @@ namespace AutoTranslator_Core
                 _translatedModsCacheGeneration++;
                 _translatedPackageIds = null;
                 _cachedModSelectionList = null;
+                _cachedModSelectionValidVersion = -1;
                 _translatedModsCacheError = null;
                 _isTranslatedModsCacheLoading = false;
             }
@@ -40,6 +41,7 @@ namespace AutoTranslator_Core
 
                 _translatedPackageIds.Add(packageId);
                 _cachedModSelectionList = null;
+                _cachedModSelectionValidVersion = -1;
             }
 
 
@@ -76,6 +78,7 @@ namespace AutoTranslator_Core
                         _translatedPackageIds = result;
                         _translatedModsCacheError = error;
                         _cachedModSelectionList = null;
+                        _cachedModSelectionValidVersion = -1;
                         _isTranslatedModsCacheLoading = false;
                         if (!string.IsNullOrEmpty(error))
                         {
@@ -91,6 +94,90 @@ namespace AutoTranslator_Core
             {
                 InitTranslatedModsCache();
                 return _translatedPackageIds ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            }
+
+            private static void InvalidateVisibleItemCache()
+            {
+                _cachedVisibleItems = null;
+                _cachedVisibleCategory = "";
+                _cachedVisibleSearchText = "";
+                _cachedVisibleFocusCategory = "";
+                _cachedVisibleFocusKey = "";
+                _cachedVisibleRetainedCategory = "";
+                _cachedVisibleRetainedKey = "";
+                _cachedVisibleSourceCount = -1;
+                _cachedVisibleDataVersion = -1;
+            }
+
+            private static List<WorkbenchItem> GetVisibleItemsForCurrentCategory(List<WorkbenchItem> sourceItems)
+            {
+                if (sourceItems == null) return new List<WorkbenchItem>();
+
+                string searchText = _itemSearchText ?? "";
+                string focusCategory = _activeWorkbenchFocus != null ? _activeWorkbenchFocus.Category ?? "" : "";
+                string focusKey = _activeWorkbenchFocus != null ? _activeWorkbenchFocus.Key ?? "" : "";
+                string retainedCategory = _retainedEditedCategory ?? "";
+                string retainedKey = _retainedEditedKey ?? "";
+                if (_cachedVisibleItems != null &&
+                    _cachedVisibleDataVersion == _categorizedDataVersion &&
+                    _cachedVisibleSourceCount == sourceItems.Count &&
+                    string.Equals(_cachedVisibleCategory, _selectedCategory ?? "", StringComparison.Ordinal) &&
+                    string.Equals(_cachedVisibleSearchText, searchText, StringComparison.Ordinal) &&
+                    string.Equals(_cachedVisibleFocusCategory, focusCategory, StringComparison.Ordinal) &&
+                    string.Equals(_cachedVisibleFocusKey, focusKey, StringComparison.Ordinal) &&
+                    string.Equals(_cachedVisibleRetainedCategory, retainedCategory, StringComparison.Ordinal) &&
+                    string.Equals(_cachedVisibleRetainedKey, retainedKey, StringComparison.Ordinal))
+                {
+                    return _cachedVisibleItems;
+                }
+
+                if (string.IsNullOrWhiteSpace(searchText))
+                {
+                    _cachedVisibleItems = sourceItems;
+                }
+                else
+                {
+                    string searchLower = searchText.ToLowerInvariant();
+                    _cachedVisibleItems = sourceItems
+                        .Where(i =>
+                            (i.OriginalText != null && i.OriginalText.ToLowerInvariant().Contains(searchLower)) ||
+                            (i.TranslatedText != null && i.TranslatedText.ToLowerInvariant().Contains(searchLower)) ||
+                            (i.Key != null && i.Key.ToLowerInvariant().Contains(searchLower)))
+                        .ToList();
+                }
+
+                if (_activeWorkbenchFocus != null &&
+                    string.Equals(_selectedCategory ?? "", _activeWorkbenchFocus.Category ?? "", StringComparison.OrdinalIgnoreCase) &&
+                    !string.IsNullOrWhiteSpace(_activeWorkbenchFocus.Key) &&
+                    !_cachedVisibleItems.Any(i => i != null && string.Equals(i.Key, _activeWorkbenchFocus.Key, StringComparison.OrdinalIgnoreCase)))
+                {
+                    WorkbenchItem focusedItem = sourceItems.FirstOrDefault(i => i != null && string.Equals(i.Key, _activeWorkbenchFocus.Key, StringComparison.OrdinalIgnoreCase));
+                    if (focusedItem != null)
+                    {
+                        _cachedVisibleItems = new List<WorkbenchItem>(_cachedVisibleItems) { focusedItem };
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(retainedKey) &&
+                    string.Equals(_selectedCategory ?? "", retainedCategory, StringComparison.OrdinalIgnoreCase) &&
+                    !_cachedVisibleItems.Any(i => i != null && string.Equals(i.Key, retainedKey, StringComparison.OrdinalIgnoreCase)))
+                {
+                    WorkbenchItem retainedItem = sourceItems.FirstOrDefault(i => i != null && string.Equals(i.Key, retainedKey, StringComparison.OrdinalIgnoreCase));
+                    if (retainedItem != null)
+                    {
+                        _cachedVisibleItems = new List<WorkbenchItem>(_cachedVisibleItems) { retainedItem };
+                    }
+                }
+
+                _cachedVisibleCategory = _selectedCategory ?? "";
+                _cachedVisibleSearchText = searchText;
+                _cachedVisibleFocusCategory = focusCategory;
+                _cachedVisibleFocusKey = focusKey;
+                _cachedVisibleRetainedCategory = retainedCategory;
+                _cachedVisibleRetainedKey = retainedKey;
+                _cachedVisibleSourceCount = sourceItems.Count;
+                _cachedVisibleDataVersion = _categorizedDataVersion;
+                return _cachedVisibleItems;
             }
 
             // 這個方法負責建立 Translated模組快取 所需資料。
@@ -135,19 +222,33 @@ namespace AutoTranslator_Core
                 _isGlobalSearching = true;
                 _globalSearchProgress = 0f;
                 _globalSearchResults.Clear();
+                _globalSearchScroll = UnityEngine.Vector2.zero;
+                _globalSearchSnapshotText = (keyword ?? "").Trim();
+                _globalSearchSnapshotLangFilter = langFilter;
+                _globalSearchHasSnapshot = true;
+                string snapshotSearchText = _globalSearchSnapshotText;
+                string searchLower = snapshotSearchText.ToLowerInvariant();
+                string targetFolderFilter = langFilter.HasValue ? AutoTranslatorScanner.GetFolderNameByLanguage(langFilter.Value) : null;
+                List<GlobalSearchModSnapshot> activeMods = Verse.ModLister.AllInstalledMods
+                    .Where(m => m != null && m.Active)
+                    .Select(m => new GlobalSearchModSnapshot
+                    {
+                        Mod = m,
+                        PackageId = m.PackageId ?? "",
+                        ModName = m.Name ?? "",
+                        RootDir = m.RootDir != null ? m.RootDir.FullName : ""
+                    })
+                    .ToList();
+                Dictionary<string, GlobalSearchModSnapshot> activeModsByPackageId = activeMods
+                    .Where(m => !string.IsNullOrEmpty(m.PackageId))
+                    .GroupBy(m => m.PackageId, StringComparer.OrdinalIgnoreCase)
+                    .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
                 System.Threading.Tasks.Task.Run(() => {
                     var results = new List<GlobalSearchResult>();
-                    string searchLower = keyword.ToLower();
-                    var activeMods = Verse.ModLister.AllInstalledMods.Where(m => m != null && m.Active).ToList();
-                    var activeModsByPackageId = activeMods
-                        .Where(m => !string.IsNullOrEmpty(m.PackageId))
-                        .GroupBy(m => m.PackageId, StringComparer.OrdinalIgnoreCase)
-                        .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
-                    string targetFolderFilter = langFilter.HasValue ? AutoTranslatorScanner.GetFolderNameByLanguage(langFilter.Value) : null;
 
 
-                    var filesToScan = new List<(string FilePath, Verse.ModMetaData Mod)>();
+                    var filesToScan = new List<GlobalSearchFileWorkItem>();
 
 
                     string packPath = AutoTranslatorScanner.GetLocalPackPath();
@@ -170,8 +271,8 @@ namespace AutoTranslator_Core
                                 if (splitIdx > 0)
                                 {
                                     string pid = fileName.Substring(0, splitIdx).Replace("_", ".");
-                                    activeModsByPackageId.TryGetValue(pid, out var targetMod);
-                                    if (targetMod != null) filesToScan.Add((file, targetMod));
+                                    activeModsByPackageId.TryGetValue(pid, out GlobalSearchModSnapshot targetMod);
+                                    if (targetMod != null) filesToScan.Add(new GlobalSearchFileWorkItem { FilePath = file, Mod = targetMod.Mod, Category = GetWorkbenchCategoryFromTranslationFile(file) });
                                 }
                             }
                         }
@@ -184,8 +285,8 @@ namespace AutoTranslator_Core
                         if (packageId.Equals("auto.aitranslation.core", StringComparison.OrdinalIgnoreCase) ||
                             packageId.Equals("aitranslation.pack", StringComparison.OrdinalIgnoreCase)) continue;
 
-                        var modLangRoots = AutoTranslatorScanner.GetAllEffectiveLangPaths(mod);
-                        foreach (var langRoot in modLangRoots)
+                        List<string> langRoots = AutoTranslatorScanner.GetAllEffectiveLangPaths(mod.PackageId, mod.RootDir);
+                        foreach (var langRoot in langRoots)
                         {
                             string[] searchDirs = targetFolderFilter != null
                                 ? (System.IO.Directory.Exists(System.IO.Path.Combine(langRoot, targetFolderFilter)) ? new[] { System.IO.Path.Combine(langRoot, targetFolderFilter) } : new string[0])
@@ -194,7 +295,7 @@ namespace AutoTranslator_Core
                             foreach (var dir in searchDirs)
                             {
                                 var allXmls = AutoTranslatorScanner.GetXmlFilesForTranslationCache(dir, System.IO.SearchOption.AllDirectories);
-                                foreach (var file in allXmls) filesToScan.Add((file, mod));
+                                foreach (var file in allXmls) filesToScan.Add(new GlobalSearchFileWorkItem { FilePath = file, Mod = mod.Mod, Category = GetWorkbenchCategoryFromTranslationFile(file) });
                             }
                         }
                     }
@@ -213,12 +314,19 @@ namespace AutoTranslator_Core
                         var dict = AutoTranslatorScanner.LoadXmlFileToDict(item.FilePath);
                         foreach (var kv in dict)
                         {
-                            if ((kv.Value != null && kv.Value.ToLower().Contains(searchLower)) ||
-                                (kv.Key != null && kv.Key.ToLower().Contains(searchLower)))
+                            if ((kv.Value != null && kv.Value.ToLowerInvariant().Contains(searchLower)) ||
+                                (kv.Key != null && kv.Key.ToLowerInvariant().Contains(searchLower)))
                             {
-                                if (!results.Any(r => r.Mod == item.Mod && r.Key == kv.Key))
+                                if (!results.Any(r => r.Mod == item.Mod && r.Key == kv.Key && string.Equals(r.Category, item.Category, StringComparison.OrdinalIgnoreCase)))
                                 {
-                                    results.Add(new GlobalSearchResult { Mod = item.Mod, Key = kv.Key, TranslatedText = kv.Value });
+                                    results.Add(new GlobalSearchResult
+                                    {
+                                        Mod = item.Mod,
+                                        Key = kv.Key,
+                                        Category = item.Category,
+                                        TranslatedText = kv.Value,
+                                        SearchText = snapshotSearchText
+                                    });
                                 }
                                 if (results.Count >= 200) goto SearchDone;
                             }
@@ -234,6 +342,35 @@ namespace AutoTranslator_Core
                         _isGlobalSearching = false;
                     });
                 });
+            }
+
+            private static string GetWorkbenchCategoryFromTranslationFile(string filePath)
+            {
+                if (string.IsNullOrWhiteSpace(filePath)) return "Keyed";
+
+                try
+                {
+                    DirectoryInfo dir = new FileInfo(filePath).Directory;
+                    while (dir != null)
+                    {
+                        if (dir.Name.Equals("Keyed", StringComparison.OrdinalIgnoreCase))
+                        {
+                            return "Keyed";
+                        }
+
+                        if (dir.Parent != null && dir.Parent.Name.Equals("DefInjected", StringComparison.OrdinalIgnoreCase))
+                        {
+                            return dir.Name;
+                        }
+
+                        dir = dir.Parent;
+                    }
+                }
+                catch
+                {
+                }
+
+                return "Keyed";
             }
         }
 }

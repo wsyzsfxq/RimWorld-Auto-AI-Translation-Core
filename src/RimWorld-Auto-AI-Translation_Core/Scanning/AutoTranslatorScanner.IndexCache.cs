@@ -307,8 +307,25 @@ namespace AutoTranslator_Core
                 };
             }
 
-            string cacheId = (mod.PackageId ?? "") + "|" + NormalizeCachePath(mod.RootDir.FullName);
-            string key = BuildModPathIndexKey(mod);
+            return GetModPathIndex(mod.PackageId, mod.RootDir.FullName);
+        }
+
+        private static ModPathIndexCacheEntry GetModPathIndex(string packageId, string rootDir)
+        {
+            if (string.IsNullOrWhiteSpace(rootDir))
+            {
+                return new ModPathIndexCacheEntry
+                {
+                    Key = "",
+                    EffectiveLangPaths = new List<string>(),
+                    TranslationPatchLangPaths = new List<string>(),
+                    EffectiveDefsPaths = new List<string>()
+                };
+            }
+
+            string normalizedRoot = NormalizeCachePath(rootDir);
+            string cacheId = (packageId ?? "") + "|" + normalizedRoot;
+            string key = BuildModPathIndexKey(packageId, normalizedRoot);
 
             lock (TranslationIndexCacheLock)
             {
@@ -325,9 +342,9 @@ namespace AutoTranslator_Core
                 }
             }
 
-            List<string> effectiveLangPaths = BuildEffectiveLangPathsUncached(mod);
+            List<string> effectiveLangPaths = BuildEffectiveLangPathsUncached(normalizedRoot);
             List<string> translationPatchLangPaths = effectiveLangPaths.ToList();
-            AddLanguageRootsFrom(mod.RootDir.FullName, mod.RootDir.FullName, translationPatchLangPaths, true);
+            AddLanguageRootsFrom(normalizedRoot, normalizedRoot, translationPatchLangPaths, true);
             translationPatchLangPaths = translationPatchLangPaths.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
 
             ModPathIndexCacheEntry entry = new ModPathIndexCacheEntry
@@ -335,7 +352,7 @@ namespace AutoTranslator_Core
                 Key = key,
                 EffectiveLangPaths = effectiveLangPaths,
                 TranslationPatchLangPaths = translationPatchLangPaths,
-                EffectiveDefsPaths = BuildEffectiveDefsPathsUncached(mod)
+                EffectiveDefsPaths = BuildEffectiveDefsPathsUncached(normalizedRoot)
             };
 
             lock (TranslationIndexCacheLock)
@@ -354,39 +371,64 @@ namespace AutoTranslator_Core
 
         private static string BuildModPathIndexKey(ModMetaData mod)
         {
-            string root = NormalizeCachePath(mod.RootDir.FullName);
+            return BuildModPathIndexKey(mod.PackageId, mod.RootDir.FullName);
+        }
+
+        private static string BuildModPathIndexKey(string packageId, string rootDir)
+        {
+            string root = NormalizeCachePath(rootDir);
             string loadFoldersPath = Path.Combine(root, "LoadFolders.xml");
             string loadFoldersSig = BuildFileSignature(loadFoldersPath);
             long rootTicks = Directory.Exists(root) ? Directory.GetLastWriteTimeUtc(root).Ticks : 0L;
-            return CurrentRimWorldVersion + "|" + (mod.PackageId ?? "") + "|" + root + "|" + rootTicks + "|" + loadFoldersSig;
+            return CurrentRimWorldVersion + "|" + (packageId ?? "") + "|" + root + "|" + rootTicks + "|" + loadFoldersSig;
         }
 
         private static List<string> BuildEffectiveLangPathsUncached(ModMetaData mod)
         {
+            return mod == null || mod.RootDir == null
+                ? new List<string>()
+                : BuildEffectiveLangPathsUncached(mod.RootDir.FullName);
+        }
+
+        private static List<string> BuildEffectiveLangPathsUncached(string rootDir)
+        {
             List<string> result = new List<string>();
-            var activeRoots = ParseLoadFolders(mod);
+            if (string.IsNullOrWhiteSpace(rootDir)) return result;
+
+            string modRoot = NormalizeCachePath(rootDir);
+            var activeRoots = ParseLoadFolders(modRoot);
 
             foreach (var root in activeRoots)
             {
-                AddLanguageRootsFrom(root, mod.RootDir.FullName, result);
+                AddLanguageRootsFrom(root, modRoot, result);
             }
 
-            AddLanguageRootsFrom(mod.RootDir.FullName, mod.RootDir.FullName, result);
+            AddLanguageRootsFrom(modRoot, modRoot, result);
 
             return result.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         }
 
         private static List<string> BuildEffectiveDefsPathsUncached(ModMetaData mod)
         {
+            return mod == null || mod.RootDir == null
+                ? new List<string>()
+                : BuildEffectiveDefsPathsUncached(mod.RootDir.FullName);
+        }
+
+        private static List<string> BuildEffectiveDefsPathsUncached(string rootDir)
+        {
             List<string> result = new List<string>();
-            var activeRoots = ParseLoadFolders(mod);
+            if (string.IsNullOrWhiteSpace(rootDir)) return result;
+
+            string modRoot = NormalizeCachePath(rootDir);
+            var activeRoots = ParseLoadFolders(modRoot);
 
             foreach (var root in activeRoots)
             {
-                AddDefsRootsFrom(root, mod.RootDir.FullName, result);
+                AddDefsRootsFrom(root, modRoot, result);
             }
 
-            AddDefsRootsFrom(mod.RootDir.FullName, mod.RootDir.FullName, result);
+            AddDefsRootsFrom(modRoot, modRoot, result);
 
             return result.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         }

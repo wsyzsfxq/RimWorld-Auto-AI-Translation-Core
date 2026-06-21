@@ -1,4 +1,5 @@
 ﻿using RimWorld;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -212,36 +213,56 @@ private void DrawLogView(Rect rect, List<string> logs, ref Vector2 scrollPos, bo
         {
             const int runtimeDisplayLimit = 180;
             const int errorDisplayLimit = 80;
+            int displayLimit = isErrorBox ? errorDisplayLimit : runtimeDisplayLimit;
+            float calcWidth = Mathf.Max(1f, rect.width - 20f);
+            float cacheWidth = Mathf.Round(calcWidth);
+            LogViewCache cache = isErrorBox ? _errorLogViewCache : _runtimeLogViewCache;
+            List<string> snapshot = null;
 
-            List<string> displayLogs;
             lock (AutoTranslatorSettings.logLock)
             {
-                int displayLimit = isErrorBox ? errorDisplayLimit : runtimeDisplayLimit;
-                int skip = System.Math.Max(0, logs.Count - displayLimit);
-                displayLogs = logs.Skip(skip).ToList();
+                int start = System.Math.Max(0, logs.Count - displayLimit);
+                string firstLine = logs.Count > 0 ? logs[start] : "";
+                string lastLine = logs.Count > 0 ? logs[logs.Count - 1] : "";
+                bool needsRebuild =
+                    cache.SourceCount != logs.Count ||
+                    !Mathf.Approximately(cache.Width, cacheWidth) ||
+                    !string.Equals(cache.FirstLine, firstLine, StringComparison.Ordinal) ||
+                    !string.Equals(cache.LastLine, lastLine, StringComparison.Ordinal);
+
+                if (needsRebuild)
+                {
+                    snapshot = new List<string>(logs.Count - start);
+                    for (int i = start; i < logs.Count; i++)
+                    {
+                        snapshot.Add(logs[i]);
+                    }
+
+                    cache.SourceCount = logs.Count;
+                    cache.FirstLine = firstLine;
+                    cache.LastLine = lastLine;
+                    cache.Width = cacheWidth;
+                }
             }
 
             Text.Font = GameFont.Tiny;
-            float totalHeight = 0f;
-            List<float> heights = new List<float>();
-            if (_logHeightCache.Count > 600)
+            if (snapshot != null)
             {
-                _logHeightCache.Clear();
-            }
-
-            float calcWidth = rect.width - 20f;
-            foreach (string log in displayLogs)
-            {
-                string cacheKey = (isErrorBox ? "E|" : "L|") + calcWidth.ToString("F0") + "|" + log;
-                if (!_logHeightCache.TryGetValue(cacheKey, out float h))
+                cache.DisplayLogs.Clear();
+                cache.Heights.Clear();
+                cache.TotalHeight = 0f;
+                foreach (string log in snapshot)
                 {
-                    h = Text.CalcHeight(log, calcWidth);
-                    _logHeightCache[cacheKey] = h;
+                    float h = Text.CalcHeight(log, calcWidth);
+                    cache.DisplayLogs.Add(log);
+                    cache.Heights.Add(h);
+                    cache.TotalHeight += h;
                 }
-                heights.Add(h);
-                totalHeight += h;
             }
 
+            List<string> displayLogs = cache.DisplayLogs;
+            List<float> heights = cache.Heights;
+            float totalHeight = cache.TotalHeight;
             float contentHeight = Mathf.Max(totalHeight, rect.height);
             Rect viewRect = new Rect(0, 0, rect.width - 20f, contentHeight);
 

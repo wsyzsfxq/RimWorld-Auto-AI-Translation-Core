@@ -22,6 +22,8 @@ namespace AutoTranslator_Core
     {
         public static ConcurrentDictionary<string, string> Cache = new ConcurrentDictionary<string, string>();
         public static ConcurrentDictionary<string, bool> IgnoredCache = new ConcurrentDictionary<string, bool>();
+        private static ConcurrentQueue<string> ClassificationQueue = new ConcurrentQueue<string>();
+        private static ConcurrentDictionary<string, bool> PendingClassifications = new ConcurrentDictionary<string, bool>();
         private static ConcurrentQueue<string> TranslationQueue = new ConcurrentQueue<string>();
         private static ConcurrentDictionary<string, bool> PendingTranslations = new ConcurrentDictionary<string, bool>();
         // 這個欄位保存 快取File路徑 的執行狀態或快取資料。
@@ -33,28 +35,41 @@ namespace AutoTranslator_Core
         // 這個常數定義 MaxQueuedTranslations 的固定值。
         // EN: This constant defines the fixed value for max queued translations.
         private const int MaxQueuedTranslations = 500;
+        private const int MaxQueuedClassifications = 2000;
         // 這個常數定義 MaxNew佇列ItemsPerFrame 的固定值。
         // EN: This constant defines the fixed value for max new queue items per frame.
         private const int MaxNewQueueItemsPerFrame = 6;
+        private const int MaxNewClassificationItemsPerFrame = 24;
         private const int MaxNewQueueItemsPerScanWindow = 24;
+        private const int MaxNewClassificationItemsPerScanWindow = 120;
         private static readonly TimeSpan NewTranslationScanInterval = TimeSpan.FromMilliseconds(1500);
+        private static readonly TimeSpan NewClassificationScanInterval = TimeSpan.FromMilliseconds(500);
         // 這個常數定義 MaxIgnored快取Size 的固定值。
         // EN: This constant defines the fixed value for max ignored cache size.
         private const int MaxIgnoredCacheSize = 20000;
         private const int MaxTextDecisionCacheSize = 20000;
+        private const int MaxRenderDecisionCacheSize = 40000;
+        private static readonly TimeSpan RenderPendingRetryInterval = TimeSpan.FromSeconds(1);
         // 這個欄位保存 queuedApproxCount 的執行狀態或快取資料。
         // EN: This field stores queued approx count runtime state or cached data.
         private static int _queuedApproxCount = 0;
+        private static int _classificationApproxCount = 0;
         // 這個欄位保存 last佇列Frame 的執行狀態或快取資料。
         // EN: This field stores last queue frame runtime state or cached data.
         private static int _lastQueueFrame = -1;
+        private static int _lastClassificationFrame = -1;
         // 這個欄位保存 queuedThisFrame 的執行狀態或快取資料。
         // EN: This field stores queued this frame runtime state or cached data.
         private static int _queuedThisFrame = 0;
+        private static int _classifiedThisFrame = 0;
         private static readonly object _frameBudgetLock = new object();
+        private static readonly object _classificationFrameBudgetLock = new object();
         private static long _nextNewTranslationScanTicks = 0L;
         private static int _queuedThisScanWindow = 0;
         private static readonly object _newTranslationScanLock = new object();
+        private static long _nextNewClassificationScanTicks = 0L;
+        private static int _classifiedThisScanWindow = 0;
+        private static readonly object _newClassificationScanLock = new object();
         // 這個欄位保存 cacheDirty 的執行狀態或快取資料。
         // EN: This field stores cache dirty runtime state or cached data.
         private static volatile bool _cacheDirty = false;
@@ -82,7 +97,31 @@ namespace AutoTranslator_Core
 
         private static readonly Regex DynamicNumberRegex = new Regex(@"(?<![A-Za-z0-9_])[-+]?\d+(?:[\.,]\d+)?(?:\s*(?:%|ms|s|h|d|kg|g|W|kW|MW|XP))?(?![A-Za-z0-9_])", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         private static readonly Regex DynamicNumberPlaceholderRegex = new Regex(@"\{num\d+\}", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly ConcurrentDictionary<string, bool> FastBypassDecisionCache = new ConcurrentDictionary<string, bool>();
         private static readonly ConcurrentDictionary<string, bool> TextDecisionCache = new ConcurrentDictionary<string, bool>();
+        private static readonly ConcurrentDictionary<string, UIRenderDecision> RenderDecisionCache = new ConcurrentDictionary<string, UIRenderDecision>();
+        private static readonly object _renderDecisionSettingsLock = new object();
+        private static int _renderDecisionVersion = 0;
+        private static bool _renderDecisionSettingsInitialized = false;
+        private static TargetLanguage _renderDecisionTargetLang;
+        private static bool _renderDecisionErrorLogInterception;
+        private static bool _renderDecisionNewTranslation;
+
+        internal enum UIRenderDecisionKind
+        {
+            PassThrough,
+            Classifying,
+            Pending,
+            Translated
+        }
+
+        internal struct UIRenderDecision
+        {
+            public UIRenderDecisionKind Kind;
+            public string TranslatedText;
+            public int Version;
+            public long RetryAfterTicks;
+        }
 
         static UIInterceptor()
         {
@@ -94,6 +133,7 @@ namespace AutoTranslator_Core
 
             AutoTranslatorScanner.RequestKeyedMemoryDrop();
 
+            Task.Run(() => BackgroundClassificationWorker());
             Task.Run(() => BackgroundTranslationWorker());
 
             Task.Run(async () =>

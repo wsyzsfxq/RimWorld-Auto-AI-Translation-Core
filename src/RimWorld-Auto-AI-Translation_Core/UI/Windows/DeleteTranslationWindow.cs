@@ -31,6 +31,23 @@ namespace AutoTranslator_Core
         // 這個欄位保存 isTranslating模組Names 的執行狀態或快取資料。
         // EN: This field stores is translating mod names runtime state or cached data.
         private static bool isTranslatingModNames = false;
+        private List<ModMetaData> availableMods = new List<ModMetaData>();
+        private List<ModMetaData> cachedDisplayMods = null;
+        private string cachedSearchText = null;
+        private int cachedAvailableModCount = -1;
+        private bool isLoadingAvailableMods = false;
+        private bool isDeleting = false;
+        private string availableModsError = "";
+        private int availableModsLoadGeneration = 0;
+        private int availableModsValidCacheVersion = -1;
+
+        private sealed class DeleteModCandidate
+        {
+            public ModMetaData Mod;
+            public string PackageId;
+            public string ModName;
+            public string NormalizedPackageId;
+        }
 
         // 這個屬性提供 InitialSize 的讀寫或計算結果。
         // EN: This method handles vector2.
@@ -44,6 +61,7 @@ namespace AutoTranslator_Core
             doCloseX = true;
             forcePause = true;
             absorbInputAroundWindow = true;
+            QueueAvailableModsRefresh();
         }
 
         // 這個方法負責處理 Do視窗Contents 相關流程。
@@ -57,6 +75,21 @@ namespace AutoTranslator_Core
                 Text.Font = GameFont.Medium;
                 Widgets.Label(new Rect(0, 0, inRect.width, 40f), "ATC_DeleteModTrans_Title".Translate());
                 Text.Font = GameFont.Small;
+
+                if (isLoadingAvailableMods && availableMods.Count == 0)
+                {
+                    GUI.color = Color.gray;
+                    Widgets.Label(new Rect(0, 45f, inRect.width, 30f), "ATC_CheckingModStatus".Translate());
+                    GUI.color = Color.white;
+                    return;
+                }
+
+                if (!string.IsNullOrEmpty(availableModsError))
+                {
+                    GUI.color = new Color(1f, 0.6f, 0.6f);
+                    Widgets.Label(new Rect(0, 45f, inRect.width, 45f), availableModsError);
+                    GUI.color = Color.white;
+                }
 
                 List<ModMetaData> displayMods = GetDisplayMods();
 
@@ -83,8 +116,15 @@ namespace AutoTranslator_Core
         // EN: This method gets display mods.
         private List<ModMetaData> GetDisplayMods()
         {
-            IEnumerable<ModMetaData> mods = AutoTranslatorMod.GetValidModsCached()
-                .Where(ModUpdateDetector.HasLocalTranslationFiles);
+            string currentSearch = searchText ?? "";
+            if (cachedDisplayMods != null &&
+                cachedAvailableModCount == availableMods.Count &&
+                string.Equals(cachedSearchText, currentSearch, StringComparison.Ordinal))
+            {
+                return cachedDisplayMods;
+            }
+
+            IEnumerable<ModMetaData> mods = availableMods;
 
             if (!string.IsNullOrEmpty(searchText))
             {
@@ -95,7 +135,90 @@ namespace AutoTranslator_Core
                     GetCachedTranslatedModName(m).ToLowerInvariant().Contains(searchLower));
             }
 
-            return mods.OrderBy(m => m.Name).ToList();
+            cachedDisplayMods = mods.ToList();
+            cachedSearchText = currentSearch;
+            cachedAvailableModCount = availableMods.Count;
+            return cachedDisplayMods;
+        }
+
+        private void QueueAvailableModsRefresh()
+        {
+            if (isLoadingAvailableMods) return;
+            AutoTranslatorMod.GetValidModsCached();
+            if (AutoTranslatorMod.IsValidModsCacheRefreshing &&
+                availableModsValidCacheVersion != AutoTranslatorMod.ValidModsCacheVersion)
+            {
+                isLoadingAvailableMods = true;
+                availableModsError = "";
+                Task.Run(() =>
+                {
+                    while (AutoTranslatorMod.IsValidModsCacheRefreshing)
+                    {
+                        System.Threading.Thread.Sleep(50);
+                    }
+
+                    ATC_Dispatcher.RunOnMainThread(() =>
+                    {
+                        isLoadingAvailableMods = false;
+                        QueueAvailableModsRefresh();
+                    });
+                });
+                return;
+            }
+
+            TargetLanguage targetLang = AutoTranslatorMod.Settings.TargetLang;
+            List<DeleteModCandidate> candidates = AutoTranslatorMod.GetValidModsCached()
+                .Where(m => m != null && !string.IsNullOrWhiteSpace(m.PackageId))
+                .Select(m => new DeleteModCandidate
+                {
+                    Mod = m,
+                    PackageId = m.PackageId,
+                    ModName = m.Name ?? "",
+                    NormalizedPackageId = ModUpdateDetector.NormalizePackageIdForTranslationFileLookup(m.PackageId)
+                })
+                .ToList();
+
+            int generation = ++availableModsLoadGeneration;
+            int validCacheVersion = AutoTranslatorMod.ValidModsCacheVersion;
+            isLoadingAvailableMods = true;
+            availableModsError = "";
+
+            Task.Run(() =>
+            {
+                List<ModMetaData> loaded = new List<ModMetaData>();
+                string error = "";
+
+                try
+                {
+                    HashSet<string> packagesWithFiles =
+                        ModUpdateDetector.GetPackageIdsWithLocalTranslationFilesForKnownPackages(
+                            candidates.Select(c => c.PackageId),
+                            targetLang);
+
+                    loaded = candidates
+                        .Where(c => packagesWithFiles.Contains(c.NormalizedPackageId))
+                        .OrderBy(c => c.ModName)
+                        .Select(c => c.Mod)
+                        .ToList();
+                }
+                catch (Exception ex)
+                {
+                    error = ex.Message;
+                    Verse.Log.Warning($"[AutoTranslationCore] Delete-window local translation scan failed: {ex.Message}");
+                }
+
+                ATC_Dispatcher.RunOnMainThread(() =>
+                {
+                    if (generation != availableModsLoadGeneration) return;
+                    availableMods = loaded ?? new List<ModMetaData>();
+                    cachedDisplayMods = null;
+                    cachedSearchText = null;
+                    cachedAvailableModCount = -1;
+                    availableModsValidCacheVersion = validCacheVersion;
+                    availableModsError = error;
+                    isLoadingAvailableMods = false;
+                });
+            });
         }
 
         // 這個方法負責繪製 SelectVisibleButton 介面。
@@ -195,13 +318,15 @@ namespace AutoTranslator_Core
         private void DrawDeleteButton(Rect inRect)
         {
             Rect bottomBtnRect = new Rect(0, inRect.height - 40f, inRect.width, 40f);
-            GUI.color = selectedMods.Count > 0 ? new Color(1f, 0.4f, 0.4f) : Color.grey;
-            if (Widgets.ButtonText(bottomBtnRect, "ATC_ConfirmDelete_Btn".Translate(selectedMods.Count)))
+            GUI.color = selectedMods.Count > 0 && !isDeleting ? new Color(1f, 0.4f, 0.4f) : Color.grey;
+            string label = isDeleting
+                ? "ATC_CheckingModStatus".Translate().ToString()
+                : "ATC_ConfirmDelete_Btn".Translate(selectedMods.Count).ToString();
+            if (Widgets.ButtonText(bottomBtnRect, label))
             {
-                if (selectedMods.Count > 0)
+                if (selectedMods.Count > 0 && !isDeleting)
                 {
                     ExecuteDelete(selectedMods.ToList());
-                    Close();
                 }
             }
             GUI.color = Color.white;
@@ -307,26 +432,57 @@ namespace AutoTranslator_Core
         // EN: This method executes delete.
         private void ExecuteDelete(List<ModMetaData> modsToDelete)
         {
-            try
-            {
-                AutoTranslatorScanner.LocalTranslationDeleteResult result =
-                    AutoTranslatorScanner.DeleteLocalTranslationFiles(modsToDelete);
-
-                if (result.HasErrors)
+            if (isDeleting) return;
+            isDeleting = true;
+            List<AutoTranslatorScanner.LocalTranslationDeleteTarget> targets = (modsToDelete ?? new List<ModMetaData>())
+                .Where(m => m != null && !string.IsNullOrWhiteSpace(m.PackageId))
+                .Select(m => new AutoTranslatorScanner.LocalTranslationDeleteTarget
                 {
-                    string error = string.IsNullOrEmpty(result.FirstError) ? "Unknown error" : result.FirstError;
-                    AutoTranslatorSettings.AddErrorLog("ATC_Message_DeleteTransError".Translate(error));
-                    Messages.Message("ATC_Message_DeleteTransError".Translate(error), MessageTypeDefOf.RejectInput, false);
-                    return;
+                    PackageId = m.PackageId,
+                    ModName = m.Name
+                })
+                .ToList();
+
+            Task.Run(() =>
+            {
+                AutoTranslatorScanner.LocalTranslationDeleteResult result = null;
+                Exception failure = null;
+
+                try
+                {
+                    result = AutoTranslatorScanner.DeleteLocalTranslationFiles(targets);
+                }
+                catch (Exception ex)
+                {
+                    failure = ex;
                 }
 
-                Messages.Message("ATC_Message_DeleteTransSuccess".Translate(result.DeletedFiles), MessageTypeDefOf.PositiveEvent, false);
-            }
-            catch (Exception ex)
-            {
-                AutoTranslatorSettings.AddErrorLog("ATC_Message_DeleteTransError".Translate(ex.Message));
-                Log.Warning($"[AutoTranslationCore] Delete failed: {ex.Message}");
-            }
+                ATC_Dispatcher.RunOnMainThread(() =>
+                {
+                    isDeleting = false;
+
+                    if (failure != null)
+                    {
+                        AutoTranslatorSettings.AddErrorLog("ATC_Message_DeleteTransError".Translate(failure.Message));
+                        Log.Warning($"[AutoTranslationCore] Delete failed: {failure.Message}");
+                        return;
+                    }
+
+                    if (result != null && result.HasErrors)
+                    {
+                        string error = string.IsNullOrEmpty(result.FirstError) ? "Unknown error" : result.FirstError;
+                        AutoTranslatorSettings.AddErrorLog("ATC_Message_DeleteTransError".Translate(error));
+                        Messages.Message("ATC_Message_DeleteTransError".Translate(error), MessageTypeDefOf.RejectInput, false);
+                        return;
+                    }
+
+                    int deletedFiles = result != null ? result.DeletedFiles : 0;
+                    Messages.Message("ATC_Message_DeleteTransSuccess".Translate(deletedFiles), MessageTypeDefOf.PositiveEvent, false);
+                    selectedMods.Clear();
+                    QueueAvailableModsRefresh();
+                    Close();
+                });
+            });
         }
 
         // 這個方法負責判斷 IsCodeOnly模組 條件是否成立。
