@@ -363,8 +363,10 @@
   <ATC_Cloud_Deleting>⏳ 削除中...</ATC_Cloud_Deleting>
   <ATC_Cloud_ConnectionNormal>☁️ クラウドブレイン接続正常：現在データベースに計 {0} 件の翻訳記録があります。</ATC_Cloud_ConnectionNormal>
   <ATC_Cloud_NoModsWarning>⚠️ 翻訳可能なサードパーティ製モジュールが見つかりません！\n(テスト環境に公式DLCと本モジュールしかロードされていない場合、リストは空になります！)</ATC_Cloud_NoModsWarning>
-  <ATC_Cloud_Btn_BatchOfficial>👑 精翻を一括ダウンロード</ATC_Cloud_Btn_BatchOfficial>
+  <ATC_Cloud_Btn_BatchOfficial>👑 公式/翻訳チーム版を一括ダウンロード</ATC_Cloud_Btn_BatchOfficial>
+  <ATC_Cloud_Btn_BatchManual>🧑 プレイヤー精翻を一括ダウンロード</ATC_Cloud_Btn_BatchManual>
   <ATC_Cloud_Btn_BatchAI>🤖 機械翻訳(AI)を一括ダウンロード</ATC_Cloud_Btn_BatchAI>
+  <ATC_Cloud_Btn_BatchBest>✨ 最適な翻訳を一括ダウンロード</ATC_Cloud_Btn_BatchBest>
   <ATC_Msg_DownloadStart>📥 エアドロップをリクエスト中：{0}...</ATC_Msg_DownloadStart>
   <ATC_Msg_DownloadSuccess>✅ エアドロップ成功！{0} がメモリにロードされました！</ATC_Msg_DownloadSuccess>
   <ATC_Msg_DownloadFailed>❌ エアドロップ失敗：{0}</ATC_Msg_DownloadFailed>
@@ -406,7 +408,9 @@
   <ATC_Btn_Cancel>キャンセル</ATC_Btn_Cancel>
   <ATC_Log_FactoryResetSuccess>システムは正常に工場出荷状態にリセットされ、すべてのキャッシュがクリアされました。</ATC_Log_FactoryResetSuccess>
   <ATC_Msg_FactoryResetSuccess>システムのリセットに成功しました！すべての翻訳キャッシュがクリアされました。</ATC_Msg_FactoryResetSuccess>
+  <ATC_Cloud_PreparingBatchDownload>一括ダウンロードを準備中...</ATC_Cloud_PreparingBatchDownload>
   <ATC_Cloud_Downloading>クラウドダウンロード中: {0}</ATC_Cloud_Downloading>
+  <ATC_Cloud_RepairingBatch>ダウンロード済み翻訳を修復中: {0}</ATC_Cloud_RepairingBatch>
   <ATC_Cloud_Uploading>クラウドアップロード中: {0}</ATC_Cloud_Uploading>
   <ATC_LogError_DownloadCorrupted>クラウドからのダウンロードまたは解凍に失敗しました！破損した残存ファイルは自動的にクリーンアップされました。モジュール: {0}，原因: {1}</ATC_LogError_DownloadCorrupted>
   <ATC_Log_CloudPrefetchSuccess>バックグラウンドでのクラウドブレインリストのプリロードに成功しました (計 {0} 件の記録)。</ATC_Log_CloudPrefetchSuccess>
@@ -492,6 +496,17 @@
   <ATC_Lang_All>🌍 すべての言語 (All)</ATC_Lang_All>
   <ATC_Workbench_GlobalSearching>🔄 バックグラウンドで高速キャッシュスキャンを実行中...</ATC_Workbench_GlobalSearching>
   <ATC_Workbench_GlobalSearchNoResult>一致する翻訳テキストが見つかりません。</ATC_Workbench_GlobalSearchNoResult>
+  <ATC_Workbench_SearchSnapshotLabel>「{0}」の検索結果を表示中</ATC_Workbench_SearchSnapshotLabel>
+  <ATC_Workbench_SearchTextChanged>検索文字が変更されました。Search を押すと更新されます。</ATC_Workbench_SearchTextChanged>
+  <ATC_Workbench_ReturnToSearchResults>グローバル検索結果へ戻る</ATC_Workbench_ReturnToSearchResults>
+  <ATC_Workbench_FocusedSearchResult>グローバル検索から: 「{0}」</ATC_Workbench_FocusedSearchResult>
+  <ATC_Workbench_NoLongerMatchesSearch>編集済み、元の検索条件には一致しません</ATC_Workbench_NoLongerMatchesSearch>
+  <ATC_Workbench_RevertItem>元に戻す</ATC_Workbench_RevertItem>
+  <ATC_Workbench_ItemReverted>この項目を元に戻しました。</ATC_Workbench_ItemReverted>
+  <ATC_Workbench_SaveSynced>同期済み</ATC_Workbench_SaveSynced>
+  <ATC_Workbench_UnsavedChanges>未保存の変更があります。</ATC_Workbench_UnsavedChanges>
+  <ATC_Workbench_Saving>保存中...</ATC_Workbench_Saving>
+  <ATC_Workbench_SavedInline>保存して適用しました。</ATC_Workbench_SavedInline>
   <ATC_Msg_UploadLogRequired>⚠️ クラウドの品質を維持するため、左下に翻訳の修正内容を簡単に記述してください（最低5文字）！</ATC_Msg_UploadLogRequired>
   <ATC_Btn_RepairLegacyTranslations>&#x65E7;&#x7FFB;&#x8A33;&#x5F62;&#x5F0F;&#x3092;&#x4FEE;&#x5FA9;</ATC_Btn_RepairLegacyTranslations>
   <ATC_Msg_RepairLegacyTranslationsDone>&#x65E7;&#x7FFB;&#x8A33;&#x5F62;&#x5F0F;&#x306E;&#x4FEE;&#x5FA9;&#x5B8C;&#x4E86;&#xFF1A;{0} &#x500B;&#x306E;&#x30D5;&#x30A1;&#x30A4;&#x30EB;&#x3067; {1} &#x4EF6;&#x3092;&#x4FEE;&#x5FA9;&#x3057;&#x307E;&#x3057;&#x305F;&#x3002;&#x9AD8;&#x30EA;&#x30B9;&#x30AF;&#x69CB;&#x9020; {2} &#x4EF6;&#x306F;&#x78BA;&#x8A8D;&#x304C;&#x5FC5;&#x8981;&#x3067;&#x3059;&#x3002;</ATC_Msg_RepairLegacyTranslationsDone>

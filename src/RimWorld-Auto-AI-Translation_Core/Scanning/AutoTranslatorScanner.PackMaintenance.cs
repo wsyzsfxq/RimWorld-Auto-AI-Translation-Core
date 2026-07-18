@@ -210,6 +210,7 @@ namespace AutoTranslator_Core
                     ApplyEmergencyHotfix();
                     ApplyOfficialDlcKeyedHotfix();
                     ApplyBuiltInKeyedHotfix();
+                    RemovePlaceholderTranslationsFromGeneratedPack();
                     if (repairPlaceholders)
                     {
                         RepairGeneratedPlaceholderTokens();
@@ -227,6 +228,64 @@ namespace AutoTranslator_Core
             finally
             {
                 Interlocked.Exchange(ref _packMaintenanceRunning, 0);
+            }
+        }
+
+        private static void RemovePlaceholderTranslationsFromGeneratedPack()
+        {
+            try
+            {
+                if (AutoTranslatorMod.Settings == null) return;
+
+                string packPath = GetLocalPackPath();
+                string targetFolder = GetFolderNameByLanguage(AutoTranslatorMod.Settings.TargetLang);
+                string languageRoot = Path.Combine(packPath, "Languages", targetFolder);
+                if (!Directory.Exists(languageRoot)) return;
+
+                int removedEntries = 0;
+                int fixedFiles = 0;
+                foreach (string file in GetXmlFilesCached(languageRoot, SearchOption.AllDirectories))
+                {
+                    XmlDocument doc = new XmlDocument();
+                    try
+                    {
+                        doc.Load(file);
+                    }
+                    catch
+                    {
+                        continue;
+                    }
+
+                    if (doc.DocumentElement == null || doc.DocumentElement.Name != "LanguageData") continue;
+
+                    bool changed = false;
+                    foreach (XmlNode node in doc.DocumentElement.ChildNodes.Cast<XmlNode>().ToList())
+                    {
+                        if (node.NodeType != XmlNodeType.Element) continue;
+                        if (!LanguageDetector.LooksLikePlaceholderTranslation(node.InnerText, AutoTranslatorMod.Settings.TargetLang)) continue;
+
+                        doc.DocumentElement.RemoveChild(node);
+                        removedEntries++;
+                        changed = true;
+                    }
+
+                    if (changed)
+                    {
+                        doc.Save(file);
+                        NotifyTranslationFileChanged(file);
+                        fixedFiles++;
+                    }
+                }
+
+                if (removedEntries > 0)
+                {
+                    AutoTranslatorSettings.AddLog($"🧹 [System] 已移除 {removedEntries} 個 TODO/佔位翻譯，影響 {fixedFiles} 個檔案。下次翻譯會重新補齊。");
+                    Log.Message($"[AutoTranslationCore] Removed placeholder translations: {removedEntries} entries across {fixedFiles} files.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning($"[AutoTranslationCore] Placeholder translation cleanup failed: {ex.Message}");
             }
         }
 

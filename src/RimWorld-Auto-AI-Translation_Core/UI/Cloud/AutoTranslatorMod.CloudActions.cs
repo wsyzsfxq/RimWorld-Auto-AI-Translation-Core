@@ -21,6 +21,57 @@ namespace AutoTranslator_Core
             LocalPack
         }
 
+        private enum CloudBatchDownloadMode
+        {
+            Official,
+            Manual,
+            AI,
+            Best
+        }
+
+        private sealed class BatchUploadSourceItem
+        {
+            public string PackageId;
+            public string SourceDir;
+            public string DisplayName;
+            public string ModName;
+            public string TaskName;
+            public bool CopyBackToLivePack;
+        }
+
+        private sealed class CloudLocalModSnapshot
+        {
+            public string PackageId;
+            public string DisplayName;
+            public bool ShouldSkipCloudSharing;
+        }
+
+        private sealed class BatchDownloadItem
+        {
+            public string PackageId;
+            public string DisplayName;
+            public CloudModRecord Record;
+        }
+
+        private sealed class BatchDownloadPreparationResult
+        {
+            public List<BatchDownloadItem> Items = new List<BatchDownloadItem>();
+            public string Error;
+        }
+
+        private sealed class BatchUploadPreparationResult
+        {
+            public List<BatchUploadSourceItem> UploadSources = new List<BatchUploadSourceItem>();
+            public int SkippedPatchModCount;
+            public string Error;
+        }
+
+        private sealed class BatchUploadPackagePrefix
+        {
+            public string PackageId;
+            public string Prefix;
+        }
+
         // 這個方法負責判斷 ShouldSkip雲端Sharing模組 條件是否成立。
         // EN: This method checks should skip cloud sharing mod.
         internal static bool ShouldSkipCloudSharingMod(ModMetaData mod, string packageId = null, string displayName = null)
@@ -71,101 +122,275 @@ namespace AutoTranslator_Core
         private void ExecuteBatchDownload(string targetType)
         {
             ATC_Dispatcher.EnsureAlive();
-            var localMods = Verse.ModLister.AllInstalledMods.Where(m => m.Active && !ShouldSkipCloudSharingMod(m)).ToList();
+            QueueBatchDownloadPreparation(targetType);
+        }
 
-
+        // 這個方法負責執行 Batch上傳 動作。
+        // EN: This method executes batch upload.
+        private bool QueueBatchDownloadPreparation(string targetType)
+        {
+            CloudBatchDownloadMode mode = ParseBatchDownloadMode(targetType);
             string targetLangStr = AutoTranslatorScanner.GetFolderNameByLanguage(AutoTranslatorMod.Settings.CloudTargetLang);
+            List<CloudLocalModSnapshot> localMods = Verse.ModLister.AllInstalledMods
+                .Where(m => m.Active && !ShouldSkipCloudSharingMod(m))
+                .Select(m => new CloudLocalModSnapshot
+                {
+                    PackageId = m.PackageId,
+                    DisplayName = m.Name
+                })
+                .ToList();
+            List<CloudModRecord> registrySnapshot = AutoTranslatorSettings.CloudRegistry
+                .Where(c => IsRecordForTargetLanguage(c, targetLangStr) && CloudRecordMatchesBatchMode(c, mode))
+                .ToList();
+            Dictionary<string, CloudModRecord> selectedSnapshot = AutoTranslatorSettings.SelectedCloudVersion
+                .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
 
-            var recordsByPackage = AutoTranslatorSettings.CloudRegistry
-                .Where(c => c.Language == targetLangStr && (c.TranslationType == targetType || (targetType == "Official_Group" && c.IsVerified)))
-                .GroupBy(c => c.PackageId, StringComparer.OrdinalIgnoreCase)
-                .ToDictionary(
-                    g => g.Key,
-                    g => {
-                        if (AutoTranslatorSettings.SelectedCloudVersion.TryGetValue(g.Key, out CloudModRecord selected)
-                            && selected != null
-                            && string.Equals(selected.Language, targetLangStr, StringComparison.OrdinalIgnoreCase))
+            AutoTranslatorSettings.IsRunning = true;
+            AutoTranslatorMod.Settings.CurrentTaskName = "ATC_Cloud_PreparingBatchDownload".Translate().ToString();
+            AutoTranslatorMod.Settings.CurrentProgress = 0f;
+
+            System.Threading.Tasks.Task.Run(() =>
+            {
+                BatchDownloadPreparationResult result = PrepareBatchDownload(localMods, registrySnapshot, selectedSnapshot, targetLangStr, mode);
+                ATC_Dispatcher.RunOnMainThread(() =>
+                {
+                    AutoTranslatorSettings.IsRunning = false;
+                    AutoTranslatorMod.Settings.CurrentTaskName = "";
+                    AutoTranslatorMod.Settings.CurrentProgress = 0f;
+
+                    if (!string.IsNullOrEmpty(result.Error))
+                    {
+                        Verse.Messages.Message(result.Error, RimWorld.MessageTypeDefOf.RejectInput, false);
+                        return;
+                    }
+
+                    if (result.Items.Count == 0)
+                    {
+                        Verse.Messages.Message("ATC_Msg_BatchNoMods".Translate(), RimWorld.MessageTypeDefOf.RejectInput, false);
+                        return;
+                    }
+
+                    Verse.Messages.Message("ATC_Msg_BatchStart".Translate(result.Items.Count), RimWorld.MessageTypeDefOf.NeutralEvent, false);
+                    StartPreparedBatchDownload(result.Items, targetLangStr);
+                });
+            });
+
+            return true;
+        }
+
+        private static BatchDownloadPreparationResult PrepareBatchDownload(
+            List<CloudLocalModSnapshot> localMods,
+            List<CloudModRecord> registrySnapshot,
+            Dictionary<string, CloudModRecord> selectedSnapshot,
+            string targetLangStr,
+            CloudBatchDownloadMode mode)
+        {
+            BatchDownloadPreparationResult result = new BatchDownloadPreparationResult();
+            try
+            {
+                Dictionary<string, CloudLocalModSnapshot> localModsByPackage = (localMods ?? new List<CloudLocalModSnapshot>())
+                    .Where(m => !string.IsNullOrWhiteSpace(m.PackageId))
+                    .GroupBy(m => m.PackageId, StringComparer.OrdinalIgnoreCase)
+                    .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+                Dictionary<string, CloudModRecord> recordsByPackage = (registrySnapshot ?? new List<CloudModRecord>())
+                    .Where(c => c != null && !string.IsNullOrWhiteSpace(c.PackageId))
+                    .GroupBy(c => c.PackageId, StringComparer.OrdinalIgnoreCase)
+                    .ToDictionary(
+                        g => g.Key,
+                        g =>
                         {
-                            return selected;
-                        }
-                        return g.OrderByDescending(c => c.LastUpdated).First();
-                    },
-                    StringComparer.OrdinalIgnoreCase);
+                            if (selectedSnapshot != null &&
+                                mode != CloudBatchDownloadMode.Best &&
+                                selectedSnapshot.TryGetValue(g.Key, out CloudModRecord selected) &&
+                                selected != null &&
+                                IsRecordForTargetLanguage(selected, targetLangStr) &&
+                                CloudRecordMatchesBatchMode(selected, mode))
+                            {
+                                return selected;
+                            }
 
+                            return SelectBatchDownloadRecord(g, mode);
+                        },
+                        StringComparer.OrdinalIgnoreCase);
 
-            var modsToDownload = new List<Verse.ModMetaData>();
-            foreach (var record in recordsByPackage.Values)
+                foreach (CloudModRecord record in recordsByPackage.Values)
+                {
+                    if (record == null || string.IsNullOrWhiteSpace(record.PackageId)) continue;
+                    if (!localModsByPackage.TryGetValue(record.PackageId, out CloudLocalModSnapshot mod)) continue;
+                    result.Items.Add(new BatchDownloadItem
+                    {
+                        PackageId = record.PackageId,
+                        DisplayName = !string.IsNullOrWhiteSpace(mod.DisplayName) ? mod.DisplayName : record.PackageId,
+                        Record = record
+                    });
+                }
+            }
+            catch (Exception ex)
             {
-                var mod = localMods.FirstOrDefault(m => string.Equals(m.PackageId, record.PackageId, StringComparison.OrdinalIgnoreCase));
-                if (mod != null) modsToDownload.Add(mod);
+                result.Error = ex.Message;
+                Verse.Log.Warning($"[AutoTranslationCore] Batch download preparation failed: {ex}");
             }
 
-            if (modsToDownload.Count == 0)
+            return result;
+        }
+
+        private static CloudBatchDownloadMode ParseBatchDownloadMode(string targetType)
+        {
+            if (string.Equals(targetType, "Official_Group", StringComparison.OrdinalIgnoreCase)) return CloudBatchDownloadMode.Official;
+            if (string.Equals(targetType, "Manual", StringComparison.OrdinalIgnoreCase)) return CloudBatchDownloadMode.Manual;
+            if (string.Equals(targetType, "Best", StringComparison.OrdinalIgnoreCase)) return CloudBatchDownloadMode.Best;
+            return CloudBatchDownloadMode.AI;
+        }
+
+        private static bool IsRecordForTargetLanguage(CloudModRecord record, string targetLangStr)
+        {
+            return record != null &&
+                   !string.IsNullOrWhiteSpace(record.PackageId) &&
+                   string.Equals(record.Language, targetLangStr, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool CloudRecordMatchesBatchMode(CloudModRecord record, CloudBatchDownloadMode mode)
+        {
+            if (record == null) return false;
+
+            switch (mode)
             {
-                Verse.Messages.Message("ATC_Msg_BatchNoMods".Translate(), RimWorld.MessageTypeDefOf.RejectInput, false);
-                return;
+                case CloudBatchDownloadMode.Official:
+                    return IsOfficialCloudRecord(record);
+                case CloudBatchDownloadMode.Manual:
+                    return string.Equals(record.TranslationType, "Manual", StringComparison.OrdinalIgnoreCase);
+                case CloudBatchDownloadMode.Best:
+                    return GetBatchRecordPriority(record) > 0;
+                case CloudBatchDownloadMode.AI:
+                default:
+                    return string.Equals(record.TranslationType, "AI_Auto", StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
+        private static bool IsOfficialCloudRecord(CloudModRecord record)
+        {
+            return record != null &&
+                   (record.IsVerified || string.Equals(record.TranslationType, "Official_Group", StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static CloudModRecord SelectBatchDownloadRecord(IEnumerable<CloudModRecord> records, CloudBatchDownloadMode mode)
+        {
+            IEnumerable<CloudModRecord> candidates = records ?? Enumerable.Empty<CloudModRecord>();
+            if (mode == CloudBatchDownloadMode.Best)
+            {
+                return candidates
+                    .OrderByDescending(GetBatchRecordPriority)
+                    .ThenByDescending(GetBatchRecordUpdatedAt)
+                    .FirstOrDefault();
             }
 
-            Verse.Messages.Message("ATC_Msg_BatchStart".Translate(modsToDownload.Count), RimWorld.MessageTypeDefOf.NeutralEvent, false);
+            return candidates
+                .OrderByDescending(GetBatchRecordUpdatedAt)
+                .FirstOrDefault();
+        }
 
+        private static int GetBatchRecordPriority(CloudModRecord record)
+        {
+            if (IsOfficialCloudRecord(record)) return 3;
+            if (record != null && string.Equals(record.TranslationType, "Manual", StringComparison.OrdinalIgnoreCase)) return 2;
+            if (record != null && string.Equals(record.TranslationType, "AI_Auto", StringComparison.OrdinalIgnoreCase)) return 1;
+            return 0;
+        }
+
+        private static DateTime GetBatchRecordUpdatedAt(CloudModRecord record)
+        {
+            if (record == null) return DateTime.MinValue;
+            if (record.LastUpdated != DateTime.MinValue) return record.LastUpdated;
+            return record.TranslationDate;
+        }
+
+        private static void StartPreparedBatchDownload(List<BatchDownloadItem> modsToDownload, string targetLangStr)
+        {
             System.Threading.Tasks.Task.Run(async () =>
             {
                 int successCount = 0;
                 int failCount = 0;
                 List<string> failedMods = new List<string>();
                 List<string> repairedPackages = new List<string>();
+                int totalCount = modsToDownload != null ? modsToDownload.Count : 0;
 
                 AutoTranslatorSettings.IsRunning = true;
 
-                for (int i = 0; i < modsToDownload.Count; i++)
+                try
                 {
-                    var mod = modsToDownload[i];
-
-
-                    AutoTranslatorMod.Settings.CurrentTaskName = "ATC_Cloud_Downloading".Translate(mod.Name);
-                    AutoTranslatorMod.Settings.CurrentProgress = (float)i / modsToDownload.Count;
-
-
-                    recordsByPackage.TryGetValue(mod.PackageId, out CloudModRecord record);
-
-                    bool success = await AutoTranslatorCloudClient.DownloadAndInjectAsync(mod.PackageId, targetLangStr, record, requestMemoryDrop: false);
-                    if (success)
+                    for (int i = 0; i < totalCount; i++)
                     {
-                        successCount++;
-                        repairedPackages.Add(mod.PackageId);
+                        BatchDownloadItem mod = modsToDownload[i];
+                        UpdateBatchTaskProgress("ATC_Cloud_Downloading", mod.DisplayName, totalCount > 0 ? (float)i / totalCount : 0f);
+
+                        var clearTarget = new AutoTranslatorScanner.LocalTranslationDeleteTarget
+                        {
+                            PackageId = mod.PackageId,
+                            ModName = mod.DisplayName
+                        };
+                        bool success = await AutoTranslatorCloudClient.DownloadAndInjectAsync(mod.PackageId, targetLangStr, mod.Record, requestMemoryDrop: false, requestRuntimeRefreshAfterClear: false, clearTarget: clearTarget);
+                        if (success)
+                        {
+                            successCount++;
+                            repairedPackages.Add(mod.PackageId);
+                        }
+                        else
+                        {
+                            failCount++;
+                            failedMods.Add(mod.DisplayName);
+                        }
                     }
-                    else
+
+                    if (successCount > 0)
                     {
-                        failCount++;
-                        failedMods.Add(mod.Name);
+                        UpdateBatchTaskProgress("ATC_Cloud_RepairingBatch", successCount.ToString(), 0.98f);
+                        AutoTranslatorLegacyRepairer.RepairPackages(repairedPackages, targetLangStr, requestMemoryDrop: false);
                     }
+
+                    if (successCount > 0 || failCount > 0)
+                    {
+                        AutoTranslatorScanner.RequestMemoryDrop();
+                    }
+
+                    ATC_Dispatcher.RunOnMainThread(() =>
+                    {
+                        AutoTranslatorSettings.IsRunning = false;
+                        AutoTranslatorMod.Settings.CurrentTaskName = "";
+                        AutoTranslatorMod.Settings.CurrentProgress = 0f;
+                        AutoTranslatorSettings.AddLog("? " + "ATC_Log_BatchDownloadSummary".Translate(successCount, failCount, totalCount));
+                        if (failedMods.Count > 0)
+                        {
+                            AutoTranslatorSettings.AddLog("? " + "ATC_Log_BatchDownloadFailedList".Translate(string.Join(", ", failedMods.Take(5).ToArray())));
+                        }
+                        Verse.Messages.Message("ATC_Msg_BatchSuccess".Translate(successCount, totalCount), RimWorld.MessageTypeDefOf.PositiveEvent, false);
+                    });
                 }
-
-                if (successCount > 0)
+                catch (Exception ex)
                 {
-                    AutoTranslatorLegacyRepairer.RepairPackages(repairedPackages, targetLangStr, requestMemoryDrop: false);
-                    AutoTranslatorScanner.RequestMemoryDrop();
-                }
-
-                ATC_Dispatcher.RunOnMainThread(() =>
-                {
-
-                    AutoTranslatorSettings.IsRunning = false;
-                    AutoTranslatorMod.Settings.CurrentTaskName = "";
-                    AutoTranslatorMod.Settings.CurrentProgress = 0f;
-                    AutoTranslatorSettings.AddLog("☁️ " + "ATC_Log_BatchDownloadSummary".Translate(successCount, failCount, modsToDownload.Count));
-                    if (failedMods.Count > 0)
+                    ATC_Dispatcher.RunOnMainThread(() =>
                     {
-                        AutoTranslatorSettings.AddLog("⚠️ " + "ATC_Log_BatchDownloadFailedList".Translate(string.Join(", ", failedMods.Take(5).ToArray())));
-                    }
-                    Verse.Messages.Message("ATC_Msg_BatchSuccess".Translate(successCount, modsToDownload.Count), RimWorld.MessageTypeDefOf.PositiveEvent, false);
-                });
+                        AutoTranslatorSettings.IsRunning = false;
+                        AutoTranslatorMod.Settings.CurrentTaskName = "";
+                        AutoTranslatorMod.Settings.CurrentProgress = 0f;
+                        AutoTranslatorSettings.AddErrorLog("[Cloud] Batch download failed: " + ex.Message);
+                        Verse.Messages.Message("ATC_Msg_DownloadFailed".Translate(ex.Message), RimWorld.MessageTypeDefOf.RejectInput, false);
+                    });
+                }
             });
         }
 
+        private static void UpdateBatchTaskProgress(string translationKey, string argument, float progress)
+        {
+            string safeArgument = argument ?? "";
+            float safeProgress = Mathf.Clamp01(progress);
+            ATC_Dispatcher.RunOnMainThread(() =>
+            {
+                AutoTranslatorMod.Settings.CurrentTaskName = translationKey.Translate(safeArgument).ToString();
+                AutoTranslatorMod.Settings.CurrentProgress = safeProgress;
+            });
+        }
 
-        // 這個方法負責執行 Batch上傳 動作。
-        // EN: This method executes batch upload.
         private void ExecuteBatchUpload(CloudBatchUploadSource source)
         {
             string packPath = AutoTranslatorScanner.GetLocalPackPath();
@@ -181,9 +406,32 @@ namespace AutoTranslator_Core
             Settings.CloudUploadType = uploadType;
             WriteSettings();
 
+            List<CloudLocalModSnapshot> installedModSnapshots = Verse.ModLister.AllInstalledMods
+                .Where(m => m != null && !string.IsNullOrEmpty(m.PackageId))
+                .Select(m => new CloudLocalModSnapshot
+                {
+                    PackageId = m.PackageId,
+                    DisplayName = m.Name,
+                    ShouldSkipCloudSharing = ShouldSkipCloudSharingMod(m)
+                })
+                .ToList();
+            if (QueueBatchUploadPreparation(
+                source,
+                workspaceRoot,
+                targetLangFolder,
+                liveLangDir,
+                uNickname,
+                uToken,
+                uploadType,
+                uploadTypeLabel,
+                updateLog,
+                installedModSnapshots))
+            {
+                return;
+            }
 
             int skippedPatchModCount = 0;
-            var uploadSources = new List<string>();
+            var uploadSources = new List<BatchUploadSourceItem>();
 
             if (source == CloudBatchUploadSource.Workspace)
             {
@@ -209,11 +457,21 @@ namespace AutoTranslator_Core
                     string packageId = System.IO.Path.GetFileName(modDir);
                     string langDir = System.IO.Path.Combine(modDir, targetLangFolder);
                     if (!HasUploadableTranslationFiles(langDir, packageId, true)) continue;
-                    uploadSources.Add(modDir);
+                    var tempMeta = Verse.ModLister.AllInstalledMods.FirstOrDefault(m => string.Equals(m.PackageId, packageId, StringComparison.OrdinalIgnoreCase));
+                    string displayName = tempMeta != null ? tempMeta.Name : packageId;
+                    uploadSources.Add(new BatchUploadSourceItem
+                    {
+                        PackageId = packageId,
+                        SourceDir = langDir,
+                        DisplayName = displayName,
+                        ModName = displayName,
+                        CopyBackToLivePack = true
+                    });
                 }
             }
             else
             {
+                var uploadablePackages = BuildUploadableLocalPackPackageSet(liveLangDir, Verse.ModLister.AllInstalledMods);
                 foreach (var mod in Verse.ModLister.AllInstalledMods)
                 {
                     if (mod == null || string.IsNullOrEmpty(mod.PackageId)) continue;
@@ -222,9 +480,16 @@ namespace AutoTranslator_Core
                         skippedPatchModCount++;
                         continue;
                     }
-                    if (!HasUploadableTranslationFiles(liveLangDir, mod.PackageId, false)) continue;
+                    if (!uploadablePackages.Contains(mod.PackageId)) continue;
 
-                    uploadSources.Add(mod.PackageId + "|" + liveLangDir);
+                    uploadSources.Add(new BatchUploadSourceItem
+                    {
+                        PackageId = mod.PackageId,
+                        SourceDir = liveLangDir,
+                        DisplayName = mod.Name,
+                        ModName = mod.Name,
+                        CopyBackToLivePack = false
+                    });
                 }
             }
 
@@ -255,26 +520,16 @@ namespace AutoTranslator_Core
                 {
                     for (int i = 0; i < uploadSources.Count; i++)
                     {
-                        var modDir = uploadSources[i];
-
-                        string packageId = System.IO.Path.GetFileName(modDir);
-                        string sourceOverride = null;
-                        int sourceSplit = modDir.IndexOf('|');
-                        if (sourceSplit >= 0)
-                        {
-                            packageId = modDir.Substring(0, sourceSplit);
-                            sourceOverride = modDir.Substring(sourceSplit + 1);
-                        }
-
-                        var tempMeta = Verse.ModLister.AllInstalledMods.FirstOrDefault(m => string.Equals(m.PackageId, packageId, StringComparison.OrdinalIgnoreCase));
-                        string displayName = tempMeta != null ? tempMeta.Name : packageId;
+                        BatchUploadSourceItem item = uploadSources[i];
+                        string packageId = item.PackageId;
+                        string displayName = !string.IsNullOrEmpty(item.DisplayName) ? item.DisplayName : packageId;
 
                         try
                         {
                             AutoTranslatorMod.Settings.CurrentTaskName = "ATC_Cloud_Uploading".Translate(displayName);
                             AutoTranslatorMod.Settings.CurrentProgress = (float)i / uploadSources.Count;
 
-                            string langDir = sourceOverride ?? System.IO.Path.Combine(modDir, targetLangFolder);
+                            string langDir = item.SourceDir;
 
                             if (!System.IO.Directory.Exists(langDir))
                             {
@@ -292,14 +547,14 @@ namespace AutoTranslator_Core
                                 continue;
                             }
 
-                            string modName = tempMeta != null ? tempMeta.Name : packageId;
+                            string modName = !string.IsNullOrEmpty(item.ModName) ? item.ModName : displayName;
 
                             bool success = await AutoTranslatorCloudClient.UploadTranslationAsync(packageId, targetLangFolder, modName, uNickname, uploadType, langDir, uToken, updateLog);
 
                             if (success)
                             {
                                 successCount++;
-                                if (sourceOverride != null) continue;
+                                if (!item.CopyBackToLivePack) continue;
 
                                 foreach (string file in AutoTranslatorScanner.GetXmlFilesForTranslationCache(langDir, System.IO.SearchOption.AllDirectories))
                                 {
@@ -368,6 +623,268 @@ namespace AutoTranslator_Core
 
         // 這個方法負責判斷 HasUploadable翻譯Files 條件是否成立。
         // EN: This method checks has uploadable translation files.
+        private bool QueueBatchUploadPreparation(
+            CloudBatchUploadSource source,
+            string workspaceRoot,
+            string targetLangFolder,
+            string liveLangDir,
+            string uNickname,
+            string uToken,
+            string uploadType,
+            string uploadTypeLabel,
+            string updateLog,
+            List<CloudLocalModSnapshot> installedModSnapshots)
+        {
+            AutoTranslatorSettings.IsRunning = true;
+            AutoTranslatorMod.Settings.CurrentTaskName = "Preparing batch upload";
+            AutoTranslatorMod.Settings.CurrentProgress = 0f;
+
+            System.Threading.Tasks.Task.Run(() =>
+            {
+                BatchUploadPreparationResult result = PrepareBatchUpload(source, workspaceRoot, targetLangFolder, liveLangDir, installedModSnapshots);
+                ATC_Dispatcher.RunOnMainThread(() =>
+                {
+                    AutoTranslatorSettings.IsRunning = false;
+                    AutoTranslatorMod.Settings.CurrentTaskName = "";
+                    AutoTranslatorMod.Settings.CurrentProgress = 0f;
+
+                    if (!string.IsNullOrEmpty(result.Error))
+                    {
+                        Messages.Message(result.Error, MessageTypeDefOf.RejectInput, false);
+                        return;
+                    }
+
+                    if (result.SkippedPatchModCount > 0)
+                    {
+                        Messages.Message("ATC_Msg_CloudBatchPatchModsSkipped".Translate(result.SkippedPatchModCount), MessageTypeDefOf.NeutralEvent, false);
+                    }
+                    if (result.UploadSources.Count == 0)
+                    {
+                        string emptyKey = source == CloudBatchUploadSource.Workspace
+                            ? "ATC_Msg_WorkspaceEmpty"
+                            : "ATC_Msg_BatchUploadPackEmpty";
+                        Messages.Message(emptyKey.Translate(), MessageTypeDefOf.RejectInput, false);
+                        return;
+                    }
+
+                    foreach (BatchUploadSourceItem item in result.UploadSources)
+                    {
+                        string displayName = !string.IsNullOrEmpty(item.DisplayName) ? item.DisplayName : item.PackageId;
+                        item.TaskName = "ATC_Cloud_Uploading".Translate(displayName).ToString();
+                    }
+
+                    Messages.Message("ATC_Msg_BatchUploadStart".Translate(result.UploadSources.Count), MessageTypeDefOf.NeutralEvent, false);
+                    StartPreparedBatchUpload(result.UploadSources, targetLangFolder, liveLangDir, uNickname, uToken, uploadType, uploadTypeLabel, updateLog);
+                });
+            });
+
+            return true;
+        }
+
+        private static BatchUploadPreparationResult PrepareBatchUpload(
+            CloudBatchUploadSource source,
+            string workspaceRoot,
+            string targetLangFolder,
+            string liveLangDir,
+            List<CloudLocalModSnapshot> installedModSnapshots)
+        {
+            BatchUploadPreparationResult result = new BatchUploadPreparationResult();
+            try
+            {
+                Dictionary<string, CloudLocalModSnapshot> installedByPackage = (installedModSnapshots ?? new List<CloudLocalModSnapshot>())
+                    .Where(m => !string.IsNullOrWhiteSpace(m.PackageId))
+                    .GroupBy(m => m.PackageId, StringComparer.OrdinalIgnoreCase)
+                    .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+                if (source == CloudBatchUploadSource.Workspace)
+                {
+                    string[] modDirs = Directory.Exists(workspaceRoot)
+                        ? Directory.GetDirectories(workspaceRoot)
+                        : new string[0];
+
+                    foreach (string modDir in modDirs)
+                    {
+                        string packageId = Path.GetFileName(modDir);
+                        installedByPackage.TryGetValue(packageId, out CloudLocalModSnapshot installed);
+                        string displayName = installed != null && !string.IsNullOrWhiteSpace(installed.DisplayName)
+                            ? installed.DisplayName
+                            : packageId;
+                        bool shouldSkip = installed != null
+                            ? installed.ShouldSkipCloudSharing
+                            : ShouldSkipCloudSharingMod(null, packageId, displayName);
+                        if (shouldSkip)
+                        {
+                            result.SkippedPatchModCount++;
+                            continue;
+                        }
+
+                        string langDir = Path.Combine(modDir, targetLangFolder);
+                        if (!HasUploadableTranslationFiles(langDir, packageId, true)) continue;
+                        result.UploadSources.Add(new BatchUploadSourceItem
+                        {
+                            PackageId = packageId,
+                            SourceDir = langDir,
+                            DisplayName = displayName,
+                            ModName = displayName,
+                            CopyBackToLivePack = true
+                        });
+                    }
+                }
+                else
+                {
+                    HashSet<string> uploadablePackages = BuildUploadableLocalPackPackageSet(liveLangDir, installedModSnapshots);
+                    foreach (CloudLocalModSnapshot mod in installedModSnapshots ?? new List<CloudLocalModSnapshot>())
+                    {
+                        if (mod == null || string.IsNullOrEmpty(mod.PackageId)) continue;
+                        if (mod.ShouldSkipCloudSharing)
+                        {
+                            result.SkippedPatchModCount++;
+                            continue;
+                        }
+                        if (!uploadablePackages.Contains(mod.PackageId)) continue;
+
+                        result.UploadSources.Add(new BatchUploadSourceItem
+                        {
+                            PackageId = mod.PackageId,
+                            SourceDir = liveLangDir,
+                            DisplayName = mod.DisplayName,
+                            ModName = mod.DisplayName,
+                            CopyBackToLivePack = false
+                        });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                result.Error = ex.Message;
+                Verse.Log.Warning($"[AutoTranslationCore] Batch upload preparation failed: {ex}");
+            }
+
+            return result;
+        }
+
+        private static void StartPreparedBatchUpload(
+            List<BatchUploadSourceItem> uploadSources,
+            string targetLangFolder,
+            string liveLangDir,
+            string uNickname,
+            string uToken,
+            string uploadType,
+            string uploadTypeLabel,
+            string updateLog)
+        {
+            System.Threading.Tasks.Task.Run(async () =>
+            {
+                int successCount = 0;
+                int failCount = 0;
+                List<string> failedMods = new List<string>();
+
+                AutoTranslatorSettings.IsRunning = true;
+
+                try
+                {
+                    for (int i = 0; i < uploadSources.Count; i++)
+                    {
+                        BatchUploadSourceItem item = uploadSources[i];
+                        string packageId = item.PackageId;
+                        string displayName = !string.IsNullOrEmpty(item.DisplayName) ? item.DisplayName : packageId;
+
+                        try
+                        {
+                            AutoTranslatorMod.Settings.CurrentTaskName = item.TaskName ?? displayName;
+                            AutoTranslatorMod.Settings.CurrentProgress = (float)i / uploadSources.Count;
+
+                            string langDir = item.SourceDir;
+
+                            if (!Directory.Exists(langDir))
+                            {
+                                failCount++;
+                                failedMods.Add(displayName);
+                                AutoTranslatorSettings.AddLog("? " + "ATC_Log_BatchUploadMissingFolder".Translate(displayName));
+                                continue;
+                            }
+
+                            if (AutoTranslatorScanner.GetXmlFilesForTranslationCache(langDir, SearchOption.AllDirectories).Count == 0)
+                            {
+                                failCount++;
+                                failedMods.Add(displayName);
+                                AutoTranslatorSettings.AddLog("? " + "ATC_Log_BatchUploadNoXml".Translate(displayName));
+                                continue;
+                            }
+
+                            string modName = !string.IsNullOrEmpty(item.ModName) ? item.ModName : displayName;
+
+                            bool success = await AutoTranslatorCloudClient.UploadTranslationAsync(packageId, targetLangFolder, modName, uNickname, uploadType, langDir, uToken, updateLog);
+
+                            if (success)
+                            {
+                                successCount++;
+                                if (!item.CopyBackToLivePack) continue;
+
+                                foreach (string file in AutoTranslatorScanner.GetXmlFilesForTranslationCache(langDir, SearchOption.AllDirectories))
+                                {
+                                    string relPath = file.Substring(langDir.Length).TrimStart('\\', '/');
+
+                                    string justFileName = Path.GetFileName(file);
+                                    string justFileNameLower = justFileName.ToLower();
+                                    string id1 = packageId.ToLower();
+                                    string id2 = packageId.Replace(".", "_").ToLower();
+
+                                    if (!justFileNameLower.StartsWith(id1 + "_") && !justFileNameLower.StartsWith(id1 + ".") &&
+                                        !justFileNameLower.StartsWith(id2 + "_") && !justFileNameLower.StartsWith(id2 + "."))
+                                    {
+                                        string dirName = Path.GetDirectoryName(relPath);
+                                        string newFileName = $"{id2}_{justFileName}";
+                                        relPath = string.IsNullOrEmpty(dirName) ? newFileName : Path.Combine(dirName, newFileName);
+                                    }
+
+                                    string destPath = Path.Combine(liveLangDir, relPath);
+                                    Directory.CreateDirectory(Path.GetDirectoryName(destPath));
+                                    File.Copy(file, destPath, true);
+                                }
+                            }
+                            else
+                            {
+                                failCount++;
+                                failedMods.Add(displayName);
+                            }
+                        }
+                        catch (Exception itemEx)
+                        {
+                            failCount++;
+                            failedMods.Add(displayName);
+                            AutoTranslatorSettings.AddErrorLog("? " + "ATC_Log_BatchUploadItemFailed".Translate(displayName, itemEx.Message));
+                            Log.Warning($"[AutoTranslationCore] Batch upload skipped {displayName} ({packageId}): {itemEx}");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    AutoTranslatorSettings.AddErrorLog("??" + "ATC_Log_BatchUploadWorkerFailed".Translate(ex.Message));
+                    Log.Warning("[AutoTranslationCore] Batch upload worker failed: " + ex);
+                }
+                finally
+                {
+                    ATC_Dispatcher.RunOnMainThread(() =>
+                    {
+                        AutoTranslatorSettings.IsRunning = false;
+                        AutoTranslatorMod.Settings.CurrentTaskName = "";
+                        AutoTranslatorMod.Settings.CurrentProgress = 0f;
+
+                        Verse.Messages.Message("ATC_Msg_BatchUploadSuccess".Translate(successCount, uploadTypeLabel), RimWorld.MessageTypeDefOf.PositiveEvent, false);
+                        if (failCount > 0)
+                        {
+                            AutoTranslatorSettings.AddLog("? " + "ATC_Log_BatchUploadFailedList".Translate(failCount, string.Join(", ", failedMods.Take(8).ToArray())));
+                        }
+
+                        AutoTranslatorSettings.HasFetchedCloudThisSession = false;
+                        ModUpdateDetector.ClearStatusCache();
+                        TranslationWorkbenchTab.RequestRefresh();
+                    });
+                }
+            });
+        }
+
         private static bool HasUploadableTranslationFiles(string sourceDir, string packageId, bool isWorkspace)
         {
             if (string.IsNullOrEmpty(sourceDir) || string.IsNullOrEmpty(packageId) || !System.IO.Directory.Exists(sourceDir)) return false;
@@ -387,6 +904,104 @@ namespace AutoTranslator_Core
             }
 
             return false;
+        }
+
+        private static HashSet<string> BuildUploadableLocalPackPackageSet(string sourceDir, IEnumerable<CloudLocalModSnapshot> installedMods)
+        {
+            var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (string.IsNullOrEmpty(sourceDir) || !System.IO.Directory.Exists(sourceDir) || installedMods == null) return result;
+
+            var prefixes = new List<BatchUploadPackagePrefix>();
+            foreach (CloudLocalModSnapshot mod in installedMods)
+            {
+                if (mod == null || string.IsNullOrEmpty(mod.PackageId)) continue;
+
+                string id1 = mod.PackageId.ToLowerInvariant();
+                string id2 = mod.PackageId.Replace(".", "_").ToLowerInvariant();
+                prefixes.Add(new BatchUploadPackagePrefix { PackageId = mod.PackageId, Prefix = id1 + "_" });
+                prefixes.Add(new BatchUploadPackagePrefix { PackageId = mod.PackageId, Prefix = id1 + "." });
+                if (!string.Equals(id1, id2, StringComparison.Ordinal))
+                {
+                    prefixes.Add(new BatchUploadPackagePrefix { PackageId = mod.PackageId, Prefix = id2 + "_" });
+                    prefixes.Add(new BatchUploadPackagePrefix { PackageId = mod.PackageId, Prefix = id2 + "." });
+                }
+            }
+
+            prefixes = prefixes
+                .Where(p => !string.IsNullOrEmpty(p.Prefix))
+                .OrderByDescending(p => p.Prefix.Length)
+                .ToList();
+
+            foreach (string file in AutoTranslatorScanner.GetXmlFilesForTranslationCache(sourceDir, System.IO.SearchOption.AllDirectories))
+            {
+                string fileName;
+                try
+                {
+                    fileName = System.IO.Path.GetFileName(file).ToLowerInvariant();
+                }
+                catch
+                {
+                    continue;
+                }
+
+                foreach (BatchUploadPackagePrefix prefix in prefixes)
+                {
+                    if (!fileName.StartsWith(prefix.Prefix, StringComparison.OrdinalIgnoreCase)) continue;
+                    result.Add(prefix.PackageId);
+                    break;
+                }
+            }
+
+            return result;
+        }
+
+        private static HashSet<string> BuildUploadableLocalPackPackageSet(string sourceDir, IEnumerable<ModMetaData> installedMods)
+        {
+            var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (string.IsNullOrEmpty(sourceDir) || !System.IO.Directory.Exists(sourceDir) || installedMods == null) return result;
+
+            var prefixes = new List<BatchUploadPackagePrefix>();
+            foreach (ModMetaData mod in installedMods)
+            {
+                if (mod == null || string.IsNullOrEmpty(mod.PackageId)) continue;
+
+                string id1 = mod.PackageId.ToLowerInvariant();
+                string id2 = mod.PackageId.Replace(".", "_").ToLowerInvariant();
+                prefixes.Add(new BatchUploadPackagePrefix { PackageId = mod.PackageId, Prefix = id1 + "_" });
+                prefixes.Add(new BatchUploadPackagePrefix { PackageId = mod.PackageId, Prefix = id1 + "." });
+                if (!string.Equals(id1, id2, StringComparison.Ordinal))
+                {
+                    prefixes.Add(new BatchUploadPackagePrefix { PackageId = mod.PackageId, Prefix = id2 + "_" });
+                    prefixes.Add(new BatchUploadPackagePrefix { PackageId = mod.PackageId, Prefix = id2 + "." });
+                }
+            }
+
+            prefixes = prefixes
+                .Where(p => !string.IsNullOrEmpty(p.Prefix))
+                .OrderByDescending(p => p.Prefix.Length)
+                .ToList();
+
+            foreach (string file in AutoTranslatorScanner.GetXmlFilesForTranslationCache(sourceDir, System.IO.SearchOption.AllDirectories))
+            {
+                string fileName;
+                try
+                {
+                    fileName = System.IO.Path.GetFileName(file).ToLowerInvariant();
+                }
+                catch
+                {
+                    continue;
+                }
+
+                foreach (BatchUploadPackagePrefix prefix in prefixes)
+                {
+                    if (!fileName.StartsWith(prefix.Prefix, StringComparison.OrdinalIgnoreCase)) continue;
+                    result.Add(prefix.PackageId);
+                    break;
+                }
+            }
+
+            return result;
         }
         // 這個方法負責清理並標準化 雲端上傳Type 內容。
         // EN: This method cleans and normalizes cloud upload type.

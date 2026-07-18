@@ -362,8 +362,10 @@
   <!-- ✨ 新增的批量下載與系統提示標籤 -->
   <ATC_Cloud_ConnectionNormal>☁️ 雲端大腦連線正常：目前資料庫共有 {0} 筆翻譯紀錄。</ATC_Cloud_ConnectionNormal>
   <ATC_Cloud_NoModsWarning>⚠️ 找不到可翻譯的第三方模組！\n(如果您的測試環境只有載入官方 DLC 與本模組，清單會是空的喔！)</ATC_Cloud_NoModsWarning>
-  <ATC_Cloud_Btn_BatchOfficial>👑 一鍵下載精翻</ATC_Cloud_Btn_BatchOfficial>
+  <ATC_Cloud_Btn_BatchOfficial>👑 一鍵下載官方/漢化組</ATC_Cloud_Btn_BatchOfficial>
+  <ATC_Cloud_Btn_BatchManual>🧑 一鍵下載玩家精翻</ATC_Cloud_Btn_BatchManual>
   <ATC_Cloud_Btn_BatchAI>🤖 一鍵下載機翻(AI)</ATC_Cloud_Btn_BatchAI>
+  <ATC_Cloud_Btn_BatchBest>✨ 一鍵下載最佳翻譯</ATC_Cloud_Btn_BatchBest>
   <ATC_Msg_DownloadStart>📥 正在請求空投：{0}...</ATC_Msg_DownloadStart>
   <ATC_Msg_DownloadSuccess>✅ 空投成功！{0} 已載入記憶體！</ATC_Msg_DownloadSuccess>
   <ATC_Msg_DownloadFailed>❌ 空投失敗：{0}</ATC_Msg_DownloadFailed>
@@ -406,7 +408,9 @@
   <ATC_Btn_Cancel>取消</ATC_Btn_Cancel>
   <ATC_Log_FactoryResetSuccess>系統已成功恢復原廠設定，所有快取已清空。</ATC_Log_FactoryResetSuccess>
   <ATC_Msg_FactoryResetSuccess>系統重置成功！所有翻譯快取已被清空。</ATC_Msg_FactoryResetSuccess>
+  <ATC_Cloud_PreparingBatchDownload>正在準備批次下載...</ATC_Cloud_PreparingBatchDownload>
   <ATC_Cloud_Downloading>雲端下載中: {0}</ATC_Cloud_Downloading>
+  <ATC_Cloud_RepairingBatch>正在修復已下載翻譯: {0}</ATC_Cloud_RepairingBatch>
   <ATC_Cloud_Uploading>雲端上傳中: {0}</ATC_Cloud_Uploading>
   <ATC_LogError_DownloadCorrupted>雲端下載或解壓失敗！已自動清理損壞的殘留檔案。模組: {0}，原因: {1}</ATC_LogError_DownloadCorrupted>
   <ATC_Log_CloudPrefetchSuccess>已成功在背景預先載入雲端大腦清單 (共 {0} 筆紀錄)。</ATC_Log_CloudPrefetchSuccess>
@@ -499,6 +503,17 @@
   <ATC_Lang_All>🌍 所有語言 (All)</ATC_Lang_All>
   <ATC_Workbench_GlobalSearching>🔄 正在背景高速掃描快取...</ATC_Workbench_GlobalSearching>
   <ATC_Workbench_GlobalSearchNoResult>找不到相符的翻譯文本。</ATC_Workbench_GlobalSearchNoResult>
+  <ATC_Workbench_SearchSnapshotLabel>目前顯示「{0}」的搜尋結果</ATC_Workbench_SearchSnapshotLabel>
+  <ATC_Workbench_SearchTextChanged>搜尋文字已變更，按 Search 更新結果。</ATC_Workbench_SearchTextChanged>
+  <ATC_Workbench_ReturnToSearchResults>返回全域搜尋結果</ATC_Workbench_ReturnToSearchResults>
+  <ATC_Workbench_FocusedSearchResult>來自全域搜尋：「{0}」</ATC_Workbench_FocusedSearchResult>
+  <ATC_Workbench_NoLongerMatchesSearch>已編輯，現在不符合原搜尋</ATC_Workbench_NoLongerMatchesSearch>
+  <ATC_Workbench_RevertItem>復原</ATC_Workbench_RevertItem>
+  <ATC_Workbench_ItemReverted>已復原此項目。</ATC_Workbench_ItemReverted>
+  <ATC_Workbench_SaveSynced>已同步</ATC_Workbench_SaveSynced>
+  <ATC_Workbench_UnsavedChanges>有未儲存變更。</ATC_Workbench_UnsavedChanges>
+  <ATC_Workbench_Saving>儲存中...</ATC_Workbench_Saving>
+  <ATC_Workbench_SavedInline>已儲存並套用。</ATC_Workbench_SavedInline>
   <ATC_Msg_UploadLogRequired>⚠️ 為了維護雲端品質，請在左下方簡述您的翻譯修改內容（至少 5 個字）！</ATC_Msg_UploadLogRequired>
   <ATC_Btn_RepairLegacyTranslations>&#x4FEE;&#x5FA9;&#x820A;&#x7FFB;&#x8B6F;&#x683C;&#x5F0F;</ATC_Btn_RepairLegacyTranslations>
   <ATC_Msg_RepairLegacyTranslationsDone>&#x820A;&#x7FFB;&#x8B6F;&#x683C;&#x5F0F;&#x4FEE;&#x5FA9;&#x5B8C;&#x6210;&#xFF1A;&#x5DF2;&#x4FEE;&#x5FA9; {1} &#x689D;&#x3001;&#x6D89;&#x53CA; {0} &#x500B;&#x6A94;&#x6848;&#xFF1B;&#x4ECD;&#x9700;&#x4EBA;&#x5DE5;&#x6AA2;&#x67E5; {2} &#x689D;&#x9AD8;&#x98A8;&#x96AA;&#x7D50;&#x69CB;&#x3002;</ATC_Msg_RepairLegacyTranslationsDone>

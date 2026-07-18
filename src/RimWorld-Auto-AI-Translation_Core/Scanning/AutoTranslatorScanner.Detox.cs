@@ -178,26 +178,43 @@ namespace AutoTranslator_Core
 
                 foreach (var file in xmlFiles)
                 {
-                    string content = File.ReadAllText(file);
-                    if (badTagRegex.IsMatch(content))
+                    try
                     {
-
-                        MatchCollection matches = badTagRegex.Matches(content);
-                        foreach (Match match in matches)
+                        if (string.IsNullOrEmpty(file) || !File.Exists(file))
                         {
-                            Log.Warning($"[AutoTranslationCore] ⚠️ 抓到劇毒標籤，準備物理切除：{match.Value.Trim()} (來自檔案: {Path.GetFileName(file)})");
+                            NotifyTranslationFileChanged(file);
+                            continue;
                         }
 
-                        int matchCount = matches.Count;
+                        string content = File.ReadAllText(file);
+                        if (badTagRegex.IsMatch(content))
+                        {
 
-                        string cleanContent = badTagRegex.Replace(content, "");
+                            MatchCollection matches = badTagRegex.Matches(content);
+                            foreach (Match match in matches)
+                            {
+                                Log.Warning($"[AutoTranslationCore] ⚠️ 抓到劇毒標籤，準備物理切除：{match.Value.Trim()} (來自檔案: {Path.GetFileName(file)})");
+                            }
 
-                        cleanContent = Regex.Replace(cleanContent, @"^\s+$[\r\n]*", "", RegexOptions.Multiline);
+                            int matchCount = matches.Count;
 
-                        File.WriteAllText(file, cleanContent);
+                            string cleanContent = badTagRegex.Replace(content, "");
+
+                            cleanContent = Regex.Replace(cleanContent, @"^\s+$[\r\n]*", "", RegexOptions.Multiline);
+
+                            File.WriteAllText(file, cleanContent);
+                            NotifyTranslationFileChanged(file);
+                            fixedFiles++;
+                            removedTags += matchCount;
+                        }
+                    }
+                    catch (FileNotFoundException)
+                    {
                         NotifyTranslationFileChanged(file);
-                        fixedFiles++;
-                        removedTags += matchCount;
+                    }
+                    catch (DirectoryNotFoundException)
+                    {
+                        NotifyTranslationFileChanged(file);
                     }
                 }
                 if (fixedFiles > 0)
@@ -236,6 +253,11 @@ namespace AutoTranslator_Core
 
                 foreach (var file in xmlFiles)
                 {
+                    if (string.IsNullOrEmpty(file) || !File.Exists(file))
+                    {
+                        NotifyTranslationFileChanged(file);
+                        continue;
+                    }
 
 
                     string dirName = new System.IO.DirectoryInfo(System.IO.Path.GetDirectoryName(file)).Name.ToLower();
@@ -267,15 +289,22 @@ namespace AutoTranslator_Core
                         string tagName = node.Name;
                         bool shouldKill = false;
 
-
-                        foreach (var badField in BlacklistedFields)
+                        if (IsProtectedDefPath(tagName))
                         {
+                            shouldKill = true;
+                        }
 
-                            if (tagName.EndsWith("." + badField, StringComparison.OrdinalIgnoreCase) ||
-                                tagName.Equals(badField, StringComparison.OrdinalIgnoreCase))
+                        if (!shouldKill)
+                        {
+                            foreach (var badField in BlacklistedFields)
                             {
-                                shouldKill = true;
-                                break;
+
+                                if (tagName.EndsWith("." + badField, StringComparison.OrdinalIgnoreCase) ||
+                                    tagName.Equals(badField, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    shouldKill = true;
+                                    break;
+                                }
                             }
                         }
 
@@ -328,19 +357,46 @@ namespace AutoTranslator_Core
 
                 foreach (var file in xmlFiles)
                 {
-
-                    string content = File.ReadAllText(file);
-
-
-                    if (content.Contains("\\n") || content.Contains("\\r") || content.Contains("/n"))
+                    try
                     {
+                        if (string.IsNullOrEmpty(file) || !File.Exists(file))
+                        {
+                            NotifyTranslationFileChanged(file);
+                            continue;
+                        }
 
-                        content = content.Replace("\\n", "\n").Replace("\\r", "\r").Replace("/n", "\n");
+                        string content = File.ReadAllText(file);
 
 
-                        File.WriteAllText(file, content);
+                        bool changed = false;
+                        string repairedContent = RepairBrokenXmlClosingTags(content);
+                        if (!string.Equals(repairedContent, content, StringComparison.Ordinal))
+                        {
+                            content = repairedContent;
+                            changed = true;
+                        }
+
+                        if (content.Contains("\\n") || content.Contains("\\r"))
+                        {
+
+                            content = content.Replace("\\n", "\n").Replace("\\r", "\r");
+                            changed = true;
+                        }
+
+                        if (changed)
+                        {
+                            File.WriteAllText(file, content);
+                            NotifyTranslationFileChanged(file);
+                            fixedFiles++;
+                        }
+                    }
+                    catch (FileNotFoundException)
+                    {
                         NotifyTranslationFileChanged(file);
-                        fixedFiles++;
+                    }
+                    catch (DirectoryNotFoundException)
+                    {
+                        NotifyTranslationFileChanged(file);
                     }
                 }
 
@@ -357,6 +413,33 @@ namespace AutoTranslator_Core
             {
                 Log.Warning($"[AutoTranslationCore] 換行排毒系統異常: {ex.Message}");
             }
+        }
+
+        private static string RepairBrokenXmlClosingTags(string content)
+        {
+            if (string.IsNullOrEmpty(content) ||
+                (content.IndexOf("<\n", StringComparison.Ordinal) < 0 &&
+                 content.IndexOf("<\r", StringComparison.Ordinal) < 0))
+            {
+                return content;
+            }
+
+            return Regex.Replace(
+                content,
+                @"<(?<key>[A-Za-z_][A-Za-z0-9_.\-]*)>(?<value>[^<]*[^\s<][^<]*)<\s*(?<close>[A-Za-z_][A-Za-z0-9_.\-]*)>",
+                match =>
+                {
+                    string key = match.Groups["key"].Value;
+                    string close = match.Groups["close"].Value;
+                    bool sameKey = string.Equals(key, close, StringComparison.Ordinal);
+                    bool slashNCorruptedKey =
+                        key.Length > 1 &&
+                        string.Equals(key.Substring(1), close, StringComparison.Ordinal);
+                    if (!sameKey && !slashNCorruptedKey) return match.Value;
+
+                    return $"<{key}>{match.Groups["value"].Value}</{key}>";
+                },
+                RegexOptions.Singleline);
         }
 
     }

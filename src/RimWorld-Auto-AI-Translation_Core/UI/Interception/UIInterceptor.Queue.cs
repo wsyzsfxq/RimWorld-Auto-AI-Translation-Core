@@ -39,6 +39,23 @@ namespace AutoTranslator_Core
             }
         }
 
+        private static bool TryConsumeClassificationFrameBudget()
+        {
+            int frame = Time.frameCount;
+            lock (_classificationFrameBudgetLock)
+            {
+                if (_lastClassificationFrame != frame)
+                {
+                    _lastClassificationFrame = frame;
+                    _classifiedThisFrame = 0;
+                }
+
+                if (_classifiedThisFrame >= MaxNewClassificationItemsPerFrame) return false;
+                _classifiedThisFrame++;
+                return true;
+            }
+        }
+
         private static bool TryConsumeNewTranslationScanBudget()
         {
             long nowTicks = DateTime.UtcNow.Ticks;
@@ -56,33 +73,79 @@ namespace AutoTranslator_Core
             }
         }
 
+        private static bool TryConsumeNewClassificationScanBudget()
+        {
+            long nowTicks = DateTime.UtcNow.Ticks;
+            lock (_newClassificationScanLock)
+            {
+                if (nowTicks >= _nextNewClassificationScanTicks)
+                {
+                    _nextNewClassificationScanTicks = nowTicks + NewClassificationScanInterval.Ticks;
+                    _classifiedThisScanWindow = 0;
+                }
+
+                if (_classifiedThisScanWindow >= MaxNewClassificationItemsPerScanWindow) return false;
+                _classifiedThisScanWindow++;
+                return true;
+            }
+        }
+
+        internal static bool QueueForClassification(string text)
+        {
+            if (System.Threading.Volatile.Read(ref _classificationApproxCount) >= MaxQueuedClassifications) return false;
+            if (string.IsNullOrWhiteSpace(text) || text.Length < 2) return false;
+            if (ShouldBypassUIPatchText(text)) return false;
+            if (!TryConsumeNewClassificationScanBudget()) return false;
+            if (!TryConsumeClassificationFrameBudget()) return false;
+
+            string cacheKey = BuildCacheKey(text);
+            if (PendingClassifications.TryAdd(cacheKey, true))
+            {
+                ClassificationQueue.Enqueue(text);
+                System.Threading.Interlocked.Increment(ref _classificationApproxCount);
+                return true;
+            }
+
+            return true;
+        }
+
 
         // 這個方法負責排入 For翻譯 佇列。
         // EN: This method queues for translation.
-        public static void QueueForTranslation(string text)
+        public static bool QueueForTranslation(string text)
         {
-            if (!AutoTranslatorMod.Settings.EnableUINewTranslation) return;
-            if (System.Threading.Volatile.Read(ref _queuedApproxCount) >= MaxQueuedTranslations) return;
+            return QueueForTranslationInternal(text, true);
+        }
 
-            if (string.IsNullOrWhiteSpace(text) || text.Length < 2) return;
+        private static bool QueueForTranslationFromBackground(string text)
+        {
+            return QueueForTranslationInternal(text, false);
+        }
+
+        private static bool QueueForTranslationInternal(string text, bool consumeFrameBudget)
+        {
+            if (!AutoTranslatorMod.Settings.EnableUINewTranslation) return false;
+            if (System.Threading.Volatile.Read(ref _queuedApproxCount) >= MaxQueuedTranslations) return false;
+
+            if (string.IsNullOrWhiteSpace(text) || text.Length < 2) return false;
             if (!ShouldInterceptText(text))
             {
-                return;
+                return false;
             }
 
 
-            if (IsIgnored(text)) return;
+            if (IsIgnored(text)) return false;
 
 
             string lookupText = GetTranslationLookupText(text);
             string cacheKey = BuildCacheKey(lookupText);
-            if (PendingTranslations.ContainsKey(cacheKey)) return;
+            if (PendingTranslations.ContainsKey(cacheKey)) return true;
 
 
             if (lookupText.All(char.IsDigit) || !LetterRegex.IsMatch(lookupText))
             {
                 RememberIgnored(text);
-                return;
+                return false;
             }
 
             var targetLang = AutoTranslatorMod.Settings.TargetLang;
@@ -123,17 +186,114 @@ namespace AutoTranslator_Core
             if (!isForeignText)
             {
                 RememberIgnored(text);
-                return;
+                return false;
             }
 
-            if (!TryConsumeNewTranslationScanBudget()) return;
-            if (!TryConsumeQueueBudget()) return;
+            if (!TryConsumeNewTranslationScanBudget()) return false;
+            if (consumeFrameBudget && !TryConsumeQueueBudget()) return false;
 
             if (PendingTranslations.TryAdd(cacheKey, true))
             {
                 TranslationQueue.Enqueue(lookupText);
                 System.Threading.Interlocked.Increment(ref _queuedApproxCount);
+                return true;
             }
+
+            return true;
+        }
+
+        private static async Task BackgroundClassificationWorker()
+        {
+            var token = _workerCts.Token;
+            while (!token.IsCancellationRequested)
+            {
+                try
+                {
+                    await Task.Delay(250, token);
+
+                    List<string> batch = new List<string>();
+                    while (batch.Count < 80 && ClassificationQueue.TryDequeue(out string text))
+                    {
+                        System.Threading.Interlocked.Decrement(ref _classificationApproxCount);
+                        batch.Add(text);
+                    }
+
+                    if (batch.Count == 0) continue;
+
+                    bool changedRenderDecision = false;
+                    foreach (string original in batch)
+                    {
+                        string classificationKey = BuildCacheKey(original);
+                        try
+                        {
+                            ClassifyUIRenderText(original);
+                            changedRenderDecision = true;
+                        }
+                        catch (Exception ex)
+                        {
+                            RememberRenderDecision(
+                                BuildRenderDecisionKey(original),
+                                UIRenderDecisionKind.Pending,
+                                null,
+                                DateTime.UtcNow.Ticks + TimeSpan.FromSeconds(3).Ticks);
+                            Log.Warning($"[AutoTranslationCore] UI classification failed: {ex.Message}");
+                        }
+                        finally
+                        {
+                            PendingClassifications.TryRemove(classificationKey, out _);
+                        }
+                    }
+
+                    if (changedRenderDecision) SaveCacheIfDue();
+                }
+                catch (TaskCanceledException)
+                {
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning($"[AutoTranslationCore] BackgroundClassificationWorker error: {ex.Message}");
+
+                    try { await Task.Delay(3000, token); } catch (TaskCanceledException) { break; }
+                }
+            }
+        }
+
+        private static void ClassifyUIRenderText(string original)
+        {
+            if (string.IsNullOrWhiteSpace(original) || ShouldBypassUIPatchText(original)) return;
+
+            string renderKey = BuildRenderDecisionKey(original);
+            if (!ShouldInterceptText(original))
+            {
+                RememberRenderDecision(renderKey, UIRenderDecisionKind.PassThrough, null, 0L);
+                return;
+            }
+
+            if (IsIgnored(original))
+            {
+                RememberRenderDecision(renderKey, UIRenderDecisionKind.PassThrough, null, 0L);
+                return;
+            }
+
+            if (TryGetCachedTranslationKnownSafe(original, out string translated))
+            {
+                RememberRenderDecision(renderKey, UIRenderDecisionKind.Translated, translated, 0L);
+                return;
+            }
+
+            if (!AutoTranslatorMod.Settings.EnableUINewTranslation)
+            {
+                RememberRenderDecision(renderKey, UIRenderDecisionKind.PassThrough, null, 0L);
+                return;
+            }
+
+            bool queued = QueueForTranslationFromBackground(original);
+            RememberRenderDecision(
+                renderKey,
+                queued ? UIRenderDecisionKind.Pending : UIRenderDecisionKind.PassThrough,
+                null,
+                queued ? DateTime.UtcNow.Ticks + RenderPendingRetryInterval.Ticks : 0L);
         }
 
 
@@ -184,6 +344,7 @@ namespace AutoTranslator_Core
                                     }
                                     PendingTranslations.TryRemove(originalCacheKey, out _);
                                 }
+                                if (hasNewCache) ClearRenderDecisionCache();
                                 if (hasNewCache) _cacheDirty = true;
                                 SaveCacheIfDue(hasNewCache);
                             }
@@ -223,6 +384,26 @@ namespace AutoTranslator_Core
             if (System.Threading.Volatile.Read(ref _queuedApproxCount) < 0)
             {
                 System.Threading.Interlocked.Exchange(ref _queuedApproxCount, 0);
+            }
+        }
+
+        private static void DiscardQueuedClassifications()
+        {
+            while (ClassificationQueue.TryDequeue(out string text))
+            {
+                System.Threading.Interlocked.Decrement(ref _classificationApproxCount);
+                PendingClassifications.TryRemove(BuildCacheKey(text), out _);
+            }
+
+            PendingClassifications.Clear();
+
+            if (System.Threading.Volatile.Read(ref _classificationApproxCount) < 0)
+            {
+                System.Threading.Interlocked.Exchange(ref _classificationApproxCount, 0);
+            }
+            else if (ClassificationQueue.IsEmpty)
+            {
+                System.Threading.Interlocked.Exchange(ref _classificationApproxCount, 0);
             }
         }
     }

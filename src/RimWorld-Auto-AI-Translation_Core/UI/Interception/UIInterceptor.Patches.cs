@@ -6,6 +6,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using UnityEngine;
 using Verse;
@@ -24,6 +25,8 @@ namespace AutoTranslator_Core
         // 這個欄位保存 BypassInterceptor 的執行狀態或快取資料。
         // EN: This field stores bypass interceptor runtime state or cached data.
         public static bool BypassInterceptor = false;
+        private static string _skipNextGuiLabelText;
+        private static int _skipNextGuiLabelFrame = -1;
         private const int MaxGuiContentCacheSize = 4096;
         private static Dictionary<string, GUIContent> guiContentCache = new Dictionary<string, GUIContent>();
 
@@ -45,91 +48,40 @@ namespace AutoTranslator_Core
             if (content != null && !string.IsNullOrEmpty(content.text))
             {
                 string originalText = content.text;
-                string tooltipText = TranslateTooltipText(content.tooltip);
-
-
-                if (originalText.StartsWith("\u200B"))
+                if (_skipNextGuiLabelFrame == Time.frameCount
+                    && (ReferenceEquals(_skipNextGuiLabelText, originalText) || string.Equals(_skipNextGuiLabelText, originalText, StringComparison.Ordinal)))
                 {
-                    if (!string.Equals(tooltipText, content.tooltip, StringComparison.Ordinal))
-                    {
-                        content = new GUIContent(content.text, content.image, tooltipText);
-                    }
+                    _skipNextGuiLabelText = null;
+                    _skipNextGuiLabelFrame = -1;
                     return;
                 }
 
-                if (!UIInterceptor.ShouldInterceptText(originalText))
-                {
-                    if (!string.Equals(tooltipText, content.tooltip, StringComparison.Ordinal))
-                    {
-                        content = new GUIContent(content.text, content.image, tooltipText);
-                    }
-                    return;
-                }
-                string contentCacheKey = UIInterceptor.BuildCacheKey(UIInterceptor.GetTranslationLookupText(originalText));
+                if (UIInterceptor.ShouldBypassUIPatchText(originalText)) return;
 
+                string tooltipText = Mouse.IsOver(position) ? TranslateTooltipText(content.tooltip) : content.tooltip;
 
-                if (guiContentCache.TryGetValue(contentCacheKey, out GUIContent readyContent))
-                {
-                    if (!UIInterceptor.TrySanitizeUIReplacementText(originalText, readyContent.text, out string readyText))
-                    {
-                        guiContentCache.Remove(contentCacheKey);
-                    }
-                    else
-                    {
-                        if (!string.Equals(readyText, readyContent.text, StringComparison.Ordinal))
-                        {
-                            readyContent = new GUIContent(readyText, readyContent.image, tooltipText);
-                            guiContentCache[contentCacheKey] = readyContent;
-                        }
-                        else if (!string.Equals(tooltipText, readyContent.tooltip, StringComparison.Ordinal))
-                        {
-                            readyContent = new GUIContent(readyText, readyContent.image, tooltipText);
-                            guiContentCache[contentCacheKey] = readyContent;
-                        }
-
-                        if (AutoTranslatorMod.Settings.ShowOriginalUI)
-                        {
-                            Verse.TooltipHandler.TipRegion(position, new Verse.TipSignal("\u200B" + "ATC_OriginalText".Translate() + ":\n" + originalText));
-                        }
-                        content = readyContent;
-                        return;
-                    }
-                }
-
-
-                if (UIInterceptor.IsIgnored(originalText))
-                {
-                    if (!string.Equals(tooltipText, content.tooltip, StringComparison.Ordinal))
-                    {
-                        content = new GUIContent(content.text, content.image, tooltipText);
-                    }
-                    return;
-                }
-
-
-                if (UIInterceptor.TryGetCachedTranslationKnownSafe(originalText, out string translated))
+                if (UIInterceptor.TryResolveRenderText(originalText, out string translated))
                 {
                     if (AutoTranslatorMod.Settings.ShowOriginalUI)
                     {
                         Verse.TooltipHandler.TipRegion(position, new Verse.TipSignal("\u200B" + "ATC_OriginalText".Translate() + ":\n" + originalText));
                     }
 
+                    string contentCacheKey = UIInterceptor.BuildCacheKey(originalText);
                     if (guiContentCache.Count >= MaxGuiContentCacheSize) guiContentCache.Clear();
-                    GUIContent newContent = new GUIContent(translated, content.image, tooltipText);
-
-
-                    guiContentCache[contentCacheKey] = newContent;
+                    if (!guiContentCache.TryGetValue(contentCacheKey, out GUIContent newContent)
+                        || !string.Equals(newContent.text, translated, StringComparison.Ordinal)
+                        || !string.Equals(newContent.tooltip, tooltipText, StringComparison.Ordinal))
+                    {
+                        newContent = new GUIContent(translated, content.image, tooltipText);
+                        guiContentCache[contentCacheKey] = newContent;
+                    }
 
                     content = newContent;
                 }
-                else
+                else if (!string.Equals(tooltipText, content.tooltip, StringComparison.Ordinal))
                 {
-
-                    UIInterceptor.QueueForTranslation(originalText);
-                    if (!string.Equals(tooltipText, content.tooltip, StringComparison.Ordinal))
-                    {
-                        content = new GUIContent(content.text, content.image, tooltipText);
-                    }
+                    content = new GUIContent(content.text, content.image, tooltipText);
                 }
             }
         }
@@ -139,16 +91,11 @@ namespace AutoTranslator_Core
         private static string TranslateTooltipText(string tooltip)
         {
             if (string.IsNullOrWhiteSpace(tooltip)) return tooltip;
-            if (tooltip.StartsWith("\u200B", StringComparison.Ordinal)) return tooltip;
-            if (!UIInterceptor.ShouldInterceptText(tooltip)) return tooltip;
-            if (UIInterceptor.IsIgnored(tooltip)) return tooltip;
-
-            if (UIInterceptor.TryGetCachedTranslationKnownSafe(tooltip, out string translated))
+            if (UIInterceptor.ShouldBypassUIPatchText(tooltip)) return tooltip;
+            if (UIInterceptor.TryResolveRenderText(tooltip, out string translated))
             {
                 return translated;
             }
-
-            UIInterceptor.QueueForTranslation(tooltip);
             return tooltip;
         }
 
@@ -157,6 +104,12 @@ namespace AutoTranslator_Core
         internal static string TranslateTooltipSignalText(string tooltip)
         {
             return TranslateTooltipText(tooltip);
+        }
+
+        internal static void SkipNextGuiLabelForText(string text)
+        {
+            _skipNextGuiLabelText = text;
+            _skipNextGuiLabelFrame = Time.frameCount;
         }
 
         internal sealed class TranslatedTooltipGetter
@@ -175,6 +128,45 @@ namespace AutoTranslator_Core
         }
     }
 
+    public static class Patch_LudeonTK_LogWindow_Bypass
+    {
+        public static void Prefix(out bool __state)
+        {
+            __state = Patch_GUI_Label_GUIContent.BypassInterceptor;
+            if (!AutoTranslatorMod.Settings.EnableUIErrorLogInterception)
+            {
+                Patch_GUI_Label_GUIContent.BypassInterceptor = true;
+            }
+        }
+
+        public static void Postfix(bool __state)
+        {
+            Patch_GUI_Label_GUIContent.BypassInterceptor = __state;
+        }
+    }
+
+    [HarmonyPatch]
+    public static class Patch_LudeonTK_LogWindow_Bypass_Target
+    {
+        public static MethodBase TargetMethod()
+        {
+            Type type = AccessTools.TypeByName("LudeonTK.EditWindow_Log");
+            return type == null
+                ? null
+                : AccessTools.Method(type, "DoWindowContents", new[] { typeof(Rect) });
+        }
+
+        public static void Prefix(out bool __state)
+        {
+            Patch_LudeonTK_LogWindow_Bypass.Prefix(out __state);
+        }
+
+        public static void Postfix(bool __state)
+        {
+            Patch_LudeonTK_LogWindow_Bypass.Postfix(__state);
+        }
+    }
+
     [HarmonyPatch(typeof(Verse.TooltipHandler), nameof(Verse.TooltipHandler.TipRegion), new Type[] { typeof(Rect), typeof(TipSignal) })]
     // 這個類別負責 補丁TooltipHandlerTipRegionTipSignal 的主要流程與狀態。
     // EN: This class manages the main workflow and state for Patch_TooltipHandler_TipRegion_TipSignal.
@@ -188,6 +180,7 @@ namespace AutoTranslator_Core
 
             if (!string.IsNullOrWhiteSpace(__1.text))
             {
+                if (UIInterceptor.ShouldBypassUIPatchText(__1.text)) return;
                 __1.text = Patch_GUI_Label_GUIContent.TranslateTooltipSignalText(__1.text);
             }
 
@@ -234,14 +227,9 @@ namespace AutoTranslator_Core
             if (string.IsNullOrEmpty(label)) return;
 
 
-            if (label.StartsWith("\u200B")) return;
-            if (!UIInterceptor.ShouldInterceptText(label)) return;
+            if (UIInterceptor.ShouldBypassUIPatchText(label)) return;
 
-
-            if (UIInterceptor.IsIgnored(label)) return;
-
-
-            if (UIInterceptor.TryGetCachedTranslationKnownSafe(label, out string translated))
+            if (UIInterceptor.TryResolveRenderText(label, out string translated))
             {
                 if (AutoTranslatorMod.Settings.ShowOriginalUI)
                 {
@@ -250,10 +238,8 @@ namespace AutoTranslator_Core
                 }
                 label = translated;
             }
-            else
-            {
-                UIInterceptor.QueueForTranslation(label);
-            }
+
+            Patch_GUI_Label_GUIContent.SkipNextGuiLabelForText(label);
         }
     }
 
@@ -272,11 +258,9 @@ namespace AutoTranslator_Core
             string raw = label.RawText;
             if (string.IsNullOrEmpty(raw)) return;
 
-            if (raw.StartsWith("\u200B")) return;
-            if (!UIInterceptor.ShouldInterceptText(raw)) return;
-            if (UIInterceptor.IsIgnored(raw)) return;
+            if (UIInterceptor.ShouldBypassUIPatchText(raw)) return;
 
-            if (UIInterceptor.TryGetCachedTranslationKnownSafe(raw, out string translated))
+            if (UIInterceptor.TryResolveRenderText(raw, out string translated))
             {
                 if (AutoTranslatorMod.Settings.ShowOriginalUI)
                 {
@@ -285,10 +269,11 @@ namespace AutoTranslator_Core
                 }
 
                 label = translated;
+                Patch_GUI_Label_GUIContent.SkipNextGuiLabelForText(translated);
             }
             else
             {
-                UIInterceptor.QueueForTranslation(raw);
+                Patch_GUI_Label_GUIContent.SkipNextGuiLabelForText(raw);
             }
         }
     }
@@ -305,11 +290,9 @@ namespace AutoTranslator_Core
         {
             if (!AutoTranslatorMod.Settings.EnableUIInterceptor || Patch_GUI_Label_GUIContent.BypassInterceptor) return;
             if (string.IsNullOrEmpty(label)) return;
-            if (label.StartsWith("\u200B")) return;
-            if (!UIInterceptor.ShouldInterceptText(label)) return;
-            if (UIInterceptor.IsIgnored(label)) return;
+            if (UIInterceptor.ShouldBypassUIPatchText(label)) return;
 
-            if (UIInterceptor.TryGetCachedTranslationKnownSafe(label, out string translated))
+            if (UIInterceptor.TryResolveRenderText(label, out string translated))
             {
                 if (AutoTranslatorMod.Settings.ShowOriginalUI)
                 {
@@ -318,10 +301,8 @@ namespace AutoTranslator_Core
                 }
                 label = translated;
             }
-            else
-            {
-                UIInterceptor.QueueForTranslation(label);
-            }
+
+            Patch_GUI_Label_GUIContent.SkipNextGuiLabelForText(label);
         }
     }
 }

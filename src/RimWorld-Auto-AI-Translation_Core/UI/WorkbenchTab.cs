@@ -43,6 +43,7 @@ namespace AutoTranslator_Core
             // 這個欄位保存 is載入 的執行狀態或快取資料。
             // EN: This field stores is loading runtime state or cached data.
             private static bool _isLoading = false;
+            private static bool _isSavingModifications = false;
             // 這個欄位保存 mod搜尋Text 的執行狀態或快取資料。
             // EN: This field stores mod search text runtime state or cached data.
             private static string _modSearchText = "";
@@ -82,6 +83,10 @@ namespace AutoTranslator_Core
             // EN: This field stores cached mod selection translated count runtime state or cached data.
             private static int _cachedModSelectionTranslatedCount = -1;
             private static int _cachedModSelectionTranslatedHash = 0;
+            private static int _cachedModSelectionValidVersion = -1;
+            private static int _lastStablePackageHash = 0;
+            private static int _lastStablePackageHashCount = -1;
+            private static int _lastStablePackageHashGeneration = -1;
 
             private static Dictionary<string, List<WorkbenchItem>> _categorizedData = new Dictionary<string, List<WorkbenchItem>>();
             // 這個欄位保存 selectedCategory 的執行狀態或快取資料。
@@ -96,6 +101,8 @@ namespace AutoTranslator_Core
             // 這個欄位保存 itemScroll 的執行狀態或快取資料。
             // EN: This field stores item scroll runtime state or cached data.
             private static UnityEngine.Vector2 _itemScroll = UnityEngine.Vector2.zero;
+            private const float WorkbenchCategoryRowHeight = 35f;
+            private const float WorkbenchItemRowHeight = 100f;
 
             // 這個欄位保存 translatedPackageIds 的執行狀態或快取資料。
             // EN: This field stores translated package ids runtime state or cached data.
@@ -111,6 +118,25 @@ namespace AutoTranslator_Core
             // EN: This field stores global search scroll runtime state or cached data.
             private static UnityEngine.Vector2 _globalSearchScroll = UnityEngine.Vector2.zero;
             private static List<GlobalSearchResult> _globalSearchResults = new List<GlobalSearchResult>();
+            private static string _globalSearchSnapshotText = "";
+            private static TargetLanguage? _globalSearchSnapshotLangFilter = null;
+            private static bool _globalSearchHasSnapshot = false;
+            private static List<WorkbenchItem> _cachedVisibleItems = null;
+            private static string _cachedVisibleCategory = "";
+            private static string _cachedVisibleSearchText = "";
+            private static string _cachedVisibleFocusCategory = "";
+            private static string _cachedVisibleFocusKey = "";
+            private static string _cachedVisibleRetainedCategory = "";
+            private static string _cachedVisibleRetainedKey = "";
+            private static int _cachedVisibleSourceCount = -1;
+            private static int _categorizedDataVersion = 0;
+            private static int _cachedVisibleDataVersion = -1;
+            private static WorkbenchFocusRequest _pendingWorkbenchFocus = null;
+            private static WorkbenchFocusRequest _activeWorkbenchFocus = null;
+            private static string _retainedEditedCategory = "";
+            private static string _retainedEditedKey = "";
+            private static string _workbenchStatusText = "";
+            private static float _workbenchStatusUntilTime = 0f;
             // 這個欄位保存 global搜尋語言Filter 的執行狀態或快取資料。
             // EN: This field stores global search language filter runtime state or cached data.
             private static TargetLanguage? _globalSearchLangFilter = null;
@@ -127,14 +153,91 @@ namespace AutoTranslator_Core
                 // 這個欄位保存 Key 的執行狀態或快取資料。
                 // EN: This field stores key runtime state or cached data.
                 public string Key;
+                public string Category;
                 // 這個欄位保存 TranslatedText 的執行狀態或快取資料。
                 // EN: This field stores translated text runtime state or cached data.
                 public string TranslatedText;
+                public string SearchText;
+            }
+
+            private class WorkbenchFocusRequest
+            {
+                public string Category;
+                public string Key;
+                public string SearchText;
+                public string MatchedText;
+                public bool FromGlobalSearch;
+            }
+
+            private class GlobalSearchModSnapshot
+            {
+                public Verse.ModMetaData Mod;
+                public string PackageId;
+                public string ModName;
+                public string RootDir;
+            }
+
+            private class GlobalSearchFileWorkItem
+            {
+                public string FilePath;
+                public Verse.ModMetaData Mod;
+                public string Category;
+            }
+
+            private class WorkbenchModSnapshot
+            {
+                public Verse.ModMetaData Mod;
+                public string PackageId;
+                public string ModName;
+                public string RootDir;
+                public TargetLanguage TargetLang;
+                public string TargetLangFolder;
+            }
+
+            private class WorkbenchSaveSnapshot
+            {
+                public Verse.ModMetaData Mod;
+                public string PackageId;
+                public string RootDir;
+                public TargetLanguage TargetLang;
+                public string TargetLangFolder;
+                public string PackPath;
+                public string CleanPackageId;
+                public List<WorkbenchSaveCategorySnapshot> Categories = new List<WorkbenchSaveCategorySnapshot>();
+            }
+
+            private class WorkbenchSaveCategorySnapshot
+            {
+                public string Category;
+                public List<WorkbenchSaveItemSnapshot> Items = new List<WorkbenchSaveItemSnapshot>();
+                public HashSet<string> ClearKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            }
+
+            private class WorkbenchSaveItemSnapshot
+            {
+                public string Key;
+                public string TranslatedText;
+                public bool IsModified;
+            }
+
+            private class WorkbenchSaveResult
+            {
+                public int SavedCount;
+                public bool TouchedTranslationFiles;
+                public bool HasSavedTranslation;
+                public Dictionary<string, HashSet<string>> ClearKeysByDefType = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+                public ModUpdateDetector.SourceFingerprintSnapshot SourceFingerprint;
+                public string Error;
             }
             // 這個方法負責繪製 Editor分頁 介面。
             // EN: This method draws editor tab.
             public static void DrawEditorTab(Verse.Listing_Standard l, UnityEngine.Rect viewRect)
             {
+                AutoTranslatorMod.GetValidModsCached();
+                if (AutoTranslatorMod.Settings.TranslateWorkbenchModNames)
+                {
+                    ModNameTranslationCache.PreloadAsync();
+                }
                 InitTranslatedModsCache();
 
                 float contentHeight = 600f;

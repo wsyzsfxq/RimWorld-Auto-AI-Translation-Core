@@ -325,10 +325,14 @@ namespace AutoTranslator_Core
 
         // 這個方法負責取得 佇列Count 資料。
         // EN: This method gets queue count.
-        public static int GetQueueCount() { return Math.Max(0, System.Threading.Volatile.Read(ref _queuedApproxCount)); }
+        public static int GetQueueCount()
+        {
+            return Math.Max(0, System.Threading.Volatile.Read(ref _queuedApproxCount))
+                + Math.Max(0, System.Threading.Volatile.Read(ref _classificationApproxCount));
+        }
         // 這個方法負責取得 PendingCount 資料。
         // EN: This method gets pending count.
-        public static int GetPendingCount() { return PendingTranslations.Count; }
+        public static int GetPendingCount() { return PendingTranslations.Count + PendingClassifications.Count; }
         // 這個方法負責取得 IgnoredCount 資料。
         // EN: This method gets ignored count.
         public static int GetIgnoredCount() { return IgnoredCache.Count; }
@@ -382,8 +386,10 @@ namespace AutoTranslator_Core
         {
             Cache.Clear();
             IgnoredCache.Clear();
+            FastBypassDecisionCache.Clear();
             TextDecisionCache.Clear();
             Patch_GUI_Label_GUIContent.ClearCache();
+            DiscardQueuedClassifications();
             while (TranslationQueue.TryDequeue(out _)) { }
             PendingTranslations.Clear();
             System.Threading.Interlocked.Exchange(ref _queuedApproxCount, 0);
@@ -431,12 +437,108 @@ namespace AutoTranslator_Core
                 {
                     Cache[cacheKey] = translated;
                     _cacheDirty = true;
+                    ClearRenderDecisionCache();
                     translated = RestoreTranslationDisplayText(text, translated);
                     return true;
                 }
             }
 
             return false;
+        }
+
+        internal static bool TryResolveRenderText(string original, out string translated)
+        {
+            translated = null;
+            if (ShouldBypassUIPatchText(original)) return false;
+
+            EnsureRenderDecisionSettingsCurrent();
+            string renderKey = BuildRenderDecisionKey(original);
+
+            if (RenderDecisionCache.TryGetValue(renderKey, out UIRenderDecision decision)
+                && decision.Version == _renderDecisionVersion)
+            {
+                switch (decision.Kind)
+                {
+                    case UIRenderDecisionKind.Translated:
+                        translated = decision.TranslatedText;
+                        return !string.IsNullOrWhiteSpace(translated);
+                    case UIRenderDecisionKind.PassThrough:
+                        return false;
+                    case UIRenderDecisionKind.Classifying:
+                        return false;
+                    case UIRenderDecisionKind.Pending:
+                        long nowTicks = DateTime.UtcNow.Ticks;
+                        if (nowTicks < decision.RetryAfterTicks) return false;
+                        break;
+                }
+            }
+
+            if (QueueForClassification(original))
+            {
+                RememberRenderDecision(renderKey, UIRenderDecisionKind.Classifying, null, 0L);
+            }
+            else
+            {
+                RememberRenderDecision(renderKey, UIRenderDecisionKind.Pending, null, DateTime.UtcNow.Ticks + RenderPendingRetryInterval.Ticks);
+            }
+            return false;
+        }
+
+        internal static string BuildRenderDecisionKey(string text)
+        {
+            return text ?? string.Empty;
+        }
+
+        internal static void RememberRenderDecision(string renderKey, UIRenderDecisionKind kind, string translated, long retryAfterTicks)
+        {
+            if (string.IsNullOrEmpty(renderKey)) return;
+            if (RenderDecisionCache.Count >= MaxRenderDecisionCacheSize) RenderDecisionCache.Clear();
+
+            RenderDecisionCache[renderKey] = new UIRenderDecision
+            {
+                Kind = kind,
+                TranslatedText = translated,
+                Version = _renderDecisionVersion,
+                RetryAfterTicks = retryAfterTicks
+            };
+        }
+
+        private static void EnsureRenderDecisionSettingsCurrent()
+        {
+            TargetLanguage targetLang = AutoTranslatorMod.Settings.TargetLang;
+            bool errorLogInterception = AutoTranslatorMod.Settings.EnableUIErrorLogInterception;
+            bool newTranslation = AutoTranslatorMod.Settings.EnableUINewTranslation;
+
+            if (_renderDecisionSettingsInitialized
+                && _renderDecisionTargetLang == targetLang
+                && _renderDecisionErrorLogInterception == errorLogInterception
+                && _renderDecisionNewTranslation == newTranslation)
+            {
+                return;
+            }
+
+            lock (_renderDecisionSettingsLock)
+            {
+                if (_renderDecisionSettingsInitialized
+                    && _renderDecisionTargetLang == targetLang
+                    && _renderDecisionErrorLogInterception == errorLogInterception
+                    && _renderDecisionNewTranslation == newTranslation)
+                {
+                    return;
+                }
+
+                _renderDecisionTargetLang = targetLang;
+                _renderDecisionErrorLogInterception = errorLogInterception;
+                _renderDecisionNewTranslation = newTranslation;
+                _renderDecisionSettingsInitialized = true;
+                ClearRenderDecisionCache();
+            }
+        }
+
+        private static void ClearRenderDecisionCache()
+        {
+            RenderDecisionCache.Clear();
+            System.Threading.Interlocked.Increment(ref _renderDecisionVersion);
         }
 
         // 這個方法負責嘗試執行 NormalizeCached翻譯 並回報是否成功。
@@ -449,6 +551,7 @@ namespace AutoTranslator_Core
                 Cache.TryRemove(cacheKey, out _);
                 RememberIgnored(original);
                 _cacheDirty = true;
+                ClearRenderDecisionCache();
                 return false;
             }
 
@@ -458,6 +561,7 @@ namespace AutoTranslator_Core
                 Cache.TryRemove(cacheKey, out _);
                 RememberIgnored(original);
                 _cacheDirty = true;
+                ClearRenderDecisionCache();
                 return false;
             }
 
@@ -465,6 +569,7 @@ namespace AutoTranslator_Core
             {
                 Cache[cacheKey] = normalized;
                 _cacheDirty = true;
+                ClearRenderDecisionCache();
             }
             return true;
         }
@@ -525,7 +630,11 @@ namespace AutoTranslator_Core
 
             Cache.Clear();
             IgnoredCache.Clear();
+            FastBypassDecisionCache.Clear();
+            TextDecisionCache.Clear();
+            ClearRenderDecisionCache();
             Patch_GUI_Label_GUIContent.ClearCache();
+            DiscardQueuedClassifications();
             while (TranslationQueue.TryDequeue(out _)) { }
             PendingTranslations.Clear();
             System.Threading.Interlocked.Exchange(ref _queuedApproxCount, 0);
@@ -558,7 +667,9 @@ namespace AutoTranslator_Core
         // EN: This method handles refresh runtime UI cache.
         public static void RefreshRuntimeUICache()
         {
+            ClearRenderDecisionCache();
             Patch_GUI_Label_GUIContent.ClearCache();
+            DiscardQueuedClassifications();
             DiscardQueuedTranslations();
             SaveCacheIfDue(true);
 

@@ -41,6 +41,16 @@ namespace AutoTranslator_Core
         public static Dictionary<string, string> LoadXmlFileToDict(string filePath, TargetLanguage? expectedLang = null)
         {
             var dict = LoadRawXmlFileToDictCached(filePath);
+            TargetLanguage placeholderLang = expectedLang ?? (AutoTranslatorMod.Settings != null ? AutoTranslatorMod.Settings.TargetLang : TargetLanguage.Traditional);
+
+            var placeholderKeys = dict
+                .Where(pair => LanguageDetector.LooksLikePlaceholderTranslation(pair.Value, placeholderLang))
+                .Select(pair => pair.Key)
+                .ToList();
+            foreach (string key in placeholderKeys)
+            {
+                dict.Remove(key);
+            }
 
             if (ShouldCheckFakeLanguageForFile(filePath, expectedLang) &&
                 LanguageDetector.IsFakeLanguage(dict, expectedLang.Value))

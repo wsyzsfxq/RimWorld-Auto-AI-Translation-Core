@@ -1280,17 +1280,33 @@ namespace AutoTranslator_Core
         {
             try
             {
-                string packLangRoot = Path.Combine(GetLocalPackPath(), "Languages", GetFolderNameByLanguage(targetLang));
-                string packFingerprint = BuildXmlTreeFingerprint(packLangRoot);
+                string targetFolder = GetFolderNameByLanguage(targetLang);
+                string otherFolder = GetSecondaryFolderNameByLanguage(targetLang);
+                string packLanguagesRoot = Path.Combine(GetLocalPackPath(), "Languages");
+                string packFingerprint = BuildGlobalLanguageRootsFingerprint(
+                    new List<string> { packLanguagesRoot },
+                    targetFolder,
+                    otherFolder);
 
                 IEnumerable<string> modKeys = (mods ?? new List<ModMetaData>())
                     .Where(m => m != null && !string.IsNullOrEmpty(m.PackageId))
                     .Select(m =>
                     {
                         string root = m.RootDir?.FullName ?? "";
-                        string langFingerprint = BuildXmlTreeFingerprint(Path.Combine(root, "Languages"));
+                        bool isTranslationPatch = IsTranslationPatchMod(m);
+                        List<string> langRoots = isTranslationPatch
+                            ? GetAllTranslationPatchLangPaths(m)
+                            : GetAllEffectiveLangPaths(m);
+
+                        string langFingerprint = BuildGlobalLanguageRootsFingerprint(
+                            langRoots,
+                            targetFolder,
+                            otherFolder);
                         string loadFolders = BuildFileSignature(Path.Combine(root, "LoadFolders.xml"));
-                        return (m.PackageId ?? "").ToLowerInvariant() + "|" + loadFolders + "|" + langFingerprint;
+                        return (m.PackageId ?? "").ToLowerInvariant() + "|" +
+                               (isTranslationPatch ? "patch" : "mod") + "|" +
+                               loadFolders + "|" +
+                               langFingerprint;
                     })
                     .OrderBy(s => s, StringComparer.OrdinalIgnoreCase);
 
@@ -1300,6 +1316,47 @@ namespace AutoTranslator_Core
             {
                 return null;
             }
+        }
+
+        private static string BuildGlobalLanguageRootsFingerprint(List<string> langRoots, string targetFolder, string otherFolder)
+        {
+            if (langRoots == null || langRoots.Count == 0) return "none";
+
+            List<string> parts = new List<string>();
+            foreach (string langRoot in langRoots.Where(p => !string.IsNullOrWhiteSpace(p)).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(p => p, StringComparer.OrdinalIgnoreCase))
+            {
+                List<string> languageDirs = new List<string>();
+                try
+                {
+                    languageDirs.AddRange(ResolveLanguageFolders(langRoot, targetFolder));
+                    if (!string.IsNullOrEmpty(otherFolder))
+                    {
+                        languageDirs.AddRange(ResolveLanguageFolders(langRoot, otherFolder));
+                    }
+                }
+                catch { }
+
+                languageDirs = languageDirs
+                    .Where(p => !string.IsNullOrWhiteSpace(p))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(p => p, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                string rootPath = NormalizeCachePath(langRoot);
+                if (languageDirs.Count == 0)
+                {
+                    parts.Add(rootPath + "|no-target-language");
+                    continue;
+                }
+
+                foreach (string languageDir in languageDirs)
+                {
+                    string normalizedDir = NormalizeCachePath(languageDir);
+                    parts.Add(rootPath + "|" + normalizedDir + "|" + BuildXmlTreeFingerprint(languageDir));
+                }
+            }
+
+            return string.Join(";", parts.ToArray());
         }
 
     }

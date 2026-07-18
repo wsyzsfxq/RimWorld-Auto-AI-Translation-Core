@@ -340,8 +340,10 @@
   <ATC_Cloud_Deleting>⏳ Deleting...</ATC_Cloud_Deleting>
   <ATC_Cloud_ConnectionNormal>☁️ Cloud connection normal: Currently {0} translation records in database.</ATC_Cloud_ConnectionNormal>
   <ATC_Cloud_NoModsWarning>⚠️ No translatable third-party mods found!\n(If your environment only runs official DLC and this system mod, the list will be empty!)</ATC_Cloud_NoModsWarning>
-  <ATC_Cloud_Btn_BatchOfficial>👑 Batch Download Pro Translation</ATC_Cloud_Btn_BatchOfficial>
+  <ATC_Cloud_Btn_BatchOfficial>👑 Batch Download Official/Group</ATC_Cloud_Btn_BatchOfficial>
+  <ATC_Cloud_Btn_BatchManual>🧑 Batch Download Player Pro</ATC_Cloud_Btn_BatchManual>
   <ATC_Cloud_Btn_BatchAI>🤖 Batch Download AI Translation</ATC_Cloud_Btn_BatchAI>
+  <ATC_Cloud_Btn_BatchBest>✨ Batch Download Best Translation</ATC_Cloud_Btn_BatchBest>
   <ATC_Msg_DownloadStart>📥 Requesting airdrop: {0}...</ATC_Msg_DownloadStart>
   <ATC_Msg_DownloadSuccess>✅ Airdrop successful! {0} loaded into memory!</ATC_Msg_DownloadSuccess>
   <ATC_Msg_DownloadFailed>❌ Airdrop failed: {0}</ATC_Msg_DownloadFailed>
@@ -383,7 +385,9 @@
   <ATC_Btn_Cancel>Cancel</ATC_Btn_Cancel>
   <ATC_Log_FactoryResetSuccess>System successfully restored to factory settings, cache cleared.</ATC_Log_FactoryResetSuccess>
   <ATC_Msg_FactoryResetSuccess>System reset successful! All translation caches cleared.</ATC_Msg_FactoryResetSuccess>
+  <ATC_Cloud_PreparingBatchDownload>Preparing batch download...</ATC_Cloud_PreparingBatchDownload>
   <ATC_Cloud_Downloading>Downloading from cloud: {0}</ATC_Cloud_Downloading>
+  <ATC_Cloud_RepairingBatch>Repairing downloaded translations: {0}</ATC_Cloud_RepairingBatch>
   <ATC_Cloud_Uploading>Uploading to cloud: {0}</ATC_Cloud_Uploading>
   <ATC_LogError_DownloadCorrupted>Cloud download or extraction failed! Residual corrupted files automatically cleared. Mod: {0}, Reason: {1}</ATC_LogError_DownloadCorrupted>
   <ATC_Log_CloudPrefetchSuccess>Successfully preloaded cloud database list in background ({0} records synced).</ATC_Log_CloudPrefetchSuccess>
@@ -469,6 +473,17 @@
   <ATC_Lang_All>🌍 All Languages (All)</ATC_Lang_All>
   <ATC_Workbench_GlobalSearching>🔄 Asynchronously scanning local caches in the background...</ATC_Workbench_GlobalSearching>
   <ATC_Workbench_GlobalSearchNoResult>No matches found in translated texts.</ATC_Workbench_GlobalSearchNoResult>
+  <ATC_Workbench_SearchSnapshotLabel>Showing results for "{0}"</ATC_Workbench_SearchSnapshotLabel>
+  <ATC_Workbench_SearchTextChanged>Search text changed. Press Search to update results.</ATC_Workbench_SearchTextChanged>
+  <ATC_Workbench_ReturnToSearchResults>Return to global search results</ATC_Workbench_ReturnToSearchResults>
+  <ATC_Workbench_FocusedSearchResult>From global search: "{0}"</ATC_Workbench_FocusedSearchResult>
+  <ATC_Workbench_NoLongerMatchesSearch>Edited, no longer matches the original search</ATC_Workbench_NoLongerMatchesSearch>
+  <ATC_Workbench_RevertItem>Revert</ATC_Workbench_RevertItem>
+  <ATC_Workbench_ItemReverted>Item reverted.</ATC_Workbench_ItemReverted>
+  <ATC_Workbench_SaveSynced>Synced</ATC_Workbench_SaveSynced>
+  <ATC_Workbench_UnsavedChanges>Unsaved changes.</ATC_Workbench_UnsavedChanges>
+  <ATC_Workbench_Saving>Saving...</ATC_Workbench_Saving>
+  <ATC_Workbench_SavedInline>Saved and applied.</ATC_Workbench_SavedInline>
   <ATC_Msg_UploadLogRequired>⚠️ To preserve workshop organization, please summarize your modifications in the bottom left (5 characters minimum)!</ATC_Msg_UploadLogRequired>
   <ATC_Btn_RepairLegacyTranslations>Repair Legacy Translation Format</ATC_Btn_RepairLegacyTranslations>
   <ATC_Msg_RepairLegacyTranslationsDone>Legacy translation repair complete: fixed {1} entries across {0} files; {2} high-risk structure entries still need review.</ATC_Msg_RepairLegacyTranslationsDone>

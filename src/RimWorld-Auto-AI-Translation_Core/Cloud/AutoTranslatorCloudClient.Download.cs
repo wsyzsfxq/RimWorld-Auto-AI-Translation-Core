@@ -17,7 +17,7 @@ namespace AutoTranslator_Core
     {
         // 這個方法負責下載 AndInjectAsync 資料。
         // EN: This method downloads and inject async.
-        public static async Task<bool> DownloadAndInjectAsync(string packageId, string targetLangFolder, CloudModRecord targetRecord = null, bool requestMemoryDrop = true)
+        public static async Task<bool> DownloadAndInjectAsync(string packageId, string targetLangFolder, CloudModRecord targetRecord = null, bool requestMemoryDrop = true, bool requestRuntimeRefreshAfterClear = true, AutoTranslatorScanner.LocalTranslationDeleteTarget clearTarget = null)
         {
             Verse.ModMetaData targetMod = null;
             int maxRetries = 4;
@@ -83,16 +83,14 @@ namespace AutoTranslator_Core
 
             try
             {
-                foreach (var m in Verse.ModLister.AllInstalledMods)
+                if (clearTarget == null)
                 {
-                    if (m.PackageId.ToLower() == packageId.ToLower()) { targetMod = m; break; }
+                    foreach (var m in Verse.ModLister.AllInstalledMods)
+                    {
+                        if (m.PackageId.ToLower() == packageId.ToLower()) { targetMod = m; break; }
+                    }
                 }
-                if (targetMod != null)
-                {
-                    List<ModMetaData> listToClear = new List<ModMetaData>();
-                    listToClear.Add(targetMod);
-                    AutoTranslatorScanner.ClearOldTranslationFiles(listToClear);
-                }
+                ClearOldTranslationFilesForDownload(targetMod, clearTarget, requestRuntimeRefreshAfterClear);
 
                 string packPath = AutoTranslatorScanner.GetLocalPackPath();
                 string extractRoot = System.IO.Path.Combine(packPath, "Languages", targetLangFolder);
@@ -155,12 +153,41 @@ namespace AutoTranslator_Core
             }
             catch (Exception ex)
             {
-                if (targetMod != null) AutoTranslatorScanner.ClearOldTranslationFiles(new List<Verse.ModMetaData> { targetMod });
+                ClearOldTranslationFilesForDownload(targetMod, clearTarget, requestRuntimeRefreshAfterClear);
                 string fallbackZip = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"{packageId}_{targetLangFolder}_cloud.zip");
                 if (System.IO.File.Exists(fallbackZip)) System.IO.File.Delete(fallbackZip);
 
                 ATC_Dispatcher.RunOnMainThread(() => AutoTranslatorSettings.AddErrorLog("ATC_LogError_DownloadCorrupted".Translate(packageId, ex.Message)));
                 return false;
+            }
+        }
+
+        private static void ClearOldTranslationFilesForDownload(ModMetaData targetMod, AutoTranslatorScanner.LocalTranslationDeleteTarget clearTarget, bool requestRuntimeRefresh)
+        {
+            if (clearTarget != null && !string.IsNullOrWhiteSpace(clearTarget.PackageId))
+            {
+                AutoTranslatorScanner.LocalTranslationDeleteResult result = AutoTranslatorScanner.DeleteLocalTranslationFiles(
+                    new List<AutoTranslatorScanner.LocalTranslationDeleteTarget> { clearTarget },
+                    createBackup: true,
+                    requestRuntimeRefresh: requestRuntimeRefresh,
+                    logResult: false);
+
+                if (result.DeletedFiles > 0)
+                {
+                    AutoTranslatorSettings.AddLog("ATC_ClearCacheSuccess".Translate(result.DeletedFiles));
+                    Log.Message($"[AutoTranslationCore] Auto-cleared {result.DeletedFiles} old files for updated mods (Backup created).");
+                }
+
+                if (result.HasErrors)
+                {
+                    AutoTranslatorSettings.AddErrorLog($"Auto Clear Error: {result.FirstError}");
+                }
+                return;
+            }
+
+            if (targetMod != null)
+            {
+                AutoTranslatorScanner.ClearOldTranslationFiles(new List<Verse.ModMetaData> { targetMod }, requestRuntimeRefresh: requestRuntimeRefresh);
             }
         }
 

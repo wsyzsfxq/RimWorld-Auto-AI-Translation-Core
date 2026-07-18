@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 using UnityEngine;
 using Verse;
 using RimWorld;
@@ -19,53 +20,100 @@ namespace AutoTranslator_Core
         // EN: This method executes export.
         public static void ExecuteExport(List<ExportableModInfo> mods)
         {
-            string timestamp = DateTime.Now.ToString("yyyy-MM-dd_HHmmss");
-            string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
-            string exportRoot = Path.Combine(desktopPath, $"RimWorld_Translations_{timestamp}");
+            List<ExportableModInfo> exportMods = mods != null
+                ? mods.Select(CloneExportableModInfo).ToList()
+                : new List<ExportableModInfo>();
+            string targetFolder = AutoTranslatorScanner.GetFolderNameByLanguage(AutoTranslatorMod.Settings.TargetLang);
+            string sourceLangsRoot = Path.Combine(AutoTranslatorScanner.GetLocalPackPath(), "Languages");
+            string eulaAcceptedTimestamp = AutoTranslatorMod.Settings.EulaAcceptedTimestamp;
+            string eulaAcceptedVersion = AutoTranslatorMod.Settings.EulaAcceptedVersion;
+            int eulaAcceptCount = AutoTranslatorMod.Settings.EulaAcceptCount;
+            string readmeContent = ExportTemplates.GetReadme(exportMods);
+            string consentContent = ExportTemplates.GetConsentRecord(
+                eulaAcceptedTimestamp,
+                eulaAcceptedVersion,
+                eulaAcceptCount);
 
-            AutoTranslatorSettings.AddLog("ATC_Log_ExportStart".Translate(mods.Count));
+            AutoTranslatorSettings.AddLog("ATC_Log_ExportStart".Translate(exportMods.Count));
 
-            try
+            Task.Run(() =>
             {
-                Directory.CreateDirectory(exportRoot);
-                WriteReadme(exportRoot, mods);
-                WriteConsentRecord(exportRoot);
-
-                int totalFiles = 0;
-                foreach (var mod in mods)
-                {
-                    totalFiles += ExportSingleMod(mod, exportRoot);
-                }
-
+                ExportWorkerResult result = new ExportWorkerResult();
 
                 try
                 {
-                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    string timestamp = DateTime.Now.ToString("yyyy-MM-dd_HHmmss");
+                    string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+                    result.ExportRoot = Path.Combine(desktopPath, $"RimWorld_Translations_{timestamp}");
+
+                    Directory.CreateDirectory(result.ExportRoot);
+                    WriteReadme(result.ExportRoot, readmeContent);
+                    WriteConsentRecord(result.ExportRoot, consentContent);
+
+                    foreach (var mod in exportMods)
                     {
-                        FileName = exportRoot,
-                        UseShellExecute = true
-                    });
+                        result.TotalFiles += ExportSingleMod(mod, result.ExportRoot, targetFolder, sourceLangsRoot);
+                    }
                 }
-                catch (Exception openEx)
+                catch (Exception ex)
                 {
-                    Log.Warning($"[AutoTranslationCore] Cannot open folder: {openEx.Message}");
+                    result.Error = ex;
                 }
 
-                AutoTranslatorSettings.AddLog("ATC_Log_ExportComplete".Translate(mods.Count, totalFiles));
+                ATC_Dispatcher.RunOnMainThread(() =>
+                {
+                    if (result.Error != null)
+                    {
+                        AutoTranslatorSettings.AddErrorLog("ATC_Log_ExportFailed".Translate(result.Error.Message));
+                        Messages.Message("ATC_Export_Failed_Message".Translate(result.Error.Message),
+                            MessageTypeDefOf.RejectInput, false);
+                        Log.Error($"[AutoTranslationCore] Export failed: {result.Error}");
+                        return;
+                    }
+
+                    try
+                    {
+                        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                        {
+                            FileName = result.ExportRoot,
+                            UseShellExecute = true
+                        });
+                    }
+                    catch (Exception openEx)
+                    {
+                        Log.Warning($"[AutoTranslationCore] Cannot open folder: {openEx.Message}");
+                    }
+
+                    AutoTranslatorSettings.AddLog("ATC_Log_ExportComplete".Translate(exportMods.Count, result.TotalFiles));
 
 
-                ExportCooldownManager.RecordExport();
+                    ExportCooldownManager.RecordExport();
 
 
-                ShowSuccessDialogWithContactOption(mods, totalFiles, exportRoot);
-            }
-            catch (Exception ex)
+                    ShowSuccessDialogWithContactOption(exportMods, result.TotalFiles, result.ExportRoot);
+                });
+            });
+        }
+
+        private class ExportWorkerResult
+        {
+            public string ExportRoot;
+            public int TotalFiles;
+            public Exception Error;
+        }
+
+        private static ExportableModInfo CloneExportableModInfo(ExportableModInfo source)
+        {
+            if (source == null) return new ExportableModInfo();
+            return new ExportableModInfo
             {
-                AutoTranslatorSettings.AddErrorLog("ATC_Log_ExportFailed".Translate(ex.Message));
-                Messages.Message("ATC_Export_Failed_Message".Translate(ex.Message),
-                    MessageTypeDefOf.RejectInput, false);
-                Log.Error($"[AutoTranslationCore] Export failed: {ex}");
-            }
+                ModName = source.ModName,
+                PackageId = source.PackageId,
+                PackageIdWithUnderscore = source.PackageIdWithUnderscore,
+                ModRootDir = source.ModRootDir,
+                DefInjectedCount = source.DefInjectedCount,
+                KeyedCount = source.KeyedCount
+            };
         }
 
 
@@ -91,12 +139,9 @@ namespace AutoTranslator_Core
 
         // 這個方法負責處理 導出Single模組 相關流程。
         // EN: This method handles export single mod.
-        private static int ExportSingleMod(ExportableModInfo mod, string exportRoot)
+        private static int ExportSingleMod(ExportableModInfo mod, string exportRoot, string targetFolder, string sourceLangsRoot)
         {
             int fileCount = 0;
-            string targetFolder = AutoTranslatorScanner.GetFolderNameByLanguage(AutoTranslatorMod.Settings.TargetLang);
-            string sourcePackPath = AutoTranslatorScanner.GetLocalPackPath();
-            string sourceLangsRoot = Path.Combine(sourcePackPath, "Languages");
 
 
             string safeModName = MakeSafeFolderName(mod.ModName);
@@ -219,24 +264,17 @@ namespace AutoTranslator_Core
 
         // 這個方法負責保存 Readme 資料。
         // EN: This method saves readme.
-        private static void WriteReadme(string exportRoot, List<ExportableModInfo> mods)
+        private static void WriteReadme(string exportRoot, string content)
         {
             string path = Path.Combine(exportRoot, "README_IMPORTANT.txt");
-            string content = ExportTemplates.GetReadme(mods);
             File.WriteAllText(path, content, Encoding.UTF8);
         }
 
         // 這個方法負責保存 ConsentRecord 資料。
         // EN: This method saves consent record.
-        private static void WriteConsentRecord(string exportRoot)
+        private static void WriteConsentRecord(string exportRoot, string content)
         {
             string path = Path.Combine(exportRoot, "EULA_Consent_Record.txt");
-            var settings = AutoTranslatorMod.Settings;
-            string content = ExportTemplates.GetConsentRecord(
-                settings.EulaAcceptedTimestamp,
-                settings.EulaAcceptedVersion,
-                settings.EulaAcceptCount
-            );
             File.WriteAllText(path, content, Encoding.UTF8);
         }
 

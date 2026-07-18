@@ -149,11 +149,47 @@ namespace AutoTranslator_Core
             public float CachedAt;
         }
 
+        public sealed class InstalledModStatusSnapshot
+        {
+            public string PackageId;
+            public string Name;
+            public string RootDir;
+            public bool Active;
+            public bool IsTranslationPatchMod;
+        }
+
+        public sealed class TranslationStatusCheckSnapshot
+        {
+            public string PackageId;
+            public string RootDir;
+            public TargetLanguage TargetLang;
+            public Dictionary<string, long> SavedTicks = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
+            public Dictionary<string, string> SavedFingerprints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            public List<InstalledModStatusSnapshot> ActiveMods = new List<InstalledModStatusSnapshot>();
+        }
+
+        public sealed class SourceFingerprintSnapshot
+        {
+            public long LatestTicks;
+            public string Fingerprint = "";
+        }
+
+        private sealed class LocalTranslationFilesSnapshot
+        {
+            public HashSet<string> PackageIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            public Dictionary<string, long> LatestTicksByPackageId = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
+        }
+
         // 這個方法負責取得 模組快取Key 資料。
         // EN: This method gets mod cache key.
         private static string GetModCacheKey(ModMetaData mod)
         {
-            return $"{AutoTranslatorMod.Settings.TargetLang}|{mod.PackageId}";
+            return GetModCacheKey(AutoTranslatorMod.Settings.TargetLang, mod.PackageId);
+        }
+
+        private static string GetModCacheKey(TargetLanguage targetLang, string packageId)
+        {
+            return $"{targetLang}|{packageId}";
         }
 
         // 這個方法負責嘗試執行 GetSavedTick 並回報是否成功。
@@ -346,6 +382,75 @@ namespace AutoTranslator_Core
             return GetTranslatedFilePackageIdsCached().Contains(NormalizePackageForComparison(mod.PackageId));
         }
 
+        public static string NormalizePackageIdForTranslationFileLookup(string packageId)
+        {
+            return NormalizePackageForComparison(packageId);
+        }
+
+        public static HashSet<string> GetPackageIdsWithLocalTranslationFilesForKnownPackages(IEnumerable<string> packageIds, TargetLanguage targetLang)
+        {
+            var knownPackageIds = (packageIds ?? Enumerable.Empty<string>())
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Select(NormalizePackageForComparison)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderByDescending(id => id.Length)
+                .ToList();
+
+            var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (knownPackageIds.Count == 0) return result;
+
+            try
+            {
+                string packPath = AutoTranslatorScanner.GetLocalPackPath();
+                string targetLangFolder = AutoTranslatorScanner.GetFolderNameByLanguage(targetLang);
+                string langRoot = Path.Combine(packPath, "Languages", targetLangFolder);
+                if (!Directory.Exists(langRoot)) return result;
+
+                foreach (string file in AutoTranslatorScanner.GetXmlFilesForTranslationCache(langRoot, SearchOption.AllDirectories))
+                {
+                    string matched = MatchPackagePrefixFromTranslationFile(file, knownPackageIds);
+                    if (!string.IsNullOrEmpty(matched) && knownPackageIds.Contains(matched))
+                    {
+                        result.Add(matched);
+                    }
+                }
+            }
+            catch { }
+
+            return result;
+        }
+
+        private static LocalTranslationFilesSnapshot BuildLocalTranslationFilesSnapshot(IEnumerable<string> packageIds, TargetLanguage targetLang)
+        {
+            var knownPackageIds = (packageIds ?? Enumerable.Empty<string>())
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Select(NormalizePackageForComparison)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderByDescending(id => id.Length)
+                .ToList();
+
+            LocalTranslationFilesSnapshot snapshot = new LocalTranslationFilesSnapshot();
+            if (knownPackageIds.Count == 0) return snapshot;
+
+            try
+            {
+                string packPath = AutoTranslatorScanner.GetLocalPackPath();
+                string targetLangFolder = AutoTranslatorScanner.GetFolderNameByLanguage(targetLang);
+                string langRoot = Path.Combine(packPath, "Languages", targetLangFolder);
+                if (!Directory.Exists(langRoot)) return snapshot;
+
+                foreach (string file in AutoTranslatorScanner.GetXmlFilesForTranslationCache(langRoot, SearchOption.AllDirectories))
+                {
+                    string matched = MatchPackagePrefixFromTranslationFile(file, knownPackageIds);
+                    if (string.IsNullOrEmpty(matched) || !knownPackageIds.Contains(matched)) continue;
+                    RememberTranslationFile(snapshot.PackageIds, snapshot.LatestTicksByPackageId, matched, file);
+                }
+            }
+            catch { }
+
+            return snapshot;
+        }
+
         // 這個方法負責嘗試執行 GetLocal翻譯LatestTicks 並回報是否成功。
         // EN: This method tries to get local translation latest ticks and reports whether it succeeded.
         private static bool TryGetLocalTranslationLatestTicks(ModMetaData mod, out long latestTicks)
@@ -400,36 +505,48 @@ namespace AutoTranslator_Core
         // EN: This method builds source snapshot.
         private static SourceSnapshot BuildSourceSnapshot(ModMetaData mod)
         {
+            if (mod == null || mod.RootDir == null) return new SourceSnapshot();
+            SourceSnapshot snapshot = BuildSourceSnapshot(
+                mod.PackageId,
+                mod.RootDir.FullName,
+                AutoTranslatorMod.Settings.TargetLang,
+                AutoTranslatorScanner.HasActiveExternalTargetLanguagePatch(mod, AutoTranslatorMod.Settings.TargetLang));
+            return snapshot;
+        }
+
+        private static SourceSnapshot BuildSourceSnapshot(string packageId, string rootDir, TargetLanguage targetLang, bool hasExternalTargetLanguagePatch)
+        {
             var snapshot = new SourceSnapshot();
             var files = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
 
             try
             {
-                AddIfExists(files, Path.Combine(mod.RootDir.FullName, "About", "About.xml"));
-                AddIfExists(files, Path.Combine(mod.RootDir.FullName, "LoadFolders.xml"));
+                if (string.IsNullOrWhiteSpace(rootDir)) return snapshot;
 
-                foreach (string langRoot in AutoTranslatorScanner.GetAllEffectiveLangPaths(mod))
+                AddIfExists(files, Path.Combine(rootDir, "About", "About.xml"));
+                AddIfExists(files, Path.Combine(rootDir, "LoadFolders.xml"));
+
+                foreach (string langRoot in AutoTranslatorScanner.GetAllEffectiveLangPaths(packageId, rootDir))
                 {
-                    foreach (string keyedPath in AutoTranslatorScanner.GetTranslatableLanguageBucketPaths(langRoot, AutoTranslatorMod.Settings.TargetLang, "Keyed", false))
+                    foreach (string keyedPath in AutoTranslatorScanner.GetTranslatableLanguageBucketPaths(langRoot, targetLang, "Keyed", false))
                     {
                         AddXmlFiles(files, keyedPath, snapshot);
                     }
 
-                    foreach (string defInjectedPath in AutoTranslatorScanner.GetTranslatableLanguageBucketPaths(langRoot, AutoTranslatorMod.Settings.TargetLang, "DefInjected", false))
+                    foreach (string defInjectedPath in AutoTranslatorScanner.GetTranslatableLanguageBucketPaths(langRoot, targetLang, "DefInjected", false))
                     {
                         AddXmlFiles(files, defInjectedPath, snapshot);
                     }
 
                     if (!snapshot.HasNativeTargetLanguage)
                     {
-                        snapshot.HasNativeTargetLanguage = AutoTranslatorScanner.HasNativeTargetLanguage(mod, AutoTranslatorMod.Settings.TargetLang);
+                        snapshot.HasNativeTargetLanguage = AutoTranslatorScanner.HasNativeTargetLanguage(packageId, rootDir, targetLang);
                     }
                 }
 
-                snapshot.HasExternalTargetLanguagePatch =
-                    AutoTranslatorScanner.HasActiveExternalTargetLanguagePatch(mod, AutoTranslatorMod.Settings.TargetLang);
+                snapshot.HasExternalTargetLanguagePatch = hasExternalTargetLanguagePatch;
 
-                foreach (string defsRoot in AutoTranslatorScanner.GetAllEffectiveDefsPaths(mod))
+                foreach (string defsRoot in AutoTranslatorScanner.GetAllEffectiveDefsPaths(packageId, rootDir))
                 {
                     AddXmlFiles(files, defsRoot, snapshot);
                 }
@@ -452,7 +569,7 @@ namespace AutoTranslator_Core
                     if (!info.Exists) continue;
 
                     snapshot.LatestTicks = Math.Max(snapshot.LatestTicks, info.LastWriteTimeUtc.Ticks);
-                    string relative = MakeRelativePath(mod.RootDir.FullName, info.FullName);
+                    string relative = MakeRelativePath(rootDir, info.FullName);
                     builder.Append(relative.ToLowerInvariant())
                         .Append('|')
                         .Append(info.Length)
@@ -535,6 +652,190 @@ namespace AutoTranslator_Core
 
         // 這個方法負責取得 翻譯Status 資料。
         // EN: This method gets translation status.
+        public static List<InstalledModStatusSnapshot> CreateInstalledModStatusSnapshots(IEnumerable<ModMetaData> mods)
+        {
+            return (mods ?? Enumerable.Empty<ModMetaData>())
+                .Where(m => m != null && m.Active && !string.IsNullOrWhiteSpace(m.PackageId))
+                .Select(m => new InstalledModStatusSnapshot
+                {
+                    PackageId = m.PackageId,
+                    Name = m.Name ?? "",
+                    RootDir = m.RootDir != null ? m.RootDir.FullName : "",
+                    Active = m.Active,
+                    IsTranslationPatchMod = AutoTranslatorScanner.IsTranslationPatchMod(m)
+                })
+                .ToList();
+        }
+
+        public static TranslationStatusCheckSnapshot CreateTranslationStatusCheckSnapshot(
+            ModMetaData mod,
+            List<InstalledModStatusSnapshot> activeMods)
+        {
+            if (mod == null || string.IsNullOrWhiteSpace(mod.PackageId)) return null;
+
+            return new TranslationStatusCheckSnapshot
+            {
+                PackageId = mod.PackageId,
+                RootDir = mod.RootDir != null ? mod.RootDir.FullName : "",
+                TargetLang = AutoTranslatorMod.Settings.TargetLang,
+                SavedTicks = AutoTranslatorMod.Settings.ModLastVerifiedTimes != null
+                    ? new Dictionary<string, long>(AutoTranslatorMod.Settings.ModLastVerifiedTimes, StringComparer.OrdinalIgnoreCase)
+                    : new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase),
+                SavedFingerprints = AutoTranslatorMod.Settings.ModLastVerifiedFingerprints != null
+                    ? new Dictionary<string, string>(AutoTranslatorMod.Settings.ModLastVerifiedFingerprints, StringComparer.OrdinalIgnoreCase)
+                    : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
+                ActiveMods = activeMods != null
+                    ? new List<InstalledModStatusSnapshot>(activeMods)
+                    : new List<InstalledModStatusSnapshot>()
+            };
+        }
+
+        public static SourceFingerprintSnapshot BuildSourceFingerprintSnapshot(string packageId, string rootDir, TargetLanguage targetLang)
+        {
+            SourceSnapshot source = BuildSourceSnapshot(packageId, rootDir, targetLang, false);
+            return new SourceFingerprintSnapshot
+            {
+                LatestTicks = source.LatestTicks,
+                Fingerprint = source.Fingerprint
+            };
+        }
+
+        public static void MarkModAsTranslatedSnapshot(string packageId, SourceFingerprintSnapshot source, bool refreshStatusCache = true)
+        {
+            if (string.IsNullOrWhiteSpace(packageId) || source == null) return;
+
+            if (AutoTranslatorMod.Settings.ModLastVerifiedTimes == null)
+            {
+                AutoTranslatorMod.Settings.ModLastVerifiedTimes = new Dictionary<string, long>();
+            }
+            if (AutoTranslatorMod.Settings.ModLastVerifiedFingerprints == null)
+            {
+                AutoTranslatorMod.Settings.ModLastVerifiedFingerprints = new Dictionary<string, string>();
+            }
+
+            AutoTranslatorMod.Settings.ModLastVerifiedTimes[packageId] = source.LatestTicks;
+            AutoTranslatorMod.Settings.ModLastVerifiedFingerprints[packageId] = source.Fingerprint;
+            LoadedModManager.GetMod<AutoTranslatorMod>().WriteSettings();
+
+            if (refreshStatusCache)
+            {
+                ClearStatusCache();
+            }
+        }
+
+        public static ModTranslationStatus GetTranslationStatus(TranslationStatusCheckSnapshot check)
+        {
+            if (check == null || string.IsNullOrWhiteSpace(check.PackageId)) return ModTranslationStatus.Untranslated;
+
+            string cacheKey = GetModCacheKey(check.TargetLang, check.PackageId);
+            float now = NowSeconds();
+            int generation;
+            lock (_cacheLock)
+            {
+                if (_statusCache.TryGetValue(cacheKey, out StatusSnapshot cached) &&
+                    now - cached.CachedAt <= StatusCacheSeconds)
+                {
+                    return cached.Status;
+                }
+
+                generation = _cacheGeneration;
+            }
+
+            ModTranslationStatus status = GetTranslationStatusUncached(check);
+            lock (_cacheLock)
+            {
+                if (generation == _cacheGeneration)
+                {
+                    _statusCache[cacheKey] = new StatusSnapshot
+                    {
+                        Status = status,
+                        CachedAt = now
+                    };
+                }
+            }
+            return status;
+        }
+
+        private static ModTranslationStatus GetTranslationStatusUncached(TranslationStatusCheckSnapshot check)
+        {
+            List<string> knownPackageIds = (check.ActiveMods ?? new List<InstalledModStatusSnapshot>())
+                .Where(m => m != null && !string.IsNullOrWhiteSpace(m.PackageId))
+                .Select(m => m.PackageId)
+                .Concat(new[] { check.PackageId })
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            LocalTranslationFilesSnapshot localFiles = BuildLocalTranslationFilesSnapshot(knownPackageIds, check.TargetLang);
+            SourceSnapshot source = BuildSourceSnapshot(
+                check.PackageId,
+                check.RootDir,
+                check.TargetLang,
+                HasActiveExternalTargetLanguagePatch(check));
+
+            bool hasLocalFiles = localFiles.PackageIds.Contains(NormalizePackageForComparison(check.PackageId));
+
+            if (source.HasNativeTargetLanguage || source.HasExternalTargetLanguagePatch)
+            {
+                return ModTranslationStatus.Translated;
+            }
+
+            if (!source.HasTranslatableSourceFiles)
+            {
+                return ModTranslationStatus.Filtered;
+            }
+
+            if (TryGetSavedFingerprint(check.SavedFingerprints, check.PackageId, out string savedFingerprint))
+            {
+                return string.Equals(source.Fingerprint, savedFingerprint, StringComparison.Ordinal)
+                    ? ModTranslationStatus.Translated
+                    : ModTranslationStatus.PossiblyOutdated;
+            }
+
+            if (TryGetSavedTick(check.SavedTicks, check.PackageId, out long savedTicks))
+            {
+                return source.LatestTicks > savedTicks
+                    ? ModTranslationStatus.PossiblyOutdated
+                    : ModTranslationStatus.Translated;
+            }
+
+            if (hasLocalFiles)
+            {
+                string normalizedPackageId = NormalizePackageForComparison(check.PackageId);
+                if (source.LatestTicks <= 0L ||
+                    (localFiles.LatestTicksByPackageId.TryGetValue(normalizedPackageId, out long localTicks) && localTicks >= source.LatestTicks))
+                {
+                    return ModTranslationStatus.Translated;
+                }
+
+                return ModTranslationStatus.PossiblyOutdated;
+            }
+
+            return ModTranslationStatus.Untranslated;
+        }
+
+        private static bool HasActiveExternalTargetLanguagePatch(TranslationStatusCheckSnapshot check)
+        {
+            if (check == null || string.IsNullOrWhiteSpace(check.PackageId) || check.ActiveMods == null) return false;
+
+            string targetPackageId = (check.PackageId ?? "").Trim().ToLowerInvariant();
+            foreach (InstalledModStatusSnapshot patchMod in check.ActiveMods)
+            {
+                if (patchMod == null || !patchMod.Active || !patchMod.IsTranslationPatchMod) continue;
+                if (string.IsNullOrWhiteSpace(patchMod.RootDir) || string.IsNullOrWhiteSpace(patchMod.PackageId)) continue;
+                if (!AutoTranslatorScanner.HasTranslationPatchTargetLanguage(patchMod.PackageId, patchMod.RootDir, check.TargetLang)) continue;
+
+                foreach (string referencedPackageId in AutoTranslatorScanner.GetReferencedTargetPackageIdsFromRoot(patchMod.RootDir))
+                {
+                    if (string.Equals(referencedPackageId, targetPackageId, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
         public static ModTranslationStatus GetTranslationStatus(ModMetaData mod)
         {
             if (mod == null) return ModTranslationStatus.Untranslated;
@@ -653,6 +954,42 @@ namespace AutoTranslator_Core
                 {
                     status = cached.Status;
                     return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool TryGetSavedTick(Dictionary<string, long> dict, string packageId, out long savedTicks)
+        {
+            savedTicks = 0L;
+            if (dict == null || string.IsNullOrEmpty(packageId)) return false;
+            if (dict.TryGetValue(packageId, out savedTicks)) return true;
+
+            foreach (var kv in dict)
+            {
+                if (string.Equals(kv.Key, packageId, StringComparison.OrdinalIgnoreCase))
+                {
+                    savedTicks = kv.Value;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool TryGetSavedFingerprint(Dictionary<string, string> dict, string packageId, out string savedFingerprint)
+        {
+            savedFingerprint = null;
+            if (dict == null || string.IsNullOrEmpty(packageId)) return false;
+            if (dict.TryGetValue(packageId, out savedFingerprint)) return !string.IsNullOrEmpty(savedFingerprint);
+
+            foreach (var kv in dict)
+            {
+                if (string.Equals(kv.Key, packageId, StringComparison.OrdinalIgnoreCase))
+                {
+                    savedFingerprint = kv.Value;
+                    return !string.IsNullOrEmpty(savedFingerprint);
                 }
             }
 

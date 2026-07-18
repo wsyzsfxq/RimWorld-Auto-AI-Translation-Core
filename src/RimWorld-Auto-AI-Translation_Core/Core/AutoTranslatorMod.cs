@@ -8,6 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
 using Verse;
@@ -38,6 +39,15 @@ namespace AutoTranslator_Core
         // 這個欄位保存 lastActive模組Count 的執行狀態或快取資料。
         // EN: This field stores last active mod count runtime state or cached data.
         private static int _lastActiveModCount = -1;
+        private static long _nextActiveModCountCheckUtcTicks = 0L;
+        private static bool _validModsCacheRefreshInFlight = false;
+        private static int _validModsCacheGeneration = 0;
+        private static int _validModsCacheVersion = 0;
+        private static int _validModsCacheProgressCurrent = 0;
+        private static int _validModsCacheProgressTotal = 0;
+        private static string _validModsCacheProgressModName = "";
+        private static string _lastActiveModSignature = "";
+        private static string _pendingActiveModSignature = "";
         // 這個欄位保存 cached雲端Lookup 的執行狀態或快取資料。
         // EN: This field stores cached cloud lookup runtime state or cached data.
         private static Dictionary<string, List<CloudModRecord>> _cachedCloudLookup = null;
@@ -47,7 +57,6 @@ namespace AutoTranslator_Core
         // 這個欄位保存 last雲端語言Folder 的執行狀態或快取資料。
         // EN: This field stores last cloud language folder runtime state or cached data.
         private static string _lastCloudLangFolder = "";
-        private static readonly Dictionary<string, float> _logHeightCache = new Dictionary<string, float>();
         // 這個欄位保存 lastActive分頁 的執行狀態或快取資料。
         // EN: This field stores last active tab runtime state or cached data.
         private static int _lastActiveTab = -1;
@@ -60,25 +69,198 @@ namespace AutoTranslator_Core
         // 這個欄位保存 cached雲端Valid模組Count 的執行狀態或快取資料。
         // EN: This field stores cached cloud valid mod count runtime state or cached data.
         private static int _cachedCloudValidModCount = -1;
+        private static int _cachedCloudDisplayValidVersion = -1;
+        private static readonly List<CloudModRecord> EmptyCloudRecords = new List<CloudModRecord>(0);
+        private static int _cachedCloudStatsRegistryCount = -1;
+        private static int _cachedCloudStatsGeneration = -1;
+        private static string _cachedCloudStatsLangFolder = "";
+        private static int _cachedCloudCurrentLangCount = 0;
+        private static int _cachedCloudOwnUploadCount = 0;
+        private static List<CloudModRecord> _cachedOwnCloudRecords = null;
+        private static int _cachedOwnCloudRecordsRegistryCount = -1;
+        private static int _cachedOwnCloudRecordsGeneration = -1;
+        private static string _cachedOwnCloudRecordsLangFolder = "";
+        private static string _cachedOwnCloudRecordsSearchText = "";
+        private static Dictionary<string, ModMetaData> _cachedCloudLocalModMap = null;
+        private static int _cachedCloudLocalModMapCount = -1;
+        private static int _cachedCloudLocalModMapVersion = -1;
+        private static readonly LogViewCache _runtimeLogViewCache = new LogViewCache();
+        private static readonly LogViewCache _errorLogViewCache = new LogViewCache();
+
+        private sealed class LogViewCache
+        {
+            public int SourceCount = -1;
+            public string FirstLine = "";
+            public string LastLine = "";
+            public float Width = -1f;
+            public readonly List<string> DisplayLogs = new List<string>();
+            public readonly List<float> Heights = new List<float>();
+            public float TotalHeight = 0f;
+        }
+
+        private sealed class ValidModSnapshot
+        {
+            public ModMetaData Mod;
+            public string PackageId;
+            public string Name;
+            public string RootDir;
+        }
+
+        public static bool IsValidModsCacheRefreshing => _validModsCacheRefreshInFlight;
+        public static int ValidModsCacheVersion => _validModsCacheVersion;
+        public static float ValidModsCacheProgress
+        {
+            get
+            {
+                int total = _validModsCacheProgressTotal;
+                if (total <= 0) return _validModsCacheRefreshInFlight ? 0f : 1f;
+                return Mathf.Clamp01((float)_validModsCacheProgressCurrent / total);
+            }
+        }
+        public static int ValidModsCacheProgressCurrent => _validModsCacheProgressCurrent;
+        public static int ValidModsCacheProgressTotal => _validModsCacheProgressTotal;
+        public static string ValidModsCacheProgressModName => _validModsCacheProgressModName ?? "";
 
 
         // 這個方法負責取得 Valid模組Cached 資料。
         // EN: This method gets valid mods cached.
         public static List<ModMetaData> GetValidModsCached()
         {
-            int currentCount = Verse.ModLister.AllInstalledMods.Count(m => m.Active);
-            if (_cachedValidMods == null || _lastActiveModCount != currentCount)
+            QueueValidModsCacheRefreshIfNeeded();
+            return _cachedValidMods ?? new List<ModMetaData>();
+        }
+
+        private static void QueueValidModsCacheRefreshIfNeeded()
+        {
+            long nowTicks = DateTime.UtcNow.Ticks;
+            if (_cachedValidMods != null && nowTicks < _nextActiveModCountCheckUtcTicks)
             {
-                _cachedValidMods = Verse.ModLister.AllInstalledMods.Where(m =>
-                    m.Active &&
-                    m.PackageId.ToLower() != "auto.aitranslation.core" &&
-                    m.PackageId.ToLower() != "aitranslation.pack" &&
-                    !m.PackageId.ToLower().StartsWith("ludeon.rimworld") &&
-                    !IsCodeOnlyMod(m)
-                ).OrderBy(m => m.Name).ToList();
-                _lastActiveModCount = currentCount;
+                return;
             }
-            return _cachedValidMods;
+
+            List<ValidModSnapshot> snapshots = SnapshotActiveModsForValidMods(out int activeCount, out string signature);
+            _nextActiveModCountCheckUtcTicks = nowTicks + TimeSpan.TicksPerSecond;
+
+            if (_cachedValidMods != null &&
+                !_validModsCacheRefreshInFlight &&
+                _lastActiveModCount == activeCount &&
+                string.Equals(_lastActiveModSignature, signature, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            if (_validModsCacheRefreshInFlight &&
+                string.Equals(_pendingActiveModSignature, signature, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            int generation = ++_validModsCacheGeneration;
+            _validModsCacheRefreshInFlight = true;
+            _pendingActiveModSignature = signature;
+            _validModsCacheProgressCurrent = 0;
+            _validModsCacheProgressTotal = snapshots.Count;
+            _validModsCacheProgressModName = "";
+
+            Task.Run(() =>
+            {
+                List<ModMetaData> validMods = new List<ModMetaData>();
+                string error = null;
+
+                try
+                {
+                    for (int i = 0; i < snapshots.Count; i++)
+                    {
+                        ValidModSnapshot snapshot = snapshots[i];
+                        _validModsCacheProgressCurrent = i;
+                        _validModsCacheProgressModName = snapshot != null ? snapshot.Name ?? "" : "";
+
+                        if (snapshot != null &&
+                            !ShouldSkipValidModPackage(snapshot.PackageId) &&
+                            AutoTranslatorScanner.HasScannableTranslationSources(snapshot.PackageId, snapshot.RootDir) &&
+                            snapshot.Mod != null)
+                        {
+                            validMods.Add(snapshot.Mod);
+                        }
+                    }
+
+                    _validModsCacheProgressCurrent = snapshots.Count;
+                    _validModsCacheProgressModName = "";
+                    validMods = validMods
+                        .OrderBy(m => m.Name ?? "", StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+                }
+                catch (Exception ex)
+                {
+                    error = ex.Message;
+                }
+
+                ATC_Dispatcher.RunOnMainThread(() =>
+                {
+                    if (generation != _validModsCacheGeneration) return;
+
+                    _validModsCacheRefreshInFlight = false;
+                    _pendingActiveModSignature = "";
+                    _validModsCacheProgressCurrent = _validModsCacheProgressTotal;
+                    _validModsCacheProgressModName = "";
+
+                    if (!string.IsNullOrEmpty(error))
+                    {
+                        Verse.Log.Warning($"[AutoTranslationCore] Valid mod cache refresh failed: {error}");
+                        _validModsCacheVersion++;
+                        return;
+                    }
+
+                    _cachedValidMods = validMods ?? new List<ModMetaData>();
+                    _lastActiveModCount = activeCount;
+                    _lastActiveModSignature = signature;
+                    _validModsCacheVersion++;
+                    _cachedCloudDisplayMods = null;
+                    _cachedCloudLocalModMap = null;
+                });
+            });
+        }
+
+        private static List<ValidModSnapshot> SnapshotActiveModsForValidMods(out int activeCount, out string signature)
+        {
+            List<ValidModSnapshot> snapshots = new List<ValidModSnapshot>();
+            StringBuilder signatureBuilder = new StringBuilder();
+            activeCount = 0;
+
+            foreach (ModMetaData mod in Verse.ModLister.AllInstalledMods)
+            {
+                if (mod == null || !mod.Active) continue;
+
+                activeCount++;
+                string packageId = mod.PackageId ?? "";
+                string name = mod.Name ?? "";
+                string rootDir = mod.RootDir != null ? mod.RootDir.FullName : "";
+
+                signatureBuilder.Append(packageId).Append('|')
+                    .Append(name).Append('|')
+                    .Append(rootDir).Append('\n');
+
+                snapshots.Add(new ValidModSnapshot
+                {
+                    Mod = mod,
+                    PackageId = packageId,
+                    Name = name,
+                    RootDir = rootDir
+                });
+            }
+
+            signature = activeCount + ":" + signatureBuilder;
+            return snapshots;
+        }
+
+        private static bool ShouldSkipValidModPackage(string packageId)
+        {
+            if (string.IsNullOrWhiteSpace(packageId)) return true;
+
+            string pid = packageId.ToLowerInvariant();
+            return pid == "auto.aitranslation.core" ||
+                   pid == "aitranslation.pack" ||
+                   pid.StartsWith("ludeon.rimworld");
         }
 
 

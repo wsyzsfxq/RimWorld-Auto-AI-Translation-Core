@@ -348,8 +348,18 @@ namespace AutoTranslator_Core
         // EN: This method parses load folders.
         private static List<string> ParseLoadFolders(ModMetaData mod)
         {
+            return mod == null || mod.RootDir == null
+                ? new List<string>()
+                : ParseLoadFolders(mod.RootDir.FullName);
+        }
+
+        private static List<string> ParseLoadFolders(string rootDir)
+        {
             List<string> activeFolders = new List<string>();
-            string loadFolderXml = Path.Combine(mod.RootDir.FullName, "LoadFolders.xml");
+            if (string.IsNullOrWhiteSpace(rootDir)) return activeFolders;
+
+            string modRoot = Path.GetFullPath(rootDir);
+            string loadFolderXml = Path.Combine(modRoot, "LoadFolders.xml");
 
             if (File.Exists(loadFolderXml))
             {
@@ -370,8 +380,8 @@ namespace AutoTranslator_Core
                                 {
                                     string relativePath = li.InnerText.Trim().Replace('/', '\\');
                                     string folderPath = relativePath == "\\" || relativePath == ""
-                                        ? mod.RootDir.FullName
-                                        : Path.Combine(mod.RootDir.FullName, relativePath);
+                                        ? modRoot
+                                        : Path.Combine(modRoot, relativePath);
 
                                     if (Directory.Exists(folderPath)) activeFolders.Add(folderPath);
                                 }
@@ -385,7 +395,7 @@ namespace AutoTranslator_Core
 
             if (activeFolders.Count == 0)
             {
-                activeFolders.Add(mod.RootDir.FullName);
+                activeFolders.Add(modRoot);
             }
 
             return activeFolders.Distinct().ToList();
@@ -399,9 +409,19 @@ namespace AutoTranslator_Core
             return GetModPathIndex(mod).EffectiveLangPaths;
         }
 
+        public static List<string> GetAllEffectiveLangPaths(string packageId, string rootDir)
+        {
+            return GetModPathIndex(packageId, rootDir).EffectiveLangPaths;
+        }
+
         public static List<string> GetAllTranslationPatchLangPaths(ModMetaData mod)
         {
             return GetModPathIndex(mod).TranslationPatchLangPaths;
+        }
+
+        public static List<string> GetAllTranslationPatchLangPaths(string packageId, string rootDir)
+        {
+            return GetModPathIndex(packageId, rootDir).TranslationPatchLangPaths;
         }
 
         public static bool HasScannableTranslationSources(ModMetaData mod)
@@ -409,6 +429,13 @@ namespace AutoTranslator_Core
             if (mod == null) return false;
             return GetAllEffectiveLangPaths(mod).Count > 0 ||
                    GetAllEffectiveDefsPaths(mod).Count > 0;
+        }
+
+        public static bool HasScannableTranslationSources(string packageId, string rootDir)
+        {
+            if (string.IsNullOrWhiteSpace(rootDir)) return false;
+            return GetAllEffectiveLangPaths(packageId, rootDir).Count > 0 ||
+                   GetAllEffectiveDefsPaths(packageId, rootDir).Count > 0;
         }
 
         private static void AddLanguageRootsFrom(string root, string modRoot, List<string> result)
@@ -442,9 +469,14 @@ namespace AutoTranslator_Core
         public static bool HasNativeTargetLanguage(ModMetaData mod, TargetLanguage targetLang)
         {
             if (mod == null) return false;
+            return HasNativeTargetLanguage(mod.PackageId, mod.RootDir != null ? mod.RootDir.FullName : "", targetLang);
+        }
 
+        public static bool HasNativeTargetLanguage(string packageId, string rootDir, TargetLanguage targetLang)
+        {
+            if (string.IsNullOrWhiteSpace(rootDir)) return false;
             string targetFolder = GetFolderNameByLanguage(targetLang);
-            foreach (string langRoot in GetAllEffectiveLangPaths(mod))
+            foreach (string langRoot in GetAllEffectiveLangPaths(packageId, rootDir))
             {
                 try
                 {
@@ -627,6 +659,11 @@ namespace AutoTranslator_Core
         public static List<string> GetAllEffectiveDefsPaths(ModMetaData mod)
         {
             return GetModPathIndex(mod).EffectiveDefsPaths;
+        }
+
+        public static List<string> GetAllEffectiveDefsPaths(string packageId, string rootDir)
+        {
+            return GetModPathIndex(packageId, rootDir).EffectiveDefsPaths;
         }
 
         private static void AddDefsRootsFrom(string root, string modRoot, List<string> result)

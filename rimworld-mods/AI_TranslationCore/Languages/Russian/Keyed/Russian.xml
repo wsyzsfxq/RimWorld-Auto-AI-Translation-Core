@@ -340,8 +340,10 @@
   <ATC_Cloud_Deleting>⏳ Процесс уничтожения данных...</ATC_Cloud_Deleting>
   <ATC_Cloud_ConnectionNormal>☁️ Подключение к облаку стабильно. В базе данных содержится {0} записей.</ATC_Cloud_ConnectionNormal>
   <ATC_Cloud_NoModsWarning>⚠️ Сопоставимые моды для перевода не обнаружены!\n(Если у вас запущены только оригинальная игра, DLC и сам этот мод, список будет пуст!)</ATC_Cloud_NoModsWarning>
-  <ATC_Cloud_Btn_BatchOfficial>👑 Скачать все качественные переводы</ATC_Cloud_Btn_BatchOfficial>
+  <ATC_Cloud_Btn_BatchOfficial>👑 Скачать официальные/командные переводы</ATC_Cloud_Btn_BatchOfficial>
+  <ATC_Cloud_Btn_BatchManual>🧑 Скачать переводы игроков</ATC_Cloud_Btn_BatchManual>
   <ATC_Cloud_Btn_BatchAI>🤖 Скачать все ИИ-переводы</ATC_Cloud_Btn_BatchAI>
+  <ATC_Cloud_Btn_BatchBest>✨ Скачать лучший перевод</ATC_Cloud_Btn_BatchBest>
   <ATC_Msg_DownloadStart>📥 Получение облачных файлов: {0}...</ATC_Msg_DownloadStart>
   <ATC_Msg_DownloadSuccess>✅ Эирдроп выполнен! Перевод {0} успешно залит в активную память!</ATC_Msg_DownloadSuccess>
   <ATC_Msg_DownloadFailed>❌ Не удалось подгрузить облачный файл: {0}</ATC_Msg_DownloadFailed>
@@ -383,7 +385,9 @@
   <ATC_Btn_Cancel>Оставить все как есть</ATC_Btn_Cancel>
   <ATC_Log_FactoryResetSuccess>Устройство успешно сброшено до заводских настроек, кэш очищен.</ATC_Log_FactoryResetSuccess>
   <ATC_Msg_FactoryResetSuccess>Сброс завершен! Все локальные файлы переводов удалены.</ATC_Msg_FactoryResetSuccess>
+  <ATC_Cloud_PreparingBatchDownload>Подготовка пакетной загрузки...</ATC_Cloud_PreparingBatchDownload>
   <ATC_Cloud_Downloading>Скачивание из облака: {0}</ATC_Cloud_Downloading>
+  <ATC_Cloud_RepairingBatch>Восстановление загруженных переводов: {0}</ATC_Cloud_RepairingBatch>
   <ATC_Cloud_Uploading>Выгрузка в облако: {0}</ATC_Cloud_Uploading>
   <ATC_LogError_DownloadCorrupted>Сбой распаковки или повреждение архива! Поврежденные пустые файлы удалены. Мод: {0}, Ошибка: {1}</ATC_LogError_DownloadCorrupted>
   <ATC_Log_CloudPrefetchSuccess>Список актуальных файлов из облачного хаба успешно получен (синхронизировано {0} записей).</ATC_Log_CloudPrefetchSuccess>
@@ -469,6 +473,17 @@
   <ATC_Lang_All>🌍 Все доступные языки (All)</ATC_Lang_All>
   <ATC_Workbench_GlobalSearching>🔄 Запущено фоновое сканирование локальных кэшей игры...</ATC_Workbench_GlobalSearching>
   <ATC_Workbench_GlobalSearchNoResult>Совпадений в переведенных текстах не обнаружено.</ATC_Workbench_GlobalSearchNoResult>
+  <ATC_Workbench_SearchSnapshotLabel>Показаны результаты для «{0}»</ATC_Workbench_SearchSnapshotLabel>
+  <ATC_Workbench_SearchTextChanged>Текст поиска изменен. Нажмите Search, чтобы обновить результаты.</ATC_Workbench_SearchTextChanged>
+  <ATC_Workbench_ReturnToSearchResults>Вернуться к глобальным результатам</ATC_Workbench_ReturnToSearchResults>
+  <ATC_Workbench_FocusedSearchResult>Из глобального поиска: «{0}»</ATC_Workbench_FocusedSearchResult>
+  <ATC_Workbench_NoLongerMatchesSearch>Изменено, больше не соответствует исходному поиску</ATC_Workbench_NoLongerMatchesSearch>
+  <ATC_Workbench_RevertItem>Откатить</ATC_Workbench_RevertItem>
+  <ATC_Workbench_ItemReverted>Элемент восстановлен.</ATC_Workbench_ItemReverted>
+  <ATC_Workbench_SaveSynced>Синхронизировано</ATC_Workbench_SaveSynced>
+  <ATC_Workbench_UnsavedChanges>Есть несохраненные изменения.</ATC_Workbench_UnsavedChanges>
+  <ATC_Workbench_Saving>Сохранение...</ATC_Workbench_Saving>
+  <ATC_Workbench_SavedInline>Сохранено и применено.</ATC_Workbench_SavedInline>
   <ATC_Msg_UploadLogRequired>⚠️ Для поддержания порядка в облаке укажите детали вашей правки в левом нижнем углу (минимум 5 символов)!</ATC_Msg_UploadLogRequired>
   <ATC_Btn_RepairLegacyTranslations>&#x418;&#x441;&#x43F;&#x440;&#x430;&#x432;&#x438;&#x442;&#x44C; &#x441;&#x442;&#x430;&#x440;&#x44B;&#x439; &#x444;&#x43E;&#x440;&#x43C;&#x430;&#x442; &#x43F;&#x435;&#x440;&#x435;&#x432;&#x43E;&#x434;&#x430;</ATC_Btn_RepairLegacyTranslations>
   <ATC_Msg_RepairLegacyTranslationsDone>&#x418;&#x441;&#x43F;&#x440;&#x430;&#x432;&#x43B;&#x435;&#x43D;&#x438;&#x435; &#x441;&#x442;&#x430;&#x440;&#x43E;&#x433;&#x43E; &#x444;&#x43E;&#x440;&#x43C;&#x430;&#x442;&#x430; &#x437;&#x430;&#x432;&#x435;&#x440;&#x448;&#x435;&#x43D;&#x43E;: &#x438;&#x441;&#x43F;&#x440;&#x430;&#x432;&#x43B;&#x435;&#x43D;&#x43E; {1} &#x437;&#x430;&#x43F;&#x438;&#x441;&#x435;&#x439; &#x432; {0} &#x444;&#x430;&#x439;&#x43B;&#x430;&#x445;; {2} &#x441;&#x43B;&#x43E;&#x436;&#x43D;&#x44B;&#x445; &#x441;&#x442;&#x440;&#x443;&#x43A;&#x442;&#x443;&#x440; &#x442;&#x440;&#x435;&#x431;&#x443;&#x44E;&#x442; &#x43F;&#x440;&#x43E;&#x432;&#x435;&#x440;&#x43A;&#x438;.</ATC_Msg_RepairLegacyTranslationsDone>

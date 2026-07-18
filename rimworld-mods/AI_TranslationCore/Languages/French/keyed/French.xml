@@ -340,8 +340,10 @@
   <ATC_Cloud_Deleting>⏳ Processus d'élimination des données...</ATC_Cloud_Deleting>
   <ATC_Cloud_ConnectionNormal>☁️ Connexion au hub cloud stable. La base contient actuellement {0} enregistrements.</ATC_Cloud_ConnectionNormal>
   <ATC_Cloud_NoModsWarning>⚠️ Aucun mod tiers correspondant n'a été trouvé !\n(Si vous n'utilisez que le jeu d'origine, les DLC et ce mod système, la liste sera vide !)</ATC_Cloud_NoModsWarning>
-  <ATC_Cloud_Btn_BatchOfficial>👑 Télécharger toutes les traductions officielles</ATC_Cloud_Btn_BatchOfficial>
+  <ATC_Cloud_Btn_BatchOfficial>👑 Télécharger officiel/équipe</ATC_Cloud_Btn_BatchOfficial>
+  <ATC_Cloud_Btn_BatchManual>🧑 Télécharger les traductions joueur</ATC_Cloud_Btn_BatchManual>
   <ATC_Cloud_Btn_BatchAI>🤖 Télécharger toutes les traductions IA</ATC_Cloud_Btn_BatchAI>
+  <ATC_Cloud_Btn_BatchBest>✨ Télécharger la meilleure traduction</ATC_Cloud_Btn_BatchBest>
   <ATC_Msg_DownloadStart>📥 Récupération des fichiers cloud : {0}...</ATC_Msg_DownloadStart>
   <ATC_Msg_DownloadSuccess>✅ Parachutage réussi ! La traduction {0} est injectée en jeu !</ATC_Msg_DownloadSuccess>
   <ATC_Msg_DownloadFailed>❌ Impossible de charger le fichier cloud : {0}</ATC_Msg_DownloadFailed>
@@ -383,7 +385,9 @@
   <ATC_Btn_Cancel>Laisser en l'état</ATC_Btn_Cancel>
   <ATC_Log_FactoryResetSuccess>L'application a été réinitialisée avec succès aux paramètres d'usine, cache vidé.</ATC_Log_FactoryResetSuccess>
   <ATC_Msg_FactoryResetSuccess>Réinitialisation terminée ! Tous les fichiers de traduction locaux ont été supprimés.</ATC_Msg_FactoryResetSuccess>
+  <ATC_Cloud_PreparingBatchDownload>Préparation du téléchargement par lot...</ATC_Cloud_PreparingBatchDownload>
   <ATC_Cloud_Downloading>Téléchargement du cloud : {0}</ATC_Cloud_Downloading>
+  <ATC_Cloud_RepairingBatch>Réparation des traductions téléchargées : {0}</ATC_Cloud_RepairingBatch>
   <ATC_Cloud_Uploading>Envoi vers le cloud : {0}</ATC_Cloud_Uploading>
   <ATC_LogError_DownloadCorrupted>Échec d'extraction ou archive corrompue ! Les fichiers vides ou endommagés ont été retirés. Mod : {0}, Erreur : {1}</ATC_LogError_DownloadCorrupted>
   <ATC_Log_CloudPrefetchSuccess>Liste des fichiers à jour récupérée avec succès depuis le hub cloud (synchronisation de {0} entrées).</ATC_Log_CloudPrefetchSuccess>
@@ -469,6 +473,17 @@
   <ATC_Lang_All>🌍 Toutes les langues disponibles (All)</ATC_Lang_All>
   <ATC_Workbench_GlobalSearching>🔄 Balayage asynchrone des caches locaux du jeu en cours...</ATC_Workbench_GlobalSearching>
   <ATC_Workbench_GlobalSearchNoResult>Aucune correspondance trouvée dans les textes de traduction.</ATC_Workbench_GlobalSearchNoResult>
+  <ATC_Workbench_SearchSnapshotLabel>Résultats affichés pour « {0} »</ATC_Workbench_SearchSnapshotLabel>
+  <ATC_Workbench_SearchTextChanged>Le texte de recherche a changé. Appuyez sur Search pour actualiser.</ATC_Workbench_SearchTextChanged>
+  <ATC_Workbench_ReturnToSearchResults>Retour aux résultats globaux</ATC_Workbench_ReturnToSearchResults>
+  <ATC_Workbench_FocusedSearchResult>Depuis la recherche globale : « {0} »</ATC_Workbench_FocusedSearchResult>
+  <ATC_Workbench_NoLongerMatchesSearch>Modifié, ne correspond plus à la recherche initiale</ATC_Workbench_NoLongerMatchesSearch>
+  <ATC_Workbench_RevertItem>Rétablir</ATC_Workbench_RevertItem>
+  <ATC_Workbench_ItemReverted>Élément rétabli.</ATC_Workbench_ItemReverted>
+  <ATC_Workbench_SaveSynced>Synchronisé</ATC_Workbench_SaveSynced>
+  <ATC_Workbench_UnsavedChanges>Modifications non enregistrées.</ATC_Workbench_UnsavedChanges>
+  <ATC_Workbench_Saving>Enregistrement...</ATC_Workbench_Saving>
+  <ATC_Workbench_SavedInline>Enregistré et appliqué.</ATC_Workbench_SavedInline>
   <ATC_Msg_UploadLogRequired>⚠️ Pour préserver l'organisation de l'atelier, veuillez détailler vos modifications en bas à gauche (5 caractères minimum) !</ATC_Msg_UploadLogRequired>
   <ATC_Btn_RepairLegacyTranslations>Repair Legacy Translation Format</ATC_Btn_RepairLegacyTranslations>
   <ATC_Msg_RepairLegacyTranslationsDone>Legacy translation repair complete: fixed {1} entries across {0} files; {2} high-risk structure entries still need review.</ATC_Msg_RepairLegacyTranslationsDone>

@@ -48,12 +48,22 @@ namespace AutoTranslator_Core
                     StartCloudRegistryFetch();
                 }
 
+                GUI.color = new Color(0.45f, 1f, 0.65f);
+                if (Widgets.ButtonText(new Rect(topBarRect1.x + 150f, topBarRect1.y, 170f, topBarRect1.height), "ATC_Cloud_Btn_BatchBest".Translate()))
+                    ExecuteBatchDownload("Best");
+
                 GUI.color = new Color(1f, 0.8f, 0.2f);
-                if (Widgets.ButtonText(new Rect(topBarRect1.x + 150f, topBarRect1.y, 140f, topBarRect1.height), "ATC_Cloud_Btn_BatchOfficial".Translate()))
+                if (Widgets.ButtonText(new Rect(topBarRect1.x + 330f, topBarRect1.y, 170f, topBarRect1.height), "ATC_Cloud_Btn_BatchOfficial".Translate()))
                     ExecuteBatchDownload("Official_Group");
+                GUI.color = Color.white;
+
+                Rect downloadBarRect2 = l.GetRect(30f);
+                GUI.color = new Color(0.7f, 1f, 0.75f);
+                if (Widgets.ButtonText(new Rect(downloadBarRect2.x, downloadBarRect2.y, 170f, downloadBarRect2.height), "ATC_Cloud_Btn_BatchManual".Translate()))
+                    ExecuteBatchDownload("Manual");
 
                 GUI.color = new Color(0.4f, 0.8f, 1f);
-                if (Widgets.ButtonText(new Rect(topBarRect1.x + 300f, topBarRect1.y, 140f, topBarRect1.height), "ATC_Cloud_Btn_BatchAI".Translate()))
+                if (Widgets.ButtonText(new Rect(downloadBarRect2.x + 180f, downloadBarRect2.y, 170f, downloadBarRect2.height), "ATC_Cloud_Btn_BatchAI".Translate()))
                     ExecuteBatchDownload("AI_Auto");
                 GUI.color = Color.white;
             }
@@ -241,7 +251,7 @@ namespace AutoTranslator_Core
                 }
                 else
                 {
-                    allVersions = new List<CloudModRecord>();
+                    allVersions = EmptyCloudRecords;
                 }
 
                 AutoTranslatorSettings.SelectedCloudVersion.TryGetValue(mod.PackageId, out CloudModRecord cloudRecord);
@@ -496,8 +506,8 @@ namespace AutoTranslator_Core
         {
             if (record == null) return;
 
-            ModMetaData localMod = GetValidModsCached()
-                .FirstOrDefault(m => m != null && string.Equals(m.PackageId, record.PackageId, StringComparison.OrdinalIgnoreCase));
+            ModMetaData localMod = null;
+            GetCloudLocalModMap().TryGetValue(record.PackageId ?? "", out localMod);
 
             if (localMod != null)
             {
@@ -575,6 +585,29 @@ namespace AutoTranslator_Core
             GUI.color = new Color(0.8f, 0.8f, 0.8f);
             Widgets.Label(statusRect, "ATC_Cloud_Status_NotInstalled".Translate(record.LastUpdated.ToString("yyyy-MM-dd HH:mm"), currentLocType));
             GUI.color = Color.white;
+        }
+
+        private static Dictionary<string, ModMetaData> GetCloudLocalModMap()
+        {
+            List<ModMetaData> validMods = GetValidModsCached() ?? new List<ModMetaData>();
+            if (_cachedCloudLocalModMap != null &&
+                _cachedCloudLocalModMapCount == validMods.Count &&
+                _cachedCloudLocalModMapVersion == ValidModsCacheVersion)
+            {
+                return _cachedCloudLocalModMap;
+            }
+
+            var map = new Dictionary<string, ModMetaData>(StringComparer.OrdinalIgnoreCase);
+            foreach (ModMetaData mod in validMods)
+            {
+                if (mod == null || string.IsNullOrEmpty(mod.PackageId)) continue;
+                if (!map.ContainsKey(mod.PackageId)) map.Add(mod.PackageId, mod);
+            }
+
+            _cachedCloudLocalModMap = map;
+            _cachedCloudLocalModMapCount = validMods.Count;
+            _cachedCloudLocalModMapVersion = ValidModsCacheVersion;
+            return _cachedCloudLocalModMap;
         }
 
         private static string GetCloudTranslationTypeLabel(string type)

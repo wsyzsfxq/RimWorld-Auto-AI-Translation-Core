@@ -7,109 +7,219 @@ using System.Threading.Tasks;
 using UnityEngine;
 using Verse;
 using static AutoTranslator_Core.DeleteTranslationWindow;
-// 這個檔案負責 翻譯工作台分頁存取 相關邏輯，支援 Auto Translation Core 的執行流程。
-// EN: This file contains translation workbench tab persistence support code.
 
 namespace AutoTranslator_Core
 {
-        // 這個類別負責 翻譯工作台分頁 的主要流程與狀態。
-        // EN: This class manages the main workflow and state for TranslationWorkbenchTab.
         public static partial class TranslationWorkbenchTab
         {
-
-            // 這個方法負責保存 Modifications 資料。
-            // EN: This method saves modifications.
             private static void SaveModifications()
             {
                 if (_editingMod == null) return;
+                if (_isSavingModifications) return;
 
+                WorkbenchSaveSnapshot snapshot = CreateSaveSnapshot();
+                if (snapshot.Categories.Count == 0)
+                {
+                    AutoTranslatorSettings.AddLog("? " + "ATC_Log_WorkbenchSaved".Translate(0));
+                    Verse.Messages.Message("ATC_Workbench_SaveSuccess".Translate(), MessageTypeDefOf.PositiveEvent, false);
+                    return;
+                }
 
+                _isSavingModifications = true;
+                SetWorkbenchStatus("ATC_Workbench_Saving".Translate().ToString());
+                Task.Run(() =>
+                {
+                    WorkbenchSaveResult result = SaveSnapshot(snapshot);
+                    ATC_Dispatcher.RunOnMainThread(() => CompleteSave(snapshot, result));
+                });
+            }
+
+            private static WorkbenchSaveSnapshot CreateSaveSnapshot()
+            {
                 string targetLangFolder = AutoTranslatorScanner.GetFolderNameByLanguage(AutoTranslatorMod.Settings.TargetLang);
                 string packPath = AutoTranslatorScanner.GetLocalPackPath();
                 string cleanPackageId = _editingMod.PackageId.Replace(".", "_").ToLower();
-                string workspaceBaseDir = System.IO.Path.Combine(packPath, "Upload_Workspace");
-                int savedCount = 0;
-                bool touchedTranslationFiles = false;
-                var clearKeysByDefType = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+                WorkbenchSaveSnapshot snapshot = new WorkbenchSaveSnapshot
+                {
+                    Mod = _editingMod,
+                    PackageId = _editingMod.PackageId,
+                    RootDir = _editingMod.RootDir != null ? _editingMod.RootDir.FullName : "",
+                    TargetLang = AutoTranslatorMod.Settings.TargetLang,
+                    TargetLangFolder = targetLangFolder,
+                    PackPath = packPath,
+                    CleanPackageId = cleanPackageId
+                };
 
                 foreach (var categoryPair in _categorizedData)
                 {
-                    bool categoryModified = categoryPair.Value.Any(item => item.IsModified || !string.Equals(item.TranslatedText ?? "", item.OriginalTranslatedText ?? "", StringComparison.Ordinal));
+                    bool categoryModified = categoryPair.Value.Any(item =>
+                        item.IsModified ||
+                        !string.Equals(item.TranslatedText ?? "", item.OriginalTranslatedText ?? "", StringComparison.Ordinal));
                     if (!categoryModified) continue;
 
-                    string category = categoryPair.Key;
-                    clearKeysByDefType[category] = new HashSet<string>(
-                        categoryPair.Value.Where(item => !string.IsNullOrWhiteSpace(item.Key)).Select(item => item.Key),
-                        StringComparer.OrdinalIgnoreCase);
-
-                    string targetDir = category == "Keyed"
-                        ? System.IO.Path.Combine(packPath, "Languages", targetLangFolder, "Keyed")
-                        : System.IO.Path.Combine(packPath, "Languages", targetLangFolder, "DefInjected", category);
-                    string workspaceDir = category == "Keyed"
-                        ? System.IO.Path.Combine(workspaceBaseDir, _editingMod.PackageId, targetLangFolder, "Keyed")
-                        : System.IO.Path.Combine(workspaceBaseDir, _editingMod.PackageId, targetLangFolder, "DefInjected", category);
-
-                    System.IO.Directory.CreateDirectory(targetDir);
-                    System.IO.Directory.CreateDirectory(workspaceDir);
-
-                    foreach (var oldFile in AutoTranslatorScanner.GetXmlFilesForTranslationCache(workspaceDir, System.IO.SearchOption.TopDirectoryOnly))
+                    WorkbenchSaveCategorySnapshot category = new WorkbenchSaveCategorySnapshot
                     {
-                        System.IO.File.Delete(oldFile);
-                        AutoTranslatorScanner.NotifyTranslationFileChanged(oldFile);
-                        touchedTranslationFiles = true;
-                    }
-                    foreach (var oldFile in AutoTranslatorScanner.GetXmlFilesForTranslationCache(targetDir, System.IO.SearchOption.TopDirectoryOnly))
+                        Category = categoryPair.Key,
+                        ClearKeys = new HashSet<string>(
+                            categoryPair.Value.Where(item => !string.IsNullOrWhiteSpace(item.Key)).Select(item => item.Key),
+                            StringComparer.OrdinalIgnoreCase)
+                    };
+
+                    foreach (WorkbenchItem item in categoryPair.Value)
                     {
-                        if (System.IO.Path.GetFileName(oldFile).ToLower().Contains(cleanPackageId))
+                        if (item == null || string.IsNullOrWhiteSpace(item.Key)) continue;
+                        category.Items.Add(new WorkbenchSaveItemSnapshot
                         {
-                            System.IO.File.SetAttributes(oldFile, System.IO.FileAttributes.Normal);
-                            System.IO.File.Delete(oldFile);
+                            Key = item.Key,
+                            TranslatedText = item.TranslatedText,
+                            IsModified = item.IsModified
+                        });
+                    }
+
+                    snapshot.Categories.Add(category);
+                }
+
+                return snapshot;
+            }
+
+            private static WorkbenchSaveResult SaveSnapshot(WorkbenchSaveSnapshot snapshot)
+            {
+                WorkbenchSaveResult result = new WorkbenchSaveResult();
+                if (snapshot == null) return result;
+
+                string workspaceBaseDir = Path.Combine(snapshot.PackPath, "Upload_Workspace");
+
+                try
+                {
+                    foreach (WorkbenchSaveCategorySnapshot category in snapshot.Categories)
+                    {
+                        if (category == null) continue;
+                        result.ClearKeysByDefType[category.Category] =
+                            new HashSet<string>(category.ClearKeys, StringComparer.OrdinalIgnoreCase);
+
+                        string targetDir = category.Category == "Keyed"
+                            ? Path.Combine(snapshot.PackPath, "Languages", snapshot.TargetLangFolder, "Keyed")
+                            : Path.Combine(snapshot.PackPath, "Languages", snapshot.TargetLangFolder, "DefInjected", category.Category);
+                        string workspaceDir = category.Category == "Keyed"
+                            ? Path.Combine(workspaceBaseDir, snapshot.PackageId, snapshot.TargetLangFolder, "Keyed")
+                            : Path.Combine(workspaceBaseDir, snapshot.PackageId, snapshot.TargetLangFolder, "DefInjected", category.Category);
+
+                        Directory.CreateDirectory(targetDir);
+                        Directory.CreateDirectory(workspaceDir);
+
+                        foreach (string oldFile in AutoTranslatorScanner.GetXmlFilesForTranslationCache(workspaceDir, SearchOption.TopDirectoryOnly))
+                        {
+                            File.Delete(oldFile);
                             AutoTranslatorScanner.NotifyTranslationFileChanged(oldFile);
-                            touchedTranslationFiles = true;
+                            result.TouchedTranslationFiles = true;
+                        }
+
+                        foreach (string oldFile in AutoTranslatorScanner.GetXmlFilesForTranslationCache(targetDir, SearchOption.TopDirectoryOnly))
+                        {
+                            if (Path.GetFileName(oldFile).ToLower().Contains(snapshot.CleanPackageId))
+                            {
+                                File.SetAttributes(oldFile, FileAttributes.Normal);
+                                File.Delete(oldFile);
+                                AutoTranslatorScanner.NotifyTranslationFileChanged(oldFile);
+                                result.TouchedTranslationFiles = true;
+                            }
+                        }
+
+                        string targetFile = Path.Combine(targetDir, $"{snapshot.CleanPackageId}_AutoTranslated.xml");
+                        string workspaceFile = Path.Combine(workspaceDir, $"{snapshot.CleanPackageId}_AutoTranslated.xml");
+
+                        Dictionary<string, string> fullDictToSave = new Dictionary<string, string>();
+                        foreach (WorkbenchSaveItemSnapshot item in category.Items)
+                        {
+                            if (!string.IsNullOrWhiteSpace(item.TranslatedText)) fullDictToSave[item.Key] = item.TranslatedText;
+                            if (item.IsModified) result.SavedCount++;
+                        }
+
+                        if (fullDictToSave.Count > 0)
+                        {
+                            AutoTranslatorScanner.SaveXml(targetFile, fullDictToSave);
+                            AutoTranslatorScanner.SaveXml(workspaceFile, fullDictToSave);
+                            result.TouchedTranslationFiles = true;
                         }
                     }
 
-                    string targetFile = System.IO.Path.Combine(targetDir, $"{cleanPackageId}_AutoTranslated.xml");
-                    string workspaceFile = System.IO.Path.Combine(workspaceDir, $"{cleanPackageId}_AutoTranslated.xml");
-
-                    Dictionary<string, string> fullDictToSave = new Dictionary<string, string>();
-                    foreach (var item in categoryPair.Value)
-                    {
-                        if (!string.IsNullOrWhiteSpace(item.TranslatedText)) fullDictToSave[item.Key] = item.TranslatedText;
-                        if (item.IsModified) { item.IsModified = false; item.OriginalTranslatedText = item.TranslatedText; savedCount++; }
-                    }
-
-                    if (fullDictToSave.Count > 0)
-                    {
-                        AutoTranslatorScanner.SaveXml(targetFile, fullDictToSave);
-                        AutoTranslatorScanner.SaveXml(workspaceFile, fullDictToSave);
-                        touchedTranslationFiles = true;
-                    }
+                    result.HasSavedTranslation = HasAnySavedTranslationForCurrentMod(snapshot.TargetLangFolder, snapshot.CleanPackageId);
+                    result.SourceFingerprint = ModUpdateDetector.BuildSourceFingerprintSnapshot(
+                        snapshot.PackageId,
+                        snapshot.RootDir,
+                        snapshot.TargetLang);
+                }
+                catch (Exception ex)
+                {
+                    result.Error = ex.Message;
+                    Verse.Log.Warning($"[AutoTranslationCore] Workbench background save failed: {ex}");
                 }
 
-                AutoTranslatorSettings.AddLog("💾 " + "ATC_Log_WorkbenchSaved".Translate(savedCount));
-                if (touchedTranslationFiles)
+                return result;
+            }
+
+            private static void CompleteSave(WorkbenchSaveSnapshot snapshot, WorkbenchSaveResult result)
+            {
+                _isSavingModifications = false;
+                if (result == null) result = new WorkbenchSaveResult();
+
+                if (!string.IsNullOrEmpty(result.Error))
                 {
-                    AutoTranslatorScanner.RequestMemoryDropForPackage(_editingMod.PackageId, clearKeysByDefType);
+                    SetWorkbenchStatus(result.Error);
+                    Verse.Messages.Message(result.Error, MessageTypeDefOf.RejectInput, false);
+                    return;
+                }
+
+                MarkSavedSnapshotItems(snapshot);
+                SetWorkbenchStatus("ATC_Workbench_SavedInline".Translate().ToString());
+                AutoTranslatorSettings.AddLog("? " + "ATC_Log_WorkbenchSaved".Translate(result.SavedCount));
+                Verse.Messages.Message("ATC_Workbench_SaveSuccess".Translate(), MessageTypeDefOf.PositiveEvent, false);
+
+                if (result.TouchedTranslationFiles)
+                {
+                    AutoTranslatorScanner.RequestMemoryDropForPackage(snapshot.PackageId, result.ClearKeysByDefType);
                     UIInterceptor.RefreshRuntimeUICache();
                 }
 
                 InitTranslatedModsCache();
-                if (HasAnySavedTranslationForCurrentMod(targetLangFolder, cleanPackageId))
+                if (result.HasSavedTranslation)
                 {
-                    MarkPackageTranslated(_editingMod.PackageId);
-                    ModUpdateDetector.MarkModAsTranslated(_editingMod.PackageId, _editingMod.RootDir.FullName);
+                    MarkPackageTranslated(snapshot.PackageId);
+                    ModUpdateDetector.MarkModAsTranslatedSnapshot(snapshot.PackageId, result.SourceFingerprint);
                 }
+            }
+
+            private static void MarkSavedSnapshotItems(WorkbenchSaveSnapshot snapshot)
+            {
+                if (snapshot == null || snapshot.Categories == null) return;
+
+                foreach (WorkbenchSaveCategorySnapshot category in snapshot.Categories)
+                {
+                    if (category == null || !_categorizedData.TryGetValue(category.Category, out List<WorkbenchItem> currentItems)) continue;
+                    HashSet<string> modifiedKeys = new HashSet<string>(
+                        category.Items.Where(i => i != null && i.IsModified && !string.IsNullOrWhiteSpace(i.Key)).Select(i => i.Key),
+                        StringComparer.OrdinalIgnoreCase);
+
+                    foreach (WorkbenchItem item in currentItems)
+                    {
+                        if (item == null || !modifiedKeys.Contains(item.Key ?? "")) continue;
+                        item.IsModified = false;
+                        item.OriginalTranslatedText = item.TranslatedText;
+                    }
+                }
+
+                _categorizedDataVersion++;
+                InvalidateVisibleItemCache();
             }
 
             private static bool HasAnySavedTranslationForCurrentMod(string targetLangFolder, string cleanPackageId)
             {
-                string langRoot = System.IO.Path.Combine(AutoTranslatorScanner.GetLocalPackPath(), "Languages", targetLangFolder);
-                if (!System.IO.Directory.Exists(langRoot)) return false;
+                string langRoot = Path.Combine(AutoTranslatorScanner.GetLocalPackPath(), "Languages", targetLangFolder);
+                if (!Directory.Exists(langRoot)) return false;
 
-                foreach (var file in AutoTranslatorScanner.GetXmlFilesForTranslationCache(langRoot, System.IO.SearchOption.AllDirectories))
+                foreach (var file in AutoTranslatorScanner.GetXmlFilesForTranslationCache(langRoot, SearchOption.AllDirectories))
                 {
-                    if (!System.IO.Path.GetFileName(file).ToLower().Contains(cleanPackageId)) continue;
+                    if (!Path.GetFileName(file).ToLower().Contains(cleanPackageId)) continue;
                     if (AutoTranslatorScanner.LoadXmlFileToDict(file).Count > 0) return true;
                 }
 

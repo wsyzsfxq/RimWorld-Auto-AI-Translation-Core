@@ -37,10 +37,18 @@ namespace AutoTranslator_Core
         private List<ModMetaData> cachedDisplayMods = null;
         private string cachedSearchText = null;
         private int cachedValidModCount = -1;
+        private int cachedValidModVersion = -1;
         private readonly HashSet<string> queuedStatusChecks = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private static readonly object statusCheckLock = new object();
         private static readonly HashSet<string> statusChecksInFlight = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private const int MaxStatusChecksPerPass = 3;
+
+        private sealed class PendingStatusCheck
+        {
+            public string Key;
+            public string PackageId;
+            public ModUpdateDetector.TranslationStatusCheckSnapshot Snapshot;
+        }
 
         // 這個屬性提供 InitialSize 的讀寫或計算結果。
         // EN: This method handles vector2.
@@ -76,6 +84,10 @@ namespace AutoTranslator_Core
                 Text.Font = GameFont.Medium;
                 Widgets.Label(new Rect(0, 0, inRect.width, 40f), "ATC_MultiSelect_Title".Translate());
                 Text.Font = GameFont.Small;
+                if (AutoTranslatorMod.Settings.TranslateWorkbenchModNames)
+                {
+                    ModNameTranslationCache.PreloadAsync();
+                }
 
                 Rect searchRect = new Rect(0, 45f, inRect.width, 30f);
                 searchText = Widgets.TextField(searchRect, searchText);
@@ -101,15 +113,17 @@ namespace AutoTranslator_Core
         // EN: This method gets display mods.
         private List<ModMetaData> GetDisplayMods()
         {
-            int currentValidCount = AutoTranslatorMod.GetValidModsCached().Count;
+            List<ModMetaData> validMods = AutoTranslatorMod.GetValidModsCached();
+            int currentValidCount = validMods.Count;
             if (cachedDisplayMods != null &&
                 cachedValidModCount == currentValidCount &&
+                cachedValidModVersion == AutoTranslatorMod.ValidModsCacheVersion &&
                 string.Equals(cachedSearchText, searchText ?? "", StringComparison.Ordinal))
             {
                 return cachedDisplayMods;
             }
 
-            IEnumerable<ModMetaData> mods = AutoTranslatorMod.GetValidModsCached()
+            IEnumerable<ModMetaData> mods = validMods
                 .Where(m => !AutoTranslatorScanner.IsTranslationPatchMod(m));
 
             if (!string.IsNullOrEmpty(searchText))
@@ -124,6 +138,7 @@ namespace AutoTranslator_Core
             cachedDisplayMods = mods.OrderBy(m => m.Name).ToList();
             cachedSearchText = searchText ?? "";
             cachedValidModCount = currentValidCount;
+            cachedValidModVersion = AutoTranslatorMod.ValidModsCacheVersion;
             return cachedDisplayMods;
         }
 
@@ -303,7 +318,9 @@ namespace AutoTranslator_Core
         {
             if (displayMods == null || displayMods.Count == 0) return;
 
-            var pending = new List<ModMetaData>();
+            List<ModUpdateDetector.InstalledModStatusSnapshot> activeModSnapshots =
+                ModUpdateDetector.CreateInstalledModStatusSnapshots(Verse.ModLister.AllInstalledMods);
+            var pending = new List<PendingStatusCheck>();
             foreach (ModMetaData mod in displayMods)
             {
                 if (mod == null || string.IsNullOrEmpty(mod.PackageId)) continue;
@@ -312,12 +329,21 @@ namespace AutoTranslator_Core
                 string key = $"{AutoTranslatorMod.Settings.TargetLang}|{mod.PackageId}";
                 if (!queuedStatusChecks.Add(key)) continue;
 
+                ModUpdateDetector.TranslationStatusCheckSnapshot snapshot =
+                    ModUpdateDetector.CreateTranslationStatusCheckSnapshot(mod, activeModSnapshots);
+                if (snapshot == null) continue;
+
                 lock (statusCheckLock)
                 {
                     if (!statusChecksInFlight.Add(key)) continue;
                 }
 
-                pending.Add(mod);
+                pending.Add(new PendingStatusCheck
+                {
+                    Key = key,
+                    PackageId = mod.PackageId,
+                    Snapshot = snapshot
+                });
                 if (pending.Count >= MaxStatusChecksPerPass) break;
             }
 
@@ -325,22 +351,21 @@ namespace AutoTranslator_Core
 
             Task.Run(() =>
             {
-                foreach (ModMetaData mod in pending)
+                foreach (PendingStatusCheck check in pending)
                 {
                     try
                     {
-                        ModUpdateDetector.GetTranslationStatus(mod);
+                        ModUpdateDetector.GetTranslationStatus(check.Snapshot);
                     }
                     catch (Exception ex)
                     {
-                        Verse.Log.Warning($"[AutoTranslationCore] Multi-select status check failed for {mod?.PackageId}: {ex.Message}");
+                        Verse.Log.Warning($"[AutoTranslationCore] Multi-select status check failed for {check.PackageId}: {ex.Message}");
                     }
                     finally
                     {
-                        string key = $"{AutoTranslatorMod.Settings.TargetLang}|{mod?.PackageId}";
                         lock (statusCheckLock)
                         {
-                            statusChecksInFlight.Remove(key);
+                            statusChecksInFlight.Remove(check.Key);
                         }
                     }
                 }

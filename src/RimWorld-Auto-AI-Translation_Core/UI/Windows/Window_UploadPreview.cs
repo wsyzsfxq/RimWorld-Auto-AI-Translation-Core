@@ -42,6 +42,7 @@ namespace AutoTranslator_Core
             // 這個欄位保存 isEditable 的執行狀態或快取資料。
             // EN: This field stores is editable runtime state or cached data.
             private bool _isEditable = false;
+            private bool _isSavingChanges = false;
 
             // 這個類別負責 PreviewItem 的主要流程與狀態。
             // EN: This class manages the main workflow and state for PreviewItem.
@@ -176,7 +177,7 @@ namespace AutoTranslator_Core
                         Rect transRect = new Rect(itemRect.x, itemRect.y + 15f, itemRect.width, itemRect.height - 15f);
 
 
-                        if (_isEditable)
+                        if (_isEditable && !_isSavingChanges)
                         {
                             string newText = Widgets.TextArea(transRect, item.TranslatedText ?? "");
                             if (newText != item.TranslatedText) { item.TranslatedText = newText; item.IsModified = true; }
@@ -210,7 +211,7 @@ namespace AutoTranslator_Core
 
 
                 GUI.color = new Color(1f, 0.5f, 0.5f);
-                if (Widgets.ButtonText(new Rect(0, btnY, 130f, 35f), "ATC_Btn_Cancel".Translate()))
+                if (!_isSavingChanges && Widgets.ButtonText(new Rect(0, btnY, 130f, 35f), "ATC_Btn_Cancel".Translate()))
                 {
                     this.Close();
                 }
@@ -220,18 +221,19 @@ namespace AutoTranslator_Core
                 else GUI.color = new Color(0.7f, 0.7f, 1f);
                 if (Widgets.ButtonText(new Rect(145f, btnY, 150f, 35f), _isEditable ? "✍️ " + "ATC_Upload_EditingMode".Translate() : "⚙️ " + "ATC_Upload_UnlockEdit".Translate()))
                 {
-                    _isEditable = !_isEditable;
+                    if (!_isSavingChanges) _isEditable = !_isEditable;
                 }
 
 
                 bool isAdmin = !string.IsNullOrEmpty(AutoTranslatorMod.Settings.CloudAdminToken);
                 bool hasValidLog = !string.IsNullOrWhiteSpace(_updateLogText) && _updateLogText.Trim().Length >= 5;
-                bool canUpload = isAdmin || hasValidLog;
+                bool canUpload = (isAdmin || hasValidLog) && !_isSavingChanges;
 
                 GUI.color = canUpload ? new Color(0.4f, 1f, 0.4f) : new Color(0.5f, 0.5f, 0.5f);
 
                 if (Widgets.ButtonText(new Rect(inRect.width - 180f, btnY, 180f, 35f), "🚀 " + "ATC_Upload_ConfirmUploadBtn".Translate()))
                 {
+                    if (_isSavingChanges) return;
                     if (!canUpload)
                     {
 
@@ -240,11 +242,7 @@ namespace AutoTranslator_Core
                     }
 
 
-                    SaveChangesIfAny();
-
-
-                    ExecuteActualUpload();
-                    this.Close();
+                    SaveChangesThenUpload();
                 }
                 GUI.color = Color.white;
             }

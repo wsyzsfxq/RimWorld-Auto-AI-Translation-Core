@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using UnityEngine;
 using Verse;
 // 這個檔案負責設定分頁的 UI 與參數編輯。
@@ -14,6 +15,9 @@ namespace AutoTranslator_Core
     // EN: This class manages the main workflow and state for AutoTranslatorMod.
     public partial class AutoTranslatorMod : Mod
     {
+        private static bool _settingsLegacyRepairRunning;
+        private static bool _settingsRestoreBackupRunning;
+        private static bool _settingsFactoryResetRunning;
 
 
         // 這個方法負責繪製 設定分頁 介面。
@@ -290,28 +294,28 @@ namespace AutoTranslator_Core
             l.Gap(5f);
 
             Rect repairLegacyBtnRect = l.GetRect(35f);
-            GUI.color = new Color(0.6f, 0.9f, 0.75f);
-            if (Widgets.ButtonText(repairLegacyBtnRect, "🧰 " + "ATC_Btn_RepairLegacyTranslations".Translate()))
+            GUI.color = _settingsLegacyRepairRunning ? Color.grey : new Color(0.6f, 0.9f, 0.75f);
+            string repairLegacyLabel = _settingsLegacyRepairRunning
+                ? "ATC_CheckingModStatus".Translate().ToString()
+                : "🧰 " + "ATC_Btn_RepairLegacyTranslations".Translate().ToString();
+            if (Widgets.ButtonText(repairLegacyBtnRect, repairLegacyLabel) && !_settingsLegacyRepairRunning)
             {
-                var summary = AutoTranslatorLegacyRepairer.RepairCurrentLanguagePack(requestMemoryDrop: true);
-                Messages.Message(
-                    "ATC_Msg_RepairLegacyTranslationsDone".Translate(summary.FilesTouched, summary.EntriesFixed, summary.StructureWarnings),
-                    summary.FilesTouched > 0 ? MessageTypeDefOf.PositiveEvent : MessageTypeDefOf.NeutralEvent,
-                    false);
+                QueueLegacyRepairFromSettings();
             }
             l.Gap(5f);
 
             Rect restoreBtnRect = l.GetRect(35f);
-            GUI.color = new Color(0.5f, 0.8f, 1f);
-            if (Widgets.ButtonText(restoreBtnRect, "↩ " + "ATC_Btn_RestoreLatestBackup".Translate()))
+            GUI.color = _settingsRestoreBackupRunning ? Color.grey : new Color(0.5f, 0.8f, 1f);
+            string restoreLabel = _settingsRestoreBackupRunning
+                ? "ATC_CheckingModStatus".Translate().ToString()
+                : "↩ " + "ATC_Btn_RestoreLatestBackup".Translate().ToString();
+            if (Widgets.ButtonText(restoreBtnRect, restoreLabel) && !_settingsRestoreBackupRunning)
             {
                 Find.WindowStack.Add(new Dialog_MessageBox(
                     "ATC_Msg_ConfirmRestoreLatestBackup".Translate(),
                     "ATC_Btn_Confirm".Translate(),
                     () => {
-                        var mods = Verse.ModLister.AllInstalledMods.Where(m => m.Active).ToList();
-                        int restored = AutoTranslatorScanner.RestoreLatestBackups(mods);
-                        Messages.Message("ATC_Msg_RestoreLatestBackupDone".Translate(restored), restored > 0 ? MessageTypeDefOf.PositiveEvent : MessageTypeDefOf.NeutralEvent, false);
+                        QueueRestoreLatestBackupsFromSettings();
                     },
                     "ATC_Btn_Cancel".Translate(),
                     null,
@@ -322,8 +326,11 @@ namespace AutoTranslator_Core
 
 
             Rect resetBtnRect = l.GetRect(35f);
-            GUI.color = new Color(1f, 0.3f, 0.3f);
-            if (Widgets.ButtonText(resetBtnRect, "⚠️ " + "ATC_Btn_FactoryReset".Translate()))
+            GUI.color = _settingsFactoryResetRunning ? Color.grey : new Color(1f, 0.3f, 0.3f);
+            string resetLabel = _settingsFactoryResetRunning
+                ? "ATC_CheckingModStatus".Translate().ToString()
+                : "⚠️ " + "ATC_Btn_FactoryReset".Translate().ToString();
+            if (Widgets.ButtonText(resetBtnRect, resetLabel) && !_settingsFactoryResetRunning)
             {
                 Find.WindowStack.Add(new Dialog_MessageBox(
                     "ATC_Msg_ConfirmFactoryReset".Translate(),
@@ -335,6 +342,81 @@ namespace AutoTranslator_Core
                 ));
             }
             GUI.color = Color.white;
+        }
+
+        private static void QueueLegacyRepairFromSettings()
+        {
+            if (_settingsLegacyRepairRunning) return;
+            _settingsLegacyRepairRunning = true;
+
+            Task.Run(() =>
+            {
+                AutoTranslatorLegacyRepairer.RepairSummary summary = null;
+                Exception failure = null;
+                try
+                {
+                    summary = AutoTranslatorLegacyRepairer.RepairCurrentLanguagePack(requestMemoryDrop: true);
+                }
+                catch (Exception ex)
+                {
+                    failure = ex;
+                }
+
+                ATC_Dispatcher.RunOnMainThread(() =>
+                {
+                    _settingsLegacyRepairRunning = false;
+                    if (failure != null)
+                    {
+                        Log.Warning($"[AutoTranslationCore] Legacy repair failed: {failure.Message}");
+                        AutoTranslatorSettings.AddErrorLog("Legacy repair failed: " + failure.Message);
+                        return;
+                    }
+
+                    summary = summary ?? new AutoTranslatorLegacyRepairer.RepairSummary();
+                    Messages.Message(
+                        "ATC_Msg_RepairLegacyTranslationsDone".Translate(summary.FilesTouched, summary.EntriesFixed, summary.StructureWarnings),
+                        summary.FilesTouched > 0 ? MessageTypeDefOf.PositiveEvent : MessageTypeDefOf.NeutralEvent,
+                        false);
+                });
+            });
+        }
+
+        private static void QueueRestoreLatestBackupsFromSettings()
+        {
+            if (_settingsRestoreBackupRunning) return;
+            _settingsRestoreBackupRunning = true;
+
+            List<AutoTranslatorScanner.LocalTranslationRestoreTarget> targets = Verse.ModLister.AllInstalledMods
+                .Where(m => m != null && m.Active && !string.IsNullOrWhiteSpace(m.PackageId))
+                .Select(m => new AutoTranslatorScanner.LocalTranslationRestoreTarget { PackageId = m.PackageId })
+                .ToList();
+
+            Task.Run(() =>
+            {
+                int restored = 0;
+                Exception failure = null;
+                try
+                {
+                    restored = AutoTranslatorScanner.RestoreLatestBackups(targets);
+                }
+                catch (Exception ex)
+                {
+                    failure = ex;
+                }
+
+                ATC_Dispatcher.RunOnMainThread(() =>
+                {
+                    _settingsRestoreBackupRunning = false;
+                    if (failure != null)
+                    {
+                        Log.Warning($"[AutoTranslationCore] Restore latest backups failed: {failure.Message}");
+                        AutoTranslatorSettings.AddErrorLog("Restore latest backups failed: " + failure.Message);
+                        return;
+                    }
+
+                    Messages.Message("ATC_Msg_RestoreLatestBackupDone".Translate(restored), restored > 0 ? MessageTypeDefOf.PositiveEvent : MessageTypeDefOf.NeutralEvent, false);
+                });
+            });
         }
 
 
@@ -382,41 +464,66 @@ private void DrawRuntimeProfilePanel(Listing_Standard l, Rect viewRect)
         // EN: This method executes factory reset.
         private void ExecuteFactoryReset()
         {
+            if (_settingsFactoryResetRunning) return;
+            _settingsFactoryResetRunning = true;
+
             try
             {
                 string packPath = AutoTranslatorScanner.GetLocalPackPath();
                 string langsPath = System.IO.Path.Combine(packPath, "Languages");
-
-
-                if (System.IO.Directory.Exists(langsPath))
+                Task.Run(() =>
                 {
-
-                    foreach (string file in System.IO.Directory.GetFiles(langsPath, "*", System.IO.SearchOption.AllDirectories))
+                    Exception failure = null;
+                    try
                     {
-                        System.IO.File.SetAttributes(file, System.IO.FileAttributes.Normal);
+                        if (System.IO.Directory.Exists(langsPath))
+                        {
+                            foreach (string file in System.IO.Directory.GetFiles(langsPath, "*", System.IO.SearchOption.AllDirectories))
+                            {
+                                System.IO.File.SetAttributes(file, System.IO.FileAttributes.Normal);
+                            }
+
+                            System.IO.Directory.Delete(langsPath, true);
+                            AutoTranslatorScanner.NotifyTranslationFilesChanged(langsPath);
+                        }
+
+                        AutoTranslatorScanner.EnsurePackInitialized(runFullMaintenance: false);
                     }
-                    System.IO.Directory.Delete(langsPath, true);
-                    AutoTranslatorScanner.NotifyTranslationFilesChanged(langsPath);
-                }
+                    catch (Exception ex)
+                    {
+                        failure = ex;
+                    }
 
-                UIInterceptor.ClearUICache();
+                    ATC_Dispatcher.RunOnMainThread(() =>
+                    {
+                        _settingsFactoryResetRunning = false;
+
+                        if (failure != null)
+                        {
+                            Verse.Log.Error($"[AutoTranslationCore] Factory Reset Failed: {failure.Message}");
+                            AutoTranslatorSettings.AddErrorLog("Factory Reset Failed: " + failure.Message);
+                            return;
+                        }
+
+                        UIInterceptor.ClearUICache();
 
 
-                AutoTranslatorMod.Settings.ModLastVerifiedTimes.Clear();
-                AutoTranslatorMod.Settings.ModLastVerifiedFingerprints.Clear();
-                LoadedModManager.GetMod<AutoTranslatorMod>().WriteSettings();
+                        AutoTranslatorMod.Settings.ModLastVerifiedTimes.Clear();
+                        AutoTranslatorMod.Settings.ModLastVerifiedFingerprints.Clear();
+                        LoadedModManager.GetMod<AutoTranslatorMod>().WriteSettings();
 
 
-                AutoTranslatorScanner.EnsurePackInitialized(runFullMaintenance: true);
+                        AutoTranslatorScanner.RequestMemoryDrop();
+                        AutoTranslatorSettings.ClearLog();
+                        AutoTranslatorSettings.AddLog("🚑 " + "ATC_Log_FactoryResetSuccess".Translate());
 
-
-                AutoTranslatorSettings.ClearLog();
-                AutoTranslatorSettings.AddLog("🚑 " + "ATC_Log_FactoryResetSuccess".Translate());
-
-                Verse.Messages.Message("ATC_Msg_FactoryResetSuccess".Translate(), RimWorld.MessageTypeDefOf.PositiveEvent, false);
+                        Verse.Messages.Message("ATC_Msg_FactoryResetSuccess".Translate(), RimWorld.MessageTypeDefOf.PositiveEvent, false);
+                    });
+                });
             }
             catch (Exception ex)
             {
+                _settingsFactoryResetRunning = false;
                 Verse.Log.Error($"[AutoTranslationCore] Factory Reset Failed: {ex.Message}");
                 AutoTranslatorSettings.AddErrorLog("Factory Reset Failed: " + ex.Message);
             }

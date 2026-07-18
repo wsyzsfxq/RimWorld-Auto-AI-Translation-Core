@@ -21,28 +21,158 @@ namespace AutoTranslator_Core
 
         // 這個方法負責保存 ChangesIfAny 資料。
         // EN: This method saves changes if any.
-        private void SaveChangesIfAny()
-            {
-                string packPath = AutoTranslatorScanner.GetLocalPackPath();
-                int saveCount = 0;
-                foreach (var pair in _categorizedData)
-                {
-                    var modified = pair.Value.Where(i => i.IsModified).ToList();
-                    if (modified.Count == 0) continue;
+        private sealed class UploadPreviewSaveSnapshot
+        {
+            public string SourceDir;
+            public string PackageId;
+            public List<UploadPreviewSaveCategorySnapshot> Categories = new List<UploadPreviewSaveCategorySnapshot>();
+        }
 
-                    string fileDir = pair.Key == "Keyed"
-                        ? Path.Combine(_sourceDir, "Keyed")
-                        : Path.Combine(_sourceDir, "DefInjected", pair.Key);
+        private sealed class UploadPreviewSaveCategorySnapshot
+        {
+            public string Category;
+            public List<UploadPreviewSaveItemSnapshot> Items = new List<UploadPreviewSaveItemSnapshot>();
+        }
+
+        private sealed class UploadPreviewSaveItemSnapshot
+        {
+            public string Key;
+            public string TranslatedText;
+        }
+
+        private sealed class UploadPreviewSaveResult
+        {
+            public int SaveCount;
+            public string Error;
+        }
+
+        private void SaveChangesThenUpload()
+        {
+            if (_isSavingChanges) return;
+
+            UploadPreviewSaveSnapshot snapshot = CreateSaveSnapshot();
+            if (snapshot.Categories.Count == 0)
+            {
+                ExecuteActualUpload();
+                Close();
+                return;
+            }
+
+            _isSavingChanges = true;
+            Task.Run(() =>
+            {
+                UploadPreviewSaveResult result = SaveSnapshot(snapshot);
+                ATC_Dispatcher.RunOnMainThread(() =>
+                {
+                    _isSavingChanges = false;
+                    if (!string.IsNullOrEmpty(result.Error))
+                    {
+                        Messages.Message(result.Error, MessageTypeDefOf.RejectInput, false);
+                        return;
+                    }
+
+                    MarkSavedSnapshotItems(snapshot);
+                    if (result.SaveCount > 0)
+                    {
+                        AutoTranslatorScanner.RequestMemoryDrop();
+                        UIInterceptor.ClearUICache();
+                    }
+
+                    ExecuteActualUpload();
+                    Close();
+                });
+            });
+        }
+
+        private UploadPreviewSaveSnapshot CreateSaveSnapshot()
+        {
+            UploadPreviewSaveSnapshot snapshot = new UploadPreviewSaveSnapshot
+            {
+                SourceDir = _sourceDir,
+                PackageId = _mod != null ? _mod.PackageId : ""
+            };
+
+            foreach (var pair in _categorizedData)
+            {
+                List<UploadPreviewSaveItemSnapshot> modified = pair.Value
+                    .Where(i => i != null && i.IsModified)
+                    .Select(i => new UploadPreviewSaveItemSnapshot
+                    {
+                        Key = i.Key,
+                        TranslatedText = i.TranslatedText
+                    })
+                    .ToList();
+
+                if (modified.Count == 0) continue;
+                snapshot.Categories.Add(new UploadPreviewSaveCategorySnapshot
+                {
+                    Category = pair.Key,
+                    Items = modified
+                });
+            }
+
+            return snapshot;
+        }
+
+        private static UploadPreviewSaveResult SaveSnapshot(UploadPreviewSaveSnapshot snapshot)
+        {
+            UploadPreviewSaveResult result = new UploadPreviewSaveResult();
+            if (snapshot == null || string.IsNullOrWhiteSpace(snapshot.SourceDir) || string.IsNullOrWhiteSpace(snapshot.PackageId)) return result;
+
+            try
+            {
+                string cleanPackageId = snapshot.PackageId.Replace(".", "_").ToLower();
+                foreach (UploadPreviewSaveCategorySnapshot category in snapshot.Categories)
+                {
+                    if (category == null || category.Items == null || category.Items.Count == 0) continue;
+
+                    string fileDir = category.Category == "Keyed"
+                        ? Path.Combine(snapshot.SourceDir, "Keyed")
+                        : Path.Combine(snapshot.SourceDir, "DefInjected", category.Category);
 
                     Directory.CreateDirectory(fileDir);
-                    string targetFile = Path.Combine(fileDir, $"{_mod.PackageId.Replace(".", "_").ToLower()}_AutoTranslated.xml");
-                    var existing = AutoTranslatorScanner.LoadXmlFileToDict(targetFile);
+                    string targetFile = Path.Combine(fileDir, $"{cleanPackageId}_AutoTranslated.xml");
+                    Dictionary<string, string> existing = AutoTranslatorScanner.LoadXmlFileToDict(targetFile);
 
-                    foreach (var item in modified) { existing[item.Key] = item.TranslatedText; item.IsModified = false; saveCount++; }
+                    foreach (UploadPreviewSaveItemSnapshot item in category.Items)
+                    {
+                        if (item == null || string.IsNullOrWhiteSpace(item.Key)) continue;
+                        existing[item.Key] = item.TranslatedText;
+                        result.SaveCount++;
+                    }
+
                     AutoTranslatorScanner.SaveXml(targetFile, existing);
                 }
-                if (saveCount > 0) { AutoTranslatorScanner.RequestMemoryDrop(); UIInterceptor.ClearUICache(); }
             }
+            catch (Exception ex)
+            {
+                result.Error = ex.Message;
+                Log.Warning($"[AutoTranslationCore] Upload preview background save failed: {ex}");
+            }
+
+            return result;
+        }
+
+        private void MarkSavedSnapshotItems(UploadPreviewSaveSnapshot snapshot)
+        {
+            if (snapshot == null || snapshot.Categories == null) return;
+
+            foreach (UploadPreviewSaveCategorySnapshot category in snapshot.Categories)
+            {
+                if (category == null || !_categorizedData.TryGetValue(category.Category, out List<PreviewItem> currentItems)) continue;
+                HashSet<string> savedKeys = new HashSet<string>(
+                    category.Items.Where(i => i != null && !string.IsNullOrWhiteSpace(i.Key)).Select(i => i.Key),
+                    StringComparer.OrdinalIgnoreCase);
+
+                foreach (PreviewItem item in currentItems)
+                {
+                    if (item != null && savedKeys.Contains(item.Key ?? ""))
+                    {
+                        item.IsModified = false;
+                    }
+                }
+            }
+        }
 
         }
 }

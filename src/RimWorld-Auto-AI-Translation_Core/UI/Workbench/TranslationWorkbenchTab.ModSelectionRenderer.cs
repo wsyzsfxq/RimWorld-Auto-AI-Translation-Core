@@ -49,15 +49,22 @@ namespace AutoTranslator_Core
         {
             HashSet<string> translatedPackageIds = GetTranslatedPackageIdsSafe();
             List<ModMetaData> displayMods = GetModSelectionDisplayMods(translatedPackageIds);
+            bool showModListProgress = AutoTranslatorMod.IsValidModsCacheRefreshing && displayMods.Count == 0;
+            float listTop = showModListProgress ? 142f : 75f;
 
-            Rect listOutRect = new Rect(leftOutRect.x, leftOutRect.y + 75f, leftOutRect.width, leftOutRect.height - 75f);
+            if (showModListProgress)
+            {
+                DrawModListLoadingProgress(new Rect(leftOutRect.x, leftOutRect.y + 75f, leftOutRect.width, 62f));
+            }
+
+            Rect listOutRect = new Rect(leftOutRect.x, leftOutRect.y + listTop, leftOutRect.width, leftOutRect.height - listTop);
             Rect listViewRect = new Rect(0, 0, listOutRect.width - 20f, Mathf.Max(1f, displayMods.Count * ModRowHeight));
             int firstVisible = Mathf.Max(0, Mathf.FloorToInt(_modListScroll.y / ModRowHeight) - 2);
             int lastVisible = Mathf.Min(displayMods.Count - 1, Mathf.CeilToInt((_modListScroll.y + listOutRect.height) / ModRowHeight) + 2);
 
             if (firstVisible <= lastVisible)
             {
-                QueueVisibleModNameTranslations(displayMods.GetRange(firstVisible, lastVisible - firstVisible + 1));
+                QueueVisibleModNameTranslations(displayMods, firstVisible, lastVisible);
             }
 
             Widgets.BeginScrollView(listOutRect, ref _modListScroll, listViewRect);
@@ -73,10 +80,7 @@ namespace AutoTranslator_Core
 
                     if (Widgets.ButtonInvisible(rowRect))
                     {
-                        _editingMod = mod;
-                        _isLoading = true;
-                        _itemSearchText = "";
-                        Task.Run(() => LoadRealData(mod));
+                        StartLoadingModForEditing(mod, "");
                     }
 
                     bool isTranslated = translatedPackageIds.Contains(mod.PackageId ?? "");
@@ -104,6 +108,39 @@ namespace AutoTranslator_Core
                 Widgets.Label(new Rect(leftOutRect.x + 8f, leftOutRect.yMax - 22f, leftOutRect.width - 16f, 18f), "Loading translation cache...");
                 GUI.color = Color.white;
             }
+        }
+
+        private static void DrawModListLoadingProgress(Rect panelRect)
+        {
+            int current = AutoTranslatorMod.ValidModsCacheProgressCurrent;
+            int total = AutoTranslatorMod.ValidModsCacheProgressTotal;
+            float progress = AutoTranslatorMod.ValidModsCacheProgress;
+            string currentMod = AutoTranslatorMod.ValidModsCacheProgressModName;
+
+            panelRect = new Rect(panelRect.x + 5f, panelRect.y, panelRect.width - 10f, panelRect.height);
+            Widgets.DrawBoxSolid(panelRect, new Color(0.08f, 0.08f, 0.08f, 0.85f));
+
+            GUI.color = Color.gray;
+            string label = total > 0
+                ? $"Loading mod list... {current}/{total}"
+                : "Loading mod list...";
+            Widgets.Label(new Rect(panelRect.x + 8f, panelRect.y + 5f, panelRect.width - 16f, 18f), label);
+
+            Rect barRect = new Rect(panelRect.x + 8f, panelRect.y + 26f, panelRect.width - 16f, 18f);
+            GUI.color = Color.white;
+            Widgets.FillableBar(barRect, progress);
+            Text.Font = GameFont.Tiny;
+            Text.Anchor = TextAnchor.MiddleCenter;
+            Widgets.Label(barRect, $"{(progress * 100f):F0}%");
+            Text.Anchor = TextAnchor.UpperLeft;
+
+            GUI.color = Color.gray;
+            string currentLabel = string.IsNullOrWhiteSpace(currentMod) ? "" : currentMod;
+            Text.WordWrap = false;
+            Widgets.Label(new Rect(panelRect.x + 8f, panelRect.y + 44f, panelRect.width - 16f, 16f), currentLabel);
+            Text.WordWrap = true;
+            Text.Font = GameFont.Small;
+            GUI.color = Color.white;
         }
 
         // 這個方法負責繪製 Global搜尋Panel 介面。
@@ -148,7 +185,10 @@ namespace AutoTranslator_Core
             }
             GUI.color = Color.white;
 
-            Widgets.DrawLineHorizontal(rightOutRect.x, rightOutRect.y + 80f, rightOutRect.width);
+            Rect snapshotRect = new Rect(rightOutRect.x + 10f, rightOutRect.y + 74f, rightOutRect.width - 20f, 20f);
+            DrawGlobalSearchSnapshotStatus(snapshotRect);
+
+            Widgets.DrawLineHorizontal(rightOutRect.x, rightOutRect.y + 100f, rightOutRect.width);
 
             if (_isGlobalSearching)
             {
@@ -165,10 +205,39 @@ namespace AutoTranslator_Core
                 string notFoundMsg = "ATC_Workbench_GlobalSearchNoResult".CanTranslate()
                     ? "ATC_Workbench_GlobalSearchNoResult".Translate().ToString()
                     : "No results";
-                Widgets.Label(new Rect(rightOutRect.x, rightOutRect.y + 90f, rightOutRect.width, 100f), notFoundMsg);
+                Widgets.Label(new Rect(rightOutRect.x, rightOutRect.y + 110f, rightOutRect.width, 100f), notFoundMsg);
                 GUI.color = Color.white;
                 Text.Anchor = TextAnchor.UpperLeft;
             }
+        }
+
+        private static void DrawGlobalSearchSnapshotStatus(Rect statusRect)
+        {
+            if (!_globalSearchHasSnapshot) return;
+
+            bool isCurrentSearchText = string.Equals((_globalSearchText ?? "").Trim(), _globalSearchSnapshotText ?? "", StringComparison.Ordinal);
+            GUI.color = isCurrentSearchText ? Color.gray : new Color(1f, 0.82f, 0.35f);
+
+            string statusKey = isCurrentSearchText
+                ? "ATC_Workbench_SearchSnapshotLabel"
+                : "ATC_Workbench_SearchTextChanged";
+            string fallback = isCurrentSearchText
+                ? $"Showing results for: {_globalSearchSnapshotText}"
+                : "Search text changed. Press Search to update results.";
+            string status = statusKey.CanTranslate()
+                ? statusKey.Translate(_globalSearchSnapshotText ?? "").ToString()
+                : fallback;
+            if (_globalSearchSnapshotLangFilter.HasValue)
+            {
+                status += $" [{_globalSearchSnapshotLangFilter.Value}]";
+            }
+
+            Text.Font = GameFont.Tiny;
+            Text.WordWrap = false;
+            Widgets.Label(statusRect, status);
+            Text.WordWrap = true;
+            Text.Font = GameFont.Small;
+            GUI.color = Color.white;
         }
 
         // 這個方法負責繪製 Global搜尋載入 介面。
@@ -176,7 +245,7 @@ namespace AutoTranslator_Core
         private static void DrawGlobalSearchLoading(Rect rightOutRect)
         {
             Text.Anchor = TextAnchor.MiddleCenter;
-            Rect loadingArea = new Rect(rightOutRect.x, rightOutRect.y + 90f, rightOutRect.width, 80f);
+            Rect loadingArea = new Rect(rightOutRect.x, rightOutRect.y + 110f, rightOutRect.width, 80f);
 
             GUI.color = Color.yellow;
             string loadingMsg = "ATC_Workbench_GlobalSearching".CanTranslate()
@@ -199,7 +268,7 @@ namespace AutoTranslator_Core
         // EN: This method draws global search results.
         private static void DrawGlobalSearchResults(Rect rightOutRect)
         {
-            Rect resOutRect = new Rect(rightOutRect.x, rightOutRect.y + 85f, rightOutRect.width, rightOutRect.height - 85f);
+            Rect resOutRect = new Rect(rightOutRect.x, rightOutRect.y + 105f, rightOutRect.width, rightOutRect.height - 105f);
             Rect resViewRect = new Rect(0, 0, resOutRect.width - 20f, Mathf.Max(1f, _globalSearchResults.Count * SearchResultRowHeight));
             int firstVisible = Mathf.Max(0, Mathf.FloorToInt(_globalSearchScroll.y / SearchResultRowHeight) - 2);
             int lastVisible = Mathf.Min(_globalSearchResults.Count - 1, Mathf.CeilToInt((_globalSearchScroll.y + resOutRect.height) / SearchResultRowHeight) + 2);
@@ -218,15 +287,20 @@ namespace AutoTranslator_Core
 
                     if (Widgets.ButtonInvisible(rowRect))
                     {
-                        _editingMod = res.Mod;
-                        _isLoading = true;
-                        _itemSearchText = res.TranslatedText;
-                        Task.Run(() => LoadRealData(res.Mod));
+                        StartLoadingModForEditing(res.Mod, new WorkbenchFocusRequest
+                        {
+                            Category = res.Category,
+                            Key = res.Key,
+                            SearchText = res.SearchText,
+                            MatchedText = res.TranslatedText,
+                            FromGlobalSearch = true
+                        });
                     }
 
                     Text.Font = GameFont.Tiny;
                     GUI.color = Color.gray;
-                    Widgets.Label(new Rect(rowRect.x + 5f, rowRect.y + 2f, rowRect.width, 15f), $"[{res.Mod.Name}] {res.Key}");
+                    string categoryText = string.IsNullOrWhiteSpace(res.Category) ? "Keyed" : res.Category;
+                    Widgets.Label(new Rect(rowRect.x + 5f, rowRect.y + 2f, rowRect.width, 15f), $"[{res.Mod.Name}] {categoryText} / {res.Key}");
 
                     Text.Font = GameFont.Small;
                     GUI.color = Color.white;
@@ -280,6 +354,7 @@ namespace AutoTranslator_Core
                 _cachedModSelectionShowTranslatedOnly == _showOnlyTranslated &&
                 _cachedModSelectionTranslateNames == translateNames &&
                 _cachedModSelectionValidCount == validMods.Count &&
+                _cachedModSelectionValidVersion == AutoTranslatorMod.ValidModsCacheVersion &&
                 _cachedModSelectionTranslatedCount == translatedPackageIds.Count &&
                 _cachedModSelectionTranslatedHash == translatedHash)
             {
@@ -307,6 +382,7 @@ namespace AutoTranslator_Core
             _cachedModSelectionShowTranslatedOnly = _showOnlyTranslated;
             _cachedModSelectionTranslateNames = translateNames;
             _cachedModSelectionValidCount = validMods.Count;
+            _cachedModSelectionValidVersion = AutoTranslatorMod.ValidModsCacheVersion;
             _cachedModSelectionTranslatedCount = translatedPackageIds.Count;
             _cachedModSelectionTranslatedHash = translatedHash;
             return _cachedModSelectionList;
@@ -315,36 +391,49 @@ namespace AutoTranslator_Core
         private static int GetStablePackageHash(HashSet<string> packageIds)
         {
             if (packageIds == null || packageIds.Count == 0) return 0;
+            if (_lastStablePackageHashGeneration == _translatedModsCacheGeneration &&
+                _lastStablePackageHashCount == packageIds.Count)
+            {
+                return _lastStablePackageHash;
+            }
 
             unchecked
             {
                 int hash = 17;
-                foreach (string packageId in packageIds.OrderBy(x => x, StringComparer.OrdinalIgnoreCase))
+                foreach (string packageId in packageIds)
                 {
                     hash = hash * 31 + StringComparer.OrdinalIgnoreCase.GetHashCode(packageId ?? "");
                 }
 
+                _lastStablePackageHash = hash;
+                _lastStablePackageHashCount = packageIds.Count;
+                _lastStablePackageHashGeneration = _translatedModsCacheGeneration;
                 return hash;
             }
         }
 
         // 這個方法負責排入 Visible模組名稱Translations 佇列。
         // EN: This method queues visible mod name translations.
-        private static void QueueVisibleModNameTranslations(List<ModMetaData> displayMods)
+        private static void QueueVisibleModNameTranslations(List<ModMetaData> displayMods, int firstVisible, int lastVisible)
         {
             if (!AutoTranslatorMod.Settings.TranslateWorkbenchModNames) return;
             if (AutoTranslatorSettings.IsRunning) return;
             if (_isTranslatingModNames) return;
             if (displayMods == null || displayMods.Count == 0) return;
             if (!AutoTranslatorAPI.HasAnyReadyConfig()) return;
-            if (!ModNameTranslationCache.TryBeginVisibleQueue(displayMods)) return;
+            if (!ModNameTranslationCache.TryBeginVisibleQueue(displayMods, firstVisible, lastVisible)) return;
 
-            List<ModMetaData> pending = displayMods
-                .Where(m => m != null)
-                .Where(m => !ModNameTranslationCache.TryGet(m, out _))
-                .Where(ModNameTranslationCache.TryMarkQueued)
-                .Take(4)
-                .ToList();
+            List<ModMetaData> pending = new List<ModMetaData>(4);
+            for (int i = firstVisible; i <= lastVisible && i < displayMods.Count; i++)
+            {
+                ModMetaData mod = displayMods[i];
+                if (mod == null) continue;
+                if (ModNameTranslationCache.TryGet(mod, out _)) continue;
+                if (!ModNameTranslationCache.TryMarkQueued(mod)) continue;
+
+                pending.Add(mod);
+                if (pending.Count >= 4) break;
+            }
 
             if (pending.Count == 0) return;
 

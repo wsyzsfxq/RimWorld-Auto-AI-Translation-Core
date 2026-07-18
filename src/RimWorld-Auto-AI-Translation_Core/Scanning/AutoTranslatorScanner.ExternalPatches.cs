@@ -131,9 +131,14 @@ namespace AutoTranslator_Core
         private static bool HasTranslationPatchTargetLanguage(ModMetaData patchMod, TargetLanguage targetLang)
         {
             if (patchMod == null) return false;
+            return HasTranslationPatchTargetLanguage(patchMod.PackageId, patchMod.RootDir != null ? patchMod.RootDir.FullName : "", targetLang);
+        }
 
+        public static bool HasTranslationPatchTargetLanguage(string packageId, string rootDir, TargetLanguage targetLang)
+        {
+            if (string.IsNullOrWhiteSpace(rootDir)) return false;
             string targetFolder = GetFolderNameByLanguage(targetLang);
-            foreach (string langRoot in GetAllTranslationPatchLangPaths(patchMod))
+            foreach (string langRoot in GetAllTranslationPatchLangPaths(packageId, rootDir))
             {
                 try
                 {
@@ -156,7 +161,20 @@ namespace AutoTranslator_Core
             var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             if (patchMod == null) return result;
 
-            string aboutXml = Path.Combine(patchMod.RootDir.FullName, "About", "About.xml");
+            foreach (string packageId in GetReferencedTargetPackageIdsFromRoot(patchMod.RootDir != null ? patchMod.RootDir.FullName : ""))
+            {
+                result.Add(packageId);
+            }
+
+            return result;
+        }
+
+        public static IEnumerable<string> GetReferencedTargetPackageIdsFromRoot(string rootDir)
+        {
+            var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (string.IsNullOrWhiteSpace(rootDir)) return result;
+
+            string aboutXml = Path.Combine(rootDir, "About", "About.xml");
             if (File.Exists(aboutXml))
             {
                 try
@@ -191,7 +209,7 @@ namespace AutoTranslator_Core
                 catch { }
             }
 
-            string loadFoldersXml = Path.Combine(patchMod.RootDir.FullName, "LoadFolders.xml");
+            string loadFoldersXml = Path.Combine(rootDir, "LoadFolders.xml");
             if (File.Exists(loadFoldersXml))
             {
                 try
