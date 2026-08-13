@@ -23,6 +23,13 @@ mono_crash.*
 [Rr]elease/
 [Rr]eleases/
 
+# Documentation release notes are source files, not build outputs.
+!docs/releases/
+!docs/releases/**
+
+# One-off volunteer test handout generated for the 2026-08-13 test package.
+docs/testing/AI_TranslationCore_V4_志愿者测试版使用说明_20260813.md
+
 [Dd]ebug/x64/
 [Dd]ebugPublic/x64/
 [Rr]elease/x64/
