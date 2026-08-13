@@ -187,8 +187,11 @@ namespace AutoTranslator_Core
 
             int unresolvedCount = TranslationUnresolvedManager.Count +
                                   Window_UnresolvedTranslations.CountDllUnresolvedEntries();
+            int filteredCount = GetFilteredModsCountCached();
+            int forcedCount = GetForceIncludedModsCountCached();
             bool showUnresolved = !AutoTranslatorSettings.IsRunning && unresolvedCount > 0;
-            bool showFiltered = !AutoTranslatorSettings.IsRunning && AutoTranslatorSettings.FilteredModsCount > 0;
+            bool showFiltered = !AutoTranslatorSettings.IsRunning &&
+                                (filteredCount > 0 || forcedCount > 0 || IsValidModsCacheRefreshing);
             if (showUnresolved || showFiltered)
             {
                 Rect summaryRect = l.GetRect(30f);
@@ -213,7 +216,7 @@ namespace AutoTranslator_Core
 
                 if (showFiltered)
                 {
-                    GUI.color = Color.gray;
+                    GUI.color = new Color(0.72f, 0.72f, 0.72f);
                     float filteredX = showUnresolved
                         ? summaryRect.x + unresolvedWidth + summaryGap
                         : summaryRect.x;
@@ -222,9 +225,11 @@ namespace AutoTranslator_Core
                         summaryRect.y,
                         summaryRect.xMax - filteredX,
                         summaryRect.height);
-                    Widgets.Label(
-                        filteredRect,
-                        "ATC_FilteredModsCount".Translate(AutoTranslatorSettings.FilteredModsCount));
+                    string filteredText = "ATC_FilteredModsButton".Translate(filteredCount, forcedCount);
+                    if (Widgets.ButtonText(filteredRect, filteredText))
+                    {
+                        Find.WindowStack.Add(new Window_FilteredMods());
+                    }
                 }
 
                 GUI.color = Color.white;
