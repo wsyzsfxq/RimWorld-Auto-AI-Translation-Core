@@ -36,18 +36,18 @@ namespace AutoTranslator_Core
         // 這個欄位保存 cachedValid模組 的執行狀態或快取資料。
         // EN: This field stores cached valid mods runtime state or cached data.
         private static List<ModMetaData> _cachedValidMods = null;
-        // 這個欄位保存 lastActive模組Count 的執行狀態或快取資料。
-        // EN: This field stores last active mod count runtime state or cached data.
-        private static int _lastActiveModCount = -1;
-        private static long _nextActiveModCountCheckUtcTicks = 0L;
+        // 這個欄位保存已安裝模組數量與啟用狀態的快取資料。
+        // EN: These fields cache the installed mod count and activation-state signature.
+        private static int _lastInstalledModCount = -1;
+        private static long _nextInstalledModStateCheckUtcTicks = 0L;
         private static bool _validModsCacheRefreshInFlight = false;
         private static int _validModsCacheGeneration = 0;
         private static int _validModsCacheVersion = 0;
         private static int _validModsCacheProgressCurrent = 0;
         private static int _validModsCacheProgressTotal = 0;
         private static string _validModsCacheProgressModName = "";
-        private static string _lastActiveModSignature = "";
-        private static string _pendingActiveModSignature = "";
+        private static string _lastInstalledModSignature = "";
+        private static string _pendingInstalledModSignature = "";
         // 這個欄位保存 cached雲端Lookup 的執行狀態或快取資料。
         // EN: This field stores cached cloud lookup runtime state or cached data.
         private static Dictionary<string, List<CloudModRecord>> _cachedCloudLookup = null;
@@ -135,31 +135,33 @@ namespace AutoTranslator_Core
         private static void QueueValidModsCacheRefreshIfNeeded()
         {
             long nowTicks = DateTime.UtcNow.Ticks;
-            if (_cachedValidMods != null && nowTicks < _nextActiveModCountCheckUtcTicks)
+            if (_cachedValidMods != null && nowTicks < _nextInstalledModStateCheckUtcTicks)
             {
                 return;
             }
 
-            List<ValidModSnapshot> snapshots = SnapshotActiveModsForValidMods(out int activeCount, out string signature);
-            _nextActiveModCountCheckUtcTicks = nowTicks + TimeSpan.TicksPerSecond;
+            List<ValidModSnapshot> snapshots = SnapshotInstalledModsForValidMods(
+                out int installedCount,
+                out string signature);
+            _nextInstalledModStateCheckUtcTicks = nowTicks + TimeSpan.TicksPerSecond;
 
             if (_cachedValidMods != null &&
                 !_validModsCacheRefreshInFlight &&
-                _lastActiveModCount == activeCount &&
-                string.Equals(_lastActiveModSignature, signature, StringComparison.Ordinal))
+                _lastInstalledModCount == installedCount &&
+                string.Equals(_lastInstalledModSignature, signature, StringComparison.Ordinal))
             {
                 return;
             }
 
             if (_validModsCacheRefreshInFlight &&
-                string.Equals(_pendingActiveModSignature, signature, StringComparison.Ordinal))
+                string.Equals(_pendingInstalledModSignature, signature, StringComparison.Ordinal))
             {
                 return;
             }
 
             int generation = ++_validModsCacheGeneration;
             _validModsCacheRefreshInFlight = true;
-            _pendingActiveModSignature = signature;
+            _pendingInstalledModSignature = signature;
             _validModsCacheProgressCurrent = 0;
             _validModsCacheProgressTotal = snapshots.Count;
             _validModsCacheProgressModName = "";
@@ -203,7 +205,7 @@ namespace AutoTranslator_Core
                     if (generation != _validModsCacheGeneration) return;
 
                     _validModsCacheRefreshInFlight = false;
-                    _pendingActiveModSignature = "";
+                    _pendingInstalledModSignature = "";
                     _validModsCacheProgressCurrent = _validModsCacheProgressTotal;
                     _validModsCacheProgressModName = "";
 
@@ -215,8 +217,8 @@ namespace AutoTranslator_Core
                     }
 
                     _cachedValidMods = validMods ?? new List<ModMetaData>();
-                    _lastActiveModCount = activeCount;
-                    _lastActiveModSignature = signature;
+                    _lastInstalledModCount = installedCount;
+                    _lastInstalledModSignature = signature;
                     _validModsCacheVersion++;
                     _cachedCloudDisplayMods = null;
                     _cachedCloudLocalModMap = null;
@@ -224,24 +226,27 @@ namespace AutoTranslator_Core
             });
         }
 
-        private static List<ValidModSnapshot> SnapshotActiveModsForValidMods(out int activeCount, out string signature)
+        private static List<ValidModSnapshot> SnapshotInstalledModsForValidMods(
+            out int installedCount,
+            out string signature)
         {
             List<ValidModSnapshot> snapshots = new List<ValidModSnapshot>();
             StringBuilder signatureBuilder = new StringBuilder();
-            activeCount = 0;
+            installedCount = 0;
 
             foreach (ModMetaData mod in Verse.ModLister.AllInstalledMods)
             {
-                if (mod == null || !mod.Active) continue;
+                if (mod == null) continue;
 
-                activeCount++;
+                installedCount++;
                 string packageId = mod.PackageId ?? "";
                 string name = mod.Name ?? "";
                 string rootDir = mod.RootDir != null ? mod.RootDir.FullName : "";
 
                 signatureBuilder.Append(packageId).Append('|')
                     .Append(name).Append('|')
-                    .Append(rootDir).Append('\n');
+                    .Append(rootDir).Append('|')
+                    .Append(mod.Active ? '1' : '0').Append('\n');
 
                 snapshots.Add(new ValidModSnapshot
                 {
@@ -252,7 +257,7 @@ namespace AutoTranslator_Core
                 });
             }
 
-            signature = activeCount + ":" + signatureBuilder;
+            signature = installedCount + ":" + signatureBuilder;
             return snapshots;
         }
 
@@ -273,18 +278,11 @@ namespace AutoTranslator_Core
             EnsureNetworkDispatchReady();
 
             Settings = GetSettings<AutoTranslatorSettings>();
+            SettingsWindowSizingPatch.EnsureInstalled();
             if (Settings.ApiConfigs == null || Settings.ApiConfigs.Count == 0)
             {
                 Settings.ApiConfigs = new List<ApiKeyConfig> { new ApiKeyConfig() };
             }
-            if (Settings.PolicyAgentApiConfig == null)
-            {
-                Settings.PolicyAgentApiConfig = new ApiKeyConfig
-                {
-                    Label = "Policy Agent"
-                };
-            }
-
             TryAutoSyncLanguageWithGame(resetCaches: false, log: false, writeSettings: true);
 
             AutoTranslator_StartupHook.EnsureInstalled();
@@ -598,43 +596,58 @@ namespace AutoTranslator_Core
                 }
 
 
-                Rect viewRect = new Rect(0, 0, inRect.width - 20f, AutoTranslatorSettings.lastSettingsViewHeight);
                 Rect scrollRect = new Rect(0, 65f, inRect.width, inRect.height - 65f);
-
-                Widgets.BeginScrollView(scrollRect, ref AutoTranslatorSettings.mainScrollPos, viewRect);
-                bool listingStarted = false;
-                Listing_Standard l = new Listing_Standard();
-                try
+                bool fixedPrimaryLayout = SettingsLayoutPolicy.UseFixedPrimaryLayout(
+                    AutoTranslatorSettings.ActiveTab,
+                    scrollRect.width,
+                    scrollRect.height);
+                if (fixedPrimaryLayout)
                 {
-                    Rect listRect = new Rect(0, 0, viewRect.width, 99999f);
-                    l.Begin(listRect);
-                    listingStarted = true;
-                    l.Gap(5f);
-
-
-                    if (AutoTranslatorSettings.ActiveTab == 0)
+                    GUI.BeginGroup(scrollRect);
+                    Listing_Standard workbenchListing = new Listing_Standard();
+                    bool workbenchListingStarted = false;
+                    try
                     {
-                        DrawMainTab(l, viewRect);
+                        Rect fixedViewRect = new Rect(0f, 0f, scrollRect.width, scrollRect.height);
+                        workbenchListing.Begin(fixedViewRect);
+                        workbenchListingStarted = true;
+                        workbenchListing.Gap(5f);
+                        if (AutoTranslatorSettings.ActiveTab == 0)
+                            DrawMainTab(workbenchListing, fixedViewRect);
+                        else
+                            TranslationWorkbenchTab.DrawEditorTab(workbenchListing, fixedViewRect);
+                        AutoTranslatorSettings.lastSettingsViewHeight = workbenchListing.CurHeight + 10f;
                     }
-                    else if (AutoTranslatorSettings.ActiveTab == 1)
+                    finally
                     {
-
-                        TranslationWorkbenchTab.DrawEditorTab(l, viewRect);
+                        if (workbenchListingStarted) workbenchListing.End();
+                        GUI.EndGroup();
                     }
-                    else if (AutoTranslatorSettings.ActiveTab == 2)
-                    {
-                        DrawCloudTab(l, viewRect);
-                    }
-                    else if (AutoTranslatorSettings.ActiveTab == 3)
-                    {
-                        DrawConfigTab(l, viewRect);
-                    }
-                    AutoTranslatorSettings.lastSettingsViewHeight = l.CurHeight + 50f;
                 }
-                finally
+                else
                 {
-                    if (listingStarted) l.End();
-                    Widgets.EndScrollView();
+                    Rect viewRect = new Rect(0, 0, inRect.width - 20f, AutoTranslatorSettings.lastSettingsViewHeight);
+                    Widgets.BeginScrollView(scrollRect, ref AutoTranslatorSettings.mainScrollPos, viewRect);
+                    bool listingStarted = false;
+                    Listing_Standard l = new Listing_Standard();
+                    try
+                    {
+                        Rect listRect = new Rect(0, 0, viewRect.width, 99999f);
+                        l.Begin(listRect);
+                        listingStarted = true;
+                        l.Gap(5f);
+
+                        if (AutoTranslatorSettings.ActiveTab == 0) DrawMainTab(l, viewRect);
+                        else if (AutoTranslatorSettings.ActiveTab == 1) TranslationWorkbenchTab.DrawEditorTab(l, viewRect);
+                        else if (AutoTranslatorSettings.ActiveTab == 2) DrawCloudTab(l, viewRect);
+                        else if (AutoTranslatorSettings.ActiveTab == 3) DrawConfigTab(l, viewRect);
+                        AutoTranslatorSettings.lastSettingsViewHeight = l.CurHeight + 50f;
+                    }
+                    finally
+                    {
+                        if (listingStarted) l.End();
+                        Widgets.EndScrollView();
+                    }
                 }
             }
             finally

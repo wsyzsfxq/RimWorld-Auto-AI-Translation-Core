@@ -22,6 +22,8 @@
              Link="HardcodedUiPatchModels.cs" />
     <Compile Include="..\..\src\RimWorld-Auto-AI-Translation_Core\UI\TargetedHardcoded\HardcodedUiMethodIdentity.cs"
              Link="HardcodedUiMethodIdentity.cs" />
+    <Compile Include="..\..\src\RimWorld-Auto-AI-Translation_Core\UI\TargetedHardcoded\HardcodedUiCallTarget.cs"
+             Link="HardcodedUiCallTarget.cs" />
     <Compile Include="..\..\src\RimWorld-Auto-AI-Translation_Core\UI\TargetedHardcoded\HardcodedUiRuntime.cs"
              Link="HardcodedUiRuntime.cs" />
     <Compile Include="..\..\src\RimWorld-Auto-AI-Translation_Core\UI\TargetedHardcoded\HardcodedUiTargetedPatchTranspiler.cs"

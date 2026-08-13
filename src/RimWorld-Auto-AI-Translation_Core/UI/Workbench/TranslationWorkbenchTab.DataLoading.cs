@@ -134,6 +134,10 @@ namespace AutoTranslator_Core
                 _loadedWorkbenchTargetLanguage = null;
                 _isLoading = true;
                 _itemSearchText = initialSearchText ?? "";
+                // Direct navigation must not inherit a stale translation filter from the
+                // previous visit, otherwise the requested item is loaded but stays hidden.
+                if (focusRequest != null)
+                    _workbenchItemTranslationFilter = WorkbenchItemTranslationFilter.All;
                 _pendingWorkbenchFocus = focusRequest;
                 _activeWorkbenchFocus = null;
                 _itemScroll = UnityEngine.Vector2.zero;
@@ -495,6 +499,10 @@ namespace AutoTranslator_Core
                     }
                 }
 
+                WorkbenchDllLoadResult dllLoad = LoadDllWorkbenchData(
+                    targetMod.Mod,
+                    targetMod.TargetLang);
+
                 ATC_Dispatcher.RunOnMainThread(() => {
                     if (_editingMod != targetMod.Mod) return;
                     if (AutoTranslatorMod.Settings.TargetLang != targetMod.TargetLang)
@@ -504,6 +512,10 @@ namespace AutoTranslator_Core
                     }
                     _loadedWorkbenchTargetLanguage = targetMod.TargetLang;
                     _categorizedData = resultData;
+                    _dllCategorizedData = dllLoad.Categories ??
+                        new Dictionary<string, List<WorkbenchItem>>(StringComparer.OrdinalIgnoreCase);
+                    _dllScanResult = dllLoad.ScanResult;
+                    _dllStaleSavedEntryCount = dllLoad.StaleSavedEntryCount;
                     WorkbenchFocusRequest focus = _pendingWorkbenchFocus;
                     if (focus != null && officialTarReference && !string.IsNullOrWhiteSpace(focus.Category))
                     {
@@ -513,10 +525,17 @@ namespace AutoTranslator_Core
                             engDefs,
                             officialNormalizedDefPaths);
                     }
-                    string selectedCategory = _categorizedData.Keys.FirstOrDefault() ?? "";
-                    if (focus != null && !string.IsNullOrWhiteSpace(focus.Category) && _categorizedData.ContainsKey(focus.Category))
+                    string selectedCategory = AllWorkbenchCategoriesView;
+                    _selectedWorkbenchSource = WorkbenchSourceKind.All;
+                    IDictionary<string, List<WorkbenchItem>> focusData = focus != null &&
+                        focus.Source == WorkbenchSourceKind.Dll
+                        ? _dllCategorizedData
+                        : _categorizedData;
+                    if (focus != null && !string.IsNullOrWhiteSpace(focus.Category) &&
+                        focusData.ContainsKey(focus.Category))
                     {
                         selectedCategory = focus.Category;
+                        _selectedWorkbenchSource = focus.Source;
                     }
 
                     _selectedCategory = selectedCategory;
@@ -527,6 +546,8 @@ namespace AutoTranslator_Core
                     _categorizedDataVersion++;
                     _cachedVisibleItems = null;
                     _isLoading = false;
+                    if (!string.IsNullOrWhiteSpace(dllLoad.Error))
+                        SetWorkbenchStatus("ATC_Workbench_DllLoadFailed".Translate(dllLoad.Error).ToString());
                 });
             }
 
@@ -659,7 +680,10 @@ namespace AutoTranslator_Core
             {
                 if (focus == null || string.IsNullOrWhiteSpace(focus.Key)) return 0f;
                 if (string.IsNullOrWhiteSpace(selectedCategory)) return 0f;
-                if (!_categorizedData.TryGetValue(selectedCategory, out List<WorkbenchItem> items) || items == null) return 0f;
+                IDictionary<string, List<WorkbenchItem>> source = focus.Source == WorkbenchSourceKind.Dll
+                    ? _dllCategorizedData
+                    : _categorizedData;
+                if (!source.TryGetValue(selectedCategory, out List<WorkbenchItem> items) || items == null) return 0f;
 
                 int index = items.FindIndex(i => i != null && string.Equals(i.Key, focus.Key, StringComparison.OrdinalIgnoreCase));
                 if (index < 0) return 0f;
@@ -680,10 +704,15 @@ namespace AutoTranslator_Core
 
             private static float GetInitialCategoryScrollForFocus(string selectedCategory)
             {
-                if (string.IsNullOrWhiteSpace(selectedCategory) || _categorizedData == null || _categorizedData.Count == 0) return 0f;
+                if (string.IsNullOrWhiteSpace(selectedCategory)) return 0f;
+
+                IDictionary<string, List<WorkbenchItem>> source = _selectedWorkbenchSource == WorkbenchSourceKind.Dll
+                    ? _dllCategorizedData
+                    : _categorizedData;
+                if (source == null || source.Count == 0) return 0f;
 
                 int index = 0;
-                foreach (string category in _categorizedData.Keys)
+                foreach (string category in source.Keys)
                 {
                     if (string.Equals(category, selectedCategory, StringComparison.OrdinalIgnoreCase))
                     {

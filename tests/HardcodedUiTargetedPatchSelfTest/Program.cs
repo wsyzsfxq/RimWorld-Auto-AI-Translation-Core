@@ -91,7 +91,8 @@ namespace HardcodedUiTargetedPatchSelfTest
                 {
                     EntryId = entry.EntryId,
                     Literal = entry.Literal,
-                    LiteralOrdinal = entry.LiteralOrdinal
+                    LiteralOrdinal = entry.LiteralOrdinal,
+                    CallSignature = entry.CallSignature
                 }
             });
             HardcodedUiRuntime.ReplaceSnapshot(new System.Collections.Generic.Dictionary<string, string>

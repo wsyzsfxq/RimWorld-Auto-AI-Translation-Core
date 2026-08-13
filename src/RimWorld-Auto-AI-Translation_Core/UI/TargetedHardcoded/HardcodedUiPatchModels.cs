@@ -3,8 +3,9 @@ using System.Collections.Generic;
 
 namespace AutoTranslator_Core.TargetedHardcodedUi
 {
-    // This manifest is an explicit allow-list. It is never generated and applied
-    // in the same step; a human must mark it approved before runtime will use it.
+    // This manifest is an explicit allow-list. Entries may be approved by the
+    // static-analysis/Agent chain or by a user override; runtime still validates
+    // every immutable assembly and method identity before applying a patch.
     public sealed class HardcodedUiPatchManifest
     {
         public HardcodedUiPatchManifest()
@@ -41,6 +42,7 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
             CallDeclaringType = string.Empty;
             CallMethodName = string.Empty;
             CallSignature = string.Empty;
+            DiscoveryKind = string.Empty;
             Translations = new Dictionary<string, string>();
         }
 
@@ -91,6 +93,9 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
 
         [JsonProperty("callSignature")]
         public string CallSignature { get; set; }
+
+        [JsonProperty("discoveryKind")]
+        public string DiscoveryKind { get; set; }
 
         [JsonProperty("translations")]
         public Dictionary<string, string> Translations { get; set; }

@@ -15,21 +15,17 @@ using Verse;
 
 namespace AutoTranslator_Core.TargetedHardcodedUi
 {
-    // Runtime entry point for the opt-in prototype. The manifest is an explicit,
-    // human-approved allow-list; all validation happens before any patch is added.
+    // Runtime entry point for the opt-in feature. The manifest is an explicit
+    // decision-approved allow-list; all validation happens before any patch is added.
     public static class HardcodedUiTargetedPatchManager
     {
-        public const string ApprovedFixturePackageId = "atc.hardcodedui.fixture";
         private const string HarmonyId = "MingYang.AutoTranslation.HardcodedUiTargetedPrototype";
         private const int ManifestVersion = 1;
-        private const int MaximumManifestBytes = 256 * 1024;
-        private const int MaximumEntries = 16;
+        private const int MaximumManifestBytes = 32 * 1024 * 1024;
+        private const int MaximumEntries = 10000;
         private const int MaximumTranslationsPerEntry = 32;
         private const int MaximumTranslationKeyLength = 64;
-        private const int MaximumTextLength = 512;
-        private const string SupportedCallDeclaringType = "Verse.Widgets";
-        private const string SupportedCallMethodName = "Label";
-        private const string SupportedCallSignature = "Verse.Widgets::Label(UnityEngine.Rect,System.String)->System.Void";
+        private const int MaximumTextLength = 4096;
 
         private static readonly object Gate = new object();
         private static readonly Harmony Harmony = new Harmony(HarmonyId);
@@ -406,7 +402,8 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
                         {
                             EntryId = item.Entry.EntryId,
                             Literal = item.Entry.Literal,
-                            LiteralOrdinal = item.Entry.LiteralOrdinal
+                            LiteralOrdinal = item.Entry.LiteralOrdinal,
+                            CallSignature = item.Entry.CallSignature
                         }));
 
                     patchMayBeInstalled = true;
@@ -514,12 +511,8 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
             method = null;
             reason = string.Empty;
             if (entry == null) { reason = "null entry"; return false; }
-            if (!string.Equals(entry.PackageId, ApprovedFixturePackageId, StringComparison.OrdinalIgnoreCase))
-            {
-                reason = "package is outside prototype allow-list";
-                return false;
-            }
             if (string.IsNullOrWhiteSpace(entry.EntryId) || entry.EntryId.Length > 200 ||
+                string.IsNullOrWhiteSpace(entry.PackageId) ||
                 string.IsNullOrWhiteSpace(entry.Literal) || entry.Literal.Length > MaximumTextLength ||
                 entry.LiteralOrdinal < 0)
             {
@@ -555,13 +548,6 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
                 reason = "entry id does not match deterministic identity";
                 return false;
             }
-            if (!string.Equals(entry.CallDeclaringType, SupportedCallDeclaringType, StringComparison.Ordinal) ||
-                !string.Equals(entry.CallMethodName, SupportedCallMethodName, StringComparison.Ordinal) ||
-                !string.Equals(entry.CallSignature, SupportedCallSignature, StringComparison.Ordinal))
-            {
-                reason = "unsupported call target";
-                return false;
-            }
             if (!IsSha256(entry.AssemblySha256) || !IsSha256(entry.MethodIlFingerprint) ||
                 !Guid.TryParse(entry.AssemblyMvid, out _))
             {
@@ -574,7 +560,7 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
                 string.Equals(candidate.PackageId, entry.PackageId, StringComparison.OrdinalIgnoreCase));
             if (mod == null || mod.RootDir == null)
             {
-                reason = "approved fixture mod is not active";
+                reason = "target Mod is not active";
                 return false;
             }
 
@@ -639,9 +625,9 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
                 method = null;
                 return false;
             }
-            if (!HasUniqueDirectLabelLiteral(method, entry.Literal, entry.LiteralOrdinal))
+            if (!HasUniqueLiteral(method, entry))
             {
-                reason = "literal/call pattern mismatch";
+                reason = "literal/ordinal pattern mismatch";
                 method = null;
                 return false;
             }
@@ -657,7 +643,7 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
             return true;
         }
 
-        private static bool HasUniqueDirectLabelLiteral(MethodBase method, string literal, int expectedOrdinal)
+        private static bool HasUniqueLiteral(MethodBase method, HardcodedUiPatchEntry entry)
         {
             int ordinal = -1;
             int matches = 0;
@@ -668,20 +654,18 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
                 KeyValuePair<OpCode, object> instruction = instructions[i];
                 if (instruction.Key != OpCodes.Ldstr || !(instruction.Value is string)) continue;
                 ordinal++;
-                if (ordinal != expectedOrdinal || !string.Equals((string)instruction.Value, literal, StringComparison.Ordinal)) continue;
+                if (ordinal != entry.LiteralOrdinal || !string.Equals((string)instruction.Value, entry.Literal, StringComparison.Ordinal)) continue;
 
-                int next = i + 1;
-                while (next < instructions.Count && instructions[next].Key == OpCodes.Nop) next++;
-                if (next < instructions.Count && IsSupportedLabelCall(instructions[next])) matches++;
+                if (!string.IsNullOrWhiteSpace(entry.CallSignature))
+                {
+                    int next = i + 1;
+                    while (next < instructions.Count && instructions[next].Key == OpCodes.Nop) next++;
+                    MethodBase call = next < instructions.Count ? instructions[next].Value as MethodBase : null;
+                    if (!HardcodedUiCallTarget.Matches(call, entry)) continue;
+                }
+                matches++;
             }
             return matches == 1;
-        }
-
-        private static bool IsSupportedLabelCall(KeyValuePair<OpCode, object> instruction)
-        {
-            if (instruction.Key != OpCodes.Call && instruction.Key != OpCodes.Callvirt) return false;
-            MethodBase target = instruction.Value as MethodBase;
-            return target != null && string.Equals(HardcodedUiMethodIdentity.GetMethodSignature(target), SupportedCallSignature, StringComparison.Ordinal);
         }
 
         private static bool TryResolveAssemblyPath(string root, string relative, out string fullPath)

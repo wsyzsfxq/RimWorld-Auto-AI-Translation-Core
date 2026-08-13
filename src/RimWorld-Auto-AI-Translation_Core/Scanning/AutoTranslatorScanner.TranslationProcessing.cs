@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using System.Xml;
 using Verse;
 using static AutoTranslator_Core.DeleteTranslationWindow;
+using AutoTranslator_Core.Terminology;
 // 這個檔案負責 Keyed 與 DefInjected 翻譯處理。
 // EN: This file processes Keyed and DefInjected translation data.
 
@@ -107,6 +108,12 @@ namespace AutoTranslator_Core
             public string SourceFile;
             public TranslationProvenanceEntry Provenance;
             public bool IsPolicyOnlyExistingTranslation;
+        }
+
+        private sealed class PreferredTranslationCandidate
+        {
+            public string Value;
+            public TranslationProvenanceEntry Provenance;
         }
 
         private sealed class TranslationPolicyWorkEvaluation
@@ -208,6 +215,8 @@ namespace AutoTranslator_Core
             Dictionary<string, string> nativeTargetDict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             Dictionary<string, TranslationProvenanceEntry> nativeTargetSourceDict =
                 new Dictionary<string, TranslationProvenanceEntry>(StringComparer.OrdinalIgnoreCase);
+            Dictionary<string, string> finalData = null;
+            Dictionary<string, TranslationProvenanceEntry> provenanceByKey = null;
 
             string secondaryTag = "";
             if (settings.TargetLang == TargetLanguage.Traditional)
@@ -294,9 +303,8 @@ namespace AutoTranslator_Core
 
                 // Keep generated keys with no current source entry; without an original value,
                 // policy cannot safely distinguish a stale key from an intentionally isolated one.
-                Dictionary<string, string> finalData = new Dictionary<string, string>(packDict, StringComparer.OrdinalIgnoreCase);
-                Dictionary<string, TranslationProvenanceEntry> provenanceByKey =
-                    new Dictionary<string, TranslationProvenanceEntry>(StringComparer.OrdinalIgnoreCase);
+                finalData = new Dictionary<string, string>(packDict, StringComparer.OrdinalIgnoreCase);
+                provenanceByKey = new Dictionary<string, TranslationProvenanceEntry>(StringComparer.OrdinalIgnoreCase);
                 foreach (var pair in packDict)
                 {
                     string sourceTranslationFile = targetFile;
@@ -318,6 +326,58 @@ namespace AutoTranslator_Core
 
                     KeyedSourceEntry sourceEntry = PickBestKeyedSourceEntry(entries, settings.TargetLang);
                     string sourceText = sourceEntry != null ? sourceEntry.Value : "";
+
+                    if (!pureAiWorkspace)
+                    {
+                        List<PreferredTranslationCandidate> preferredCandidates =
+                            new List<PreferredTranslationCandidate>();
+                        if (packDict.TryGetValue(key, out string preferredPackValue))
+                        {
+                            provenanceByKey.TryGetValue(key, out TranslationProvenanceEntry preferredPackSource);
+                            preferredCandidates.Add(new PreferredTranslationCandidate
+                            {
+                                Value = preferredPackValue,
+                                Provenance = preferredPackSource
+                            });
+                        }
+                        if (GlobalPrimaryKeyedDict.TryGetValue(key, out string preferredGlobalValue) &&
+                            GlobalPrimaryKeyedSourceDict.TryGetValue(key, out TranslationProvenanceEntry preferredGlobalSource) &&
+                            IsShareablePreferredSource(preferredGlobalSource))
+                        {
+                            preferredCandidates.Add(new PreferredTranslationCandidate
+                            {
+                                Value = preferredGlobalValue,
+                                Provenance = preferredGlobalSource
+                            });
+                        }
+                        if (nativeTargetDict.TryGetValue(key, out string preferredNativeValue))
+                        {
+                            nativeTargetSourceDict.TryGetValue(key, out TranslationProvenanceEntry preferredNativeSource);
+                            preferredCandidates.Add(new PreferredTranslationCandidate
+                            {
+                                Value = preferredNativeValue,
+                                Provenance = preferredNativeSource
+                            });
+                        }
+
+                        if (TryApplyPreferredTargetTranslation(
+                                mod,
+                                key,
+                                sourceText,
+                                preferredCandidates,
+                                finalData,
+                                provenanceByKey,
+                                out bool usedPreferredExisting))
+                        {
+                            AddExistingTranslationPolicyWorkItem(
+                                workItems,
+                                usedPreferredExisting,
+                                key,
+                                sourceText,
+                                sourceEntry != null ? sourceEntry.SourceFile : string.Empty);
+                            continue;
+                        }
+                    }
 
                     if (!pureAiWorkspace && nativeTargetDict.TryGetValue(key, out string nativeVal))
                     {
@@ -512,6 +572,34 @@ namespace AutoTranslator_Core
 
                 }
 
+                if (!pureAiWorkspace && settings.IsTerminologyEnabledForPackage(mod.PackageId))
+                {
+                    var trustedPairs = new List<TerminologyAlignedSentencePair>();
+                    foreach (KeyValuePair<string, string> translated in finalData)
+                    {
+                        if (!sourceEntries.TryGetValue(translated.Key, out List<KeyedSourceEntry> alignedSources) ||
+                            alignedSources == null || alignedSources.Count == 0 ||
+                            !provenanceByKey.TryGetValue(translated.Key, out TranslationProvenanceEntry alignedProvenance))
+                            continue;
+                        TranslationSourceCategory category = TranslationSourcePriorityPolicy.ClassifyProvenance(
+                            alignedProvenance?.SourceKind);
+                        if (category != TranslationSourceCategory.UserManual &&
+                            category != TranslationSourceCategory.ExternalHuman &&
+                            category != TranslationSourceCategory.ModNative)
+                            continue;
+                        KeyedSourceEntry alignedSource = PickBestKeyedSourceEntry(alignedSources, settings.TargetLang);
+                        if (alignedSource == null) continue;
+                        trustedPairs.Add(new TerminologyAlignedSentencePair
+                        {
+                            PairId = mod.PackageId + ":keyed:" + translated.Key,
+                            PackageId = mod.PackageId,
+                            Source = alignedSource.Value,
+                            Target = translated.Value
+                        });
+                    }
+                    TerminologyRuntime.ObserveAlignedTranslations(mod.PackageId, trustedPairs);
+                }
+
                 workItems = await FilterTranslationWorkItemsByPolicyAsync(
                     mod,
                     TranslationPolicy.TranslationPolicyBucket.Keyed,
@@ -521,7 +609,17 @@ namespace AutoTranslator_Core
                     finalData,
                     provenanceByKey);
                 if (AutoTranslatorSettings.IsCancellationRequested || AutoTranslatorSettings.IsSkipCurrentRequested)
+                {
+                    CheckpointGeneratedTranslationProgress(
+                        mod,
+                        "Keyed",
+                        string.Empty,
+                        targetFile,
+                        packLangRoot,
+                        finalData,
+                        provenanceByKey);
                     return aiTranslatedCount;
+                }
 
                 workItems = workItems
                     .Where(item => !item.IsPolicyOnlyExistingTranslation)
@@ -536,12 +634,32 @@ namespace AutoTranslator_Core
                 if (workItems.Count > 0)
                 {
                     AutoTranslatorSettings.AddLog("🔌 " + AutoTranslatorAPI.TranslateText("ATC_Log_FoundMissing", "Keyed", workItems.Count));
+                    TerminologyRuntime.ObserveTranslationInputs(
+                        mod.PackageId,
+                        "Keyed",
+                        string.Empty,
+                        workItems.Select(item => new KeyValuePair<string, string>(item.Key, item.TranslationInput)));
+                    await TerminologyRuntime.ResolveHighValueCandidatesAsync(mod.PackageId);
+                    if (AutoTranslatorSettings.IsCancellationRequested || AutoTranslatorSettings.IsSkipCurrentRequested)
+                    {
+                        CheckpointGeneratedTranslationProgress(
+                            mod,
+                            "Keyed",
+                            string.Empty,
+                            targetFile,
+                            packLangRoot,
+                            finalData,
+                            provenanceByKey);
+                        return aiTranslatedCount;
+                    }
                     List<string> translationInputs = workItems.Select(item => item.TranslationInput).ToList();
                     List<TranslationBatchItemResult> res = await SafeTranslateBatch(
                         translationInputs,
-                        $"{mod.Name} / {sourceFiles[0].TargetFileName}");
-                    if (AutoTranslatorSettings.IsCancellationRequested || AutoTranslatorSettings.IsSkipCurrentRequested)
-                        return aiTranslatedCount;
+                        $"{mod.Name} / {sourceFiles[0].TargetFileName}",
+                        mod.PackageId);
+                    bool interruptedAfterBatch =
+                        AutoTranslatorSettings.IsCancellationRequested ||
+                        AutoTranslatorSettings.IsSkipCurrentRequested;
                     if (res != null)
                     {
                         int acceptedCount = 0;
@@ -552,14 +670,17 @@ namespace AutoTranslator_Core
                             TranslationBatchItemResult batchResult = i < res.Count ? res[i] : null;
                             if (batchResult == null || !batchResult.IsSuccess)
                             {
-                                RecordUnresolvedTranslation(
-                                    mod,
-                                    "Keyed",
-                                    string.Empty,
-                                    targetFile,
-                                    item,
-                                    batchResult != null ? batchResult.FailureReason : TranslationUnresolvedReasons.ApiFailure,
-                                    batchResult != null ? batchResult.Detail : "No batch result was produced.");
+                                if (!interruptedAfterBatch)
+                                {
+                                    RecordUnresolvedTranslation(
+                                        mod,
+                                        "Keyed",
+                                        string.Empty,
+                                        targetFile,
+                                        item,
+                                        batchResult != null ? batchResult.FailureReason : TranslationUnresolvedReasons.ApiFailure,
+                                        batchResult != null ? batchResult.Detail : "No batch result was produced.");
+                                }
                                 continue;
                             }
 
@@ -613,32 +734,38 @@ namespace AutoTranslator_Core
                     }
                 }
 
-                AutoTranslatorSettings.AddLog("✅ " + AutoTranslatorAPI.TranslateText("ATC_Log_NoMissing", Path.GetFileName(sourceFiles[0].File)));
-                if (AutoTranslatorSettings.IsCancellationRequested || AutoTranslatorSettings.IsSkipCurrentRequested)
-                    return aiTranslatedCount;
-                if (finalData.Count > 0 || File.Exists(targetFile))
+                bool interruptedBeforeSave =
+                    AutoTranslatorSettings.IsCancellationRequested ||
+                    AutoTranslatorSettings.IsSkipCurrentRequested;
+                if (!interruptedBeforeSave)
+                    AutoTranslatorSettings.AddLog("✅ " + AutoTranslatorAPI.TranslateText("ATC_Log_NoMissing", Path.GetFileName(sourceFiles[0].File)));
+                if (CheckpointGeneratedTranslationProgress(
+                        mod,
+                        "Keyed",
+                        string.Empty,
+                        targetFile,
+                        packLangRoot,
+                        finalData,
+                        provenanceByKey) &&
+                    !interruptedBeforeSave)
                 {
-                    if (!SaveGeneratedTranslationFile(mod, targetFile, packLangRoot, finalData, provenanceByKey))
-                    {
-                        RecordGeneratedFileSaveFailure(
-                            mod,
-                            "Keyed",
-                            string.Empty,
-                            targetFile,
-                            "The generated Keyed XML file could not be saved.");
-                    }
-                    else
-                    {
-                        DeleteSupersededGeneratedKeyedFiles(
-                            packKeyedDir,
-                            mod,
-                            sourceFiles.Select(item => item.File),
-                            targetFile);
-                    }
+                    DeleteSupersededGeneratedKeyedFiles(
+                        packKeyedDir,
+                        mod,
+                        sourceFiles.Select(item => item.File),
+                        targetFile);
                 }
             }
             catch (XmlException xmlEx)
             {
+                CheckpointGeneratedTranslationProgress(
+                    mod,
+                    "Keyed",
+                    string.Empty,
+                    targetFile,
+                    packLangRoot,
+                    finalData,
+                    provenanceByKey);
                 string file = currentSourceFile ?? string.Empty;
                 AutoTranslatorSettings.AddErrorLog("❌ " + AutoTranslatorAPI.TranslateText("ATC_LogError_Format", mod.Name, GetShortPath(file)));
                 Log.Warning($"[AutoTranslationCore] XML Format Error ({mod.Name}): {xmlEx.Message}");
@@ -654,6 +781,14 @@ namespace AutoTranslator_Core
             }
             catch (Exception ex)
             {
+                CheckpointGeneratedTranslationProgress(
+                    mod,
+                    "Keyed",
+                    string.Empty,
+                    targetFile,
+                    packLangRoot,
+                    finalData,
+                    provenanceByKey);
                 string file = currentSourceFile ?? string.Empty;
                 AutoTranslatorSettings.AddErrorLog("❌ " + AutoTranslatorAPI.TranslateText("ATC_LogError_Unknown", mod.Name, GetShortPath(file)));
                 Log.Warning($"[AutoTranslationCore] Process Error ({mod.Name}): {ex.Message}");
@@ -885,7 +1020,11 @@ namespace AutoTranslator_Core
 
             foreach (var defType in allDefTypes)
             {
-                if (AutoTranslatorSettings.IsCancellationRequested || AutoTranslatorSettings.IsSkipCurrentRequested) return aiTranslatedCount;
+                if (AutoTranslatorSettings.IsCancellationRequested || AutoTranslatorSettings.IsSkipCurrentRequested)
+                {
+                    CheckpointDeferredDefProgress(mod, packLangRoot, deferredDefContexts);
+                    return aiTranslatedCount;
+                }
 
                 currentDef++;
                 float defProgress = (float)currentDef / Math.Max(1, totalDefs);
@@ -945,6 +1084,67 @@ namespace AutoTranslator_Core
                     string sourceFile = string.Empty;
                     if (englishSourceFiles.TryGetValue(defType, out Dictionary<string, string> defSourceMap))
                         defSourceMap.TryGetValue(key, out sourceFile);
+
+                    string preferredSourceText = engDict != null && engDict.TryGetValue(key, out string preferredEnglish)
+                        ? preferredEnglish
+                        : string.Empty;
+                    if (!pureAiWorkspace)
+                    {
+                        List<PreferredTranslationCandidate> preferredCandidates =
+                            new List<PreferredTranslationCandidate>();
+                        if (packDict.TryGetValue(key, out string preferredPackValue))
+                        {
+                            provenanceByKey.TryGetValue(key, out TranslationProvenanceEntry preferredPackSource);
+                            preferredCandidates.Add(new PreferredTranslationCandidate
+                            {
+                                Value = preferredPackValue,
+                                Provenance = preferredPackSource
+                            });
+                        }
+                        string preferredGlobalValue = null;
+                        TranslationProvenanceEntry preferredGlobalSource = null;
+                        if ((GlobalPrimaryDefDict.TryGetValue(globalKey, out preferredGlobalValue) ||
+                             GlobalPrimaryDefDict.TryGetValue(globalKeyGen, out preferredGlobalValue)) &&
+                            (GlobalPrimaryDefSourceDict.TryGetValue(globalKey, out preferredGlobalSource) ||
+                             GlobalPrimaryDefSourceDict.TryGetValue(globalKeyGen, out preferredGlobalSource)) &&
+                            IsShareablePreferredSource(preferredGlobalSource))
+                        {
+                            preferredCandidates.Add(new PreferredTranslationCandidate
+                            {
+                                Value = preferredGlobalValue,
+                                Provenance = preferredGlobalSource
+                            });
+                        }
+                        if (selfDict != null && selfDict.TryGetValue(key, out string preferredNativeValue))
+                        {
+                            TranslationProvenanceEntry preferredNativeSource = null;
+                            if (modSelfTargetSources.TryGetValue(defType, out Dictionary<string, TranslationProvenanceEntry> preferredNativeSources))
+                                preferredNativeSources.TryGetValue(key, out preferredNativeSource);
+                            preferredCandidates.Add(new PreferredTranslationCandidate
+                            {
+                                Value = preferredNativeValue,
+                                Provenance = preferredNativeSource
+                            });
+                        }
+
+                        if (TryApplyPreferredTargetTranslation(
+                                mod,
+                                key,
+                                preferredSourceText,
+                                preferredCandidates,
+                                finalData,
+                                provenanceByKey,
+                                out bool usedPreferredExisting))
+                        {
+                            AddExistingTranslationPolicyWorkItem(
+                                workItems,
+                                usedPreferredExisting,
+                                key,
+                                preferredSourceText,
+                                sourceFile);
+                            continue;
+                        }
+                    }
 
 
                     if (!pureAiWorkspace && selfDict != null && selfDict.TryGetValue(key, out string selfVal)
@@ -1192,27 +1392,46 @@ namespace AutoTranslator_Core
                     }
                 }
 
+                CheckpointGeneratedTranslationProgress(
+                    mod,
+                    "DefInjected",
+                    defType,
+                    targetFile,
+                    packLangRoot,
+                    finalData,
+                    provenanceByKey);
                 if (!deferDefPolicy)
                 {
-                    workItems = await FilterTranslationWorkItemsByPolicyAsync(
-                        mod,
-                        TranslationPolicy.TranslationPolicyBucket.DefInjected,
-                        defType,
-                        targetFile,
-                        workItems,
-                        finalData,
-                        provenanceByKey);
-                    if (AutoTranslatorSettings.IsCancellationRequested || AutoTranslatorSettings.IsSkipCurrentRequested)
-                        return aiTranslatedCount;
-
-                    aiTranslatedCount += await TranslateDefWorkItemsAsync(
-                        mod,
-                        defType,
-                        targetFile,
-                        packLangRoot,
-                        workItems,
-                        finalData,
-                        provenanceByKey);
+                    try
+                    {
+                        workItems = await FilterTranslationWorkItemsByPolicyAsync(
+                            mod,
+                            TranslationPolicy.TranslationPolicyBucket.DefInjected,
+                            defType,
+                            targetFile,
+                            workItems,
+                            finalData,
+                            provenanceByKey);
+                        aiTranslatedCount += await TranslateDefWorkItemsAsync(
+                            mod,
+                            defType,
+                            targetFile,
+                            packLangRoot,
+                            workItems,
+                            finalData,
+                            provenanceByKey);
+                    }
+                    finally
+                    {
+                        CheckpointGeneratedTranslationProgress(
+                            mod,
+                            "DefInjected",
+                            defType,
+                            targetFile,
+                            packLangRoot,
+                            finalData,
+                            provenanceByKey);
+                    }
                     continue;
                 }
 
@@ -1225,18 +1444,32 @@ namespace AutoTranslator_Core
                     provenanceByKey);
                 if (context.AmbiguousCandidates.Count == 0)
                 {
-                    context.WorkItems = ApplyDefTranslationPolicyContext(
-                        mod,
-                        context,
-                        new Dictionary<string, TranslationPolicy.TranslationPolicyAgentCandidateOutcome>(StringComparer.Ordinal));
-                    aiTranslatedCount += await TranslateDefWorkItemsAsync(
-                        mod,
-                        context.DefType,
-                        context.TargetFile,
-                        packLangRoot,
-                        context.WorkItems,
-                        context.FinalData,
-                        context.ProvenanceByKey);
+                    try
+                    {
+                        context.WorkItems = ApplyDefTranslationPolicyContext(
+                            mod,
+                            context,
+                            new Dictionary<string, TranslationPolicy.TranslationPolicyAgentCandidateOutcome>(StringComparer.Ordinal));
+                        aiTranslatedCount += await TranslateDefWorkItemsAsync(
+                            mod,
+                            context.DefType,
+                            context.TargetFile,
+                            packLangRoot,
+                            context.WorkItems,
+                            context.FinalData,
+                            context.ProvenanceByKey);
+                    }
+                    finally
+                    {
+                        CheckpointGeneratedTranslationProgress(
+                            mod,
+                            "DefInjected",
+                            context.DefType,
+                            context.TargetFile,
+                            packLangRoot,
+                            context.FinalData,
+                            context.ProvenanceByKey);
+                    }
                     if (AutoTranslatorSettings.IsCancellationRequested || AutoTranslatorSettings.IsSkipCurrentRequested)
                         return aiTranslatedCount;
                     continue;
@@ -1249,7 +1482,10 @@ namespace AutoTranslator_Core
                 return aiTranslatedCount;
 
             if (AutoTranslatorSettings.IsCancellationRequested || AutoTranslatorSettings.IsSkipCurrentRequested)
+            {
+                CheckpointDeferredDefProgress(mod, packLangRoot, deferredDefContexts);
                 return aiTranslatedCount;
+            }
 
             if (deferredDefContexts.Count == 0)
             {
@@ -1262,30 +1498,58 @@ namespace AutoTranslator_Core
                     .SelectMany(context => context.AmbiguousCandidates ??
                         Enumerable.Empty<TranslationPolicy.TranslationPolicyCandidate>())
                     .ToList();
-            Dictionary<string, TranslationPolicy.TranslationPolicyAgentCandidateOutcome> agentOutcomes =
-                allAmbiguousCandidates.Count == 0
+            Dictionary<string, TranslationPolicy.TranslationPolicyAgentCandidateOutcome> agentOutcomes;
+            try
+            {
+                agentOutcomes = allAmbiguousCandidates.Count == 0
                     ? new Dictionary<string, TranslationPolicy.TranslationPolicyAgentCandidateOutcome>(StringComparer.Ordinal)
                     : await TranslationPolicyAgentCoordinator.ResolveCandidatesAsync(
                         mod != null ? mod.PackageId : string.Empty,
                         allAmbiguousCandidates);
+            }
+            catch
+            {
+                CheckpointDeferredDefProgress(mod, packLangRoot, deferredDefContexts);
+                throw;
+            }
 
             for (int contextIndex = 0; contextIndex < deferredDefContexts.Count; contextIndex++)
             {
                 if (AutoTranslatorSettings.IsCancellationRequested || AutoTranslatorSettings.IsSkipCurrentRequested)
+                {
+                    CheckpointDeferredDefProgress(
+                        mod,
+                        packLangRoot,
+                        deferredDefContexts.Skip(contextIndex));
                     return aiTranslatedCount;
+                }
 
                 DefTranslationPolicyContext context = deferredDefContexts[contextIndex];
-                context.WorkItems = ApplyDefTranslationPolicyContext(mod, context, agentOutcomes);
-                AutoTranslatorMod.Settings.SubProgress = 0.5f +
-                    (0.5f * (contextIndex + 1) / Math.Max(1, deferredDefContexts.Count));
-                aiTranslatedCount += await TranslateDefWorkItemsAsync(
-                    mod,
-                    context.DefType,
-                    context.TargetFile,
-                    packLangRoot,
-                    context.WorkItems,
-                    context.FinalData,
-                    context.ProvenanceByKey);
+                try
+                {
+                    context.WorkItems = ApplyDefTranslationPolicyContext(mod, context, agentOutcomes);
+                    AutoTranslatorMod.Settings.SubProgress = 0.5f +
+                        (0.5f * (contextIndex + 1) / Math.Max(1, deferredDefContexts.Count));
+                    aiTranslatedCount += await TranslateDefWorkItemsAsync(
+                        mod,
+                        context.DefType,
+                        context.TargetFile,
+                        packLangRoot,
+                        context.WorkItems,
+                        context.FinalData,
+                        context.ProvenanceByKey);
+                }
+                finally
+                {
+                    CheckpointGeneratedTranslationProgress(
+                        mod,
+                        "DefInjected",
+                        context.DefType,
+                        context.TargetFile,
+                        packLangRoot,
+                        context.FinalData,
+                        context.ProvenanceByKey);
+                }
             }
 
             return aiTranslatedCount;
@@ -1439,9 +1703,22 @@ namespace AutoTranslator_Core
             Dictionary<string, TranslationProvenanceEntry> provenanceByKey)
         {
             if (AutoTranslatorSettings.IsCancellationRequested || AutoTranslatorSettings.IsSkipCurrentRequested)
+            {
+                CheckpointGeneratedTranslationProgress(
+                    mod,
+                    "DefInjected",
+                    defType,
+                    targetFile,
+                    packLangRoot,
+                    finalData,
+                    provenanceByKey);
                 return 0;
+            }
 
-            List<TranslationWorkItem> translationItems = (workItems ?? new List<TranslationWorkItem>())
+            int aiTranslatedCount = 0;
+            try
+            {
+                List<TranslationWorkItem> translationItems = (workItems ?? new List<TranslationWorkItem>())
                 .Where(item => item != null && !item.IsPolicyOnlyExistingTranslation)
                 .ToList();
             translationItems = ApplyKeepOriginalDecisions(
@@ -1451,7 +1728,6 @@ namespace AutoTranslator_Core
                 translationItems,
                 finalData,
                 provenanceByKey);
-            int aiTranslatedCount = 0;
 
             if (translationItems.Count > 0)
             {
@@ -1459,14 +1735,24 @@ namespace AutoTranslator_Core
                     "ATC_Log_FoundMissing",
                     defType,
                     translationItems.Count));
+                TerminologyRuntime.ObserveTranslationInputs(
+                    mod.PackageId,
+                    "DefInjected",
+                    defType,
+                    translationItems.Select(item => new KeyValuePair<string, string>(item.Key, item.TranslationInput)));
+                await TerminologyRuntime.ResolveHighValueCandidatesAsync(mod.PackageId);
+                if (AutoTranslatorSettings.IsCancellationRequested || AutoTranslatorSettings.IsSkipCurrentRequested)
+                    return 0;
                 List<string> translationInputs = translationItems
                     .Select(item => item.TranslationInput)
                     .ToList();
                 List<TranslationBatchItemResult> results = await SafeTranslateBatch(
                     translationInputs,
-                    $"{mod.Name} / Defs: {defType}");
-                if (AutoTranslatorSettings.IsCancellationRequested || AutoTranslatorSettings.IsSkipCurrentRequested)
-                    return aiTranslatedCount;
+                    $"{mod.Name} / Defs: {defType}",
+                    mod.PackageId);
+                bool interruptedAfterBatch =
+                    AutoTranslatorSettings.IsCancellationRequested ||
+                    AutoTranslatorSettings.IsSkipCurrentRequested;
 
                 if (results != null)
                 {
@@ -1477,14 +1763,17 @@ namespace AutoTranslator_Core
                         TranslationBatchItemResult batchResult = i < results.Count ? results[i] : null;
                         if (batchResult == null || !batchResult.IsSuccess)
                         {
-                            RecordUnresolvedTranslation(
-                                mod,
-                                "DefInjected",
-                                defType,
-                                targetFile,
-                                item,
-                                batchResult != null ? batchResult.FailureReason : TranslationUnresolvedReasons.ApiFailure,
-                                batchResult != null ? batchResult.Detail : "No batch result was produced.");
+                            if (!interruptedAfterBatch)
+                            {
+                                RecordUnresolvedTranslation(
+                                    mod,
+                                    "DefInjected",
+                                    defType,
+                                    targetFile,
+                                    item,
+                                    batchResult != null ? batchResult.FailureReason : TranslationUnresolvedReasons.ApiFailure,
+                                    batchResult != null ? batchResult.Detail : "No batch result was produced.");
+                            }
                             continue;
                         }
 
@@ -1542,23 +1831,69 @@ namespace AutoTranslator_Core
                     $"Def:{defType}"));
             }
 
-            if (AutoTranslatorSettings.IsCancellationRequested || AutoTranslatorSettings.IsSkipCurrentRequested)
                 return aiTranslatedCount;
-
-            if (finalData.Count > 0 || File.Exists(targetFile))
-            {
-                if (!SaveGeneratedTranslationFile(mod, targetFile, packLangRoot, finalData, provenanceByKey))
-                {
-                    RecordGeneratedFileSaveFailure(
-                        mod,
-                        "DefInjected",
-                        defType,
-                        targetFile,
-                        "The generated DefInjected XML file could not be saved.");
-                }
             }
+            finally
+            {
+                CheckpointGeneratedTranslationProgress(
+                    mod,
+                    "DefInjected",
+                    defType,
+                    targetFile,
+                    packLangRoot,
+                    finalData,
+                    provenanceByKey);
+            }
+        }
 
-            return aiTranslatedCount;
+        private static void CheckpointDeferredDefProgress(
+            ModMetaData mod,
+            string packLangRoot,
+            IEnumerable<DefTranslationPolicyContext> contexts)
+        {
+            foreach (DefTranslationPolicyContext context in
+                contexts ?? Enumerable.Empty<DefTranslationPolicyContext>())
+            {
+                if (context == null) continue;
+                CheckpointGeneratedTranslationProgress(
+                    mod,
+                    "DefInjected",
+                    context.DefType,
+                    context.TargetFile,
+                    packLangRoot,
+                    context.FinalData,
+                    context.ProvenanceByKey);
+            }
+        }
+
+        private static bool CheckpointGeneratedTranslationProgress(
+            ModMetaData mod,
+            string bucket,
+            string defType,
+            string targetFile,
+            string packLangRoot,
+            Dictionary<string, string> finalData,
+            Dictionary<string, TranslationProvenanceEntry> provenanceByKey)
+        {
+            if (finalData == null)
+                return true;
+            if (finalData.Count == 0 && !File.Exists(targetFile))
+                return true;
+            if (SaveGeneratedTranslationFile(
+                    mod,
+                    targetFile,
+                    packLangRoot,
+                    finalData ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
+                    provenanceByKey ?? new Dictionary<string, TranslationProvenanceEntry>(StringComparer.OrdinalIgnoreCase)))
+                return true;
+
+            RecordGeneratedFileSaveFailure(
+                mod,
+                bucket,
+                defType,
+                targetFile,
+                "Completed translation progress could not be checkpointed before the task stopped.");
+            return false;
         }
 
         private static void DeleteSupersededGeneratedKeyedFiles(
@@ -1731,12 +2066,24 @@ namespace AutoTranslator_Core
 
         // 這個方法負責處理 Safe翻譯Batch 相關流程。
         // EN: This method handles safe translate batch.
-        private static async Task<List<TranslationBatchItemResult>> SafeTranslateBatch(List<string> texts, string contextInfo)
+        private static async Task<List<TranslationBatchItemResult>> SafeTranslateBatch(
+            List<string> texts,
+            string contextInfo,
+            string packageId,
+            string requestPurpose = "translation")
         {
             if (texts == null || texts.Count == 0) return new List<TranslationBatchItemResult>();
 
             var uniqueTexts = texts.Select(text => text ?? string.Empty).Distinct().ToList();
             var translatedDict = new Dictionary<string, TranslationBatchItemResult>();
+            var uncachedTexts = new List<string>();
+            foreach (string source in uniqueTexts)
+            {
+                if (TryUseCachedTranslation(packageId, source, out TranslationBatchItemResult cached))
+                    translatedDict[source] = cached;
+                else
+                    uncachedTexts.Add(source);
+            }
 
             int chunkSize = Math.Max(1, AutoTranslatorAPI.GetCurrentRuntimeProfile().BatchSize);
             int maxConcurrency = Math.Max(1, AutoTranslatorMod.Settings.MaxThreads);
@@ -1744,11 +2091,11 @@ namespace AutoTranslator_Core
 
             using (SemaphoreSlim semaphore = new SemaphoreSlim(maxConcurrency))
             {
-                for (int i = 0; i < uniqueTexts.Count; i += chunkSize)
+                for (int i = 0; i < uncachedTexts.Count; i += chunkSize)
                 {
                     int chunkIndex = i;
-                    int currentChunkSize = Math.Min(chunkSize, uniqueTexts.Count - chunkIndex);
-                    List<string> chunk = SafeSlice(uniqueTexts, chunkIndex, currentChunkSize);
+                    int currentChunkSize = Math.Min(chunkSize, uncachedTexts.Count - chunkIndex);
+                    List<string> chunk = SafeSlice(uncachedTexts, chunkIndex, currentChunkSize);
                     if (chunk.Count == 0) continue;
 
                     tasks.Add(Task.Run(async () =>
@@ -1766,12 +2113,30 @@ namespace AutoTranslator_Core
 
                             // TranslateBatchAsync already owns network and format retries. Retrying the
                             // same chunk again here multiplied worst-case waits into tens of minutes.
-                            List<string> chunkRes = await AutoTranslatorAPI.TranslateBatchAsync(chunk, suppressFinalParseError: true);
+                            List<string> chunkRes = await AutoTranslatorAPI.TranslateBatchAsync(
+                                chunk,
+                                 suppressFinalParseError: true,
+                                 packageId: packageId,
+                                 requestScope: contextInfo + " / chunk " + chunkIndex,
+                                 requestPurpose: requestPurpose,
+                                 reportFailureToUser: false);
 
                             if (chunkRes == null || chunkRes.Count != chunk.Count)
                             {
+#if false
                                 AutoTranslatorSettings.AddLog("🔄 " + AutoTranslatorAPI.TranslateText("ATC_Log_ApiFallback"));
                                 AutoTranslatorSettings.AddErrorLog("❌ " + AutoTranslatorAPI.TranslateText("ATC_LogError_ApiCritical", contextInfo));
+#endif
+                                string failureDetail = AutoTranslatorAPI.DescribeLastTranslationFailure(
+                                    contextInfo,
+                                    contextInfo + " / chunk " + chunkIndex,
+                                    out string aggregationKey,
+                                    out int affectedItems);
+                                AutoTranslatorSettings.AddAggregatedErrorLog(
+                                    aggregationKey,
+                                    failureDetail,
+                                    failureDetail,
+                                    affectedItems > 0 ? affectedItems : chunk.Count);
                                 string reason = chunkRes == null
                                     ? TranslationUnresolvedReasons.ApiFailure
                                     : TranslationUnresolvedReasons.MalformedResponse;
@@ -1793,7 +2158,7 @@ namespace AutoTranslator_Core
                             }
 
                             List<string> originalResults = new List<string>(chunkRes);
-                            chunkRes = await RetryLikelyEnglishResiduals(chunk, chunkRes, contextInfo);
+                            chunkRes = ValidateTranslationBatchMechanically(chunk, chunkRes);
 
                             if (chunkRes == null || chunkRes.Count != chunk.Count)
                             {
@@ -1811,6 +2176,8 @@ namespace AutoTranslator_Core
                                 return;
                             }
 
+                            List<KeyValuePair<string, string>> acceptedForCache =
+                                new List<KeyValuePair<string, string>>();
                             lock (translatedDict)
                             {
                                 for (int j = 0; j < chunk.Count; j++)
@@ -1819,6 +2186,7 @@ namespace AutoTranslator_Core
                                     if (value != null)
                                     {
                                         translatedDict[chunk[j]] = new TranslationBatchItemResult { Value = value };
+                                        acceptedForCache.Add(new KeyValuePair<string, string>(chunk[j], value));
                                         continue;
                                     }
 
@@ -1838,6 +2206,7 @@ namespace AutoTranslator_Core
                                     };
                                 }
                             }
+                            CacheValidatedTranslations(packageId, acceptedForCache);
                                 },
                                 ex => Log.Warning(
                                     "[AutoTranslationCore] Translation batch task failed (" +
@@ -1871,6 +2240,33 @@ namespace AutoTranslator_Core
                 translatedDict,
                 TranslationUnresolvedReasons.ApiFailure,
                 "No translation result was produced for this entry.");
+        }
+
+        private static List<string> ValidateTranslationBatchMechanically(
+            List<string> sourceTexts,
+            List<string> translatedTexts)
+        {
+            if (sourceTexts == null || translatedTexts == null || sourceTexts.Count != translatedTexts.Count)
+                return null;
+
+            List<string> validated = new List<string>(translatedTexts.Count);
+            for (int i = 0; i < translatedTexts.Count; i++)
+            {
+                if (TryAcceptTranslatedValue(
+                        translatedTexts[i],
+                        sourceTexts[i],
+                        out string sanitized,
+                        out _,
+                        out _))
+                {
+                    validated.Add(sanitized);
+                }
+                else
+                {
+                    validated.Add(null);
+                }
+            }
+            return validated;
         }
 
         private static TranslationWorkItem CreateTranslationWorkItem(
@@ -1986,8 +2382,8 @@ namespace AutoTranslator_Core
                 ? TranslationUnresolvedReasons.PolicyReview
                 : TranslationUnresolvedReasons.PolicyAgentFailure;
             string detail = isReview
-                ? "Policy Agent requested manual review."
-                : "Policy Agent could not classify this entry.";
+                ? "Agent prediction requested manual review."
+                : "Agent prediction could not classify this entry.";
             if (!string.IsNullOrWhiteSpace(outcome.ErrorCode))
                 detail += " Error: " + outcome.ErrorCode + ".";
             if (!string.IsNullOrWhiteSpace(outcome.Reason))
@@ -2010,7 +2406,7 @@ namespace AutoTranslator_Core
                 Decision = TranslationPolicy.TranslationPolicyAgentDecision.Unresolved,
                 Status = TranslationPolicy.TranslationPolicyAgentOutcomeStatus.ProviderFailure,
                 ErrorCode = "missing_candidate_outcome",
-                Reason = "Policy Agent did not return an outcome for this candidate."
+                Reason = "Agent prediction did not return an outcome for this candidate."
             };
         }
 
@@ -2274,6 +2670,69 @@ namespace AutoTranslator_Core
             return true;
         }
 
+        private static bool IsShareablePreferredSource(TranslationProvenanceEntry provenance)
+        {
+            if (provenance == null) return false;
+            TranslationSourceCategory category =
+                TranslationSourcePriorityPolicy.ClassifyProvenance(provenance.SourceKind);
+            return category == TranslationSourceCategory.ExternalHuman ||
+                   category == TranslationSourceCategory.Cloud;
+        }
+
+        private static bool TryApplyPreferredTargetTranslation(
+            ModMetaData mod,
+            string key,
+            string sourceText,
+            IEnumerable<PreferredTranslationCandidate> candidates,
+            Dictionary<string, string> finalData,
+            Dictionary<string, TranslationProvenanceEntry> provenanceByKey,
+            out bool usedExistingValue)
+        {
+            usedExistingValue = false;
+            List<PreferredTranslationCandidate> ordered = (candidates ??
+                    Enumerable.Empty<PreferredTranslationCandidate>())
+                .Where(candidate => candidate != null && !string.IsNullOrWhiteSpace(candidate.Value))
+                .Select((candidate, index) => new { Candidate = candidate, Index = index })
+                .OrderBy(item => TranslationSourcePriorityPolicy.GetRank(
+                    AutoTranslatorMod.Settings,
+                    mod != null ? mod.PackageId : string.Empty,
+                    TranslationSourcePriorityPolicy.ClassifyProvenance(
+                        item.Candidate.Provenance?.SourceKind)))
+                .ThenBy(item => item.Index)
+                .Select(item => item.Candidate)
+                .ToList();
+
+            foreach (PreferredTranslationCandidate candidate in ordered)
+            {
+                if (!TryUseExistingTranslation(
+                        finalData,
+                        key,
+                        candidate.Value,
+                        sourceText,
+                        out bool candidateUsedExisting,
+                        out _))
+                {
+                    continue;
+                }
+
+                usedExistingValue = candidateUsedExisting;
+                if (provenanceByKey != null)
+                {
+                    provenanceByKey[key] = candidate.Provenance != null
+                        ? CloneProvenance(candidate.Provenance, finalData[key])
+                        : CreateProvenance(
+                            ProvenanceKindUnknownLegacy,
+                            mod != null ? mod.PackageId : string.Empty,
+                            mod != null ? mod.Name : string.Empty,
+                            string.Empty,
+                            AutoTranslatorMod.Settings.TargetLang.ToString(),
+                            finalData[key]);
+                }
+                return true;
+            }
+            return false;
+        }
+
         private static NativeTargetUseResult TryUseNativeTargetTranslation(
             ModMetaData mod,
             TranslationPolicy.TranslationPolicyBucket bucket,
@@ -2342,43 +2801,21 @@ namespace AutoTranslator_Core
         // EN: This method translates adaptive small chunks.
         private static async Task<List<string>> TranslateAdaptiveSmallChunks(List<string> chunk, string contextInfo)
         {
-            if (chunk == null || chunk.Count <= 1) return null;
-
-            int smallChunkSize = Math.Min(4, chunk.Count);
-            if (smallChunkSize <= 0) return null;
-
-            List<string> merged = new List<string>(chunk.Count);
-
-            for (int i = 0; i < chunk.Count; i += smallChunkSize)
-            {
-                if (AutoTranslatorSettings.IsCancellationRequested || AutoTranslatorSettings.IsSkipCurrentRequested) return null;
-
-                List<string> smallChunk = SafeSlice(chunk, i, Math.Min(smallChunkSize, chunk.Count - i));
-                if (smallChunk.Count == 0) return null;
-
-                List<string> smallResult = await AutoTranslatorAPI.TranslateBatchAsync(smallChunk, suppressFinalParseError: true);
-                if (smallResult == null || smallResult.Count != smallChunk.Count)
-                {
-                    return null;
-                }
-
-                smallResult = await RetryLikelyEnglishResiduals(smallChunk, smallResult, contextInfo);
-                if (smallResult == null || smallResult.Count != smallChunk.Count)
-                {
-                    return null;
-                }
-
-                merged.AddRange(smallResult);
-            }
-
-            AutoTranslatorSettings.AddLog("[API] Adaptive small-batch retry succeeded.");
-            return merged;
+            // Automatic fallback requests are intentionally disabled. A rejected
+            // batch is persisted as unresolved and may only be retried by an
+            // explicit user action.
+            await Task.FromResult(false);
+            return null;
         }
 
 
         // 這個方法負責處理 RetryLikelyEnglishResiduals 相關流程。
         // EN: This method handles retry likely english residuals.
-        private static async Task<List<string>> RetryLikelyEnglishResiduals(List<string> sourceTexts, List<string> translatedTexts, string contextInfo)
+        private static async Task<List<string>> RetryLikelyEnglishResiduals(
+            List<string> sourceTexts,
+            List<string> translatedTexts,
+            string contextInfo,
+            string packageId = null)
         {
             if (sourceTexts == null || translatedTexts == null || sourceTexts.Count != translatedTexts.Count)
             {
@@ -2441,7 +2878,8 @@ namespace AutoTranslator_Core
                 }
 
                 residualRetries++;
-                List<string> single = await AutoTranslatorAPI.TranslateBatchAsync(new List<string> { sourceTexts[i] }, suppressFinalParseError: true);
+                // Validation is mechanical only. Do not issue a second paid request.
+                List<string> single = null;
                 if (single != null && single.Count > 0)
                 {
                     string singleSanitized = SanitizeTranslationResult(single[0], sourceTexts[i]);
@@ -2461,7 +2899,9 @@ namespace AutoTranslator_Core
                 if (TrySplitGrammarRule(sourceTexts[i], out string grammarPrefix, out string grammarRuleName, out string grammarRightSide) &&
                     ShouldTranslateGrammarRuleRightSide(grammarRuleName, grammarRightSide))
                 {
-                    List<string> rightSideOnly = await AutoTranslatorAPI.TranslateBatchAsync(new List<string> { grammarRightSide.Trim() }, suppressFinalParseError: true);
+                    // Grammar fragments follow the same rule: unresolved output is
+                    // retained for an explicit user-triggered retry.
+                    List<string> rightSideOnly = null;
                     if (rightSideOnly != null && rightSideOnly.Count > 0)
                     {
                         string merged = grammarPrefix + rightSideOnly[0].TrimStart();
@@ -2503,7 +2943,7 @@ namespace AutoTranslator_Core
 
         // 這個方法負責嘗試執行 AcceptTranslatedValue 並回報是否成功。
         // EN: This method tries to accept translated value and reports whether it succeeded.
-        private static bool TryAcceptTranslatedValue(
+        internal static bool TryAcceptTranslatedValue(
             string translated,
             string sourceText,
             out string sanitized,

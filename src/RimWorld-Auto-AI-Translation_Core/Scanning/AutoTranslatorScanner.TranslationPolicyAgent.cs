@@ -1,4 +1,5 @@
 using System;
+using System.Threading.Tasks;
 using Verse;
 
 namespace AutoTranslator_Core
@@ -10,9 +11,9 @@ namespace AutoTranslator_Core
             return TranslationPolicyAgentCoordinator.BeginRun(AutoTranslatorMod.Settings);
         }
 
-        private static void EndTranslationPolicyAgentRun(long runId)
+        private static Task EndTranslationPolicyAgentRunAsync(long runId, bool completed)
         {
-            TranslationPolicyAgentCoordinator.EndRun(runId);
+            return TranslationPolicyAgentCoordinator.EndRunAsync(runId, completed);
         }
 
         public static bool ClearTranslationPolicyAgentCache()
@@ -24,7 +25,7 @@ namespace AutoTranslator_Core
             }
             catch (Exception ex)
             {
-                Verse.Log.Warning("[AutoTranslationCore] Policy Agent cache clear failed: " + ex.Message);
+                Verse.Log.Warning("[AutoTranslationCore] Agent prediction cache clear failed: " + ex.Message);
                 AutoTranslatorSettings.AddErrorLog("ATC_PolicyAgent_CacheClearFailed".Translate());
                 return false;
             }

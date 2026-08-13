@@ -14,6 +14,7 @@ namespace AutoTranslator_Core
         internal const string ProvenanceKindAIFromSecondary = "AIFromSecondary";
         internal const string ProvenanceKindExternalPatch = "ExternalPatch";
         internal const string ProvenanceKindModNativeTarget = "ModNativeTarget";
+        internal const string ProvenanceKindCloud = "Cloud";
         internal const string ProvenanceKindManualEdit = "ManualEdit";
         internal const string ProvenanceKindLocalPackExisting = "LocalPackExisting";
         internal const string ProvenanceKindUnknownLegacy = "UnknownLegacy";
@@ -121,6 +122,35 @@ namespace AutoTranslator_Core
             }
 
             return CreateProvenance(ProvenanceKindUnknownLegacy, packageId, "", translationFile, "", value);
+        }
+
+        internal static void MarkCloudDownloadedTranslations(
+            string languageRoot,
+            string packageId,
+            string targetLanguage,
+            string recordId,
+            IEnumerable<string> downloadedFiles)
+        {
+            if (string.IsNullOrWhiteSpace(languageRoot) || !Directory.Exists(languageRoot)) return;
+            foreach (string candidate in (downloadedFiles ?? Enumerable.Empty<string>())
+                .Where(path => !string.IsNullOrWhiteSpace(path))
+                .Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                if (!CloudDownloadedFileScope.TryResolveXml(languageRoot, candidate, out string file)) continue;
+                Dictionary<string, string> data = LoadXmlFileToDict(file);
+                if (data.Count == 0) continue;
+                Dictionary<string, TranslationProvenanceEntry> provenance = data.ToDictionary(
+                    pair => pair.Key,
+                    pair => CreateProvenance(
+                        ProvenanceKindCloud,
+                        packageId,
+                        "Cloud record " + (recordId ?? string.Empty),
+                        file,
+                        targetLanguage,
+                        pair.Value),
+                    StringComparer.OrdinalIgnoreCase);
+                SaveProvenanceForFile(languageRoot, packageId, file, data, provenance);
+            }
         }
 
         internal static bool SaveProvenanceForFile(
@@ -545,6 +575,7 @@ namespace AutoTranslator_Core
             if (string.Equals(sourceKind, ProvenanceKindAIFromSecondary, StringComparison.OrdinalIgnoreCase)) return ProvenanceKindAIFromSecondary;
             if (string.Equals(sourceKind, ProvenanceKindExternalPatch, StringComparison.OrdinalIgnoreCase)) return ProvenanceKindExternalPatch;
             if (string.Equals(sourceKind, ProvenanceKindModNativeTarget, StringComparison.OrdinalIgnoreCase)) return ProvenanceKindModNativeTarget;
+            if (string.Equals(sourceKind, ProvenanceKindCloud, StringComparison.OrdinalIgnoreCase)) return ProvenanceKindCloud;
             if (string.Equals(sourceKind, ProvenanceKindManualEdit, StringComparison.OrdinalIgnoreCase)) return ProvenanceKindManualEdit;
             if (string.Equals(sourceKind, ProvenanceKindLocalPackExisting, StringComparison.OrdinalIgnoreCase)) return ProvenanceKindLocalPackExisting;
             return ProvenanceKindUnknownLegacy;

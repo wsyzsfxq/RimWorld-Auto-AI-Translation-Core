@@ -19,7 +19,10 @@ namespace AutoTranslator_Core
                                 !TranslationUnresolvedManager.IsFileLevelFailure(entry))
                 .Select(CloneUnresolvedEntry)
                 .ToList();
-            if (selected.Count == 0 || AutoTranslatorSettings.IsRunning) return;
+            if (selected.Count == 0 ||
+                AutoTranslatorSettings.IsRunning ||
+                AutoTranslatorAPI.HasOutstandingTranslationWork)
+                return;
             AutoTranslatorSettings.ResetPipelineCancellation();
             if (!EntriesMatchCurrentTargetLanguage(selected))
             {
@@ -40,6 +43,8 @@ namespace AutoTranslator_Core
 
             Task.Run(async () =>
             {
+                bool usageRunStarted = false;
+                bool usageRunCompleted = false;
                 try
                 {
                     if (!TryValidateCurrentUnresolvedSources(selected, out TranslationUnresolvedEntry staleEntry))
@@ -50,6 +55,10 @@ namespace AutoTranslator_Core
                             false));
                         return;
                     }
+
+                    usageRunStarted = BeginTranslationUsageRun(
+                        "unresolved-retry",
+                        selected.Select(entry => FindInstalledMod(entry.PackageId)));
 
                     if (!await AutoTranslatorAPI.TestConnectionAsync())
                     {
@@ -111,94 +120,110 @@ namespace AutoTranslator_Core
                             .ToList();
                         List<TranslationBatchItemResult> results = await SafeTranslateBatch(
                             sourceTexts,
-                            groupEntries[0].ModName + " / targeted retry");
-                        if (AutoTranslatorSettings.IsCancellationRequested) break;
+                            groupEntries[0].ModName + " / targeted retry",
+                            groupEntries[0].PackageId,
+                            "manual_retry");
+                        bool interruptedAfterBatch = AutoTranslatorSettings.IsCancellationRequested;
 
                         string packLangRoot = GetUnresolvedPackLanguageRoot(groupEntries[0]);
                         ModMetaData mod = FindInstalledMod(groupEntries[0].PackageId);
                         Dictionary<string, TranslationProvenanceEntry> provenanceByKey =
                             new Dictionary<string, TranslationProvenanceEntry>(StringComparer.OrdinalIgnoreCase);
-                        foreach (KeyValuePair<string, string> pair in finalData)
-                        {
-                            provenanceByKey[pair.Key] = GetFileEntryProvenance(
-                                packLangRoot,
-                                groupEntries[0].PackageId,
-                                targetFile,
-                                pair.Key,
-                                pair.Value);
-                        }
-
                         List<TranslationUnresolvedEntry> accepted = new List<TranslationUnresolvedEntry>();
-                        for (int index = 0; index < groupEntries.Count; index++)
+                        bool persistenceAttempted = false;
+                        try
                         {
-                            TranslationUnresolvedEntry entry = groupEntries[index];
-                            TranslationBatchItemResult result = results != null && index < results.Count
-                                ? results[index]
-                                : null;
-                            if (result == null || !result.IsSuccess)
+                            foreach (KeyValuePair<string, string> pair in finalData)
                             {
-                                RecordUnresolvedRetryFailure(
-                                    entry,
-                                    result != null ? result.FailureReason : TranslationUnresolvedReasons.ApiFailure,
-                                    result != null ? result.Detail : "No targeted retry result was produced.");
-                                continue;
+                                provenanceByKey[pair.Key] = GetFileEntryProvenance(
+                                    packLangRoot,
+                                    groupEntries[0].PackageId,
+                                    targetFile,
+                                    pair.Key,
+                                    pair.Value);
                             }
 
-                            string translated;
-                            string failureReason;
-                            string failureDetail;
-                            if (!TryAcceptTranslatedValue(
-                                    result.Value,
-                                    entry.SourceText,
-                                    out translated,
-                                    out failureReason,
-                                    out failureDetail))
+                            for (int index = 0; index < groupEntries.Count; index++)
                             {
-                                RecordUnresolvedRetryFailure(entry, failureReason, failureDetail);
-                                continue;
+                                TranslationUnresolvedEntry entry = groupEntries[index];
+                                TranslationBatchItemResult result = results != null && index < results.Count
+                                    ? results[index]
+                                    : null;
+                                if (result == null || !result.IsSuccess)
+                                {
+                                    if (!interruptedAfterBatch)
+                                    {
+                                        RecordUnresolvedRetryFailure(
+                                            entry,
+                                            result != null ? result.FailureReason : TranslationUnresolvedReasons.ApiFailure,
+                                            result != null ? result.Detail : "No targeted retry result was produced.");
+                                    }
+                                    continue;
+                                }
+
+                                string translated;
+                                string failureReason;
+                                string failureDetail;
+                                if (!TryAcceptTranslatedValue(
+                                        result.Value,
+                                        entry.SourceText,
+                                        out translated,
+                                        out failureReason,
+                                        out failureDetail))
+                                {
+                                    RecordUnresolvedRetryFailure(entry, failureReason, failureDetail);
+                                    continue;
+                                }
+
+                                finalData[entry.Key] = translated;
+                                provenanceByKey[entry.Key] = CreateProvenance(
+                                    ProvenanceKindAI,
+                                    entry.PackageId,
+                                    entry.ModName,
+                                    entry.SourceFile,
+                                    "English",
+                                    translated);
+                                accepted.Add(entry);
                             }
 
-                            finalData[entry.Key] = translated;
-                            provenanceByKey[entry.Key] = CreateProvenance(
-                                ProvenanceKindAI,
-                                entry.PackageId,
-                                entry.ModName,
-                                entry.SourceFile,
-                                "English",
-                                translated);
-                            accepted.Add(entry);
-                        }
-
-                        if (accepted.Count > 0)
-                        {
-                            if (SaveGeneratedTranslationFile(
+                            persistenceAttempted = accepted.Count > 0;
+                            if (PersistUnresolvedRetryResults(
                                     mod,
                                     targetFile,
                                     packLangRoot,
                                     finalData,
-                                    provenanceByKey))
-                            {
-                                TranslationUnresolvedManager.Resolve(accepted.Select(entry => entry.Id));
+                                    provenanceByKey,
+                                    accepted))
                                 resolvedCount += accepted.Count;
-                            }
-                            else
+                        }
+                        finally
+                        {
+                            if (accepted.Count > 0 && !persistenceAttempted)
                             {
-                                foreach (TranslationUnresolvedEntry entry in accepted)
-                                {
-                                    RecordUnresolvedRetryFailure(
-                                        entry,
-                                        TranslationUnresolvedReasons.SaveFailure,
-                                        "The targeted retry passed validation but could not be saved.");
-                                }
+                                if (PersistUnresolvedRetryResults(
+                                        mod,
+                                        targetFile,
+                                        packLangRoot,
+                                        finalData,
+                                        provenanceByKey,
+                                        accepted))
+                                    resolvedCount += accepted.Count;
                             }
                         }
 
                         completedGroups++;
                         AutoTranslatorMod.Settings.CurrentProgress =
                             (float)completedGroups / Math.Max(1, groups.Count);
+                        if (interruptedAfterBatch) break;
+                        if (TranslationUsageCoordinator.IsPausedByBudget) break;
                     }
 
-                    if (!AutoTranslatorSettings.IsCancellationRequested)
+                    if (PauseScanIfTranslationBudgetReached(AutoTranslatorMod.Settings))
+                    {
+                        AutoTranslatorSettings.ShowFinishPopup = true;
+                        TranslationWorkbenchTab.RequestRefresh();
+                    }
+                    else if (!AutoTranslatorSettings.IsCancellationRequested)
                     {
                         MarkResolvedPackagesAsTranslated(selected);
                         AutoTranslatorSettings.AddLog(
@@ -209,27 +234,55 @@ namespace AutoTranslator_Core
                         RequestMemoryDrop();
                         TranslationWorkbenchTab.RequestRefresh();
                         AutoTranslatorSettings.ShowFinishPopup = true;
+                        usageRunCompleted = true;
                     }
                 }
                 catch (Exception ex)
                 {
-                    foreach (TranslationUnresolvedEntry entry in selected)
-                    {
-                        RecordUnresolvedRetryFailure(
-                            entry,
-                            TranslationUnresolvedReasons.Unknown,
-                            "Targeted retry was interrupted: " + ex.Message);
-                    }
                     Log.Warning("[AutoTranslationCore] Targeted unresolved retry failed: " + ex);
                 }
                 finally
                 {
-                    TranslationUnresolvedManager.CompleteRun();
-                    AutoTranslatorSettings.IsRunning = false;
+                    if (usageRunCompleted)
+                        TranslationUnresolvedManager.CompleteRun();
+                    else
+                        TranslationUnresolvedManager.SaveRunProgress();
+                    EndTranslationUsageRun(usageRunStarted, usageRunCompleted);
+                    await AutoTranslatorSettings.CompleteTranslationPipelineAsync();
                     if (TranslationUnresolvedManager.HasPending)
                         AutoTranslatorSettings.ShowFinishPopup = true;
                 }
             });
+        }
+
+        private static bool PersistUnresolvedRetryResults(
+            ModMetaData mod,
+            string targetFile,
+            string packLangRoot,
+            Dictionary<string, string> finalData,
+            Dictionary<string, TranslationProvenanceEntry> provenanceByKey,
+            List<TranslationUnresolvedEntry> accepted)
+        {
+            if (accepted == null || accepted.Count == 0) return false;
+            if (SaveGeneratedTranslationFile(
+                    mod,
+                    targetFile,
+                    packLangRoot,
+                    finalData,
+                    provenanceByKey))
+            {
+                TranslationUnresolvedManager.Resolve(accepted.Select(entry => entry.Id));
+                return true;
+            }
+
+            foreach (TranslationUnresolvedEntry entry in accepted)
+            {
+                RecordUnresolvedRetryFailure(
+                    entry,
+                    TranslationUnresolvedReasons.SaveFailure,
+                    "The targeted retry passed validation but could not be saved.");
+            }
+            return false;
         }
 
         public static void KeepOriginalForUnresolved(List<TranslationUnresolvedEntry> entries)
@@ -240,7 +293,10 @@ namespace AutoTranslator_Core
                                 !TranslationUnresolvedManager.IsFileLevelFailure(entry))
                 .Select(CloneUnresolvedEntry)
                 .ToList();
-            if (selected.Count == 0 || AutoTranslatorSettings.IsRunning) return;
+            if (selected.Count == 0 ||
+                AutoTranslatorSettings.IsRunning ||
+                AutoTranslatorAPI.HasOutstandingTranslationWork)
+                return;
             AutoTranslatorSettings.ResetPipelineCancellation();
             if (!EntriesMatchCurrentTargetLanguage(selected))
             {

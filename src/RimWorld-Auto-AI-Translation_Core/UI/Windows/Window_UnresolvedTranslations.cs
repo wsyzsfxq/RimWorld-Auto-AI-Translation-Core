@@ -1,4 +1,5 @@
 using RimWorld;
+using AutoTranslator_Core.TargetedHardcodedUi;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -10,7 +11,7 @@ namespace AutoTranslator_Core
     internal sealed class Window_UnresolvedTranslations : Window
     {
         private const float ModuleRowHeight = 46f;
-        private const float GroupRowHeight = 32f;
+        private const float GroupRowHeight = 36f;
         private const float EntryRowHeight = 100f;
         private const string AllGroupsKey = "all";
 
@@ -23,6 +24,8 @@ namespace AutoTranslator_Core
         private Vector2 _moduleScroll = Vector2.zero;
         private Vector2 _groupScroll = Vector2.zero;
         private Vector2 _entryScroll = Vector2.zero;
+        private static int _cachedDllUnresolvedCount;
+        private static int _cachedDllUnresolvedCountFrame = -1000;
 
         public override Vector2 InitialSize => new Vector2(1000f, 700f);
 
@@ -161,9 +164,11 @@ namespace AutoTranslator_Core
                 else if (Mouse.IsOver(rowRect)) Widgets.DrawHighlight(rowRect);
 
                 Text.Font = row.Depth == 0 ? GameFont.Small : GameFont.Tiny;
+                Text.WordWrap = false;
                 Rect labelRect = new Rect(rowRect.x + 6f + row.Depth * 14f, rowRect.y + 5f,
                     rowRect.width - 12f - row.Depth * 14f, rowRect.height - 6f);
                 Widgets.Label(labelRect, row.Label + "  (" + row.Count + ")");
+                Text.WordWrap = true;
                 TooltipHandler.TipRegion(rowRect, row.Tooltip ?? row.Label);
                 if (Widgets.ButtonInvisible(rowRect))
                 {
@@ -197,7 +202,8 @@ namespace AutoTranslator_Core
             Widgets.DrawBox(rowRect, 1);
 
             bool fileLevelFailure = TranslationUnresolvedManager.IsFileLevelFailure(entry);
-            if (!fileLevelFailure)
+            bool dllEntry = IsDllEntry(entry);
+            if (!fileLevelFailure && !dllEntry)
             {
                 bool selected = _selectedEntryIds.Contains(entry.Id);
                 Widgets.Checkbox(new Vector2(rowRect.x + 7f, rowRect.y + 7f), ref selected, 24f);
@@ -351,7 +357,7 @@ namespace AutoTranslator_Core
                     false);
                 return;
             }
-            if (!AutoTranslatorScanner.IsUnresolvedEntryCurrent(entry))
+            if (!IsDllEntry(entry) && !AutoTranslatorScanner.IsUnresolvedEntryCurrent(entry))
             {
                 Messages.Message(
                     "ATC_Unresolved_SourceChanged".Translate(entry.Key),
@@ -371,7 +377,10 @@ namespace AutoTranslator_Core
             string category = string.Equals(entry.Bucket, "Keyed", StringComparison.OrdinalIgnoreCase)
                 ? "Keyed"
                 : string.IsNullOrWhiteSpace(entry.DefType) ? "General" : entry.DefType;
-            if (TranslationWorkbenchTab.OpenAndFocus(mod, category, entry.Key, entry.Key)) Close();
+            TranslationWorkbenchTab.WorkbenchSourceKind source = IsDllEntry(entry)
+                ? TranslationWorkbenchTab.WorkbenchSourceKind.Dll
+                : TranslationWorkbenchTab.WorkbenchSourceKind.Xml;
+            if (TranslationWorkbenchTab.OpenAndFocus(mod, source, category, entry.Key, entry.SourceText)) Close();
         }
 
         private List<GroupRow> BuildGroupRows()
@@ -513,6 +522,7 @@ namespace AutoTranslator_Core
                     TranslationUnresolvedStates.Pending,
                     StringComparison.OrdinalIgnoreCase))
                 .ToList();
+            _entries.AddRange(BuildDllUnresolvedEntries());
 
             HashSet<string> currentIds = new HashSet<string>(_entries.Select(entry => entry.Id), StringComparer.OrdinalIgnoreCase);
             _selectedEntryIds.RemoveWhere(id => !currentIds.Contains(id));
@@ -544,6 +554,79 @@ namespace AutoTranslator_Core
                 _groupScroll = Vector2.zero;
                 _entryScroll = Vector2.zero;
             }
+        }
+
+        private static bool IsDllEntry(TranslationUnresolvedEntry entry)
+        {
+            return entry != null && string.Equals(entry.Bucket, "DLL", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static IEnumerable<TranslationUnresolvedEntry> BuildDllUnresolvedEntries()
+        {
+            if (AutoTranslatorMod.Settings == null || !AutoTranslatorMod.Settings.EnableHardcodedUiPrototype)
+                yield break;
+
+            string targetLanguage = AutoTranslatorMod.Settings.TargetLang.ToString();
+            string languageFolder = AutoTranslatorScanner.GetFolderNameByLanguage(
+                AutoTranslatorMod.Settings.TargetLang);
+            foreach (ModMetaData mod in ModLister.AllInstalledMods.Where(candidate =>
+                candidate != null && !string.IsNullOrWhiteSpace(candidate.PackageId)))
+            {
+                if (!HardcodedUiBatchScanCoordinator.TryGet(mod.PackageId, out HardcodedUiBatchScanSummary summary) ||
+                    summary?.Result?.Entries == null)
+                    continue;
+
+                foreach (HardcodedUiPatchEntry dll in summary.Result.Entries)
+                {
+                    if (dll == null || string.IsNullOrWhiteSpace(dll.EntryId) ||
+                        !summary.Result.Decisions.TryGetValue(dll.EntryId, out HardcodedUiDecisionRecord decision))
+                        continue;
+                    bool hasTranslation = dll.Translations != null &&
+                        dll.Translations.TryGetValue(languageFolder, out string translated) &&
+                        !string.IsNullOrWhiteSpace(translated) &&
+                        !string.Equals(translated, dll.Literal, StringComparison.Ordinal);
+                    bool unresolved = decision.EffectiveDecision == HardcodedUiAutomaticDecision.Uncertain ||
+                                      (decision.EffectiveDecision == HardcodedUiAutomaticDecision.Translate &&
+                                       !hasTranslation);
+                    if (!unresolved) continue;
+
+                    string method = !string.IsNullOrWhiteSpace(dll.MethodSignature)
+                        ? dll.MethodSignature
+                        : (dll.DeclaringType ?? string.Empty) + "." + (dll.MethodName ?? string.Empty);
+                    yield return new TranslationUnresolvedEntry
+                    {
+                        Id = "dll|" + dll.EntryId,
+                        TargetLanguage = targetLanguage,
+                        PackageId = mod.PackageId,
+                        ModName = mod.Name,
+                        Bucket = "DLL",
+                        DefType = string.IsNullOrWhiteSpace(dll.AssemblyRelativePath)
+                            ? "DLL"
+                            : dll.AssemblyRelativePath,
+                        Key = method + " #" + dll.LiteralOrdinal,
+                        SourceText = dll.Literal ?? string.Empty,
+                        SourceFile = dll.AssemblyRelativePath ?? string.Empty,
+                        Reason = TranslationUnresolvedReasons.PolicyReview,
+                        Detail = decision.EffectiveDecision == HardcodedUiAutomaticDecision.Uncertain
+                            ? "待确定"
+                            : "要翻译；尚无译文",
+                        Attempts = 0,
+                        State = TranslationUnresolvedStates.Pending
+                    };
+                }
+            }
+        }
+
+        internal static int CountDllUnresolvedEntries()
+        {
+            // MainTab asks every OnGUI pass. The source is already a cached DLL scan,
+            // but rebuilding thousands of virtual rows every frame is still wasteful.
+            if (Time.frameCount - _cachedDllUnresolvedCountFrame >= 120)
+            {
+                _cachedDllUnresolvedCount = BuildDllUnresolvedEntries().Count();
+                _cachedDllUnresolvedCountFrame = Time.frameCount;
+            }
+            return _cachedDllUnresolvedCount;
         }
 
         private static string GetModName(TranslationUnresolvedEntry entry)

@@ -12,6 +12,7 @@ namespace AutoTranslator_Core
     internal static class TranslationPolicyAgentCoordinator
     {
         private const int BudgetPromptDispatchTimeoutMilliseconds = 5000;
+        private const string BatchProgressLogKey = "translation_policy_agent_batch_progress";
 
         private sealed class GroupWork
         {
@@ -40,6 +41,9 @@ namespace AutoTranslator_Core
                 MemoryDecisions = new Dictionary<string, TranslationPolicyAgentGroupDecision>(StringComparer.Ordinal);
                 ResolutionGate = new SemaphoreSlim(1, 1);
                 EvaluatorFingerprint = string.Empty;
+                CloudMods = new Dictionary<string, PolicyCloudModState>(StringComparer.OrdinalIgnoreCase);
+                PreparedFreshAnalysisPackageIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                BatchProgressGate = new object();
             }
 
             public long Id;
@@ -63,6 +67,47 @@ namespace AutoTranslator_Core
             public bool AgentDisabledLogged;
             public bool EmergencyLimitLogged;
             public TranslationPolicyAgentConsentDecision? ConsentDecision;
+            public bool EnableCloudCache;
+            public bool EnableAgent;
+            public Dictionary<string, PolicyCloudModState> CloudMods;
+            public HashSet<string> PreparedFreshAnalysisPackageIds;
+            public object BatchProgressGate;
+            public int EstimatedBatches;
+            public int EstimatedBatchHint;
+            public int DiscoveredBatches;
+            public int ProcessedBatches;
+            public int FailedBatches;
+            public int InProgressBatches;
+        }
+
+        private sealed class PolicyCloudModState
+        {
+            public PolicyCloudModState()
+            {
+                CandidateDomain = PolicyAnalysisCandidateDomain.Xml;
+                PackageId = string.Empty;
+                ModName = string.Empty;
+                GameVersion = string.Empty;
+                SourceFingerprint = string.Empty;
+                CandidateIds = new HashSet<string>(StringComparer.Ordinal);
+                ResolvedCandidateIds = new HashSet<string>(StringComparer.Ordinal);
+                AllowedCandidateIds = new HashSet<string>(StringComparer.Ordinal);
+                AgentAnalyzedCandidateIds = new HashSet<string>(StringComparer.Ordinal);
+                AgentAllowedCandidateIds = new HashSet<string>(StringComparer.Ordinal);
+            }
+
+            public string CandidateDomain;
+            public string PackageId;
+            public string ModName;
+            public string GameVersion;
+            public string SourceFingerprint;
+            public bool FetchAttempted;
+            public PolicyAnalysisCloudRecord RemoteRecord;
+            public HashSet<string> CandidateIds;
+            public HashSet<string> ResolvedCandidateIds;
+            public HashSet<string> AllowedCandidateIds;
+            public HashSet<string> AgentAnalyzedCandidateIds;
+            public HashSet<string> AgentAllowedCandidateIds;
         }
 
         private static readonly object Gate = new object();
@@ -72,9 +117,22 @@ namespace AutoTranslator_Core
 
         public static long BeginRun(AutoTranslatorSettings settings)
         {
+            return BeginRun(
+                settings,
+                AutoTranslatorSettings.IsPolicyAnalysisCloudCacheAvailable &&
+                settings != null && settings.EnablePolicyAnalysisCloudCache,
+                settings != null && settings.EnableTranslationPolicyAgent);
+        }
+
+        internal static long BeginRun(
+            AutoTranslatorSettings settings,
+            bool enableCloudCache,
+            bool enableAgent)
+        {
             lock (Gate)
             {
-                if (settings == null || !settings.EnableTranslationPolicyAgent)
+                if (settings == null ||
+                    (!enableAgent && !enableCloudCache))
                 {
                     _activeRun = null;
                     return 0L;
@@ -87,16 +145,21 @@ namespace AutoTranslator_Core
                         settings.PolicyAgentMaxCallsPerRun,
                         settings.PolicyAgentMaxEstimatedTokensPerRun,
                         settings.PolicyAgentMaxCallsPerMod),
-                    Config = AutoTranslatorAPI.GetPolicyAgentConfig(),
-                    MaximumRetries = Math.Min(1, Math.Max(0, settings.PolicyAgentMaxRetriesPerRequest))
+                    Config = enableAgent
+                        ? AutoTranslatorAPI.GetPolicyAgentConfig()
+                        : null,
+                    MaximumRetries = 0,
+                    EnableCloudCache = enableCloudCache,
+                    EnableAgent = enableAgent
                 };
                 state.EvaluatorFingerprint = AutoTranslatorAPI.GetPolicyAgentEvaluatorFingerprint(state.Config);
                 _activeRun = state;
+                if (state.EnableAgent) RefreshBatchProgressLog(state, true);
                 return state.Id;
             }
         }
 
-        public static void EndRun(long runId)
+        public static async Task EndRunAsync(long runId, bool completed)
         {
             RunState state;
             lock (Gate)
@@ -112,28 +175,66 @@ namespace AutoTranslator_Core
             }
             catch (Exception ex)
             {
-                Verse.Log.Warning("[AutoTranslationCore] Policy Agent cache flush failed: " + ex.Message);
+                Verse.Log.Warning("[AutoTranslationCore] Agent prediction cache flush failed: " + ex.Message);
             }
 
-            TranslationPolicyAgentBudgetSnapshot budget = state.Budget.GetSnapshot();
-            AutoTranslatorSettings.AddLog(AutoTranslatorAPI.TranslateText("ATC_PolicyAgent_RunSummary",
-                budget.CallsUsed,
-                budget.EstimatedTokensReserved,
-                state.CacheHits,
-                state.LocalAllows,
-                state.LocalDenies,
-                state.AgentAllows,
-                state.AgentDenies,
-                state.AgentReviews,
-                state.Unresolved));
-            long actualTokens;
-            if (TranslationPolicyAgentUsageSummary.TryGetActualTokens(
-                    state.HasExactTokens,
-                    state.ExactTokens,
-                    out actualTokens))
+            if (state.EnableAgent)
             {
-                AutoTranslatorSettings.AddLog(
-                    AutoTranslatorAPI.TranslateText("ATC_PolicyAgent_ActualTokenSummary", actualTokens));
+                RefreshBatchProgressLog(state, true);
+                TranslationPolicyAgentBudgetSnapshot budget = state.Budget.GetSnapshot();
+                AutoTranslatorSettings.AddLog(AutoTranslatorAPI.TranslateText("ATC_PolicyAgent_RunSummary",
+                    budget.CallsUsed,
+                    budget.EstimatedTokensReserved,
+                    state.CacheHits,
+                    state.LocalAllows,
+                    state.LocalDenies,
+                    state.AgentAllows,
+                    state.AgentDenies,
+                    state.AgentReviews,
+                    state.Unresolved));
+                AutoTranslatorSettings.AgentBatchProgressText = string.Empty;
+                AutoTranslatorSettings.AgentBatchProgress = 0f;
+                long actualTokens;
+                if (TranslationPolicyAgentUsageSummary.TryGetActualTokens(
+                        state.HasExactTokens,
+                        state.ExactTokens,
+                        out actualTokens))
+                {
+                    AutoTranslatorSettings.AddLog(
+                        AutoTranslatorAPI.TranslateText("ATC_PolicyAgent_ActualTokenSummary", actualTokens));
+                }
+            }
+
+            if (completed && state.EnableCloudCache)
+            {
+                foreach (PolicyCloudModState cloud in state.CloudMods.Values
+                    .Where(item => item != null)
+                    .OrderBy(item => item.CandidateDomain, StringComparer.Ordinal)
+                    .ThenBy(item => item.PackageId, StringComparer.OrdinalIgnoreCase))
+                {
+                    if (cloud.CandidateIds.Count == 0 ||
+                        cloud.AgentAnalyzedCandidateIds.Count != cloud.CandidateIds.Count ||
+                        string.IsNullOrWhiteSpace(cloud.SourceFingerprint))
+                    {
+                        continue;
+                    }
+
+                    PolicyAnalysisLocalStateManager.RecordPending(new PolicyAnalysisContribution
+                    {
+                        CandidateDomain = cloud.CandidateDomain,
+                        PackageId = cloud.PackageId,
+                        ModName = cloud.ModName,
+                        GameVersion = cloud.GameVersion,
+                        SourceFingerprint = cloud.SourceFingerprint,
+                        PolicyVersion = AutoTranslatorAPI.TranslationPolicyAgentPolicyVersion,
+                        PromptVersion = AutoTranslatorAPI.TranslationPolicyAgentPromptVersion,
+                        CandidateCount = cloud.CandidateIds.Count,
+                        AddAllowedCandidateIds = cloud.AgentAllowedCandidateIds
+                            .OrderBy(id => id, StringComparer.Ordinal)
+                            .ToList(),
+                        AnalyzedUtc = DateTime.UtcNow.ToString("o")
+                    });
+                }
             }
         }
 
@@ -162,6 +263,51 @@ namespace AutoTranslator_Core
             string packageId,
             IEnumerable<TranslationPolicyCandidate> candidates)
         {
+            return await ResolveCandidatesAsync(
+                packageId,
+                candidates,
+                true,
+                PolicyAnalysisCandidateDomain.Xml);
+        }
+
+        internal static void SetEstimatedBatchTotal(long runId, int estimatedBatches)
+        {
+            RunState state;
+            lock (Gate)
+            {
+                state = _activeRun != null && _activeRun.Id == runId
+                    ? _activeRun
+                    : null;
+            }
+            if (state == null || estimatedBatches <= 0) return;
+            lock (state.BatchProgressGate)
+            {
+                state.EstimatedBatchHint = Math.Max(state.EstimatedBatchHint, estimatedBatches);
+                state.EstimatedBatches = Math.Max(state.EstimatedBatchHint, state.DiscoveredBatches);
+            }
+            RefreshBatchProgressLog(state, true);
+        }
+
+        internal static async Task<Dictionary<string, TranslationPolicyAgentCandidateOutcome>> ResolveCandidatesAsync(
+            string packageId,
+            IEnumerable<TranslationPolicyCandidate> candidates,
+            bool allowCloudCacheForRequest)
+        {
+            return await ResolveCandidatesAsync(
+                packageId,
+                candidates,
+                allowCloudCacheForRequest,
+                PolicyAnalysisCandidateDomain.Xml);
+        }
+
+        internal static async Task<Dictionary<string, TranslationPolicyAgentCandidateOutcome>> ResolveCandidatesAsync(
+            string packageId,
+            IEnumerable<TranslationPolicyCandidate> candidates,
+            bool allowCloudCacheForRequest,
+            string candidateDomain)
+        {
+            string normalizedDomain = PolicyAnalysisCandidateDomain.Normalize(candidateDomain);
+            if (normalizedDomain.Length == 0) normalizedDomain = PolicyAnalysisCandidateDomain.Xml;
             List<TranslationPolicyCandidate> materialized = (candidates ?? Enumerable.Empty<TranslationPolicyCandidate>())
                 .Where(candidate => candidate != null)
                 .GroupBy(GetCandidateId, StringComparer.Ordinal)
@@ -194,6 +340,41 @@ namespace AutoTranslator_Core
                     return output;
                 }
 
+                string modName = materialized
+                    .Select(candidate => candidate.ModName)
+                    .FirstOrDefault(name => !string.IsNullOrWhiteSpace(name)) ??
+                    (packageId ?? string.Empty);
+
+                PolicyCloudModState cloudState = allowCloudCacheForRequest
+                    ? await GetPolicyCloudModStateAsync(
+                        state,
+                        packageId,
+                        modName,
+                        materialized,
+                        normalizedDomain)
+                    : null;
+
+                if (cloudState != null && cloudState.RemoteRecord != null)
+                {
+                    ApplyRemotePolicyAnalysis(
+                        state,
+                        packageId,
+                        materialized,
+                        cloudState.RemoteRecord,
+                        output);
+                    return output;
+                }
+
+                if (!state.EnableAgent)
+                {
+                    SetRemainingOutcomes(
+                        output,
+                        TranslationPolicyAgentOutcomeStatus.NotAttempted,
+                        "agent_disabled",
+                        "");
+                    return output;
+                }
+
                 if (state.Config == null || string.IsNullOrWhiteSpace(state.EvaluatorFingerprint))
                 {
                     LogNoProviderOnce(state);
@@ -201,10 +382,12 @@ namespace AutoTranslator_Core
                     return output;
                 }
 
-                string modName = materialized
-                    .Select(candidate => candidate.ModName)
-                    .FirstOrDefault(name => !string.IsNullOrWhiteSpace(name)) ??
-                    (packageId ?? string.Empty);
+                bool forceAgentAnalysis = AutoTranslatorMod.Settings != null &&
+                    AutoTranslatorMod.Settings.IsPolicyCloudAccelerationDisabled(packageId);
+                if (forceAgentAnalysis && state.PreparedFreshAnalysisPackageIds.Add(packageId ?? string.Empty))
+                {
+                    GetCache().RemovePackage(packageId);
+                }
 
                 List<GroupWork> groups = BuildGroups(materialized, state.EvaluatorFingerprint);
                 List<TranslationPolicyCandidate> candidateCacheCandidates =
@@ -238,7 +421,7 @@ namespace AutoTranslator_Core
                     }
                     catch (Exception ex)
                     {
-                        Verse.Log.Warning("[AutoTranslationCore] Policy Agent candidate cache promotion failed: " + ex.Message);
+                        Verse.Log.Warning("[AutoTranslationCore] Agent prediction candidate cache promotion failed: " + ex.Message);
                     }
                 }
 
@@ -260,9 +443,8 @@ namespace AutoTranslator_Core
                     CountResolvedCandidates(state, 1, cached.Decision.Decision, true);
                 }
 
-                List<GroupWork> misses = BuildGroups(
-                    candidatePlan.CreateRequestScopes(),
-                    state.EvaluatorFingerprint);
+                List<TranslationPolicyAgentRequestScope> requestScopes = candidatePlan.CreateRequestScopes();
+                List<GroupWork> misses = BuildGroups(requestScopes, state.EvaluatorFingerprint);
 
                 if (state.Budget.IsAgentDisabled)
                 {
@@ -276,6 +458,7 @@ namespace AutoTranslator_Core
 
                 int recoverableBatchFailures = 0;
                 List<List<GroupWork>> batches = TranslationPolicyAgentBatchPlanner.CreateBatches(misses);
+                RegisterPlannedBatches(state, batches.Count);
                 TranslationPolicyAgentOutcomeStatus terminalStatus =
                     TranslationPolicyAgentOutcomeStatus.NotAttempted;
                 string terminalErrorCode = string.Empty;
@@ -294,23 +477,37 @@ namespace AutoTranslator_Core
                         .Skip(batchIndex)
                         .Sum(currentBatch => currentBatch.Count);
 
-                    TranslationPolicyAgentBatchResult result = await AutoTranslatorAPI.ClassifyTranslationPolicyGroupsAsync(
-                        batch.Select(group => group.Request).ToList(),
-                        state.Config,
-                        state.MaximumRetries,
-                        (estimatedTokens, isRetry, currentBatchExactTokens) => TryReserveAttemptAsync(
-                            state,
-                            packageId,
-                            modName,
-                            remainingGroups,
-                            estimatedTokens,
-                            isRetry,
-                            currentBatchExactTokens));
+                    MarkBatchStarted(state);
+                    TranslationPolicyAgentBatchResult result;
+                    try
+                    {
+                        result = await AutoTranslatorAPI.ClassifyTranslationPolicyGroupsAsync(
+                            batch.Select(group => group.Request).ToList(),
+                            state.Config,
+                            state.MaximumRetries,
+                            (estimatedTokens, isRetry, currentBatchExactTokens) => TryReserveAttemptAsync(
+                                state,
+                                packageId,
+                                modName,
+                                remainingGroups,
+                                estimatedTokens,
+                                isRetry,
+                                currentBatchExactTokens));
+                    }
+                    catch
+                    {
+                        MarkBatchCompleted(state, true);
+                        throw;
+                    }
                     AccumulateExactUsage(state, result);
 
                     bool cancellationRequestedAfterRequest =
                         AutoTranslatorSettings.IsCancellationRequested ||
                         AutoTranslatorSettings.IsSkipCurrentRequested;
+                    bool batchFailed =
+                        !cancellationRequestedAfterRequest &&
+                        (result == null || result.Decisions == null || result.Decisions.Count != batch.Count);
+                    MarkBatchCompleted(state, batchFailed);
 
                     if (result == null || result.Decisions == null || result.Decisions.Count != batch.Count)
                     {
@@ -335,7 +532,7 @@ namespace AutoTranslator_Core
                             result,
                             errorCode);
                         string failureReason = failureStatus == TranslationPolicyAgentOutcomeStatus.ProviderFailure
-                            ? "Policy Agent request failed (" + errorCode + ")."
+                            ? "Agent prediction request failed (" + errorCode + ")."
                             : string.Empty;
                         SetGroupOutcomes(output, batch, failureStatus, errorCode, failureReason);
                         if (result != null && result.BudgetDenied && state.Budget.IsEmergencyLimitReached)
@@ -350,11 +547,11 @@ namespace AutoTranslator_Core
                         {
                             LogBudgetOnce(state);
                         }
-                        else
+                        else if (!IsDetailedApiFailureAlreadyReported(errorCode))
                         {
                             AutoTranslatorSettings.AddLog("⚠️ " + AutoTranslatorAPI.TranslateText(
                                 "ATC_Log_AIFail",
-                                "Policy Agent (" + errorCode + ")"));
+                                "Agent prediction (" + errorCode + ")"));
                         }
 
                         bool canIsolateFailure =
@@ -395,7 +592,7 @@ namespace AutoTranslator_Core
                                 group,
                                 TranslationPolicyAgentOutcomeStatus.ProviderFailure,
                                 "missing_group_decision",
-                                "Policy Agent response omitted this request group.");
+                                "Agent prediction response omitted this request group.");
                             continue;
                         }
 
@@ -422,6 +619,13 @@ namespace AutoTranslator_Core
                         {
                             ApplyGroupDecision(output, group, decision);
                             CountResolvedCandidates(state, group.Candidates.Count, decision.Decision, false);
+                            if (allowCloudCacheForRequest)
+                                RecordAgentPolicyOutcomes(
+                                    state,
+                                    packageId,
+                                    normalizedDomain,
+                                    group.Candidates,
+                                    decision.Decision);
                         }
                     }
 
@@ -431,7 +635,7 @@ namespace AutoTranslator_Core
                     }
                     catch (Exception ex)
                     {
-                        Verse.Log.Warning("[AutoTranslationCore] Policy Agent cache save failed: " + ex.Message);
+                        Verse.Log.Warning("[AutoTranslationCore] Agent prediction cache save failed: " + ex.Message);
                     }
 
                     if (cancellationRequestedAfterRequest)
@@ -458,7 +662,7 @@ namespace AutoTranslator_Core
                         ? "cancelled"
                         : "incomplete_resolution";
                     terminalReason = terminalStatus == TranslationPolicyAgentOutcomeStatus.ProviderFailure
-                        ? "Policy Agent did not produce an outcome for this candidate."
+                        ? "Agent prediction did not produce an outcome for this candidate."
                         : string.Empty;
                 }
                 SetRemainingOutcomes(output, terminalStatus, terminalErrorCode, terminalReason);
@@ -469,6 +673,13 @@ namespace AutoTranslator_Core
             }
             finally
             {
+                if (allowCloudCacheForRequest)
+                    RecordPolicyCloudOutcomes(
+                        state,
+                        packageId,
+                        normalizedDomain,
+                        materialized,
+                        output);
                 state.ResolutionGate.Release();
             }
         }
@@ -508,7 +719,7 @@ namespace AutoTranslator_Core
             }
             catch (Exception ex)
             {
-                Verse.Log.Warning("[AutoTranslationCore] Policy Agent cache lookup failed: " + ex.Message);
+                Verse.Log.Warning("[AutoTranslationCore] Agent prediction cache lookup failed: " + ex.Message);
             }
 
             decision = null;
@@ -542,7 +753,7 @@ namespace AutoTranslator_Core
             }
             catch (Exception ex)
             {
-                Verse.Log.Warning("[AutoTranslationCore] Policy Agent candidate cache lookup failed: " + ex.Message);
+                Verse.Log.Warning("[AutoTranslationCore] Agent prediction candidate cache lookup failed: " + ex.Message);
             }
 
             return null;
@@ -623,14 +834,14 @@ namespace AutoTranslator_Core
                 .OrderBy(candidate => GetCandidateId(candidate), StringComparer.Ordinal)
                 .ToList();
             if (groupCandidates.Count == 0)
-                throw new ArgumentException("A Policy Agent request group requires at least one candidate.");
+                throw new ArgumentException("A Agent prediction request group requires at least one candidate.");
 
             if (groupCandidates.Any(candidate => !string.Equals(
                     TranslationPolicyGrouping.CreateGroupKey(candidate),
                     groupKey,
                     StringComparison.Ordinal)))
             {
-                throw new ArgumentException("A Policy Agent request scope contains candidates from another group.");
+                throw new ArgumentException("A Agent prediction request scope contains candidates from another group.");
             }
 
             TranslationPolicyCandidate first = groupCandidates[0];
@@ -1034,7 +1245,7 @@ namespace AutoTranslator_Core
                 }
                 catch (Exception ex)
                 {
-                    Verse.Log.Warning("[AutoTranslationCore] Policy Agent budget prompt failed: " + ex.Message);
+                    Verse.Log.Warning("[AutoTranslationCore] Agent prediction budget prompt failed: " + ex.Message);
                     completion.TrySetResult(TranslationPolicyAgentConsentDecision.LocalOnly);
                 }
             });
@@ -1059,7 +1270,7 @@ namespace AutoTranslator_Core
             {
                 if (dispatchStarted.TrySetResult(false))
                 {
-                    Verse.Log.Warning("[AutoTranslationCore] Policy Agent budget prompt dispatch timed out; continuing locally.");
+                    Verse.Log.Warning("[AutoTranslationCore] Agent prediction budget prompt dispatch timed out; continuing locally.");
                     completion.TrySetResult(TranslationPolicyAgentConsentDecision.LocalOnly);
                 }
             }
@@ -1108,6 +1319,302 @@ namespace AutoTranslator_Core
             if (!string.IsNullOrWhiteSpace(candidate.CandidateId)) return candidate.CandidateId;
             candidate.CandidateId = TranslationPolicyIdentity.CreateCandidateId(candidate);
             return candidate.CandidateId;
+        }
+
+        private static async Task<PolicyCloudModState> GetPolicyCloudModStateAsync(
+            RunState state,
+            string packageId,
+            string modName,
+            IEnumerable<TranslationPolicyCandidate> candidates,
+            string candidateDomain)
+        {
+            if (state == null || !state.EnableCloudCache || string.IsNullOrWhiteSpace(packageId))
+                return null;
+
+            string domain = PolicyAnalysisCandidateDomain.Normalize(candidateDomain);
+            if (domain.Length == 0) return null;
+            string cloudKey = GetPolicyCloudKey(domain, packageId);
+            if (!state.CloudMods.TryGetValue(cloudKey, out PolicyCloudModState cloud))
+            {
+                cloud = new PolicyCloudModState
+                {
+                    CandidateDomain = domain,
+                    PackageId = packageId.Trim(),
+                    ModName = modName ?? packageId,
+                    GameVersion = RimWorld.VersionControl.CurrentVersionStringWithoutBuild
+                };
+                try
+                {
+                    if (domain == PolicyAnalysisCandidateDomain.Dll)
+                    {
+                        cloud.SourceFingerprint = BuildStableDllPolicySourceFingerprint(packageId, candidates);
+                    }
+                    else
+                    {
+                        ModMetaData mod = ModLister.AllInstalledMods.FirstOrDefault(item =>
+                            item != null && string.Equals(
+                                item.PackageId,
+                                packageId,
+                                StringComparison.OrdinalIgnoreCase));
+                        if (mod != null && mod.RootDir != null)
+                            cloud.SourceFingerprint = BuildStablePolicySourceFingerprint(mod);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Verse.Log.Warning("[AutoTranslationCore] Policy cloud fingerprint failed: " + ex.Message);
+                }
+                state.CloudMods[cloudKey] = cloud;
+            }
+
+            foreach (TranslationPolicyCandidate candidate in candidates ?? Enumerable.Empty<TranslationPolicyCandidate>())
+                cloud.CandidateIds.Add(GetCandidateId(candidate));
+
+            bool accelerationDisabled = AutoTranslatorMod.Settings != null &&
+                AutoTranslatorMod.Settings.IsPolicyCloudAccelerationDisabled(packageId);
+            if (!accelerationDisabled && !cloud.FetchAttempted && !string.IsNullOrWhiteSpace(cloud.SourceFingerprint))
+            {
+                cloud.FetchAttempted = true;
+                cloud.RemoteRecord = await AutoTranslatorCloudClient.FetchPolicyAnalysisAsync(
+                    cloud.CandidateDomain,
+                    cloud.PackageId,
+                    cloud.GameVersion,
+                    cloud.SourceFingerprint,
+                    AutoTranslatorAPI.TranslationPolicyAgentPolicyVersion,
+                    AutoTranslatorAPI.TranslationPolicyAgentPromptVersion);
+            }
+            return cloud;
+        }
+
+        private static string GetPolicyCloudKey(string candidateDomain, string packageId)
+        {
+            return PolicyAnalysisCandidateDomain.Normalize(candidateDomain) + "|" +
+                   (packageId ?? string.Empty).Trim().ToLowerInvariant();
+        }
+
+        private static string BuildStableDllPolicySourceFingerprint(
+            string packageId,
+            IEnumerable<TranslationPolicyCandidate> candidates)
+        {
+            string branchIdentity = RimWorld.VersionControl.CurrentVersionStringWithoutBuild + "|" +
+                AutoTranslatorMod.Settings.TargetLang + "|" + PolicyAnalysisCandidateDomain.Dll + "|" +
+                (packageId ?? string.Empty).Trim().ToLowerInvariant();
+            IEnumerable<string> records = (candidates ?? Enumerable.Empty<TranslationPolicyCandidate>())
+                .Where(candidate => candidate != null)
+                .Select(candidate =>
+                    (candidate.SourceFile ?? string.Empty).Replace('\\', '/').ToLowerInvariant() + "|" +
+                    (candidate.SchemaFingerprint ?? string.Empty) + "|" +
+                    GetCandidateId(candidate));
+            return TranslationPolicySourceFingerprint.ComputeCanonicalRecords(branchIdentity, records);
+        }
+
+        private static string BuildStablePolicySourceFingerprint(ModMetaData mod)
+        {
+            if (mod == null || mod.RootDir == null) return string.Empty;
+            string root = mod.RootDir.FullName;
+            var files = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (string fixedFile in new[]
+            {
+                Path.Combine(root, "About", "About.xml"),
+                Path.Combine(root, "LoadFolders.xml")
+            })
+            {
+                if (File.Exists(fixedFile)) files.Add(fixedFile);
+            }
+
+            Action<string> addXmlDirectory = directory =>
+            {
+                if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory)) return;
+                try
+                {
+                    foreach (string file in Directory.EnumerateFiles(directory, "*.xml", SearchOption.AllDirectories))
+                        files.Add(file);
+                }
+                catch
+                {
+                }
+            };
+            foreach (string defsRoot in AutoTranslatorScanner.GetAllEffectiveDefsPaths(mod))
+                addXmlDirectory(defsRoot);
+            foreach (string languageRoot in AutoTranslatorScanner.GetAllEffectiveLangPaths(mod))
+            {
+                foreach (string keyedRoot in AutoTranslatorScanner.GetTranslatableLanguageBucketPaths(
+                    languageRoot,
+                    AutoTranslatorMod.Settings.TargetLang,
+                    "Keyed",
+                    true))
+                {
+                    addXmlDirectory(keyedRoot);
+                }
+                foreach (string defInjectedRoot in AutoTranslatorScanner.GetTranslatableLanguageBucketPaths(
+                    languageRoot,
+                    AutoTranslatorMod.Settings.TargetLang,
+                    "DefInjected",
+                    true))
+                {
+                    addXmlDirectory(defInjectedRoot);
+                }
+            }
+
+            string branchIdentity = RimWorld.VersionControl.CurrentVersionStringWithoutBuild + "|" +
+                AutoTranslatorMod.Settings.TargetLang;
+            return TranslationPolicySourceFingerprint.Compute(root, branchIdentity, files);
+        }
+
+        private static void ApplyRemotePolicyAnalysis(
+            RunState state,
+            string packageId,
+            IEnumerable<TranslationPolicyCandidate> candidates,
+            PolicyAnalysisCloudRecord record,
+            Dictionary<string, TranslationPolicyAgentCandidateOutcome> output)
+        {
+            if (state == null || record == null || output == null) return;
+            HashSet<string> allowed = new HashSet<string>(
+                record.AllowedCandidateIds ?? new List<string>(),
+                StringComparer.Ordinal);
+            foreach (TranslationPolicyCandidate candidate in candidates ?? Enumerable.Empty<TranslationPolicyCandidate>())
+            {
+                string candidateId = GetCandidateId(candidate);
+                TranslationPolicyAgentDecision decision = allowed.Contains(candidateId)
+                    ? TranslationPolicyAgentDecision.Allow
+                    : TranslationPolicyAgentDecision.Deny;
+                output[candidateId] = CreateOutcome(
+                    TranslationPolicyAgentOutcomeStatus.Classified,
+                    decision,
+                    string.Empty,
+                    "cloud_policy_analysis");
+                CountResolvedCandidates(state, 1, decision, true);
+            }
+            PolicyAnalysisLocalStateManager.RecordAccelerated(record);
+        }
+
+        private static void RecordAgentPolicyOutcomes(
+            RunState state,
+            string packageId,
+            string candidateDomain,
+            IEnumerable<TranslationPolicyCandidate> candidates,
+            TranslationPolicyAgentDecision decision)
+        {
+            if (state == null || !state.EnableCloudCache || string.IsNullOrWhiteSpace(packageId) ||
+                !state.CloudMods.TryGetValue(
+                    GetPolicyCloudKey(candidateDomain, packageId),
+                    out PolicyCloudModState cloud))
+                return;
+
+            foreach (TranslationPolicyCandidate candidate in candidates ?? Enumerable.Empty<TranslationPolicyCandidate>())
+            {
+                string candidateId = GetCandidateId(candidate);
+                cloud.AgentAnalyzedCandidateIds.Add(candidateId);
+                if (decision == TranslationPolicyAgentDecision.Allow)
+                    cloud.AgentAllowedCandidateIds.Add(candidateId);
+            }
+        }
+
+        private static void RegisterPlannedBatches(RunState state, int count)
+        {
+            if (state == null || count <= 0) return;
+            lock (state.BatchProgressGate)
+            {
+                state.DiscoveredBatches += count;
+                state.EstimatedBatches = Math.Max(state.EstimatedBatchHint, state.DiscoveredBatches);
+            }
+            RefreshBatchProgressLog(state, false);
+        }
+
+        private static void MarkBatchStarted(RunState state)
+        {
+            if (state == null) return;
+            lock (state.BatchProgressGate)
+            {
+                state.InProgressBatches++;
+            }
+            RefreshBatchProgressLog(state, false);
+        }
+
+        private static void MarkBatchCompleted(RunState state, bool failed)
+        {
+            if (state == null) return;
+            lock (state.BatchProgressGate)
+            {
+                state.InProgressBatches = Math.Max(0, state.InProgressBatches - 1);
+                state.ProcessedBatches++;
+                if (failed) state.FailedBatches++;
+            }
+            RefreshBatchProgressLog(state, false);
+        }
+
+        private static void RefreshBatchProgressLog(RunState state, bool forceRefresh)
+        {
+            if (state == null || !state.EnableAgent) return;
+            int estimated;
+            int processed;
+            int failed;
+            int inProgress;
+            lock (state.BatchProgressGate)
+            {
+                estimated = state.EstimatedBatches;
+                processed = state.ProcessedBatches;
+                failed = state.FailedBatches;
+                inProgress = state.InProgressBatches;
+            }
+
+            string message = AutoTranslatorAPI.TranslateText(
+                "ATC_PolicyAgent_BatchProgress",
+                estimated,
+                processed,
+                failed,
+                inProgress);
+            AutoTranslatorSettings.AgentBatchProgressText = message;
+            AutoTranslatorSettings.AgentBatchProgress = estimated > 0
+                ? Math.Min(1f, (float)processed / estimated)
+                : 0f;
+            AutoTranslatorSettings.UpdateRuntimeStatusLog(
+                BatchProgressLogKey,
+                message,
+                0,
+                forceRefresh);
+        }
+
+        private static bool IsDetailedApiFailureAlreadyReported(string errorCode)
+        {
+            return string.Equals(errorCode, "api_concurrency_exhausted", StringComparison.Ordinal) ||
+                   string.Equals(errorCode, "malformed_response", StringComparison.Ordinal) ||
+                   string.Equals(errorCode, "truncated_response", StringComparison.Ordinal) ||
+                   (!string.IsNullOrWhiteSpace(errorCode) &&
+                    errorCode.StartsWith("http_", StringComparison.Ordinal));
+        }
+
+        private static void RecordPolicyCloudOutcomes(
+            RunState state,
+            string packageId,
+            string candidateDomain,
+            IEnumerable<TranslationPolicyCandidate> candidates,
+            IDictionary<string, TranslationPolicyAgentCandidateOutcome> output)
+        {
+            if (state == null || !state.EnableCloudCache || string.IsNullOrWhiteSpace(packageId) ||
+                !state.CloudMods.TryGetValue(
+                    GetPolicyCloudKey(candidateDomain, packageId),
+                    out PolicyCloudModState cloud))
+            {
+                return;
+            }
+
+            foreach (TranslationPolicyCandidate candidate in candidates ?? Enumerable.Empty<TranslationPolicyCandidate>())
+            {
+                string candidateId = GetCandidateId(candidate);
+                cloud.CandidateIds.Add(candidateId);
+                if (output == null || !output.TryGetValue(candidateId, out TranslationPolicyAgentCandidateOutcome outcome) ||
+                    outcome == null || outcome.Status != TranslationPolicyAgentOutcomeStatus.Classified ||
+                    (outcome.Decision != TranslationPolicyAgentDecision.Allow &&
+                     outcome.Decision != TranslationPolicyAgentDecision.Deny))
+                {
+                    continue;
+                }
+
+                cloud.ResolvedCandidateIds.Add(candidateId);
+                if (outcome.Decision == TranslationPolicyAgentDecision.Allow)
+                    cloud.AllowedCandidateIds.Add(candidateId);
+            }
         }
 
         private static TranslationPolicyAgentDecisionCache GetCache()

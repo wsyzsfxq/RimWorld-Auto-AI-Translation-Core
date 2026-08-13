@@ -4,7 +4,7 @@ using System.Linq;
 namespace AutoTranslator_Core.TranslationPolicy
 {
     // Native author translations are trusted unless the local classifier can prove
-    // they are structural data. Ambiguous values never invoke the Policy Agent here.
+    // they are structural data. Ambiguous values never invoke the Agent prediction here.
     internal static class TranslationPolicyNativeTargetFilter
     {
         internal static bool ShouldKeep(

@@ -427,3 +427,6 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# Local Roslyn fallback output used when a machine has the .NET runtime but no SDK.
+tests/.manual-build-audit/

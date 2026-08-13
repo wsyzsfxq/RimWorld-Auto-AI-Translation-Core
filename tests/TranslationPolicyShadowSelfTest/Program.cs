@@ -1,13 +1,14 @@
 using AutoTranslator_Core;
 using AutoTranslator_Core.TranslationPolicy;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
@@ -100,6 +101,7 @@ namespace TranslationPolicyShadowSelfTest
                 RunTest("Agent decision cache lifecycle", TestAgentDecisionCacheLifecycle);
                 RunTest("Agent application fallback and timeout bounds", TestAgentApplicationFallbackAndTimeout);
                 RunTest("Agent outcome unresolved reporting boundaries", TestAgentOutcomeReportingBoundaries);
+                RunTest("preflight result aggregation and resolution provenance", TestPreflightResultAggregation);
 
                 Console.WriteLine("PASS: " + _passed + " translation policy shadow self-tests");
                 return 0;
@@ -1360,14 +1362,11 @@ namespace TranslationPolicyShadowSelfTest
 
                 AssertTrue(File.Exists(cachePath), "Decision cache write");
                 AssertTrue(!File.Exists(cachePath + ".tmp"), "Atomic cache write must not leave a temporary file");
-                using (JsonDocument document = JsonDocument.Parse(File.ReadAllText(cachePath)))
-                {
-                    AssertEqual(2, document.RootElement.GetProperty("Version").GetInt32(), "Candidate cache file version");
-                    AssertTrue(
-                        document.RootElement.TryGetProperty("CandidateEntries", out JsonElement candidateEntries),
-                        "Candidate cache file section");
-                    AssertEqual(1, candidateEntries.EnumerateObject().Count(), "Only valid candidate entries persist");
-                }
+                JObject document = JObject.Parse(File.ReadAllText(cachePath));
+                AssertEqual(2, document["Version"].Value<int>(), "Candidate cache file version");
+                JObject candidateEntries = document["CandidateEntries"] as JObject;
+                AssertTrue(candidateEntries != null, "Candidate cache file section");
+                AssertEqual(1, candidateEntries.Properties().Count(), "Only valid candidate entries persist");
                 TranslationPolicyAgentGroupDecision decision;
                 AssertTrue(cache.TryGet(allowKey, out decision), "In-memory decision cache hit");
                 AssertEqual(TranslationPolicyAgentDecision.Allow, decision.Decision, "Cached allow decision");
@@ -1447,14 +1446,11 @@ namespace TranslationPolicyShadowSelfTest
                 AssertTrue(legacy.TryGet(legacyKey, out decision), "Version 1 group cache must remain readable");
                 AssertEqual(TranslationPolicyAgentDecision.Deny, decision.Decision, "Version 1 cached decision");
                 legacy.Flush();
-                using (JsonDocument document = JsonDocument.Parse(File.ReadAllText(legacyPath)))
-                {
-                    AssertEqual(2, document.RootElement.GetProperty("Version").GetInt32(), "Version 1 cache migration");
-                    AssertTrue(
-                        document.RootElement.TryGetProperty("CandidateEntries", out JsonElement candidateEntries),
-                        "Migrated cache candidate section");
-                    AssertEqual(0, candidateEntries.EnumerateObject().Count(), "Migration must not invent candidate identities");
-                }
+                document = JObject.Parse(File.ReadAllText(legacyPath));
+                AssertEqual(2, document["Version"].Value<int>(), "Version 1 cache migration");
+                candidateEntries = document["CandidateEntries"] as JObject;
+                AssertTrue(candidateEntries != null, "Migrated cache candidate section");
+                AssertEqual(0, candidateEntries.Properties().Count(), "Migration must not invent candidate identities");
 
                 string versionPath = Path.Combine(root, "version-cache.json");
                 File.WriteAllText(
@@ -1737,9 +1733,12 @@ namespace TranslationPolicyShadowSelfTest
             report.TranslationWrites = 0;
             report.RuntimeInjections = 0;
 
-            JsonSerializerOptions jsonOptions = new JsonSerializerOptions { WriteIndented = true };
-            jsonOptions.Converters.Add(new JsonStringEnumConverter());
-            string json = JsonSerializer.Serialize(report, jsonOptions);
+            JsonSerializerSettings jsonSettings = new JsonSerializerSettings
+            {
+                Formatting = Newtonsoft.Json.Formatting.Indented,
+                Converters = new List<JsonConverter> { new StringEnumConverter() }
+            };
+            string json = JsonConvert.SerializeObject(report, jsonSettings);
             if (outputJson.Length == 0)
             {
                 Console.WriteLine(json);
@@ -1814,7 +1813,7 @@ namespace TranslationPolicyShadowSelfTest
             {
                 string fullPath = Path.GetFullPath(file);
                 if (!scannedFiles.Add(fullPath)) continue;
-                string relative = Path.GetRelativePath(directory, fullPath).Replace('\\', '/');
+                string relative = GetRelativePathCompat(directory, fullPath).Replace('\\', '/');
                 string[] parts = relative.Split('/');
                 string defType = parts.Length > 1 ? parts[0] : "General";
                 ScanAuditFile(
@@ -1922,7 +1921,7 @@ namespace TranslationPolicyShadowSelfTest
                 {
                     PackageId = mod.PackageId,
                     ModName = mod.ModName,
-                    SourceFile = Path.GetRelativePath(mod.RootPath, file).Replace('\\', '/'),
+                    SourceFile = GetRelativePathCompat(mod.RootPath, file).Replace('\\', '/'),
                     SchemaFingerprint = string.Empty
                 };
                 List<TranslationPolicyCandidate> scanned = scanner(File.ReadAllText(file), context);
@@ -2199,6 +2198,119 @@ namespace TranslationPolicyShadowSelfTest
             };
         }
 
+        private static void TestPreflightResultAggregation()
+        {
+            var result = new TranslationPolicyShadowResult
+            {
+                Summary = new TranslationPolicySummary
+                {
+                    TotalCandidates = 9,
+                    HardAllowCount = 3,
+                    HardDenyCount = 2,
+                    AmbiguousCount = 4
+                },
+                ModSummaries = new List<TranslationPolicyModSummary>
+                {
+                    new TranslationPolicyModSummary
+                    {
+                        PackageId = "example.mod",
+                        Bucket = TranslationPolicyBucket.Keyed,
+                        TotalCandidates = 4,
+                        HardAllowCount = 2,
+                        HardDenyCount = 1,
+                        AmbiguousCount = 1
+                    },
+                    new TranslationPolicyModSummary
+                    {
+                        PackageId = "example.mod",
+                        Bucket = TranslationPolicyBucket.DefInjected,
+                        TotalCandidates = 5,
+                        HardAllowCount = 1,
+                        HardDenyCount = 1,
+                        AmbiguousCount = 3
+                    }
+                },
+                DiagnosticSamples = new List<TranslationPolicyCandidateResult>
+                {
+                    new TranslationPolicyCandidateResult
+                    {
+                        CandidateId = "candidate-1",
+                        PackageId = "example.mod",
+                        SourceText = "Visible label",
+                        Decision = TranslationPolicyDecision.HardAllow,
+                        ReasonCode = "known_text_field"
+                    }
+                }
+            };
+
+            TranslationPolicyPreflightResultCache.StoreLocalRuleResult(
+                result,
+                new[] { new KeyValuePair<string, string>("example.mod", "Example Mod") },
+                DateTime.UtcNow,
+                "report.json",
+                7,
+                1);
+            AssertTrue(
+                TranslationPolicyPreflightResultCache.TryGetMod(
+                    "EXAMPLE.MOD",
+                    out TranslationPolicyPreflightModResult before),
+                "preflight result should use case-insensitive package identity");
+            AssertEqual(9, before.XmlCandidates, "bucket summaries should aggregate by package");
+            AssertEqual(3, before.LocalAllows, "local allow count should aggregate");
+            AssertEqual(2, before.LocalDenies, "local deny count should aggregate");
+            AssertEqual(4, before.Unresolved, "ambiguous items should start unresolved");
+            AssertEqual(1, before.DiagnosticSamples.Count, "diagnostic samples should be grouped by package");
+
+            TranslationPolicyPreflightResultCache.ApplyResolution(
+                "example.mod",
+                new[]
+                {
+                    new TranslationPolicyAgentCandidateOutcome
+                    {
+                        Status = TranslationPolicyAgentOutcomeStatus.Classified,
+                        Decision = TranslationPolicyAgentDecision.Allow,
+                        Reason = "cloud_policy_analysis"
+                    },
+                    new TranslationPolicyAgentCandidateOutcome
+                    {
+                        Status = TranslationPolicyAgentOutcomeStatus.Classified,
+                        Decision = TranslationPolicyAgentDecision.Deny,
+                        Reason = "agent"
+                    },
+                    new TranslationPolicyAgentCandidateOutcome
+                    {
+                        Status = TranslationPolicyAgentOutcomeStatus.Classified,
+                        Decision = TranslationPolicyAgentDecision.Review,
+                        Reason = "agent"
+                    },
+                    new TranslationPolicyAgentCandidateOutcome
+                    {
+                        Status = TranslationPolicyAgentOutcomeStatus.NotAttempted,
+                        Decision = TranslationPolicyAgentDecision.Unresolved
+                    }
+                });
+            AssertTrue(
+                TranslationPolicyPreflightResultCache.TryGetMod(
+                    "example.mod",
+                    out TranslationPolicyPreflightModResult after),
+                "resolved preflight result should remain available");
+            AssertEqual(1, after.CloudAllows, "cloud provenance should be counted separately");
+            AssertEqual(1, after.AgentDenies, "Agent decisions should be counted separately");
+            AssertEqual(1, after.AgentReviews, "Agent review should stay visible");
+            AssertEqual(1, after.Unresolved, "non-classified outcomes should remain unresolved");
+            AssertEqual(4, after.FinalTranslationCandidates,
+                "final translation count should combine local and resolved allows");
+
+            after.LocalAllows = 999;
+            after.DiagnosticSamples[0].SourceText = "mutated";
+            TranslationPolicyPreflightResultCache.TryGetMod(
+                "example.mod",
+                out TranslationPolicyPreflightModResult clonedAgain);
+            AssertEqual(3, clonedAgain.LocalAllows, "callers must not mutate cached results");
+            AssertEqual("Visible label", clonedAgain.DiagnosticSamples[0].SourceText,
+                "diagnostic samples must also be returned as defensive copies");
+        }
+
         private static TranslationPolicyShadowOptions TestOptions()
         {
             return new TranslationPolicyShadowOptions
@@ -2267,6 +2379,17 @@ namespace TranslationPolicyShadowSelfTest
         private static string NormalizePath(string path)
         {
             return string.IsNullOrEmpty(path) ? string.Empty : path.Replace('\\', '/');
+        }
+
+        private static string GetRelativePathCompat(string baseDirectory, string path)
+        {
+            string fullBase = Path.GetFullPath(baseDirectory);
+            if (!fullBase.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal))
+                fullBase += Path.DirectorySeparatorChar;
+            Uri baseUri = new Uri(fullBase, UriKind.Absolute);
+            Uri pathUri = new Uri(Path.GetFullPath(path), UriKind.Absolute);
+            return Uri.UnescapeDataString(baseUri.MakeRelativeUri(pathUri).ToString())
+                .Replace('/', Path.DirectorySeparatorChar);
         }
     }
 }

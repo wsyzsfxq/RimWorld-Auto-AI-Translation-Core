@@ -193,6 +193,32 @@ namespace AutoTranslator_Core
             PutRange(null, entries, false);
         }
 
+        public void RemovePackage(string packageId)
+        {
+            if (string.IsNullOrWhiteSpace(packageId)) return;
+            lock (_gate)
+            {
+                EnsureLoadedLocked();
+                List<string> groupKeys = _entries
+                    .Where(pair => pair.Value != null &&
+                        string.Equals(pair.Value.PackageId, packageId, StringComparison.OrdinalIgnoreCase))
+                    .Select(pair => pair.Key)
+                    .ToList();
+                List<string> candidateKeys = _candidateEntries
+                    .Where(pair => pair.Value != null &&
+                        string.Equals(pair.Value.PackageId, packageId, StringComparison.OrdinalIgnoreCase))
+                    .Select(pair => pair.Key)
+                    .ToList();
+                foreach (string key in groupKeys) _entries.Remove(key);
+                foreach (string key in candidateKeys) _candidateEntries.Remove(key);
+                if (groupKeys.Count > 0 || candidateKeys.Count > 0)
+                {
+                    _dirty = true;
+                    SaveLocked();
+                }
+            }
+        }
+
         public void PutRange(
             IEnumerable<CacheEntry> entries,
             IEnumerable<CandidateCacheEntry> candidateEntries)
@@ -289,7 +315,7 @@ namespace AutoTranslator_Core
 
                 FileInfo info = new FileInfo(_path);
                 if (info.Length > MaximumFileBytes)
-                    throw new InvalidDataException("Policy Agent cache exceeds its size limit.");
+                    throw new InvalidDataException("Agent prediction cache exceeds its size limit.");
 
                 CacheFile file = JsonConvert.DeserializeObject<CacheFile>(File.ReadAllText(_path, Encoding.UTF8));
                 if (file == null ||

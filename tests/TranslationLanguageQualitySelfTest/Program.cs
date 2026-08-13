@@ -1,4 +1,5 @@
 using AutoTranslator_Core;
+using AutoTranslator_Core.TargetedHardcodedUi;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -32,6 +33,7 @@ namespace TranslationLanguageQualitySelfTest
                 Run("Keyed output ownership is exact", TestKeyedOutputOwnership);
                 Run("Keyed migration discovers only exact legacy files", TestKeyedMigrationFileDiscovery);
                 Run("English target accepts English", TestEnglishTarget);
+                Run("hardcoded UI dictionary is role-aware and validated", TestHardcodedUiDictionary);
 
                 Console.WriteLine("PASS: " + _passed + " translation language quality self-tests");
                 return 0;
@@ -56,6 +58,27 @@ namespace TranslationLanguageQualitySelfTest
             AssertFalse(
                 TranslationResultLanguagePolicy.ShouldAccept(reformatted, source, TargetLanguage.Traditional),
                 "Whitespace/newline-only English change");
+        }
+
+        private static void TestHardcodedUiDictionary()
+        {
+            AssertTrue(
+                HardcodedUiBuiltInDictionary.TryTranslate(
+                    "Close", "button", TargetLanguage.Simplified, out string translated) &&
+                translated == "关闭",
+                "button dictionary hit");
+            AssertFalse(
+                HardcodedUiBuiltInDictionary.TryTranslate(
+                    "Close", "label", TargetLanguage.Simplified, out _),
+                "same source with wrong semantic role");
+            AssertFalse(
+                HardcodedUiBuiltInDictionary.IsValidTranslation(
+                    "Save {0}", "保存", TargetLanguage.Simplified),
+                "placeholder loss");
+            AssertFalse(
+                HardcodedUiBuiltInDictionary.IsValidTranslation(
+                    "Save", "Save", TargetLanguage.Simplified),
+                "unchanged source");
         }
 
         private static void TestEnglishParaphrase()

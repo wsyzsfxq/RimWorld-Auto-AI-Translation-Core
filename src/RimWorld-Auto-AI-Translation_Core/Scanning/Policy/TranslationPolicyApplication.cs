@@ -44,15 +44,14 @@ namespace AutoTranslator_Core.TranslationPolicy
     {
         public const int DefaultSeconds = 60;
         public const int MinimumSeconds = 15;
-        public const int MaximumSeconds = 300;
+        public const int MaximumSeconds = 600;
 
         public static int Resolve(int configuredSeconds, int providerFloorSeconds)
         {
             int configured = configuredSeconds > 0 ? configuredSeconds : DefaultSeconds;
-            int floor = Math.Max(0, providerFloorSeconds);
             return Math.Min(
                 MaximumSeconds,
-                Math.Max(MinimumSeconds, Math.Max(configured, floor)));
+                Math.Max(MinimumSeconds, configured));
         }
     }
 }

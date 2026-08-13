@@ -1,4 +1,5 @@
 using AutoTranslator_Core.TranslationPolicy;
+using AutoTranslator_Core.TargetedHardcodedUi;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using RimWorld;
@@ -10,12 +11,14 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using UnityEngine;
 using Verse;
 
 namespace AutoTranslator_Core
 {
     public static partial class AutoTranslatorScanner
     {
+        private static long _nextTranslationPolicyPreflightRunId;
         private const int TranslationPolicyShadowMaxErrorSamples = 100;
         private const int TranslationPolicyShadowMaxErrorTextLength = 500;
 
@@ -116,12 +119,32 @@ namespace AutoTranslator_Core
 
         public static void StartTranslationPolicyShadowRun(List<ModMetaData> mods)
         {
-            ATC_Dispatcher.RunOnMainThread(() => StartTranslationPolicyShadowRunOnMainThread(mods));
+            StartTranslationPolicyPreflightRun(mods, false, false);
         }
 
-        private static void StartTranslationPolicyShadowRunOnMainThread(List<ModMetaData> mods)
+        internal static void StartTranslationPolicyPreflightRun(
+            List<ModMetaData> mods,
+            bool includeCloudCache,
+            bool includeAgent,
+            string launchSource = "unspecified")
         {
-            if (AutoTranslatorMod.Settings == null || AutoTranslatorSettings.IsRunning) return;
+            ATC_Dispatcher.RunOnMainThread(() => StartTranslationPolicyShadowRunOnMainThread(
+                mods,
+                includeCloudCache,
+                includeAgent,
+                launchSource));
+        }
+
+        private static void StartTranslationPolicyShadowRunOnMainThread(
+            List<ModMetaData> mods,
+            bool includeCloudCache,
+            bool includeAgent,
+            string launchSource)
+        {
+            if (AutoTranslatorMod.Settings == null ||
+                AutoTranslatorSettings.IsRunning ||
+                AutoTranslatorAPI.HasOutstandingTranslationWork)
+                return;
 
             List<ModMetaData> selectedMods = (mods ?? new List<ModMetaData>())
                 .Where(mod => mod != null)
@@ -152,18 +175,38 @@ namespace AutoTranslator_Core
             AutoTranslatorSettings.IsRunning = true;
             AutoTranslatorSettings.IsCancellationRequested = false;
             AutoTranslatorSettings.IsSkipCurrentRequested = false;
-            AutoTranslatorMod.Settings.CurrentTaskName = "ATC_PolicyShadowRun_Task".Translate().ToString();
+            long preflightRunId = System.Threading.Interlocked.Increment(
+                ref _nextTranslationPolicyPreflightRunId);
+            AutoTranslatorMod.Settings.CurrentTaskName = (includeAgent
+                ? "ATC_PolicyPreflight_AgentTask"
+                : includeCloudCache
+                    ? "ATC_PolicyPreflight_CloudTask"
+                    : "ATC_PolicyShadowRun_Task").Translate().ToString();
             AutoTranslatorMod.Settings.CurrentProgress = 0f;
             AutoTranslatorMod.Settings.SubTaskName = string.Empty;
             AutoTranslatorMod.Settings.SubProgress = 0f;
-            AutoTranslatorSettings.AddLog("ATC_PolicyShadowRun_Start".Translate(snapshots.Count));
+            string startLogKey = includeAgent
+                ? "ATC_PolicyPreflight_AgentStart"
+                : includeCloudCache
+                    ? "ATC_PolicyPreflight_CloudStart"
+                    : "ATC_PolicyShadowRun_Start";
+            AutoTranslatorSettings.AddLog(startLogKey.Translate(snapshots.Count));
+            AutoTranslatorSettings.AddLog(
+                "ATC_PolicyPreflight_LaunchTrace".Translate(
+                    preflightRunId,
+                    launchSource ?? "unspecified",
+                    includeAgent ? "agent" : includeCloudCache ? "cloud" : "local",
+                    snapshots.Count));
 
             Task.Run(() => ExecuteTranslationPolicyShadowRun(
+                selectedMods,
                 snapshots,
                 targetLanguage,
                 generatedUtc,
                 reportPath,
-                previousState));
+                previousState,
+                includeCloudCache,
+                includeAgent));
         }
 
         private static TranslationPolicyShadowModSnapshot CreateTranslationPolicyShadowSnapshot(ModMetaData mod)
@@ -239,12 +282,15 @@ namespace AutoTranslator_Core
             };
         }
 
-        private static void ExecuteTranslationPolicyShadowRun(
+        private static async Task ExecuteTranslationPolicyShadowRun(
+            List<ModMetaData> selectedMods,
             List<TranslationPolicyShadowModSnapshot> snapshots,
             TargetLanguage targetLanguage,
             DateTime generatedUtc,
             string reportPath,
-            TranslationPolicyShadowUiState previousState)
+            TranslationPolicyShadowUiState previousState,
+            bool includeCloudCache,
+            bool includeAgent)
         {
             Stopwatch timer = Stopwatch.StartNew();
             TranslationPolicyShadowResult result = null;
@@ -255,6 +301,11 @@ namespace AutoTranslator_Core
                 new List<TranslationPolicyShadowScanErrorReport>();
             bool cancelled = false;
             bool reportWritten = false;
+            long policyRunId = 0L;
+            bool policyRunCompleted = false;
+            var ambiguousByPackage = new Dictionary<string, List<TranslationPolicyCandidate>>(
+                StringComparer.OrdinalIgnoreCase);
+            List<HardcodedUiBatchScanSummary> dllSummaries = null;
 
             try
             {
@@ -270,7 +321,8 @@ namespace AutoTranslator_Core
                     PostTranslationPolicyShadowProgress(
                         snapshot.ModName,
                         (float)index / snapshots.Count,
-                        0f);
+                        0f,
+                        snapshots.Count);
 
                     TranslationPolicyShadowControl control = DiscoverTranslationPolicyShadowPaths(
                         snapshot,
@@ -295,7 +347,8 @@ namespace AutoTranslator_Core
                         PostTranslationPolicyShadowProgress(
                             snapshot.ModName,
                             (float)index / snapshots.Count,
-                            1f / 3f);
+                            1f / 3f,
+                            snapshots.Count);
                         control = ScanTranslationPolicyShadowDirectories(
                             snapshot,
                             snapshot.DefInjectedSourceDirectories,
@@ -311,7 +364,8 @@ namespace AutoTranslator_Core
                         PostTranslationPolicyShadowProgress(
                             snapshot.ModName,
                             (float)index / snapshots.Count,
-                            2f / 3f);
+                            2f / 3f,
+                            snapshots.Count);
                         control = ScanTranslationPolicyShadowDirectories(
                             snapshot,
                             snapshot.RawDefsDirectories,
@@ -328,6 +382,18 @@ namespace AutoTranslator_Core
                         foreach (TranslationPolicyCandidate candidate in acceptedCandidates)
                         {
                             session.AddCandidate(candidate);
+                            if (TranslationPolicyClassifier.Classify(candidate).Decision ==
+                                TranslationPolicyDecision.Ambiguous)
+                            {
+                                if (!ambiguousByPackage.TryGetValue(
+                                        snapshot.PackageId,
+                                        out List<TranslationPolicyCandidate> ambiguous))
+                                {
+                                    ambiguous = new List<TranslationPolicyCandidate>();
+                                    ambiguousByPackage[snapshot.PackageId] = ambiguous;
+                                }
+                                ambiguous.Add(candidate);
+                            }
                         }
                         control = GetTranslationPolicyShadowControl();
                     }
@@ -346,8 +412,9 @@ namespace AutoTranslator_Core
                     int completedMods = index + 1;
                     PostTranslationPolicyShadowProgress(
                         snapshot.ModName,
-                        (float)completedMods / snapshots.Count,
-                        1f);
+                        (float)index / snapshots.Count,
+                        1f,
+                        snapshots.Count);
                 }
 
                 if (!cancelled && !AutoTranslatorSettings.IsCancellationRequested)
@@ -355,6 +422,15 @@ namespace AutoTranslator_Core
                     result = CompleteTranslationPolicyShadowSession(session);
                     if (!AutoTranslatorSettings.IsCancellationRequested)
                     {
+                        TranslationPolicyPreflightResultCache.StoreLocalRuleResult(
+                            result,
+                            snapshots.Select(snapshot => new KeyValuePair<string, string>(
+                                snapshot.PackageId,
+                                snapshot.ModName)),
+                            generatedUtc,
+                            reportPath,
+                            scannedXmlCount,
+                            scanErrorCount);
                         WriteTranslationPolicyShadowReport(
                             reportPath,
                             snapshots,
@@ -366,6 +442,82 @@ namespace AutoTranslator_Core
                             timer.Elapsed,
                             result);
                         reportWritten = true;
+
+                        if ((includeCloudCache || includeAgent) &&
+                            AutoTranslatorMod.Settings != null &&
+                            AutoTranslatorMod.Settings.EnableHardcodedUiPrototype &&
+                            !AutoTranslatorSettings.IsCancellationRequested)
+                        {
+                            dllSummaries = await HardcodedUiBatchScanCoordinator.ScanActiveModsAsync(
+                                selectedMods);
+                        }
+
+                        if ((includeCloudCache || includeAgent) &&
+                            !AutoTranslatorSettings.IsCancellationRequested)
+                        {
+                            policyRunId = TranslationPolicyAgentCoordinator.BeginRun(
+                                AutoTranslatorMod.Settings,
+                                includeCloudCache,
+                                includeAgent);
+                            TranslationPolicyAgentCoordinator.SetEstimatedBatchTotal(
+                                policyRunId,
+                                result.Estimate?.EstimatedRequestCount ?? 0);
+                            TranslationPolicyAgentCoordinator.RecordLocalOutcomes(
+                                result.Summary?.HardAllowCount ?? 0,
+                                result.Summary?.HardDenyCount ?? 0);
+                            foreach (TranslationPolicyShadowModSnapshot snapshot in snapshots)
+                            {
+                                if (AutoTranslatorSettings.IsCancellationRequested) break;
+                                if (!ambiguousByPackage.TryGetValue(
+                                        snapshot.PackageId,
+                                        out List<TranslationPolicyCandidate> ambiguous) ||
+                                    ambiguous.Count == 0)
+                                    continue;
+
+                                Dictionary<string, TranslationPolicyAgentCandidateOutcome> outcomes =
+                                    await TranslationPolicyAgentCoordinator.ResolveCandidatesAsync(
+                                        snapshot.PackageId,
+                                        ambiguous);
+                                TranslationPolicyPreflightResultCache.ApplyResolution(
+                                    snapshot.PackageId,
+                                    outcomes.Values);
+                            }
+
+                            if ((includeCloudCache || includeAgent) && dllSummaries != null)
+                            {
+                                foreach (HardcodedUiBatchScanSummary dll in dllSummaries)
+                                {
+                                    if (AutoTranslatorSettings.IsCancellationRequested) break;
+                                    if (dll?.Result == null) continue;
+                                    List<HardcodedUiPatchEntry> pending =
+                                        HardcodedUiPolicyBridge.GetAgentCandidates(dll.Result);
+                                    if (pending.Count == 0)
+                                    {
+                                        HardcodedUiBatchScanCoordinator.RefreshDecisionCounts(dll);
+                                        continue;
+                                    }
+                                    string modName = snapshots
+                                        .FirstOrDefault(snapshot => string.Equals(
+                                            snapshot.PackageId,
+                                            dll.PackageId,
+                                            StringComparison.OrdinalIgnoreCase))
+                                        ?.ModName ?? dll.PackageId;
+                                    Dictionary<string, TranslationPolicyAgentCandidateOutcome> outcomes =
+                                        await TranslationPolicyAgentCoordinator.ResolveCandidatesAsync(
+                                            dll.PackageId,
+                                            pending.Select(entry =>
+                                                HardcodedUiPolicyBridge.CreateCandidate(entry, modName)),
+                                            true,
+                                            PolicyAnalysisCandidateDomain.Dll);
+                                    HardcodedUiPolicyBridge.ApplyAgentOutcomes(
+                                        dll.Result,
+                                        pending,
+                                        outcomes);
+                                    HardcodedUiBatchScanCoordinator.RefreshDecisionCounts(dll);
+                                }
+                            }
+                            policyRunCompleted = !AutoTranslatorSettings.IsCancellationRequested;
+                        }
                     }
                     else
                     {
@@ -383,6 +535,20 @@ namespace AutoTranslator_Core
             }
             finally
             {
+                if (policyRunId != 0L)
+                {
+                    try
+                    {
+                        await TranslationPolicyAgentCoordinator.EndRunAsync(
+                            policyRunId,
+                            policyRunCompleted);
+                    }
+                    catch (Exception cleanupException)
+                    {
+                        Verse.Log.Warning("[AutoTranslationCore] Policy preflight cleanup failed: " +
+                            cleanupException);
+                    }
+                }
                 timer.Stop();
                 cancelled = !reportWritten && (cancelled || AutoTranslatorSettings.IsCancellationRequested);
                 PostTranslationPolicyShadowCompletion(
@@ -393,7 +559,9 @@ namespace AutoTranslator_Core
                     timer.Elapsed,
                     scanErrorCount,
                     cancelled,
-                    failure);
+                    failure,
+                    includeCloudCache,
+                    includeAgent);
             }
         }
 
@@ -421,12 +589,18 @@ namespace AutoTranslator_Core
         private static void PostTranslationPolicyShadowProgress(
             string modName,
             float currentProgress,
-            float subProgress)
+            float subProgress,
+            int totalMods)
         {
             ATC_Dispatcher.RunOnMainThread(() =>
             {
                 if (AutoTranslatorMod.Settings == null) return;
-                AutoTranslatorMod.Settings.CurrentProgress = currentProgress;
+                // XML discovery is only the first stage of a preflight run.  Reserving the
+                // remaining range prevents a one-Mod run from claiming 100% before DLL and
+                // Agent work has even started.
+                float perModProgress = totalMods > 0 ? subProgress / totalMods : 0f;
+                AutoTranslatorMod.Settings.CurrentProgress = Mathf.Clamp01(
+                    currentProgress + perModProgress) * 0.45f;
                 AutoTranslatorMod.Settings.SubProgress = subProgress;
                 AutoTranslatorMod.Settings.SubTaskName = modName ?? string.Empty;
             });
@@ -752,7 +926,9 @@ namespace AutoTranslator_Core
             TimeSpan elapsed,
             int scanErrorCount,
             bool cancelled,
-            Exception failure)
+            Exception failure,
+            bool includeCloudCache,
+            bool includeAgent)
         {
             ATC_Dispatcher.RunOnMainThread(() =>
             {
@@ -803,13 +979,20 @@ namespace AutoTranslator_Core
                     reportPath).ToString();
 
                 AutoTranslatorSettings.AddLog(summaryText);
-                Find.WindowStack.Add(new Dialog_MessageBox(
-                    summaryText,
-                    null,
-                    null,
-                    null,
-                    null,
-                    "ATC_PolicyShadowRun_Title".Translate()));
+                // Only the explicit local-rule trial keeps the historical automatic
+                // summary dialog. Cloud/Agent actions update the shared result cache and
+                // are opened deliberately through the Result button instead of appearing
+                // later when the user closes another window.
+                if (!includeCloudCache && !includeAgent)
+                {
+                    Find.WindowStack.Add(new Dialog_MessageBox(
+                        summaryText,
+                        null,
+                        null,
+                        null,
+                        null,
+                        "ATC_PolicyShadowRun_Title".Translate()));
+                }
             });
         }
 

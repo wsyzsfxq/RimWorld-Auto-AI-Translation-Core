@@ -9,6 +9,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
+using AutoTranslator_Core.TargetedHardcodedUi;
 using Verse;
 using static AutoTranslator_Core.DeleteTranslationWindow;
 // 這個檔案負責單模組、多模組與全域掃描的流程控制。
@@ -24,7 +25,11 @@ namespace AutoTranslator_Core
         // EN: This method starts single scan.
         public static void StartSingleScan(ModMetaData targetMod)
         {
-            if (targetMod == null || string.IsNullOrWhiteSpace(targetMod.PackageId)) return;
+            if (targetMod == null ||
+                string.IsNullOrWhiteSpace(targetMod.PackageId) ||
+                AutoTranslatorSettings.IsRunning ||
+                AutoTranslatorAPI.HasOutstandingTranslationWork)
+                return;
             if (AutoTranslatorMod.Settings != null && AutoTranslatorMod.Settings.IsTranslationBlacklisted(targetMod.PackageId))
             {
                 Messages.Message("ATC_Blacklist_TranslationSkipped".Translate(targetMod.Name), MessageTypeDefOf.NeutralEvent, false);
@@ -53,10 +58,13 @@ namespace AutoTranslator_Core
             Task.Run(async () =>
             {
                 long policyAgentRunId = 0L;
+                bool usageRunStarted = false;
+                bool usageRunCompleted = false;
                 try
                 {
                     policyAgentRunId = BeginTranslationPolicyAgentRun();
                     EnsurePackInitialized(runFullMaintenance: false);
+                    usageRunStarted = BeginTranslationUsageRun("single", new[] { targetMod });
                     if (AutoTranslatorSettings.IsCancellationRequested) return;
                     TranslationUnresolvedManager.BeginPackageScan(
                         targetMod.PackageId,
@@ -121,8 +129,10 @@ namespace AutoTranslator_Core
                             foreach (var langRoot in langRoots)
                             {
                                 aiTranslatedCount += await ProcessModKeyedSources(targetMod, langRoot);
+                                if (TranslationUsageCoordinator.IsPausedByBudget) break;
                             }
                         }
+                        if (PauseScanIfTranslationBudgetReached(settings)) return;
                         if (AutoTranslatorSettings.IsCancellationRequested) return;
                         if (hasDefs || hasLang)
                         {
@@ -135,6 +145,13 @@ namespace AutoTranslator_Core
                         {
                             UpdateLocalModMeta(targetMod.PackageId, GetFolderNameByLanguage(settings.TargetLang), aiTranslatedCount);
                         }
+                    }
+
+                    if (!AutoTranslatorSettings.IsCancellationRequested &&
+                        !AutoTranslatorSettings.IsSkipCurrentRequested &&
+                        !TranslationUsageCoordinator.IsPausedByBudget)
+                    {
+                        await TryRunHardcodedUiAutomaticPipelineAsync(new[] { targetMod });
                     }
 
                     if (AutoTranslatorSettings.IsSkipCurrentRequested)
@@ -175,6 +192,7 @@ namespace AutoTranslator_Core
                         ModUpdateDetector.ClearStatusCache();
                         TranslationWorkbenchTab.RequestRefresh();
                         TranslationUnresolvedManager.CompleteRun();
+                        usageRunCompleted = true;
                     }
                 }
                 catch (Exception e)
@@ -189,16 +207,22 @@ namespace AutoTranslator_Core
                 finally
                 {
                     TryRunPipelineCleanup("save single-scan progress", () => TranslationUnresolvedManager.SaveRunProgress());
-                    TryRunPipelineCleanup("end single-scan policy-agent run", () => EndTranslationPolicyAgentRun(policyAgentRunId));
+                    await TryRunPipelineCleanupAsync(
+                        "end single-scan policy-agent run",
+                        () => EndTranslationPolicyAgentRunAsync(policyAgentRunId, usageRunCompleted));
+                    TryRunPipelineCleanup("end single-scan usage run", () => EndTranslationUsageRun(usageRunStarted, usageRunCompleted));
                     TryRunPipelineCleanup("clear single-scan translation database", () => ClearGlobalTranslationDatabase());
-                    AutoTranslatorSettings.IsRunning = false;
+                    await AutoTranslatorSettings.CompleteTranslationPipelineAsync();
                 }
             });
         }
 
         public static void StartPureAiRebuildForUpload(ModMetaData targetMod)
         {
-            if (targetMod == null) return;
+            if (targetMod == null ||
+                AutoTranslatorSettings.IsRunning ||
+                AutoTranslatorAPI.HasOutstandingTranslationWork)
+                return;
 
             AutoTranslatorMod.Settings.SessionCharCount = 0;
             ResetValidationStats();
@@ -219,10 +243,13 @@ namespace AutoTranslator_Core
             {
                 int aiTranslatedCount = 0;
                 long policyAgentRunId = 0L;
+                bool usageRunStarted = false;
+                bool usageRunCompleted = false;
                 try
                 {
                     policyAgentRunId = BeginTranslationPolicyAgentRun();
                     EnsurePackInitialized(runFullMaintenance: false);
+                    usageRunStarted = BeginTranslationUsageRun("pure-ai-rebuild", new[] { targetMod });
                     if (AutoTranslatorSettings.IsCancellationRequested) return;
                     TranslationUnresolvedManager.BeginPackageScan(
                         targetMod.PackageId,
@@ -250,7 +277,8 @@ namespace AutoTranslator_Core
                     }
 
                     string workspaceLangRoot = GetTranslationOutputLanguageRoot(targetMod, targetFolder, TranslationOutputMode.PureAiWorkspace);
-                    BackupAndClearPureAiWorkspace(targetMod, workspaceLangRoot);
+                    if (!TranslationUsageCoordinator.WasResumed)
+                        BackupAndClearPureAiWorkspace(targetMod, workspaceLangRoot);
 
                     var langRoots = GetAllEffectiveLangPaths(targetMod);
                     var defsRoots = GetAllEffectiveDefsPaths(targetMod);
@@ -271,9 +299,11 @@ namespace AutoTranslator_Core
                                 settings.CurrentProgress = 0.1f + 0.35f * i / totalLangRoots;
                                 settings.SubTaskName = "ATC_SubTask_TranslatingKeyed".Translate();
                                 aiTranslatedCount += await ProcessModKeyedSources(targetMod, langRoots[i], TranslationOutputMode.PureAiWorkspace);
+                                if (TranslationUsageCoordinator.IsPausedByBudget) break;
                             }
                         }
 
+                        if (PauseScanIfTranslationBudgetReached(settings)) return;
                         if (AutoTranslatorSettings.IsCancellationRequested) return;
                         if (hasDefs || hasLang)
                         {
@@ -325,6 +355,7 @@ namespace AutoTranslator_Core
                         ModUpdateDetector.ClearStatusCache();
                         TranslationWorkbenchTab.RequestRefresh();
                         TranslationUnresolvedManager.CompleteRun();
+                        usageRunCompleted = true;
                     }
                 }
                 catch (Exception e)
@@ -339,7 +370,10 @@ namespace AutoTranslator_Core
                 finally
                 {
                     TryRunPipelineCleanup("save pure-AI progress", () => TranslationUnresolvedManager.SaveRunProgress());
-                    TryRunPipelineCleanup("end pure-AI policy-agent run", () => EndTranslationPolicyAgentRun(policyAgentRunId));
+                    await TryRunPipelineCleanupAsync(
+                        "end pure-AI policy-agent run",
+                        () => EndTranslationPolicyAgentRunAsync(policyAgentRunId, usageRunCompleted));
+                    TryRunPipelineCleanup("end pure-AI usage run", () => EndTranslationUsageRun(usageRunStarted, usageRunCompleted));
                     if (AutoTranslatorSettings.IsCancellationRequested)
                     {
                         TryRunPipelineCleanup("reset pure-AI cancellation state", () =>
@@ -350,7 +384,7 @@ namespace AutoTranslator_Core
                             settings.SubProgress = 0f;
                         });
                     }
-                    AutoTranslatorSettings.IsRunning = false;
+                    await AutoTranslatorSettings.CompleteTranslationPipelineAsync();
                 }
             });
         }
@@ -431,6 +465,10 @@ namespace AutoTranslator_Core
         // EN: This method starts full scan.
         public static void StartFullScan()
         {
+            if (AutoTranslatorSettings.IsRunning ||
+                AutoTranslatorAPI.HasOutstandingTranslationWork)
+                return;
+
             AutoTranslatorMod.Settings.SessionCharCount = 0;
             ResetValidationStats();
             TranslationUnresolvedManager.BeginRun();
@@ -451,11 +489,14 @@ namespace AutoTranslator_Core
             Task.Run(async () =>
             {
                 long policyAgentRunId = 0L;
+                bool usageRunStarted = false;
+                bool usageRunCompleted = false;
                 bool runHadPackageFailures = false;
                 try
                 {
                     policyAgentRunId = BeginTranslationPolicyAgentRun();
                     EnsurePackInitialized(runFullMaintenance: false);
+                    usageRunStarted = BeginTranslationUsageRun("full", mods);
                     if (AutoTranslatorSettings.IsCancellationRequested) return;
 
 
@@ -543,8 +584,11 @@ namespace AutoTranslator_Core
                             {
                                 settings.SubTaskName = "ATC_SubTask_TranslatingKeyed".Translate();
                                 aiTranslatedCount += await ProcessModKeyedSources(mod, langRoot);
+                                if (TranslationUsageCoordinator.IsPausedByBudget) break;
                             }
                         }
+
+                        if (TranslationUsageCoordinator.IsPausedByBudget) break;
 
                         if (AutoTranslatorSettings.IsCancellationRequested) break;
                         if (AutoTranslatorSettings.IsSkipCurrentRequested)
@@ -594,6 +638,7 @@ namespace AutoTranslator_Core
                             AutoTranslatorSettings.AddLog("⏭️ " + AutoTranslatorAPI.TranslateText("ATC_Log_SkippedMod", mod.Name));
                             AutoTranslatorSettings.IsSkipCurrentRequested = false;
                         }
+                        if (TranslationUsageCoordinator.IsPausedByBudget) break;
                         }
                         catch (Exception packageException)
                         {
@@ -603,7 +648,19 @@ namespace AutoTranslator_Core
                         }
                     }
 
-                    if (!AutoTranslatorSettings.IsCancellationRequested)
+                    if (!AutoTranslatorSettings.IsCancellationRequested &&
+                        !TranslationUsageCoordinator.IsPausedByBudget)
+                    {
+                        bool dllCompleted = await TryRunHardcodedUiAutomaticPipelineAsync(mods);
+                        if (!dllCompleted) runHadPackageFailures = true;
+                    }
+
+                    if (PauseScanIfTranslationBudgetReached(settings))
+                    {
+                        AutoTranslatorSettings.ShowFinishPopup = true;
+                        TranslationWorkbenchTab.RequestRefresh();
+                    }
+                    else if (!AutoTranslatorSettings.IsCancellationRequested)
                     {
                         settings.CurrentTaskName = "ATC_TaskDone".Translate();
                         settings.CurrentProgress = 1f;
@@ -620,6 +677,7 @@ namespace AutoTranslator_Core
                         if (!runHadPackageFailures)
                         {
                             TranslationUnresolvedManager.CompleteRun();
+                            usageRunCompleted = true;
                         }
                     }
                 }
@@ -637,7 +695,10 @@ namespace AutoTranslator_Core
                 finally
                 {
                     TryRunPipelineCleanup("save full-scan progress", () => TranslationUnresolvedManager.SaveRunProgress());
-                    TryRunPipelineCleanup("end full-scan policy-agent run", () => EndTranslationPolicyAgentRun(policyAgentRunId));
+                    await TryRunPipelineCleanupAsync(
+                        "end full-scan policy-agent run",
+                        () => EndTranslationPolicyAgentRunAsync(policyAgentRunId, usageRunCompleted));
+                    TryRunPipelineCleanup("end full-scan usage run", () => EndTranslationUsageRun(usageRunStarted, usageRunCompleted));
                     TryRunPipelineCleanup("clear full-scan translation database", () => ClearGlobalTranslationDatabase());
                     if (AutoTranslatorSettings.IsCancellationRequested)
                     {
@@ -649,7 +710,7 @@ namespace AutoTranslator_Core
                             settings.SubProgress = 0f;
                         });
                     }
-                    AutoTranslatorSettings.IsRunning = false;
+                    await AutoTranslatorSettings.CompleteTranslationPipelineAsync();
                 }
             });
         }
@@ -659,6 +720,10 @@ namespace AutoTranslator_Core
         // EN: This method starts multi scan.
         public static void StartMultiScan(List<ModMetaData> targetMods, bool includeOfficialGamePackages = false)
         {
+            if (AutoTranslatorSettings.IsRunning ||
+                AutoTranslatorAPI.HasOutstandingTranslationWork)
+                return;
+
             targetMods = (targetMods ?? new List<ModMetaData>())
                 .Where(mod => mod != null &&
                               !string.IsNullOrWhiteSpace(mod.PackageId) &&
@@ -687,11 +752,14 @@ namespace AutoTranslator_Core
             Task.Run(async () =>
             {
                 long policyAgentRunId = 0L;
+                bool usageRunStarted = false;
+                bool usageRunCompleted = false;
                 bool runHadPackageFailures = false;
                 try
                 {
                     policyAgentRunId = BeginTranslationPolicyAgentRun();
                     EnsurePackInitialized(runFullMaintenance: false);
+                    usageRunStarted = BeginTranslationUsageRun("multi", targetMods);
                     if (AutoTranslatorSettings.IsCancellationRequested) return;
 
 
@@ -771,8 +839,11 @@ namespace AutoTranslator_Core
                             {
                                 settings.SubTaskName = "ATC_SubTask_TranslatingKeyed".Translate();
                                 aiTranslatedCount += await ProcessModKeyedSources(mod, langRoot);
+                                if (TranslationUsageCoordinator.IsPausedByBudget) break;
                             }
                         }
+
+                        if (TranslationUsageCoordinator.IsPausedByBudget) break;
 
                         if (AutoTranslatorSettings.IsCancellationRequested) break;
                         if (AutoTranslatorSettings.IsSkipCurrentRequested)
@@ -817,6 +888,7 @@ namespace AutoTranslator_Core
                             AutoTranslatorSettings.AddLog("⏭️ " + AutoTranslatorAPI.TranslateText("ATC_Log_SkippedMod", mod.Name));
                             AutoTranslatorSettings.IsSkipCurrentRequested = false;
                         }
+                        if (TranslationUsageCoordinator.IsPausedByBudget) break;
                         }
                         catch (Exception packageException)
                         {
@@ -826,7 +898,19 @@ namespace AutoTranslator_Core
                         }
                     }
 
-                    if (!AutoTranslatorSettings.IsCancellationRequested)
+                    if (!AutoTranslatorSettings.IsCancellationRequested &&
+                        !TranslationUsageCoordinator.IsPausedByBudget)
+                    {
+                        bool dllCompleted = await TryRunHardcodedUiAutomaticPipelineAsync(targetMods);
+                        if (!dllCompleted) runHadPackageFailures = true;
+                    }
+
+                    if (PauseScanIfTranslationBudgetReached(settings))
+                    {
+                        AutoTranslatorSettings.ShowFinishPopup = true;
+                        TranslationWorkbenchTab.RequestRefresh();
+                    }
+                    else if (!AutoTranslatorSettings.IsCancellationRequested)
                     {
                         settings.CurrentTaskName = "ATC_TaskDone".Translate();
                         settings.CurrentProgress = 1f;
@@ -842,6 +926,7 @@ namespace AutoTranslator_Core
                         if (!runHadPackageFailures)
                         {
                             TranslationUnresolvedManager.CompleteRun();
+                            usageRunCompleted = true;
                         }
                     }
                 }
@@ -859,7 +944,10 @@ namespace AutoTranslator_Core
                 finally
                 {
                     TryRunPipelineCleanup("save multi-scan progress", () => TranslationUnresolvedManager.SaveRunProgress());
-                    TryRunPipelineCleanup("end multi-scan policy-agent run", () => EndTranslationPolicyAgentRun(policyAgentRunId));
+                    await TryRunPipelineCleanupAsync(
+                        "end multi-scan policy-agent run",
+                        () => EndTranslationPolicyAgentRunAsync(policyAgentRunId, usageRunCompleted));
+                    TryRunPipelineCleanup("end multi-scan usage run", () => EndTranslationUsageRun(usageRunStarted, usageRunCompleted));
                     TryRunPipelineCleanup("clear multi-scan translation database", () => ClearGlobalTranslationDatabase());
                     if (AutoTranslatorSettings.IsCancellationRequested)
                     {
@@ -871,9 +959,37 @@ namespace AutoTranslator_Core
                             settings.SubProgress = 0f;
                         });
                     }
-                    AutoTranslatorSettings.IsRunning = false;
+                    await AutoTranslatorSettings.CompleteTranslationPipelineAsync();
                 }
             });
+        }
+
+        private static async Task<bool> TryRunHardcodedUiAutomaticPipelineAsync(
+            IEnumerable<ModMetaData> mods)
+        {
+            AutoTranslatorSettings settings = AutoTranslatorMod.Settings;
+            if (settings == null ||
+                !settings.EnableHardcodedUiPrototype ||
+                AutoTranslatorSettings.IsCancellationRequested ||
+                TranslationUsageCoordinator.IsPausedByBudget)
+                return true;
+
+            try
+            {
+                await HardcodedUiAutomaticPipeline.RunAsync(
+                    mods,
+                    settings.EnableTranslationPolicyAgent);
+                return !AutoTranslatorSettings.IsCancellationRequested;
+            }
+            catch (Exception ex)
+            {
+                AutoTranslatorSettings.AddErrorLog(
+                    "ATC_HardcodedUi_AutoFailed".Translate(ex.Message));
+                Verse.Log.Error(
+                    "[AutoTranslationCore] Automatic DLL UI pipeline failed; " +
+                    "the XML translation run will remain usable.\n" + ex);
+                return false;
+            }
         }
 
         private static void TryRunPipelineCleanup(string operation, Action action)
@@ -894,6 +1010,19 @@ namespace AutoTranslator_Core
                 {
                 }
                 TryLogPipelineError($"[AutoTranslationCore] Pipeline cleanup failed ({operation}):\n{detail}");
+            }
+        }
+
+        private static async Task TryRunPipelineCleanupAsync(string operation, Func<Task> action)
+        {
+            try
+            {
+                if (action != null) await action();
+            }
+            catch (Exception ex)
+            {
+                TryLogPipelineError("[AutoTranslationCore] Pipeline cleanup failed (" +
+                    operation + "): " + ex);
             }
         }
 

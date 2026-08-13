@@ -53,6 +53,7 @@ namespace AutoTranslator_Core
         // 這個欄位保存 queuedApproxCount 的執行狀態或快取資料。
         // EN: This field stores queued approx count runtime state or cached data.
         private static int _queuedApproxCount = 0;
+        private static int _activeUiTranslationBatchCount = 0;
         private static int _classificationApproxCount = 0;
         // 這個欄位保存 last佇列Frame 的執行狀態或快取資料。
         // EN: This field stores last queue frame runtime state or cached data.
@@ -157,8 +158,26 @@ namespace AutoTranslator_Core
                     var updates = ModUpdateDetector.GetUpdatedOrNewModsBlocking();
                     if (updates.Count > 0)
                     {
-                        AutoTranslatorSettings.AddLog("ATC_Log_AutoStartUpdateScan".Translate(updates.Count));
-                        AutoTranslatorScanner.StartMultiScan(updates);
+                        // Do not keep a hidden startup job armed behind a user-started
+                        // preflight/translation task. Otherwise it begins translating the
+                        // remembered mods the instant that unrelated task becomes idle.
+                        if (AutoTranslatorSettings.IsRunning ||
+                            AutoTranslatorAPI.HasOutstandingTranslationWork)
+                            return;
+
+                        ATC_Dispatcher.RunOnMainThread(() =>
+                        {
+                            if (AutoTranslatorMod.Settings == null ||
+                                !AutoTranslatorMod.Settings.AutoTranslateOnUpdate ||
+                                AutoTranslatorSettings.IsRunning ||
+                                AutoTranslatorAPI.HasOutstandingTranslationWork)
+                                return;
+
+                            AutoTranslatorSettings.ResetPipelineCancellation();
+                            AutoTranslatorSettings.AddLog(
+                                "ATC_Log_AutoStartUpdateScan".Translate(updates.Count));
+                            AutoTranslatorScanner.StartMultiScan(updates);
+                        });
                     }
                 }
             });

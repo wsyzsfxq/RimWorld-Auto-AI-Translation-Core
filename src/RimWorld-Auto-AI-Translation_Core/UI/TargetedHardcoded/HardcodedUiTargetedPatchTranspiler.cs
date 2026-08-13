@@ -12,6 +12,7 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
         public string EntryId;
         public string Literal;
         public int LiteralOrdinal;
+        public string CallSignature;
     }
 
     internal static class HardcodedUiTargetedPatchTranspiler
@@ -75,9 +76,14 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
                 HardcodedUiTranspileSpec spec = byOrdinal[literalOrdinal];
                 if (!string.Equals((string)instruction.operand, spec.Literal, StringComparison.Ordinal)) continue;
 
-                int next = index + 1;
-                while (next < source.Count && source[next].opcode == OpCodes.Nop) next++;
-                if (next >= source.Count || !IsSupportedLabelCall(source[next])) continue;
+                if (!string.IsNullOrWhiteSpace(spec.CallSignature))
+                {
+                    int next = index + 1;
+                    while (next < source.Count && source[next].opcode == OpCodes.Nop) next++;
+                    MethodBase call = next < source.Count ? source[next].operand as MethodBase : null;
+                    if (next >= source.Count || !HardcodedUiCallTarget.IsSupported(call) ||
+                        !string.Equals(HardcodedUiMethodIdentity.GetMethodSignature(call), spec.CallSignature, StringComparison.Ordinal)) continue;
+                }
 
                 output.Add(new CodeInstruction(OpCodes.Ldstr, spec.EntryId));
                 output.Add(new CodeInstruction(OpCodes.Call, ResolveMethod));
@@ -102,24 +108,10 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
                 {
                     EntryId = spec.EntryId,
                     Literal = spec.Literal ?? string.Empty,
-                    LiteralOrdinal = spec.LiteralOrdinal
+                    LiteralOrdinal = spec.LiteralOrdinal,
+                    CallSignature = spec.CallSignature ?? string.Empty
                 })
                 .ToList();
-        }
-
-        private static bool IsSupportedLabelCall(CodeInstruction instruction)
-        {
-            if (instruction == null || (instruction.opcode != OpCodes.Call && instruction.opcode != OpCodes.Callvirt))
-                return false;
-
-            MethodBase target = instruction.operand as MethodBase;
-            if (target == null || target.DeclaringType == null || target.Name != "Label") return false;
-            if (!string.Equals(target.DeclaringType.FullName, "Verse.Widgets", StringComparison.Ordinal)) return false;
-
-            ParameterInfo[] parameters = target.GetParameters();
-            return parameters.Length == 2 &&
-                string.Equals(HardcodedUiMethodIdentity.GetTypeName(parameters[0].ParameterType), "UnityEngine.Rect", StringComparison.Ordinal) &&
-                string.Equals(HardcodedUiMethodIdentity.GetTypeName(parameters[1].ParameterType), "System.String", StringComparison.Ordinal);
         }
     }
 }

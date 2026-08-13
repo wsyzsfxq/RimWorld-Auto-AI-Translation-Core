@@ -232,33 +232,17 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
 
             try
             {
-                IEnumerable<KeyValuePair<OpCode, object>> body = PatchProcessor.ReadMethodBody(method);
-                StringBuilder builder = new StringBuilder();
-                foreach (KeyValuePair<OpCode, object> instruction in body)
-                {
-                    builder.Append(instruction.Key.Value.ToString(CultureInfo.InvariantCulture));
-                    builder.Append(':');
-                    AppendOperand(builder, instruction.Value);
-                    builder.Append('\n');
-                }
-
+                // Fingerprint the raw method body instead of asking Harmony to decode it
+                // a second time. Some valid methods (notably closures and branch-heavy UI
+                // methods) can be decoded once for discovery but fail on a repeated
+                // PatchProcessor.ReadMethodBody call. The manifest already pins the exact
+                // assembly hash and MVID, so raw IL bytes are the most conservative and
+                // deterministic identity for this method inside that assembly.
                 MethodBody methodBody = method.GetMethodBody();
-                if (methodBody != null && methodBody.ExceptionHandlingClauses != null)
-                {
-                    foreach (ExceptionHandlingClause clause in methodBody.ExceptionHandlingClauses)
-                    {
-                        builder.Append("eh:")
-                            .Append((int)clause.Flags).Append(':')
-                            .Append(clause.TryOffset).Append(':')
-                            .Append(clause.TryLength).Append(':')
-                            .Append(clause.HandlerOffset).Append(':')
-                            .Append(clause.HandlerLength).Append(':')
-                            .Append(clause.FilterOffset).Append(':')
-                            .Append(GetTypeName(clause.CatchType))
-                            .Append('\n');
-                    }
-                }
-
+                byte[] il = methodBody?.GetILAsByteArray();
+                if (il == null) return string.Empty;
+                StringBuilder builder = new StringBuilder();
+                builder.Append("il:").Append(Convert.ToBase64String(il)).Append('\n');
                 return ComputeSha256(builder.ToString());
             }
             catch
