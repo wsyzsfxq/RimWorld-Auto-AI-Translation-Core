@@ -21,7 +21,7 @@ namespace AutoTranslator_Core
 
             string effectiveCategory = string.IsNullOrWhiteSpace(category) ? "Keyed" : category.Trim();
             string effectiveSearch = string.IsNullOrWhiteSpace(searchText) ? key : searchText;
-            AutoTranslatorSettings.ActiveTab = 1;
+            AutoTranslatorSettings.ActiveTab = AutoTranslatorSettings.EditorTabIndex;
             AutoTranslatorSettings.mainScrollPos = Vector2.zero;
             StartLoadingModForEditing(targetMod, new WorkbenchFocusRequest
             {

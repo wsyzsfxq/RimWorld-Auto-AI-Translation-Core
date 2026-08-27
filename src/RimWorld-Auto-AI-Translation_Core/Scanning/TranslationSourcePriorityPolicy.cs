@@ -47,25 +47,9 @@ namespace AutoTranslator_Core
             string packageId,
             TranslationSourceCategory category)
         {
-            string serialized = settings?.GlobalTranslationSourcePriority;
-            string modOrder = null;
-            if (settings?.ModTranslationSourcePriorityOverrides != null &&
-                !string.IsNullOrWhiteSpace(packageId))
-            {
-                if (!settings.ModTranslationSourcePriorityOverrides.TryGetValue(packageId, out modOrder))
-                {
-                    modOrder = settings.ModTranslationSourcePriorityOverrides
-                        .FirstOrDefault(pair => string.Equals(
-                            pair.Key,
-                            packageId,
-                            StringComparison.OrdinalIgnoreCase)).Value;
-                }
-            }
-            if (!string.IsNullOrWhiteSpace(modOrder))
-            {
-                serialized = modOrder;
-            }
-            int index = ParseOrder(serialized).IndexOf(category);
+            // V4 uses one fixed, documented precedence. User- and Mod-specific ordering was
+            // part of the retired scanner UI and made effective-source resolution ambiguous.
+            int index = ParseOrder(DefaultOrder).IndexOf(category);
             return index < 0 ? int.MaxValue : index;
         }
 

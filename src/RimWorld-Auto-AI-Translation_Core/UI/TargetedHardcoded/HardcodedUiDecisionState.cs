@@ -13,6 +13,14 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
         internal static Dictionary<string, HardcodedUiDecisionRecord> AnalyzeAndPersist(
             IEnumerable<HardcodedUiPatchEntry> entries)
         {
+            Dictionary<string, HardcodedUiDecisionRecord> analyzed = Analyze(entries);
+            Persist(analyzed.Values);
+            return analyzed;
+        }
+
+        internal static Dictionary<string, HardcodedUiDecisionRecord> Analyze(
+            IEnumerable<HardcodedUiPatchEntry> entries)
+        {
             List<HardcodedUiPatchEntry> materialized = (entries ??
                     Enumerable.Empty<HardcodedUiPatchEntry>())
                 .Where(entry => entry != null && !string.IsNullOrWhiteSpace(entry.EntryId))
@@ -24,7 +32,6 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
                 store.TryGet(entry.EntryId, out HardcodedUiDecisionRecord existing);
                 analyzed.Add(HardcodedUiBaselineDecisionAnalyzer.Analyze(entry, existing));
             }
-            store.UpsertMany(analyzed);
             return analyzed.ToDictionary(
                 record => record.EntryId,
                 record => record.Clone(),

@@ -58,17 +58,15 @@ namespace AutoTranslator_Core
                 GUI.color = Color.white;
             }
 
-            Rect filterRow = l.GetRect(28f);
-            bool showMineOnly = AutoTranslatorSettings.CloudShowMineOnly;
-            Widgets.CheckboxLabeled(new Rect(filterRow.x, filterRow.y + 2f, 230f, 24f), "ATC_Cloud_ShowMineOnly".Translate(), ref showMineOnly);
-            if (showMineOnly != AutoTranslatorSettings.CloudShowMineOnly)
-            {
-                AutoTranslatorSettings.CloudShowMineOnly = showMineOnly;
-                _cachedCloudDisplayMods = null;
-            }
-
+            Rect resultModeRow = l.GetRect(26f);
             GUI.color = new Color(0.7f, 0.9f, 1f);
-            Widgets.Label(new Rect(filterRow.x + 240f, filterRow.y + 3f, filterRow.width - 240f, 24f), "ATC_Cloud_MyUploadsCount".Translate(_cachedCloudOwnUploadCount));
+            Widgets.Label(resultModeRow,
+                AutoTranslatorSettings.CloudShowMineOnly
+                    ? WfText("当前列表：我的上传记录（" + _cachedCloudOwnUploadCount + " 个 Mod）",
+                        "Showing my uploads (" + _cachedCloudOwnUploadCount + " mods)")
+                    : (AutoTranslatorSettings.CloudOnlyActiveMods
+                        ? WfText("当前列表：已启用 Mod", "Showing active mods")
+                        : WfText("当前列表：全部已安装 Mod", "Showing all installed mods")));
             GUI.color = Color.white;
             l.Gap(10f);
 
@@ -144,6 +142,10 @@ namespace AutoTranslator_Core
             }
 
             IEnumerable<ModMetaData> mods = validMods.Where(m => m != null && !ShouldSkipCloudSharingMod(m));
+            if (AutoTranslatorSettings.CloudOnlyActiveMods)
+            {
+                mods = mods.Where(m => m.Active);
+            }
             if (!string.IsNullOrEmpty(searchText))
             {
                 string searchLower = searchText.ToLowerInvariant();

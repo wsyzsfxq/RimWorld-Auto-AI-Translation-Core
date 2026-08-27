@@ -229,7 +229,7 @@ namespace AutoTranslator_Core
             TranslationUnresolvedManager.BeginRun();
             AutoTranslatorSettings.ResetPipelineCancellation();
             AutoTranslatorSettings.IsRunning = true;
-            AutoTranslatorSettings.ActiveTab = 0;
+            AutoTranslatorSettings.ActiveTab = AutoTranslatorSettings.WorkbenchTabIndex;
 
             var settings = AutoTranslatorMod.Settings;
             string targetFolder = GetFolderNameByLanguage(settings.TargetLang);

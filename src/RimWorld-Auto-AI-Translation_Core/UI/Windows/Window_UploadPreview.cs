@@ -274,7 +274,7 @@ namespace AutoTranslator_Core
                 () =>
                 {
                     this.Close();
-                    AutoTranslatorSettings.ActiveTab = 0;
+                    AutoTranslatorSettings.ActiveTab = AutoTranslatorSettings.WorkbenchTabIndex;
                     AutoTranslatorSettings.mainScrollPos = Vector2.zero;
                     AutoTranslatorScanner.StartPureAiRebuildForUpload(_mod);
                 },

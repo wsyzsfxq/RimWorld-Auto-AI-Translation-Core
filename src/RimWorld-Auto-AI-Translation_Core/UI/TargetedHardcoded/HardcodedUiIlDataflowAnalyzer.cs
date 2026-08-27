@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Threading;
 
 namespace AutoTranslator_Core.TargetedHardcodedUi
 {
@@ -15,31 +16,103 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
         internal readonly List<string> Diagnostics = new List<string>();
     }
 
+    internal sealed class HardcodedUiIlAnalysisProgress
+    {
+        internal double OverallRatio { get; set; }
+        internal int StageIndex { get; set; }
+        internal int StageCount { get; set; }
+        internal int Completed { get; set; }
+        internal int Total { get; set; }
+        internal string Phase { get; set; } = string.Empty;
+    }
+
     internal static class HardcodedUiIlDataflowAnalyzer
     {
-        internal const int AnalyzerVersion = 2;
+        internal const int AnalyzerVersion = 5;
+        internal const int StructureEngineVersion = 2;
         private const int MaximumSummaryIterations = 8;
+        private const int ProgressStageCount = 5;
+
+        private sealed class AnalysisProgressReporter
+        {
+            private readonly Action<int, int, string> legacy;
+            private readonly Action<HardcodedUiIlAnalysisProgress> structured;
+            private double lastOverallRatio;
+
+            internal AnalysisProgressReporter(
+                Action<int, int, string> legacy,
+                Action<HardcodedUiIlAnalysisProgress> structured)
+            {
+                this.legacy = legacy;
+                this.structured = structured;
+            }
+
+            internal void Report(
+                int stageIndex,
+                double stageStart,
+                double stageEnd,
+                int completed,
+                int total,
+                string phase)
+            {
+                double fraction = total > 0
+                    ? Math.Max(0d, Math.Min(1d, (double)completed / total))
+                    : 0d;
+                ReportAbsolute(
+                    stageIndex,
+                    stageStart + ((stageEnd - stageStart) * fraction),
+                    completed,
+                    total,
+                    phase);
+            }
+
+            internal void ReportAbsolute(
+                int stageIndex,
+                double overallRatio,
+                int completed,
+                int total,
+                string phase)
+            {
+                double monotonic = Math.Max(
+                    lastOverallRatio,
+                    Math.Max(0d, Math.Min(1d, overallRatio)));
+                lastOverallRatio = monotonic;
+                legacy?.Invoke(completed, total, phase);
+                structured?.Invoke(new HardcodedUiIlAnalysisProgress
+                {
+                    OverallRatio = monotonic,
+                    StageIndex = stageIndex,
+                    StageCount = ProgressStageCount,
+                    Completed = Math.Max(0, completed),
+                    Total = Math.Max(0, total),
+                    Phase = phase ?? string.Empty
+                });
+            }
+        }
 
         private sealed class Value
         {
-            internal readonly HashSet<int> Literals = new HashSet<int>();
+            internal readonly HashSet<string> Literals = new HashSet<string>(StringComparer.Ordinal);
             internal readonly HashSet<int> Parameters = new HashSet<int>();
+            internal readonly HashSet<string> Containers = new HashSet<string>(StringComparer.Ordinal);
 
             internal Value Clone()
             {
                 var clone = new Value();
                 clone.Literals.UnionWith(Literals);
                 clone.Parameters.UnionWith(Parameters);
+                clone.Containers.UnionWith(Containers);
                 return clone;
             }
 
             internal bool Merge(Value other)
             {
                 if (other == null) return false;
-                int before = Literals.Count + Parameters.Count;
+                int before = Literals.Count + Parameters.Count + Containers.Count;
                 Literals.UnionWith(other.Literals);
                 Parameters.UnionWith(other.Parameters);
-                return before != Literals.Count + Parameters.Count;
+                Containers.UnionWith(other.Containers);
+                return before != Literals.Count + Parameters.Count + Containers.Count;
             }
 
             internal static Value Union(IEnumerable<Value> values)
@@ -54,6 +127,8 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
         {
             internal readonly List<Value> Stack = new List<Value>();
             internal readonly Dictionary<int, Value> Locals = new Dictionary<int, Value>();
+            internal readonly Dictionary<string, Value> Heap =
+                new Dictionary<string, Value>(StringComparer.Ordinal);
 
             internal State Clone()
             {
@@ -61,6 +136,8 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
                 clone.Stack.AddRange(Stack.Select(value => value.Clone()));
                 foreach (KeyValuePair<int, Value> pair in Locals)
                     clone.Locals[pair.Key] = pair.Value.Clone();
+                foreach (KeyValuePair<string, Value> pair in Heap)
+                    clone.Heap[pair.Key] = pair.Value.Clone();
                 return clone;
             }
 
@@ -94,8 +171,102 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
                     }
                     else changed |= current.Merge(pair.Value);
                 }
+                foreach (KeyValuePair<string, Value> pair in other.Heap)
+                {
+                    if (!Heap.TryGetValue(pair.Key, out Value current))
+                    {
+                        Heap[pair.Key] = pair.Value.Clone();
+                        changed = true;
+                    }
+                    else changed |= current.Merge(pair.Value);
+                }
                 return changed;
             }
+        }
+
+        private sealed class AnalysisContext
+        {
+            internal readonly Dictionary<string, Value> Fields =
+                new Dictionary<string, Value>(StringComparer.Ordinal);
+            internal readonly Dictionary<string, Value> Heap =
+                new Dictionary<string, Value>(StringComparer.Ordinal);
+            internal long Revision { get; private set; }
+
+            internal void StoreField(FieldReference field, Value value, State state)
+            {
+                if (field == null || value == null) return;
+                var persisted = value.Clone();
+                // Parameter ordinals are meaningful only inside the method being analyzed.
+                // Literal and allocation identities are assembly-wide and may safely cross
+                // a field boundary.
+                persisted.Parameters.Clear();
+                if (MergeValue(Fields, field.FullName, persisted)) Revision++;
+                PersistContainers(persisted, state);
+            }
+
+            internal Value LoadField(FieldReference field, State state)
+            {
+                if (field == null || !Fields.TryGetValue(field.FullName, out Value stored))
+                    return new Value();
+                var loaded = stored.Clone();
+                RestoreContainers(loaded, state);
+                return loaded;
+            }
+
+            internal void MergeContainer(string containerId, Value value)
+            {
+                if (string.IsNullOrEmpty(containerId) || value == null) return;
+                var persisted = value.Clone();
+                persisted.Parameters.Clear();
+                if (MergeValue(Heap, containerId, persisted)) Revision++;
+            }
+
+            internal bool TryGetContainer(string containerId, out Value value)
+            {
+                return Heap.TryGetValue(containerId ?? string.Empty, out value);
+            }
+
+            private void PersistContainers(Value root, State state)
+            {
+                var pending = new Queue<string>(root.Containers);
+                var visited = new HashSet<string>(StringComparer.Ordinal);
+                while (pending.Count > 0)
+                {
+                    string containerId = pending.Dequeue();
+                    if (!visited.Add(containerId) ||
+                        !state.Heap.TryGetValue(containerId, out Value contents)) continue;
+                    MergeContainer(containerId, contents);
+                    foreach (string nested in contents.Containers) pending.Enqueue(nested);
+                }
+            }
+
+            private void RestoreContainers(Value root, State state)
+            {
+                var pending = new Queue<string>(root.Containers);
+                var visited = new HashSet<string>(StringComparer.Ordinal);
+                while (pending.Count > 0)
+                {
+                    string containerId = pending.Dequeue();
+                    if (!visited.Add(containerId) || !Heap.TryGetValue(containerId, out Value contents))
+                        continue;
+                    state.Heap[containerId] = contents.Clone();
+                    foreach (string nested in contents.Containers) pending.Enqueue(nested);
+                }
+            }
+
+            private static bool MergeValue(
+                IDictionary<string, Value> target,
+                string key,
+                Value value)
+            {
+                if (!target.TryGetValue(key, out Value current))
+                {
+                    target[key] = value.Clone();
+                    return value.Literals.Count > 0 || value.Containers.Count > 0;
+                }
+                return current.Merge(value);
+            }
+
         }
 
         private sealed class MethodSummary
@@ -105,6 +276,8 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
             internal readonly Dictionary<int, HashSet<string>> NonUiReasonsByParameter =
                 new Dictionary<int, HashSet<string>>();
             internal readonly HashSet<int> ReturnParameters = new HashSet<int>();
+            internal readonly HashSet<string> ReturnLiterals =
+                new HashSet<string>(StringComparer.Ordinal);
 
             internal bool Merge(MethodSummary other)
             {
@@ -114,7 +287,10 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
                 changed |= MergeMap(NonUiReasonsByParameter, other.NonUiReasonsByParameter);
                 int before = ReturnParameters.Count;
                 ReturnParameters.UnionWith(other.ReturnParameters);
-                return changed || before != ReturnParameters.Count;
+                changed |= before != ReturnParameters.Count;
+                before = ReturnLiterals.Count;
+                ReturnLiterals.UnionWith(other.ReturnLiterals);
+                return changed || before != ReturnLiterals.Count;
             }
 
             private static bool MergeMap(
@@ -147,24 +323,117 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
         private sealed class MethodAnalysis
         {
             internal readonly MethodSummary Summary = new MethodSummary();
-            internal readonly Dictionary<int, LiteralFact> Literals = new Dictionary<int, LiteralFact>();
+            internal readonly Dictionary<string, LiteralFact> Literals =
+                new Dictionary<string, LiteralFact>(StringComparer.Ordinal);
             internal readonly List<string> Diagnostics = new List<string>();
+        }
+
+        /// <summary>
+        /// Immutable for the lifetime of one Cecil assembly load. This deliberately is not
+        /// persisted: dependency resolution is influenced by the currently loaded game and
+        /// Mod assemblies, so an on-disk cache would need a complete dependency fingerprint.
+        /// </summary>
+        private sealed class AssemblyStructureIndex
+        {
+            internal readonly IList<MethodDefinition> AllMethods;
+            internal readonly IDictionary<string, MethodDefinition> MethodsByName;
+            internal readonly IDictionary<string, MethodDefinition> MethodsByKey;
+            internal readonly IDictionary<int, MethodDefinition> MethodsByToken;
+            internal readonly IDictionary<string, string[]> Neighbours;
+            internal readonly ISet<string> SeedMethods;
+            internal readonly ISet<string> CandidateMethods;
+            internal readonly ISet<string> UnsafeBoundaryMethods;
+            internal readonly string AssemblyMvid;
+            internal readonly bool ForceFullAssembly;
+            internal readonly string ForceFullAssemblyReason;
+
+            internal AssemblyStructureIndex(
+                IList<MethodDefinition> allMethods,
+                IDictionary<string, MethodDefinition> methodsByName,
+                IDictionary<string, MethodDefinition> methodsByKey,
+                IDictionary<int, MethodDefinition> methodsByToken,
+                IDictionary<string, string[]> neighbours,
+                ISet<string> seedMethods,
+                ISet<string> candidateMethods,
+                ISet<string> unsafeBoundaryMethods,
+                string assemblyMvid,
+                bool forceFullAssembly,
+                string forceFullAssemblyReason)
+            {
+                AllMethods = allMethods;
+                MethodsByName = methodsByName;
+                MethodsByKey = methodsByKey;
+                MethodsByToken = methodsByToken;
+                Neighbours = neighbours;
+                SeedMethods = seedMethods;
+                CandidateMethods = candidateMethods;
+                UnsafeBoundaryMethods = unsafeBoundaryMethods;
+                AssemblyMvid = assemblyMvid ?? string.Empty;
+                ForceFullAssembly = forceFullAssembly;
+                ForceFullAssemblyReason = forceFullAssemblyReason ?? string.Empty;
+            }
         }
 
         internal static HardcodedUiIlAnalysisResult Analyze(
             string assemblyPath,
             IEnumerable<HardcodedUiPatchEntry> entries,
-            IDictionary<string, HardcodedUiDecisionRecord> existingDecisions = null)
+            IDictionary<string, HardcodedUiDecisionRecord> existingDecisions = null,
+            Action<int, int, string> reportProgress = null)
         {
+            return Analyze(
+                assemblyPath,
+                entries,
+                existingDecisions,
+                reportProgress,
+                CancellationToken.None);
+        }
+
+        internal static HardcodedUiIlAnalysisResult Analyze(
+            string assemblyPath,
+            IEnumerable<HardcodedUiPatchEntry> entries,
+            IDictionary<string, HardcodedUiDecisionRecord> existingDecisions,
+            Action<int, int, string> reportProgress,
+            CancellationToken cancellationToken)
+        {
+            return Analyze(
+                assemblyPath,
+                entries,
+                existingDecisions,
+                reportProgress,
+                null,
+                cancellationToken);
+        }
+
+        internal static HardcodedUiIlAnalysisResult Analyze(
+            string assemblyPath,
+            IEnumerable<HardcodedUiPatchEntry> entries,
+            IDictionary<string, HardcodedUiDecisionRecord> existingDecisions,
+            Action<int, int, string> reportProgress,
+            Action<HardcodedUiIlAnalysisProgress> reportStructuredProgress,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var progress = new AnalysisProgressReporter(
+                reportProgress,
+                reportStructuredProgress);
             var output = new HardcodedUiIlAnalysisResult();
             List<HardcodedUiPatchEntry> materialized = (entries ?? Enumerable.Empty<HardcodedUiPatchEntry>())
                 .Where(entry => entry != null)
                 .ToList();
+            cancellationToken.ThrowIfCancellationRequested();
             if (string.IsNullOrWhiteSpace(assemblyPath) || !File.Exists(assemblyPath))
-            {
-                output.Diagnostics.Add("Cecil input assembly is missing: " + assemblyPath);
-                return output;
-            }
+                throw new FileNotFoundException(
+                    "Cecil input assembly disappeared after runtime scanning. " +
+                    "The current Mod analysis must be retried instead of saving baseline decisions.",
+                    assemblyPath);
+
+            progress.ReportAbsolute(
+                1,
+                0d,
+                0,
+                1,
+                AutoTranslatorMod.WfText("验证程序集身份", "validating assembly identity"));
+            string diskShaBeforeRead = HardcodedUiMethodIdentity.ComputeFileSha256(assemblyPath);
 
             using (var resolver = CreateResolver(assemblyPath))
             using (AssemblyDefinition assembly = AssemblyDefinition.ReadAssembly(
@@ -176,41 +445,138 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
                            AssemblyResolver = resolver
                        }))
             {
+                string diskShaAfterRead = HardcodedUiMethodIdentity.ComputeFileSha256(assemblyPath);
+                ValidateAssemblyIdentity(
+                    assemblyPath,
+                    assembly,
+                    materialized,
+                    diskShaBeforeRead,
+                    diskShaAfterRead);
+                cancellationToken.ThrowIfCancellationRequested();
                 List<MethodDefinition> methods = assembly.Modules
                     .SelectMany(module => EnumerateTypes(module.Types))
                     .SelectMany(type => type.Methods)
                     .Where(method => method != null && method.HasBody)
                     .ToList();
-                Dictionary<string, MethodDefinition> methodsByName = methods
-                    .GroupBy(method => method.FullName, StringComparer.Ordinal)
-                    .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
-                var summaries = methods.ToDictionary(
-                    method => method.FullName,
+                cancellationToken.ThrowIfCancellationRequested();
+                AssemblyStructureIndex structure = BuildStructureIndex(
+                    assembly,
+                    methods,
+                    materialized,
+                    (completed, total, phase) => progress.Report(
+                        1, 0d, 0.12d, completed, total, phase),
+                    cancellationToken);
+                List<MethodDefinition> relevantMethods = SelectRelevantMethods(
+                    structure,
+                    out bool closureFallback,
+                    out int closureSeedCount,
+                    out string closureFallbackReason,
+                    (completed, total, phase) => progress.Report(
+                        2, 0.12d, 0.15d, completed, total, phase),
+                    cancellationToken);
+                var relevantMethodKeys = new HashSet<string>(
+                    relevantMethods.Select(CreateMethodKey),
+                    StringComparer.Ordinal);
+                Dictionary<string, MethodDefinition> methodsByName = structure.MethodsByName
+                    .Where(pair => relevantMethodKeys.Contains(CreateMethodKey(pair.Value)))
+                    .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+                var summaries = relevantMethods.ToDictionary(
+                    CreateMethodKey,
                     method => new MethodSummary(),
                     StringComparer.Ordinal);
+                var context = new AnalysisContext();
+                output.Diagnostics.Add(
+                    "Cecil structure engine " + StructureEngineVersion +
+                    "; MVID=" + structure.AssemblyMvid +
+                    "; seeds=" + closureSeedCount.ToString(CultureInfo.InvariantCulture) +
+                    "; methods=" + relevantMethods.Count.ToString(CultureInfo.InvariantCulture) +
+                    "/" + methods.Count.ToString(CultureInfo.InvariantCulture) +
+                    "; unresolved-boundaries=" +
+                    structure.UnsafeBoundaryMethods.Count.ToString(CultureInfo.InvariantCulture) +
+                    (closureFallback
+                        ? "; conservative full-assembly fallback: " + closureFallbackReason
+                        : "; dependency closure"));
 
                 for (int iteration = 0; iteration < MaximumSummaryIterations; iteration++)
                 {
                     bool changed = false;
-                    foreach (MethodDefinition method in methods)
+                    long contextRevision = context.Revision;
+                    int processedMethods = 0;
+                    string summaryPhase = ProgressText(
+                        "摘要传播第 ", "summary pass ", iteration + 1);
+                    int currentIteration = iteration;
+                    Action<int, int, string> reportSummaryProgress = (completed, total, phase) =>
                     {
-                        MethodAnalysis analysis = AnalyzeMethod(method, summaries, methodsByName, false);
-                        changed |= summaries[method.FullName].Merge(analysis.Summary);
+                        double fraction = total > 0
+                            ? Math.Max(0d, Math.Min(1d, (double)completed / total))
+                            : 0d;
+                        double overall = 0.15d + (0.63d *
+                            ((currentIteration + fraction) / MaximumSummaryIterations));
+                        progress.ReportAbsolute(3, overall, completed, total, phase);
+                    };
+                    reportSummaryProgress(0, relevantMethods.Count, summaryPhase);
+                    foreach (MethodDefinition method in relevantMethods)
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        MethodAnalysis analysis = AnalyzeMethod(
+                            method, summaries, methodsByName, context, false, cancellationToken);
+                        changed |= summaries[CreateMethodKey(method)].Merge(analysis.Summary);
+                        processedMethods++;
+                        ReportThrottledProgress(
+                            reportSummaryProgress,
+                            processedMethods,
+                            relevantMethods.Count,
+                            summaryPhase);
                     }
+                    changed |= context.Revision != contextRevision;
                     if (!changed) break;
                 }
+                progress.ReportAbsolute(
+                    3,
+                    0.78d,
+                    relevantMethods.Count,
+                    relevantMethods.Count,
+                    AutoTranslatorMod.WfText("摘要传播完成", "summary propagation complete"));
 
-                Dictionary<int, MethodAnalysis> analysesByToken = new Dictionary<int, MethodAnalysis>();
-                foreach (MethodDefinition method in methods)
+                var literalFacts = new Dictionary<string, LiteralFact>(StringComparer.Ordinal);
+                int resolvedMethods = 0;
+                string literalPhase = AutoTranslatorMod.WfText(
+                    "解析字面量", "resolving literals");
+                Action<int, int, string> reportLiteralProgress = (completed, total, phase) =>
+                    progress.Report(4, 0.78d, 0.95d, completed, total, phase);
+                reportLiteralProgress(0, relevantMethods.Count, literalPhase);
+                foreach (MethodDefinition method in relevantMethods)
                 {
-                    MethodAnalysis analysis = AnalyzeMethod(method, summaries, methodsByName, true);
-                    analysesByToken[method.MetadataToken.ToInt32()] = analysis;
+                    cancellationToken.ThrowIfCancellationRequested();
+                    MethodAnalysis analysis = AnalyzeMethod(
+                        method, summaries, methodsByName, context, true, cancellationToken);
+                    foreach (KeyValuePair<string, LiteralFact> pair in analysis.Literals)
+                        MergeLiteralFact(literalFacts, pair.Key, pair.Value);
                     output.Diagnostics.AddRange(analysis.Diagnostics.Select(diagnostic =>
                         method.FullName + ": " + diagnostic));
+                    resolvedMethods++;
+                    ReportThrottledProgress(
+                        reportLiteralProgress,
+                        resolvedMethods,
+                        relevantMethods.Count,
+                        literalPhase);
                 }
+                progress.ReportAbsolute(
+                    4,
+                    0.95d,
+                    relevantMethods.Count,
+                    relevantMethods.Count,
+                    AutoTranslatorMod.WfText("字面量解析完成", "literal resolution complete"));
 
+                int processedEntries = 0;
+                string decisionPhase = AutoTranslatorMod.WfText(
+                    "生成分类结果", "building decisions");
+                Action<int, int, string> reportDecisionProgress = (completed, total, phase) =>
+                    progress.Report(5, 0.95d, 1d, completed, total, phase);
+                reportDecisionProgress(0, materialized.Count, decisionPhase);
                 foreach (HardcodedUiPatchEntry entry in materialized)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     HardcodedUiDecisionRecord existing = null;
                     existingDecisions?.TryGetValue(entry.EntryId, out existing);
                     HardcodedUiDecisionRecord record = existing?.Clone() ?? new HardcodedUiDecisionRecord
@@ -219,8 +585,8 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
                         PackageId = entry.PackageId
                     };
                     string fingerprint = HardcodedUiDecisionRecord.CreateAnalysisInputFingerprint(entry);
-                    if (!analysesByToken.TryGetValue(entry.MethodMetadataToken, out MethodAnalysis analysis) ||
-                        !analysis.Literals.TryGetValue(entry.LiteralOrdinal, out LiteralFact fact))
+                    string literalId = CreateLiteralId(entry.MethodMetadataToken, entry.LiteralOrdinal);
+                    if (!literalFacts.TryGetValue(literalId, out LiteralFact fact))
                     {
                         record.SetAutomaticDecision(
                             HardcodedUiAutomaticDecision.Uncertain,
@@ -272,16 +638,638 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
                             AddFlag(record, "flows_to_ui_and_non_ui");
                     }
                     output.Decisions[entry.EntryId] = record;
+                    processedEntries++;
+                    ReportThrottledProgress(
+                        reportDecisionProgress,
+                        processedEntries,
+                        materialized.Count,
+                        decisionPhase);
                 }
+                progress.ReportAbsolute(
+                    5,
+                    1d,
+                    materialized.Count,
+                    materialized.Count,
+                    AutoTranslatorMod.WfText("分类结果完成", "decisions complete"));
             }
             return output;
+        }
+
+        private static void ValidateAssemblyIdentity(
+            string assemblyPath,
+            AssemblyDefinition assembly,
+            IEnumerable<HardcodedUiPatchEntry> entries,
+            string diskShaBeforeRead,
+            string diskShaAfterRead)
+        {
+            if (!string.Equals(
+                    diskShaBeforeRead,
+                    diskShaAfterRead,
+                    StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException(
+                    AutoTranslatorMod.WfText(
+                        "静态分析读取 DLL 时文件发生了变化。请重启 RimWorld 或重新加载该 Mod 后再分析：",
+                        "DLL changed while static analysis was opening it. Restart RimWorld or reload the Mod, then analyze again: ") +
+                    assemblyPath);
+
+            List<HardcodedUiPatchEntry> materialized = (entries ??
+                Enumerable.Empty<HardcodedUiPatchEntry>()).Where(entry => entry != null).ToList();
+            if (materialized.Count == 0) return;
+
+            string[] expectedHashes = materialized
+                .Select(entry => entry.AssemblySha256 ?? string.Empty)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            string[] expectedMvids = materialized
+                .Select(entry => entry.AssemblyMvid ?? string.Empty)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            if (expectedHashes.Length != 1 || string.IsNullOrWhiteSpace(expectedHashes[0]) ||
+                expectedMvids.Length != 1 || string.IsNullOrWhiteSpace(expectedMvids[0]))
+                throw new InvalidDataException(
+                    AutoTranslatorMod.WfText(
+                        "运行时扫描条目没有一致且完整的 DLL SHA-256/MVID 标识。请重启 RimWorld 或重新加载该 Mod 后再分析：",
+                        "Runtime scan entries do not share one complete DLL SHA-256/MVID identity. Restart RimWorld or reload the Mod, then analyze again: ") +
+                    assemblyPath);
+
+            string actualMvid = assembly?.MainModule?.Mvid.ToString("D") ?? string.Empty;
+            if (!string.Equals(expectedHashes[0], diskShaAfterRead, StringComparison.OrdinalIgnoreCase) ||
+                !string.Equals(expectedMvids[0], actualMvid, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException(
+                    AutoTranslatorMod.WfText(
+                        "游戏已加载的 DLL 与当前磁盘 DLL 不一致，不能安全复用方法 Token。请重启 RimWorld 或重新加载该 Mod 后再分析：",
+                        "The loaded runtime DLL and the current disk DLL are different. Metadata tokens are unsafe to reuse. Restart RimWorld or reload the Mod, then analyze again: ") +
+                    assemblyPath);
+        }
+
+        private static AssemblyStructureIndex BuildStructureIndex(
+            AssemblyDefinition assembly,
+            IList<MethodDefinition> methods,
+            IEnumerable<HardcodedUiPatchEntry> entries,
+            Action<int, int, string> reportProgress,
+            CancellationToken cancellationToken)
+        {
+            string phase = AutoTranslatorMod.WfText(
+                "建立依赖索引", "building dependency index");
+            reportProgress?.Invoke(0, methods.Count, phase);
+
+            var methodsByName = new Dictionary<string, MethodDefinition>(StringComparer.Ordinal);
+            var methodsByKey = new Dictionary<string, MethodDefinition>(StringComparer.Ordinal);
+            var methodsByToken = new Dictionary<int, MethodDefinition>();
+            var neighbours = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+            var fieldAccessors = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+            var dispatchMethods = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+            var resolvedMethods = new Dictionary<string, MethodDefinition>(StringComparer.Ordinal);
+            var resolvedFields = new Dictionary<string, FieldDefinition>(StringComparer.Ordinal);
+            var resolvedTypes = new Dictionary<string, TypeDefinition>(StringComparer.Ordinal);
+            var seeds = new HashSet<string>(StringComparer.Ordinal);
+            var candidateMethods = new HashSet<string>(StringComparer.Ordinal);
+            var unsafeBoundaries = new HashSet<string>(StringComparer.Ordinal);
+
+            foreach (MethodDefinition method in methods)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!methodsByName.ContainsKey(method.FullName))
+                    methodsByName[method.FullName] = method;
+                string methodKey = CreateMethodKey(method);
+                methodsByKey[methodKey] = method;
+                methodsByToken[method.MetadataToken.ToInt32()] = method;
+                neighbours[methodKey] = new HashSet<string>(StringComparer.Ordinal);
+                AddGroupedMethod(dispatchMethods, CreateDispatchKey(method), methodKey);
+            }
+
+            bool forceFullAssembly = false;
+            string forceFullAssemblyReason = string.Empty;
+            foreach (HardcodedUiPatchEntry entry in entries ?? Enumerable.Empty<HardcodedUiPatchEntry>())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (entry == null) continue;
+                if (methodsByToken.TryGetValue(entry.MethodMetadataToken, out MethodDefinition method))
+                {
+                    string methodKey = CreateMethodKey(method);
+                    seeds.Add(methodKey);
+                    candidateMethods.Add(methodKey);
+                }
+                else
+                {
+                    forceFullAssembly = true;
+                    forceFullAssemblyReason = "candidate metadata token was not found";
+                }
+            }
+
+            int processed = 0;
+            foreach (MethodDefinition method in methods)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                string methodKey = CreateMethodKey(method);
+                int indexedInstructions = 0;
+                foreach (Instruction instruction in method.Body.Instructions)
+                {
+                    if ((indexedInstructions++ & 255) == 0)
+                        cancellationToken.ThrowIfCancellationRequested();
+                    if (instruction.Operand is MethodReference called)
+                    {
+                        bool knownSink = HasKnownSink(called);
+                        if (knownSink) seeds.Add(methodKey);
+                        if (IsDynamicInvocation(called))
+                            unsafeBoundaries.Add(methodKey);
+
+                        MethodDefinition resolved = ResolveMethodCached(called, resolvedMethods);
+                        if (resolved != null && IsSameAssembly(resolved.Module?.Assembly, assembly))
+                        {
+                            if (resolved.HasBody)
+                                AddUndirectedEdge(neighbours, methodKey, CreateMethodKey(resolved));
+                            else if (!resolved.IsAbstract)
+                                unsafeBoundaries.Add(methodKey);
+                        }
+                        else if (methodsByName.TryGetValue(called.FullName, out MethodDefinition exact))
+                        {
+                            AddUndirectedEdge(neighbours, methodKey, CreateMethodKey(exact));
+                        }
+                        else if (IsPotentiallyAssemblyLocal(called.DeclaringType, assembly))
+                        {
+                            // An unresolved internal edge can hide an arbitrary producer or
+                            // consumer. If its caller enters the closure, pruning is disabled.
+                            unsafeBoundaries.Add(methodKey);
+                        }
+
+                        bool virtualDispatch = (resolved != null && resolved.IsVirtual) ||
+                                               IsInterfaceType(called.DeclaringType, resolvedTypes) ||
+                                               (resolved == null && instruction.OpCode.Code == Code.Callvirt);
+                        if (virtualDispatch && dispatchMethods.TryGetValue(
+                                CreateDispatchKey(called), out HashSet<string> implementations))
+                        {
+                            foreach (string implementation in implementations)
+                            {
+                                if (methodsByKey.TryGetValue(
+                                        implementation, out MethodDefinition candidate) &&
+                                    IsPotentialDispatchTarget(called, candidate, resolvedTypes))
+                                    AddUndirectedEdge(neighbours, methodKey, implementation);
+                            }
+                        }
+                    }
+                    else if (instruction.OpCode.Code == Code.Calli)
+                    {
+                        unsafeBoundaries.Add(methodKey);
+                    }
+                    else if (instruction.Operand is FieldReference field)
+                    {
+                        FieldDefinition resolved = ResolveFieldCached(field, resolvedFields);
+                        AddGroupedMethod(
+                            fieldAccessors,
+                            resolved?.FullName ?? field.FullName,
+                            methodKey);
+                        if (resolved == null && IsPotentiallyAssemblyLocal(field.DeclaringType, assembly))
+                            unsafeBoundaries.Add(methodKey);
+                    }
+                }
+
+                AddStateMachineEdges(method, assembly, neighbours, unsafeBoundaries);
+                processed++;
+                ReportThrottledProgress(reportProgress, processed, methods.Count, phase);
+            }
+
+            foreach (HashSet<string> accessors in fieldAccessors.Values)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                ConnectGroup(neighbours, accessors);
+            }
+            AddGeneratedNestedTypeEdges(methods, neighbours, cancellationToken);
+
+            var frozenNeighbours = neighbours.ToDictionary(
+                pair => pair.Key,
+                pair => pair.Value.OrderBy(value => value, StringComparer.Ordinal).ToArray(),
+                StringComparer.Ordinal);
+            string mvid = assembly.Modules.FirstOrDefault()?.Mvid.ToString("D") ?? string.Empty;
+            return new AssemblyStructureIndex(
+                methods.ToList(),
+                methodsByName,
+                methodsByKey,
+                methodsByToken,
+                frozenNeighbours,
+                seeds,
+                candidateMethods,
+                unsafeBoundaries,
+                mvid,
+                forceFullAssembly,
+                forceFullAssemblyReason);
+        }
+
+        private static List<MethodDefinition> SelectRelevantMethods(
+            AssemblyStructureIndex structure,
+            out bool fullAssemblyFallback,
+            out int seedCount,
+            out string fallbackReason,
+            Action<int, int, string> reportProgress,
+            CancellationToken cancellationToken)
+        {
+            string phase = AutoTranslatorMod.WfText(
+                "选择依赖闭包", "selecting dependency closure");
+            reportProgress?.Invoke(0, Math.Max(1, structure.AllMethods.Count), phase);
+            seedCount = structure.SeedMethods.Count;
+            fullAssemblyFallback = structure.ForceFullAssembly;
+            fallbackReason = structure.ForceFullAssemblyReason;
+            if (fullAssemblyFallback || seedCount == 0)
+            {
+                if (string.IsNullOrEmpty(fallbackReason)) fallbackReason = "dependency closure has no seeds";
+                reportProgress?.Invoke(1, 1, phase);
+                return structure.AllMethods.ToList();
+            }
+            int unsafeLimit = Math.Max(16, structure.AllMethods.Count / 10);
+            if (structure.UnsafeBoundaryMethods.Count > unsafeLimit)
+            {
+                fullAssemblyFallback = true;
+                fallbackReason = "unresolved boundary ratio exceeded the conservative limit";
+                reportProgress?.Invoke(1, 1, phase);
+                return structure.AllMethods.ToList();
+            }
+
+            var included = new HashSet<string>(StringComparer.Ordinal);
+            var pending = new Queue<string>(structure.SeedMethods.OrderBy(
+                value => value, StringComparer.Ordinal));
+            while (pending.Count > 0)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                string method = pending.Dequeue();
+                if (!included.Add(method)) continue;
+                ReportThrottledProgress(
+                    reportProgress,
+                    included.Count,
+                    structure.AllMethods.Count,
+                    phase);
+                if (structure.UnsafeBoundaryMethods.Contains(method))
+                {
+                    fullAssemblyFallback = true;
+                    fallbackReason = "dependency closure reached an unresolved boundary";
+                    reportProgress?.Invoke(1, 1, phase);
+                    return structure.AllMethods.ToList();
+                }
+                if (!structure.Neighbours.TryGetValue(method, out string[] neighbours)) continue;
+                foreach (string neighbour in neighbours)
+                    if (!included.Contains(neighbour)) pending.Enqueue(neighbour);
+            }
+
+            // Preserve Cecil metadata order. The existing summary propagation is
+            // Gauss-Seidel-like, so deterministic ordering is part of reproducibility.
+            if (included.Count == 0)
+            {
+                fullAssemblyFallback = true;
+                fallbackReason = "dependency closure was empty";
+                reportProgress?.Invoke(1, 1, phase);
+                return structure.AllMethods.ToList();
+            }
+            if (structure.CandidateMethods.Any(method => !included.Contains(method)))
+            {
+                fullAssemblyFallback = true;
+                fallbackReason = "dependency closure omitted a candidate method";
+                reportProgress?.Invoke(1, 1, phase);
+                return structure.AllMethods.ToList();
+            }
+            reportProgress?.Invoke(1, 1, phase);
+            return structure.AllMethods.Where(method => included.Contains(CreateMethodKey(method))).ToList();
+        }
+
+        private static bool HasKnownSink(MethodReference call)
+        {
+            if (call == null) return false;
+            string type = call.DeclaringType?.FullName ?? string.Empty;
+            string name = call.Name ?? string.Empty;
+            if (TryGetUiRole(type, name, out string _) ||
+                TryGetNonUiReason(type, name, out string _) ||
+                TryGetNonUiInstanceReason(call, out string _)) return true;
+            for (int index = 0; index < call.Parameters.Count; index++)
+                if (TryGetNonUiArgumentReason(call, index, out string _)) return true;
+            return false;
+        }
+
+        private static bool IsDynamicInvocation(MethodReference call)
+        {
+            if (call == null) return false;
+            string type = call.DeclaringType?.FullName ?? string.Empty;
+            string name = call.Name ?? string.Empty;
+            if (type == "System.Delegate" && name == "DynamicInvoke") return true;
+            if ((type == "System.Reflection.MethodBase" ||
+                 type == "System.Reflection.MethodInfo") && name == "Invoke") return true;
+            if (name != "Invoke") return false;
+            TypeDefinition resolvedType = ResolveTypeSafely(call.DeclaringType);
+            while (resolvedType != null)
+            {
+                if (resolvedType.BaseType?.FullName == "System.MulticastDelegate" && name == "Invoke")
+                    return true;
+                resolvedType = ResolveTypeSafely(resolvedType.BaseType);
+            }
+            return false;
+        }
+
+        private static void AddStateMachineEdges(
+            MethodDefinition method,
+            AssemblyDefinition assembly,
+            IDictionary<string, HashSet<string>> neighbours,
+            ISet<string> unsafeBoundaries)
+        {
+            string methodKey = CreateMethodKey(method);
+            foreach (CustomAttribute attribute in method.CustomAttributes)
+            {
+                string name = attribute.AttributeType?.FullName ?? string.Empty;
+                if (name != "System.Runtime.CompilerServices.AsyncStateMachineAttribute" &&
+                    name != "System.Runtime.CompilerServices.IteratorStateMachineAttribute") continue;
+                if (attribute.ConstructorArguments.Count == 0 ||
+                    !(attribute.ConstructorArguments[0].Value is TypeReference stateMachineType))
+                {
+                    unsafeBoundaries.Add(methodKey);
+                    continue;
+                }
+                TypeDefinition stateMachine = ResolveTypeSafely(stateMachineType);
+                if (stateMachine == null || !IsSameAssembly(stateMachine.Module?.Assembly, assembly))
+                {
+                    unsafeBoundaries.Add(methodKey);
+                    continue;
+                }
+                foreach (MethodDefinition generated in stateMachine.Methods.Where(item => item.HasBody))
+                {
+                    AddUndirectedEdge(neighbours, methodKey, CreateMethodKey(generated));
+                }
+            }
+        }
+
+        private static void AddGeneratedNestedTypeEdges(
+            IEnumerable<MethodDefinition> methods,
+            IDictionary<string, HashSet<string>> neighbours,
+            CancellationToken cancellationToken)
+        {
+            foreach (IGrouping<TypeDefinition, MethodDefinition> group in methods
+                         .Where(method => method.DeclaringType != null)
+                         .GroupBy(method => GetGeneratedOwner(method.DeclaringType)))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (group.Key == null) continue;
+                List<string> owners = group.Where(method => method.DeclaringType == group.Key)
+                    .Select(CreateMethodKey).ToList();
+                List<string> generated = group.Where(method => method.DeclaringType != group.Key &&
+                    IsGeneratedType(method.DeclaringType))
+                    .Select(CreateMethodKey).ToList();
+                if (generated.Count == 0 || owners.Count == 0) continue;
+                foreach (string child in generated)
+                    AddUndirectedEdge(neighbours, owners[0], child);
+                for (int index = 1; index < owners.Count; index++)
+                    AddUndirectedEdge(neighbours, owners[index], generated[0]);
+            }
+        }
+
+        private static TypeDefinition GetGeneratedOwner(TypeDefinition type)
+        {
+            TypeDefinition current = type;
+            while (current?.DeclaringType != null && IsGeneratedType(current))
+                current = current.DeclaringType;
+            return current;
+        }
+
+        private static bool IsGeneratedType(TypeDefinition type)
+        {
+            if (type == null) return false;
+            if ((type.Name ?? string.Empty).IndexOf('<') >= 0) return true;
+            return type.CustomAttributes.Any(attribute =>
+                attribute.AttributeType?.FullName == "System.Runtime.CompilerServices.CompilerGeneratedAttribute");
+        }
+
+        private static void AddGroupedMethod(
+            IDictionary<string, HashSet<string>> groups,
+            string key,
+            string method)
+        {
+            if (string.IsNullOrEmpty(key) || string.IsNullOrEmpty(method)) return;
+            if (!groups.TryGetValue(key, out HashSet<string> values))
+            {
+                values = new HashSet<string>(StringComparer.Ordinal);
+                groups[key] = values;
+            }
+            values.Add(method);
+        }
+
+        private static void ConnectGroup(
+            IDictionary<string, HashSet<string>> neighbours,
+            IEnumerable<string> members)
+        {
+            string[] ordered = members.OrderBy(value => value, StringComparer.Ordinal).ToArray();
+            if (ordered.Length < 2) return;
+            // A star has the same undirected reachability as a clique without O(n^2) edges.
+            for (int index = 1; index < ordered.Length; index++)
+                AddUndirectedEdge(neighbours, ordered[0], ordered[index]);
+        }
+
+        private static void AddUndirectedEdge(
+            IDictionary<string, HashSet<string>> neighbours,
+            string left,
+            string right)
+        {
+            if (string.IsNullOrEmpty(left) || string.IsNullOrEmpty(right) || left == right) return;
+            if (!neighbours.TryGetValue(left, out HashSet<string> leftValues) ||
+                !neighbours.TryGetValue(right, out HashSet<string> rightValues)) return;
+            leftValues.Add(right);
+            rightValues.Add(left);
+        }
+
+        private static string CreateDispatchKey(MethodReference method)
+        {
+            if (method == null) return string.Empty;
+            return (method.Name ?? string.Empty) + "#" +
+                   method.Parameters.Count.ToString(CultureInfo.InvariantCulture);
+        }
+
+        private static string CreateMethodKey(MethodDefinition method)
+        {
+            if (method == null) return string.Empty;
+            string moduleIdentity = method.Module?.Mvid.ToString("D") ?? string.Empty;
+            int metadataToken = method.MetadataToken.ToInt32();
+            if (!string.IsNullOrEmpty(moduleIdentity) && metadataToken != 0)
+                return moduleIdentity + ":" + metadataToken.ToString("x8", CultureInfo.InvariantCulture);
+            return (method.Module?.Name ?? string.Empty) + ":" + (method.FullName ?? string.Empty);
+        }
+
+        private static bool TryGetMethodSummary(
+            MethodReference method,
+            IDictionary<string, MethodSummary> summaries,
+            IDictionary<string, MethodDefinition> methodsByName,
+            out MethodSummary summary)
+        {
+            summary = null;
+            if (method == null || summaries == null) return false;
+            MethodDefinition resolved = ResolveMethodSafely(method);
+            if (resolved != null && summaries.TryGetValue(CreateMethodKey(resolved), out summary))
+                return true;
+            if (methodsByName != null &&
+                methodsByName.TryGetValue(method.FullName, out MethodDefinition exact))
+                return summaries.TryGetValue(CreateMethodKey(exact), out summary);
+            return false;
+        }
+
+        private static MethodDefinition ResolveMethodSafely(MethodReference method)
+        {
+            try { return method?.Resolve(); }
+            catch { return null; }
+        }
+
+        private static MethodDefinition ResolveMethodCached(
+            MethodReference method,
+            IDictionary<string, MethodDefinition> cache)
+        {
+            string key = CreateMethodReferenceKey(method);
+            if (cache.TryGetValue(key, out MethodDefinition resolved)) return resolved;
+            resolved = ResolveMethodSafely(method);
+            cache[key] = resolved;
+            return resolved;
+        }
+
+        private static string CreateMethodReferenceKey(MethodReference method)
+        {
+            if (method == null) return string.Empty;
+            string moduleIdentity = method.Module?.Mvid.ToString("D") ?? string.Empty;
+            int metadataToken = method.MetadataToken.ToInt32();
+            return moduleIdentity + ":" + metadataToken.ToString("x8", CultureInfo.InvariantCulture) + "|" +
+                   CreateResolutionKey(method.DeclaringType, method.FullName);
+        }
+
+        private static FieldDefinition ResolveFieldSafely(FieldReference field)
+        {
+            try { return field?.Resolve(); }
+            catch { return null; }
+        }
+
+        private static FieldDefinition ResolveFieldCached(
+            FieldReference field,
+            IDictionary<string, FieldDefinition> cache)
+        {
+            string key = CreateResolutionKey(field?.DeclaringType, field?.FullName);
+            if (cache.TryGetValue(key, out FieldDefinition resolved)) return resolved;
+            resolved = ResolveFieldSafely(field);
+            cache[key] = resolved;
+            return resolved;
+        }
+
+        private static TypeDefinition ResolveTypeSafely(TypeReference type)
+        {
+            try { return type?.Resolve(); }
+            catch { return null; }
+        }
+
+        private static TypeDefinition ResolveTypeCached(
+            TypeReference type,
+            IDictionary<string, TypeDefinition> cache)
+        {
+            string key = CreateResolutionKey(type, type?.FullName);
+            if (cache.TryGetValue(key, out TypeDefinition resolved)) return resolved;
+            resolved = ResolveTypeSafely(type);
+            cache[key] = resolved;
+            return resolved;
+        }
+
+        private static string CreateResolutionKey(TypeReference declaringType, string member)
+        {
+            return (declaringType?.Scope?.Name ?? string.Empty) + "|" + (member ?? string.Empty);
+        }
+
+        private static bool IsInterfaceType(
+            TypeReference type,
+            IDictionary<string, TypeDefinition> typeCache)
+        {
+            TypeDefinition resolved = ResolveTypeCached(type, typeCache);
+            return resolved != null && resolved.IsInterface;
+        }
+
+        private static bool IsPotentialDispatchTarget(
+            MethodReference called,
+            MethodDefinition candidate,
+            IDictionary<string, TypeDefinition> typeCache)
+        {
+            if (called == null || candidate?.DeclaringType == null) return false;
+            TypeDefinition targetType = ResolveTypeCached(called.DeclaringType, typeCache);
+            if (targetType == null)
+            {
+                // Resolution failed, so retain all signature-compatible local targets.
+                return true;
+            }
+            if (string.Equals(
+                    candidate.DeclaringType.FullName,
+                    targetType.FullName,
+                    StringComparison.Ordinal)) return true;
+            return TypeDerivesFrom(candidate.DeclaringType, targetType.FullName, typeCache);
+        }
+
+        private static bool TypeDerivesFrom(
+            TypeDefinition type,
+            string targetTypeName,
+            IDictionary<string, TypeDefinition> typeCache)
+        {
+            var pending = new Queue<TypeReference>();
+            var visited = new HashSet<string>(StringComparer.Ordinal);
+            if (type?.BaseType != null) pending.Enqueue(type.BaseType);
+            if (type != null)
+                foreach (InterfaceImplementation implementation in type.Interfaces)
+                    if (implementation?.InterfaceType != null)
+                        pending.Enqueue(implementation.InterfaceType);
+            while (pending.Count > 0)
+            {
+                TypeReference current = pending.Dequeue();
+                string name = current?.FullName ?? string.Empty;
+                if (!visited.Add(name)) continue;
+                if (string.Equals(name, targetTypeName, StringComparison.Ordinal)) return true;
+                TypeDefinition resolved = ResolveTypeCached(current, typeCache);
+                if (resolved?.BaseType != null) pending.Enqueue(resolved.BaseType);
+                if (resolved != null)
+                    foreach (InterfaceImplementation implementation in resolved.Interfaces)
+                        if (implementation?.InterfaceType != null)
+                            pending.Enqueue(implementation.InterfaceType);
+            }
+            return false;
+        }
+
+        private static bool IsSameAssembly(AssemblyDefinition left, AssemblyDefinition right)
+        {
+            if (left == null || right == null) return false;
+            return ReferenceEquals(left, right) ||
+                   string.Equals(left.Name?.FullName, right.Name?.FullName, StringComparison.Ordinal);
+        }
+
+        private static bool IsPotentiallyAssemblyLocal(
+            TypeReference declaringType,
+            AssemblyDefinition assembly)
+        {
+            if (declaringType == null || assembly == null) return false;
+            TypeDefinition resolved = ResolveTypeSafely(declaringType);
+            if (resolved != null) return IsSameAssembly(resolved.Module?.Assembly, assembly);
+            string scopeName = declaringType.Scope?.Name ?? string.Empty;
+            return assembly.Modules.Any(module =>
+                       string.Equals(module.Name, scopeName, StringComparison.OrdinalIgnoreCase)) ||
+                   string.Equals(assembly.Name?.Name, scopeName, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string ProgressText(string chinesePrefix, string englishPrefix, int iteration)
+        {
+            return AutoTranslatorMod.WfText(
+                chinesePrefix + iteration + " 轮",
+                englishPrefix + iteration);
+        }
+
+        private static void ReportThrottledProgress(
+            Action<int, int, string> reportProgress,
+            int completed,
+            int total,
+            string phase)
+        {
+            if (reportProgress == null) return;
+            int safeTotal = Math.Max(0, total);
+            int interval = Math.Max(1, safeTotal / 100);
+            if (completed < safeTotal && completed % interval != 0) return;
+            reportProgress(completed, safeTotal, phase);
         }
 
         private static MethodAnalysis AnalyzeMethod(
             MethodDefinition method,
             IDictionary<string, MethodSummary> summaries,
             IDictionary<string, MethodDefinition> methodsByName,
-            bool collectLiterals)
+            AnalysisContext context,
+            bool collectLiterals,
+            CancellationToken cancellationToken)
         {
             var analysis = new MethodAnalysis();
             IList<Instruction> instructions = method.Body.Instructions;
@@ -305,6 +1293,7 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
             int safety = 0;
             while (work.Count > 0 && safety++ < instructions.Count * 128)
             {
+                if ((safety & 255) == 0) cancellationToken.ThrowIfCancellationRequested();
                 int index = work.Dequeue();
                 queued.Remove(index);
                 State state = incoming[index].Clone();
@@ -319,6 +1308,7 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
                         analysis,
                         summaries,
                         methodsByName,
+                        context,
                         collectLiterals);
                 }
                 catch (Exception ex)
@@ -354,16 +1344,19 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
             MethodAnalysis analysis,
             IDictionary<string, MethodSummary> summaries,
             IDictionary<string, MethodDefinition> methodsByName,
+            AnalysisContext context,
             bool collectLiterals)
         {
             Code code = instruction.OpCode.Code;
             if (code == Code.Ldstr)
             {
                 var value = new Value();
-                value.Literals.Add(literalOrdinals[instruction]);
+                string literalId = CreateLiteralId(
+                    method.MetadataToken.ToInt32(), literalOrdinals[instruction]);
+                value.Literals.Add(literalId);
                 state.Stack.Add(value);
-                if (collectLiterals && !analysis.Literals.ContainsKey(literalOrdinals[instruction]))
-                    analysis.Literals[literalOrdinals[instruction]] = new LiteralFact();
+                if (collectLiterals && !analysis.Literals.ContainsKey(literalId))
+                    analysis.Literals[literalId] = new LiteralFact();
                 return;
             }
 
@@ -387,24 +1380,68 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
                 return;
             }
 
+            if (code == Code.Stsfld && instruction.Operand is FieldReference storeField)
+            {
+                Value stored = Pop(state);
+                context.StoreField(storeField, stored, state);
+                return;
+            }
+            if (code == Code.Ldsfld && instruction.Operand is FieldReference loadField)
+            {
+                state.Stack.Add(context.LoadField(loadField, state));
+                return;
+            }
             if (code == Code.Dup)
             {
                 state.Stack.Add(state.Stack.Count > 0 ? state.Stack[state.Stack.Count - 1].Clone() : new Value());
                 return;
             }
             if (code == Code.Pop) { Pop(state); return; }
+            if (code == Code.Newarr)
+            {
+                Pop(state);
+                string containerId = CreateAllocationId(method, instruction);
+                var array = new Value();
+                array.Containers.Add(containerId);
+                state.Heap[containerId] = new Value();
+                state.Stack.Add(array);
+                return;
+            }
+            if (IsStoreElement(code))
+            {
+                Value element = Pop(state);
+                Pop(state);
+                Value array = Pop(state);
+                MergeIntoContainers(state, context, array, element);
+                return;
+            }
+            if (IsLoadElement(code))
+            {
+                Pop(state);
+                Value array = Pop(state);
+                state.Stack.Add(ExpandContainers(state, context, array));
+                return;
+            }
+            if (code == Code.Ldlen)
+            {
+                Pop(state);
+                state.Stack.Add(new Value());
+                return;
+            }
             if (code == Code.Ret)
             {
                 if (method.ReturnType.MetadataType != MetadataType.Void)
                 {
-                    Value returned = Pop(state);
+                    Value returned = ExpandContainers(state, context, Pop(state));
                     analysis.Summary.ReturnParameters.UnionWith(returned.Parameters);
+                    analysis.Summary.ReturnLiterals.UnionWith(returned.Literals);
                 }
                 return;
             }
             if (code == Code.Call || code == Code.Callvirt || code == Code.Newobj)
             {
-                ExecuteCall(instruction, state, analysis, summaries, methodsByName, collectLiterals);
+                ExecuteCall(
+                    method, instruction, state, analysis, summaries, methodsByName, context, collectLiterals);
                 return;
             }
             if (code == Code.Leave || code == Code.Leave_S)
@@ -417,11 +1454,13 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
         }
 
         private static void ExecuteCall(
+            MethodDefinition method,
             Instruction instruction,
             State state,
             MethodAnalysis analysis,
             IDictionary<string, MethodSummary> summaries,
             IDictionary<string, MethodDefinition> methodsByName,
+            AnalysisContext context,
             bool collectLiterals)
         {
             MethodReference call = instruction.Operand as MethodReference;
@@ -452,9 +1491,19 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
                         Mark(analysis, arguments[index], false, nonUiReason, evidence, collectLiterals);
                 }
             }
+            for (int index = 0; index < arguments.Length; index++)
+            {
+                if (IsStringLike(call.Parameters[index].ParameterType) &&
+                    TryGetNonUiArgumentReason(call, index, out string argumentReason))
+                    Mark(analysis, arguments[index], false, argumentReason, evidence, collectLiterals);
+            }
+            if (TryGetNonUiInstanceReason(call, out string instanceReason))
+                Mark(analysis, instance, false, instanceReason, evidence, collectLiterals);
+            if (IsCollectionMutation(declaringType, methodName, out int collectionValueIndex) &&
+                collectionValueIndex >= 0 && collectionValueIndex < arguments.Length)
+                MergeIntoContainers(state, context, instance, arguments[collectionValueIndex]);
 
-            if (summaries.TryGetValue(call.FullName, out MethodSummary summary) &&
-                methodsByName.ContainsKey(call.FullName))
+            if (TryGetMethodSummary(call, summaries, methodsByName, out MethodSummary summary))
             {
                 foreach (KeyValuePair<int, HashSet<string>> pair in summary.UiRolesByParameter)
                 {
@@ -476,16 +1525,61 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
                              call.ReturnType.MetadataType != MetadataType.Void;
             if (!hasReturn) return;
             Value returnValue = new Value();
-            if (summaries.TryGetValue(call.FullName, out MethodSummary returnSummary))
+            if (TryGetMethodSummary(call, summaries, methodsByName, out MethodSummary returnSummary))
             {
                 foreach (int parameterIndex in returnSummary.ReturnParameters)
                     if (parameterIndex >= 0 && parameterIndex < arguments.Length)
                         returnValue.Merge(arguments[parameterIndex]);
+                returnValue.Literals.UnionWith(returnSummary.ReturnLiterals);
             }
-            if (IsKnownStringPropagation(declaringType, methodName, call.ReturnType))
+            if (instruction.OpCode.Code == Code.Newobj)
+            {
+                if (IsContainerType(declaringType))
+                {
+                    string containerId = CreateAllocationId(method, instruction);
+                    returnValue.Containers.Add(containerId);
+                    if (!state.Heap.ContainsKey(containerId)) state.Heap[containerId] = new Value();
+                }
+                else if (methodsByName.ContainsKey(call.FullName))
+                {
+                    // Carry constructor string origins with same-assembly data objects.
+                    // A later string property getter may expose one of them to the UI;
+                    // non-UI uses are still recorded independently and make the result
+                    // ambiguous rather than forcing translation.
+                    returnValue.Merge(Value.Union(arguments));
+                }
+            }
+            if (IsTranslationLookup(declaringType, methodName))
+            {
+                // The literal is a localization key. The translated return value must not
+                // carry that key into a later UI sink, otherwise it becomes an ambiguous
+                // "UI and non-UI" result and may be patched before the lookup occurs.
+            }
+            else if (methodName == "ToString" && call.ReturnType?.FullName == "System.String")
+            {
+                // The receiver contributes the value; format/provider arguments do not
+                // become visible text by themselves.
+                returnValue.Merge(instance);
+            }
+            else if (IsKnownStringPropagation(declaringType, methodName, call.ReturnType))
             {
                 returnValue.Merge(instance);
                 returnValue.Merge(Value.Union(arguments));
+            }
+            else if (IsEnumerablePropagation(declaringType, methodName, call.ReturnType))
+            {
+                foreach (Value argument in arguments)
+                    returnValue.Merge(ExpandContainers(state, context, argument));
+            }
+            else if (IsContainerRead(declaringType, methodName))
+            {
+                returnValue.Merge(ExpandContainers(state, context, instance));
+                returnValue.Containers.UnionWith(instance.Containers);
+            }
+            else if (methodName.StartsWith("get_", StringComparison.Ordinal) &&
+                     IsStringLike(call.ReturnType) && methodsByName.ContainsKey(call.FullName))
+            {
+                returnValue.Merge(ExpandContainers(state, context, instance));
             }
             state.Stack.Add(returnValue);
         }
@@ -511,7 +1605,7 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
                 reasons.Add(reason);
             }
             if (!collectLiterals) return;
-            foreach (int literal in value.Literals)
+            foreach (string literal in value.Literals)
             {
                 if (!analysis.Literals.TryGetValue(literal, out LiteralFact fact))
                 {
@@ -674,12 +1768,17 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
                 role = "settings_item";
             else if (widgets && method.IndexOf("Label", StringComparison.OrdinalIgnoreCase) >= 0)
                 role = "label";
+            else if (widgets && method.IndexOf("TextField", StringComparison.OrdinalIgnoreCase) >= 0)
+                role = "text_field";
             else if (type == "Verse.TooltipHandler" && method.IndexOf("TipRegion", StringComparison.Ordinal) >= 0)
                 role = "tooltip";
             else if (type == "Verse.Messages" && method == "Message")
                 role = "message";
             else if (type == "Verse.FloatMenuOption" && method == ".ctor")
                 role = "button";
+            else if ((type == "Verse.Dialog_MessageBox" ||
+                      type == "RimWorld.Dialog_MessageBox") && method == ".ctor")
+                role = "message";
             else if ((type == "Verse.Command" || type.EndsWith("Command_Action", StringComparison.Ordinal)) &&
                      (method.StartsWith("set_", StringComparison.Ordinal) || method == ".ctor"))
                 role = "label";
@@ -689,8 +1788,8 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
         private static bool TryGetNonUiReason(string type, string method, out string reason)
         {
             reason = string.Empty;
-            if (type == "Verse.Log" || type == "System.Diagnostics.Debug" ||
-                type == "System.Diagnostics.Trace")
+            if (type == "Verse.Log" || type == "UnityEngine.Debug" || type == "System.Console" ||
+                type == "System.Diagnostics.Debug" || type == "System.Diagnostics.Trace")
                 reason = "NON_UI_LOG";
             else if (type == "HarmonyLib.AccessTools" || type == "System.Type" ||
                      type.StartsWith("System.Reflection.", StringComparison.Ordinal))
@@ -698,6 +1797,12 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
             else if (type.StartsWith("Verse.DefDatabase`1", StringComparison.Ordinal) &&
                      method.IndexOf("GetNamed", StringComparison.Ordinal) >= 0)
                 reason = "NON_UI_DEF_NAME";
+            else if (type == "Verse.DirectXmlCrossRefLoader" &&
+                     method.IndexOf("RegisterObjectWantsCrossRef", StringComparison.Ordinal) >= 0)
+                reason = "NON_UI_DEF_NAME";
+            else if (type.StartsWith("Verse.ParseHelper", StringComparison.Ordinal) &&
+                     method.IndexOf("FromString", StringComparison.Ordinal) >= 0)
+                reason = "NON_UI_PARSE_KEY";
             else if (type == "Verse.Scribe_Values" || type == "Verse.Scribe_Defs" ||
                      type.StartsWith("Newtonsoft.Json", StringComparison.Ordinal))
                 reason = "NON_UI_SERIALIZATION_KEY";
@@ -705,6 +1810,69 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
                      type == "System.Reflection.Assembly")
                 reason = "NON_UI_FILE_PATH";
             return reason.Length > 0;
+        }
+
+        private static bool TryGetNonUiArgumentReason(
+            MethodReference call,
+            int parameterIndex,
+            out string reason)
+        {
+            reason = string.Empty;
+            if (call == null || parameterIndex < 0 || parameterIndex >= call.Parameters.Count)
+                return false;
+            string type = call.DeclaringType?.FullName ?? string.Empty;
+            string method = call.Name ?? string.Empty;
+            if (parameterIndex == 0 && IsTranslationLookup(type, method))
+                reason = "NON_UI_TRANSLATION_KEY";
+            else if (method == "ToString" && parameterIndex == 0 &&
+                     call.ReturnType?.FullName == "System.String")
+                reason = "NON_UI_FORMAT_STRING";
+            else if ((type == "System.Enum" && (method == "Parse" || method == "TryParse")) ||
+                     (parameterIndex == 0 && type == "System.Type" && method == "GetType"))
+                reason = "NON_UI_TYPE_KEY";
+            else if (parameterIndex == 0 &&
+                     (type.StartsWith("System.Collections.Generic.Dictionary`2", StringComparison.Ordinal) ||
+                      type.StartsWith("System.Collections.Generic.IDictionary`2", StringComparison.Ordinal)) &&
+                     (method == "ContainsKey" || method == "TryGetValue" || method == "get_Item" ||
+                      method == "set_Item" || method == "Add" || method == "Remove"))
+                reason = "NON_UI_LOOKUP_KEY";
+            else if (parameterIndex == 0 &&
+                     type.StartsWith("Verse.ContentFinder`1", StringComparison.Ordinal) && method == "Get")
+                reason = "NON_UI_ASSET_PATH";
+            else if (type == "System.String" &&
+                     (method == "op_Equality" || method == "op_Inequality" ||
+                      method == "Equals" || method == "Compare" || method == "CompareOrdinal" ||
+                      method == "StartsWith" || method == "EndsWith" || method == "Contains" ||
+                      method == "IndexOf" || method == "LastIndexOf"))
+                reason = "NON_UI_COMPARISON_KEY";
+            else if (type.StartsWith("System.Collections.Generic.EqualityComparer`1", StringComparison.Ordinal) &&
+                     method == "Equals")
+                reason = "NON_UI_COMPARISON_KEY";
+            else if (type == "System.Linq.Enumerable" && method == "Contains" && parameterIndex == 1)
+                reason = "NON_UI_COMPARISON_KEY";
+            return reason.Length > 0;
+        }
+
+        private static bool TryGetNonUiInstanceReason(MethodReference call, out string reason)
+        {
+            reason = string.Empty;
+            if (call == null || !call.HasThis) return false;
+            string type = call.DeclaringType?.FullName ?? string.Empty;
+            string method = call.Name ?? string.Empty;
+            if (type == "System.String" &&
+                (method == "GetHashCode" || method == "Equals" || method == "StartsWith" ||
+                 method == "EndsWith" || method == "Contains" || method == "IndexOf" ||
+                 method == "LastIndexOf"))
+                reason = "NON_UI_COMPARISON_KEY";
+            return reason.Length > 0;
+        }
+
+        private static bool IsTranslationLookup(string type, string method)
+        {
+            if (method != "Translate") return false;
+            return type == "Verse.Translator" ||
+                   type.IndexOf("Translator", StringComparison.Ordinal) >= 0 ||
+                   type.IndexOf("Translation", StringComparison.Ordinal) >= 0;
         }
 
         private static bool IsKnownStringPropagation(
@@ -721,6 +1889,114 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
             if ((method == "op_Implicit" || method == "op_Explicit") && IsStringLike(returnType))
                 return true;
             return false;
+        }
+
+        private static bool IsEnumerablePropagation(
+            string type,
+            string method,
+            TypeReference returnType)
+        {
+            if (type != "System.Linq.Enumerable") return false;
+            string returnName = returnType?.FullName ?? string.Empty;
+            bool returnsSequence = returnName.StartsWith(
+                                       "System.Collections.Generic.IEnumerable`1",
+                                       StringComparison.Ordinal) ||
+                                   returnName.StartsWith(
+                                       "System.Collections.Generic.List`1",
+                                       StringComparison.Ordinal) ||
+                                   returnName.EndsWith("[]", StringComparison.Ordinal);
+            if (!returnsSequence) return false;
+            return method == "AsEnumerable" || method == "Cast" || method == "OfType" ||
+                   method == "Where" || method == "Select" || method == "SelectMany" ||
+                   method == "Concat" || method == "Append" || method == "Prepend" ||
+                   method == "Distinct" || method == "OrderBy" || method == "OrderByDescending" ||
+                   method == "ThenBy" || method == "ThenByDescending" || method == "Reverse" ||
+                   method == "Skip" || method == "Take" || method == "ToList" || method == "ToArray";
+        }
+
+        private static bool IsContainerType(string type)
+        {
+            return type.StartsWith("System.Collections.Generic.List`1", StringComparison.Ordinal) ||
+                   type.StartsWith("System.Collections.Generic.Dictionary`2", StringComparison.Ordinal) ||
+                   type.StartsWith("System.Collections.Generic.HashSet`1", StringComparison.Ordinal) ||
+                   type.StartsWith("System.Collections.Generic.Queue`1", StringComparison.Ordinal) ||
+                   type.StartsWith("System.Collections.Generic.Stack`1", StringComparison.Ordinal);
+        }
+
+        private static bool IsCollectionMutation(string type, string method, out int valueIndex)
+        {
+            valueIndex = -1;
+            if (!IsContainerType(type)) return false;
+            if (type.StartsWith("System.Collections.Generic.Dictionary`2", StringComparison.Ordinal))
+            {
+                if (method == "Add" || method == "set_Item") valueIndex = 1;
+                return valueIndex >= 0;
+            }
+            if (method == "Add" || method == "Enqueue" || method == "Push") valueIndex = 0;
+            return valueIndex >= 0;
+        }
+
+        private static bool IsContainerRead(string type, string method)
+        {
+            bool collection = IsContainerType(type) ||
+                              type == "System.Collections.IEnumerable" ||
+                              type == "System.Collections.IEnumerator" ||
+                              type.StartsWith("System.Collections.Generic.IEnumerable`1", StringComparison.Ordinal) ||
+                              type.StartsWith("System.Collections.Generic.IEnumerator`1", StringComparison.Ordinal) ||
+                              type.IndexOf("/Enumerator", StringComparison.Ordinal) >= 0;
+            if (!collection) return false;
+            return method == "GetEnumerator" || method == "get_Current" || method == "get_Item" ||
+                   method == "get_Values" || method == "get_Keys" || method == "Dequeue" ||
+                   method == "Peek" || method == "Pop";
+        }
+
+        private static bool IsStoreElement(Code code)
+        {
+            return code == Code.Stelem_Any || code == Code.Stelem_I || code == Code.Stelem_I1 ||
+                   code == Code.Stelem_I2 || code == Code.Stelem_I4 || code == Code.Stelem_I8 ||
+                   code == Code.Stelem_R4 || code == Code.Stelem_R8 || code == Code.Stelem_Ref;
+        }
+
+        private static bool IsLoadElement(Code code)
+        {
+            return code == Code.Ldelem_Any || code == Code.Ldelem_I || code == Code.Ldelem_I1 ||
+                   code == Code.Ldelem_I2 || code == Code.Ldelem_I4 || code == Code.Ldelem_I8 ||
+                   code == Code.Ldelem_R4 || code == Code.Ldelem_R8 || code == Code.Ldelem_Ref ||
+                   code == Code.Ldelem_U1 || code == Code.Ldelem_U2 || code == Code.Ldelem_U4;
+        }
+
+        private static void MergeIntoContainers(
+            State state,
+            AnalysisContext context,
+            Value container,
+            Value value)
+        {
+            foreach (string containerId in container?.Containers ?? Enumerable.Empty<string>())
+            {
+                if (!state.Heap.TryGetValue(containerId, out Value contents))
+                {
+                    contents = new Value();
+                    state.Heap[containerId] = contents;
+                }
+                contents.Merge(value);
+                context.MergeContainer(containerId, contents);
+            }
+        }
+
+        private static Value ExpandContainers(State state, AnalysisContext context, Value value)
+        {
+            Value expanded = value?.Clone() ?? new Value();
+            foreach (string containerId in expanded.Containers.ToList())
+            {
+                if (state.Heap.TryGetValue(containerId, out Value contents))
+                    expanded.Merge(contents);
+                else if (context.TryGetContainer(containerId, out Value sharedContents))
+                {
+                    state.Heap[containerId] = sharedContents.Clone();
+                    expanded.Merge(sharedContents);
+                }
+            }
+            return expanded;
         }
 
         private static bool IsStringLike(TypeReference type)
@@ -765,6 +2041,37 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
         {
             if (record.DiagnosticFlags == null) record.DiagnosticFlags = new List<string>();
             if (!record.DiagnosticFlags.Contains(flag)) record.DiagnosticFlags.Add(flag);
+        }
+
+        private static string CreateLiteralId(int methodMetadataToken, int literalOrdinal)
+        {
+            return methodMetadataToken.ToString("x8", CultureInfo.InvariantCulture) + ":" +
+                   literalOrdinal.ToString(CultureInfo.InvariantCulture);
+        }
+
+        private static string CreateAllocationId(MethodDefinition method, Instruction instruction)
+        {
+            int token = method?.MetadataToken.ToInt32() ?? 0;
+            return token.ToString("x8", CultureInfo.InvariantCulture) + "@" +
+                   (instruction?.Offset ?? -1).ToString("x4", CultureInfo.InvariantCulture);
+        }
+
+        private static void MergeLiteralFact(
+            IDictionary<string, LiteralFact> target,
+            string literalId,
+            LiteralFact source)
+        {
+            if (source == null) return;
+            if (!target.TryGetValue(literalId, out LiteralFact current))
+            {
+                current = new LiteralFact();
+                target[literalId] = current;
+            }
+            current.UiRoles.UnionWith(source.UiRoles);
+            current.NonUiReasons.UnionWith(source.NonUiReasons);
+            foreach (string evidence in source.Evidence)
+                if (current.Evidence.Count < 16 && !current.Evidence.Contains(evidence))
+                    current.Evidence.Add(evidence);
         }
     }
 }

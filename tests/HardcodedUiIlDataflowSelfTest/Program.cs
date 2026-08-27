@@ -20,6 +20,7 @@ namespace HardcodedUiIlDataflowSelfTest
             try
             {
                 string path = Path.GetFullPath(args[0]);
+                AssertDuplicateFullNameFixture(path);
                 List<HardcodedUiPatchEntry> entries = ReadEntries(path);
                 HardcodedUiIlAnalysisResult result = HardcodedUiIlDataflowAnalyzer.Analyze(path, entries);
                 AssertDecision(entries, result, "Direct label", HardcodedUiAutomaticDecision.Translate);
@@ -37,8 +38,16 @@ namespace HardcodedUiIlDataflowSelfTest
                     HardcodedUiAutomaticDecision.Translate);
                 AssertDecision(entries, result, "Context-sensitive text", "SameTextLog",
                     HardcodedUiAutomaticDecision.DoNotTranslate);
-                if (result.Diagnostics.Count > 0)
-                    throw new InvalidOperationException("Unexpected diagnostics: " + string.Join(" | ", result.Diagnostics));
+                AssertDecision(entries, result, "single-generic reflection key",
+                    HardcodedUiAutomaticDecision.DoNotTranslate);
+                AssertDecision(entries, result, "double-generic reflection key",
+                    HardcodedUiAutomaticDecision.DoNotTranslate);
+                List<string> unexpectedDiagnostics = result.Diagnostics
+                    .Where(item => !item.StartsWith("Cecil structure engine ", StringComparison.Ordinal))
+                    .ToList();
+                if (unexpectedDiagnostics.Count > 0)
+                    throw new InvalidOperationException(
+                        "Unexpected diagnostics: " + string.Join(" | ", unexpectedDiagnostics));
                 Console.WriteLine("PASS: Mono.Cecil CFG/dataflow self-test (direct, local, format, wrapper, branch, non-UI, ambiguous)");
                 return 0;
             }
@@ -46,6 +55,23 @@ namespace HardcodedUiIlDataflowSelfTest
             {
                 Console.Error.WriteLine("FAIL: " + ex);
                 return 1;
+            }
+        }
+
+        private static void AssertDuplicateFullNameFixture(string path)
+        {
+            using (AssemblyDefinition assembly = AssemblyDefinition.ReadAssembly(path))
+            {
+                List<MethodDefinition> duplicates = assembly.MainModule.Types
+                    .SelectMany(Flatten)
+                    .SelectMany(type => type.Methods)
+                    .Where(method => method.Name == "DuplicateFullName")
+                    .ToList();
+                if (duplicates.Count != 2 ||
+                    !string.Equals(duplicates[0].FullName, duplicates[1].FullName, StringComparison.Ordinal) ||
+                    duplicates[0].MetadataToken.ToInt32() == duplicates[1].MetadataToken.ToInt32())
+                    throw new InvalidOperationException(
+                        "Fixture must contain two distinct metadata tokens with the same Cecil FullName.");
             }
         }
 

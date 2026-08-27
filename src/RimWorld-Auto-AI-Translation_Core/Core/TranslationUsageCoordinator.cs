@@ -1,6 +1,8 @@
 using Newtonsoft.Json.Linq;
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
@@ -47,6 +49,42 @@ namespace AutoTranslator_Core
             new AsyncLocal<TranslationUsageRequestContext>();
         private static TranslationUsageLedger _ledger;
         private static bool _wasResumed;
+
+        internal static bool BeginConfiguredWorkflowRun(
+            string runKind,
+            IEnumerable<string> modIdentities,
+            string targetLanguage)
+        {
+            AutoTranslatorSettings settings = AutoTranslatorMod.Settings;
+            if (settings == null || !settings.EnableTranslationUsageBudget)
+            {
+                EndRun(false);
+                return false;
+            }
+
+            List<string> identities = (modIdentities ?? Enumerable.Empty<string>())
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Select(value => value.Trim())
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(value => value, StringComparer.Ordinal)
+                .ToList();
+            string canonical = string.Join("\n", new[]
+            {
+                runKind ?? string.Empty,
+                targetLanguage ?? string.Empty,
+                string.Join("\n", identities)
+            });
+            string journalPath = Path.Combine(
+                AutoTranslatorScanner.GetLocalPackPath(),
+                "Cache",
+                "TranslationUsageRun.v1.json");
+            BeginRun(
+                journalPath,
+                "translation_run_" + ComputeSha256(canonical),
+                settings.TranslationBudgetSourceCharactersPerRun,
+                settings.TranslationBudgetEstimatedTokensPerRun);
+            return true;
+        }
 
         internal static void BeginRun(
             string journalPath,

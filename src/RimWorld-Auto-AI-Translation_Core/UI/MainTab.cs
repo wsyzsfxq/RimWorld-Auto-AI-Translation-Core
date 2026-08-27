@@ -18,7 +18,7 @@ namespace AutoTranslator_Core
 
         // 這個方法負責繪製 主畫面分頁 介面。
         // EN: This method draws main tab.
-        private void DrawMainTab(Listing_Standard l, Rect viewRect)
+        private void DrawLegacyMainTab(Listing_Standard l, Rect viewRect)
         {
 
             Rect topBarRect = l.GetRect(28f);
@@ -315,14 +315,16 @@ private void DrawLogView(Rect rect, List<string> logs, ref Vector2 scrollPos, bo
             float cacheWidth = Mathf.Round(calcWidth);
             LogViewCache cache = isErrorBox ? _errorLogViewCache : _runtimeLogViewCache;
             List<string> snapshot = null;
+            bool sourceCountChanged = false;
 
             lock (AutoTranslatorSettings.logLock)
             {
                 int start = System.Math.Max(0, logs.Count - displayLimit);
                 string firstLine = logs.Count > 0 ? logs[start] : "";
                 string lastLine = logs.Count > 0 ? logs[logs.Count - 1] : "";
+                sourceCountChanged = cache.SourceCount != logs.Count;
                 bool needsRebuild =
-                    cache.SourceCount != logs.Count ||
+                    sourceCountChanged ||
                     !Mathf.Approximately(cache.Width, cacheWidth) ||
                     !string.Equals(cache.FirstLine, firstLine, StringComparison.Ordinal) ||
                     !string.Equals(cache.LastLine, lastLine, StringComparison.Ordinal);
@@ -363,6 +365,7 @@ private void DrawLogView(Rect rect, List<string> logs, ref Vector2 scrollPos, bo
             float contentHeight = Mathf.Max(totalHeight, rect.height);
             Rect viewRect = new Rect(0, 0, rect.width - 20f, contentHeight);
 
+            float scrollBeforeInput = scrollPos.y;
             Widgets.BeginScrollView(rect, ref scrollPos, viewRect);
             float currentY = 0;
 
@@ -390,19 +393,17 @@ private void DrawLogView(Rect rect, List<string> logs, ref Vector2 scrollPos, bo
             float viewHeight = totalHeight;
             float maxScroll = Mathf.Max(0f, viewHeight - rect.height);
 
-            if (scrollPos.y > maxScroll)
-            {
-                scrollPos.y = maxScroll;
-            }
-
-            if (!isErrorBox && (maxScroll - scrollPos.y <= 100f))
-            {
-                scrollPos.y = maxScroll;
-            }
-
             GUI.color = Color.white;
             Text.Font = GameFont.Small;
             Widgets.EndScrollView();
+
+            if (scrollPos.y < scrollBeforeInput - 0.5f)
+                cache.FollowTail = false;
+            else if (maxScroll - scrollPos.y <= 1f)
+                cache.FollowTail = true;
+            if (sourceCountChanged && cache.FollowTail)
+                scrollPos.y = maxScroll;
+            scrollPos.y = Mathf.Clamp(scrollPos.y, 0f, maxScroll);
         }
 
     }

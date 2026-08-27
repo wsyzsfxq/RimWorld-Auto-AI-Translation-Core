@@ -242,7 +242,7 @@ namespace AutoTranslator_Core
                 if (response != null && !response.IsSuccess && response.FailureKind == TranslationRequestFailureKind.None)
                 {
                     if (response.HttpCode >= 400) response.FailureKind = TranslationRequestFailureKind.Http;
-                    else if ((response.ErrorText ?? string.Empty).IndexOf("timed out", StringComparison.OrdinalIgnoreCase) >= 0)
+                    else if (IsResponseTimeoutError(response.ErrorText))
                         response.FailureKind = TranslationRequestFailureKind.ResponseTimeout;
                     else response.FailureKind = TranslationRequestFailureKind.Transport;
                     response.FailureStage = response.FailureKind == TranslationRequestFailureKind.ResponseTimeout
@@ -308,6 +308,13 @@ namespace AutoTranslator_Core
             if (response.TimeoutSeconds <= 0 &&
                 response.FailureKind == TranslationRequestFailureKind.ResponseTimeout)
                 response.TimeoutSeconds = Math.Max(0, timeoutSeconds);
+        }
+
+        private static bool IsResponseTimeoutError(string errorText)
+        {
+            string value = errorText ?? string.Empty;
+            return value.IndexOf("timed out", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   value.IndexOf("timeout", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private static bool IsRequestCancellationRequested(Func<bool> additionalCancellation)

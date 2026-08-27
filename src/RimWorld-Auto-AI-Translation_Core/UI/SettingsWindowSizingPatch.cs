@@ -28,15 +28,43 @@ namespace AutoTranslator_Core
                 MethodInfo postfix = AccessTools.Method(
                     typeof(SettingsWindowSizingPatch),
                     nameof(AfterGetInitialSize));
-                if (getter == null || postfix == null || ModField == null)
+                MethodInfo drawContents = AccessTools.Method(
+                    typeof(Dialog_ModSettings),
+                    nameof(Dialog_ModSettings.DoWindowContents));
+                MethodInfo drawPrefix = AccessTools.Method(
+                    typeof(SettingsWindowSizingPatch),
+                    nameof(BeforeDrawContents));
+                if (getter == null || postfix == null || drawContents == null ||
+                    drawPrefix == null || ModField == null)
                 {
-                    Log.Warning("[AutoTranslationCore] Dynamic settings window sizing was not installed: target members were not found.");
+                    Log.Warning("[AutoTranslationCore] Settings window layout patch was not installed: target members were not found.");
                     return;
                 }
 
-                new Harmony("MingYang.AutoTranslation.SettingsWindowSizing")
-                    .Patch(getter, postfix: new HarmonyMethod(postfix));
+                Harmony harmony = new Harmony("MingYang.AutoTranslation.SettingsWindowSizing");
+                harmony.Patch(getter, postfix: new HarmonyMethod(postfix));
+                harmony.Patch(drawContents, prefix: new HarmonyMethod(drawPrefix));
                 _installed = true;
+            }
+        }
+
+        private static void BeforeDrawContents(Dialog_ModSettings __instance, ref Rect inRect)
+        {
+            try
+            {
+                Mod mod = ModField.GetValue(__instance) as Mod;
+                if (!(mod is AutoTranslatorMod)) return;
+
+                // RimWorld's Dialog_ModSettings constructor forces both close controls on,
+                // then DoWindowContents always reserves CloseButSize.y at the bottom. ATC
+                // keeps the title-bar X and Escape, suppresses only the redundant bottom
+                // button, and returns the reserved height to the mod content rectangle.
+                __instance.doCloseButton = false;
+                inRect.height += Window.CloseButSize.y;
+            }
+            catch (Exception ex)
+            {
+                Log.Warning("[AutoTranslationCore] Settings window content layout failed: " + ex.Message);
             }
         }
 

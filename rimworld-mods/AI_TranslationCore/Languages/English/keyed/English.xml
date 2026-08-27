@@ -16,6 +16,15 @@
   <ATC_OnlyScanActive>Scan only active mods</ATC_OnlyScanActive>
   <ATC_EnableDevelopmentDebugLogging>Enable development debug logging (off by default)</ATC_EnableDevelopmentDebugLogging>
   <ATC_EnableDevelopmentDebugLoggingTooltip>Writes detailed request lifecycle diagnostics to RimWorld's log and AutoTranslation_Log.txt. This may produce many entries; API keys, authorization headers, and request content are not logged.</ATC_EnableDevelopmentDebugLoggingTooltip>
+  <ATC_LogLevel>Log level</ATC_LogLevel>
+  <ATC_LogLevel_Error>Error</ATC_LogLevel_Error>
+  <ATC_LogLevel_Info>Info</ATC_LogLevel_Info>
+  <ATC_LogLevel_Debug>Debug</ATC_LogLevel_Debug>
+  <ATC_LogLevelTooltip>Info is the default and records key workflow stages and errors. Debug adds development diagnostics and produces more log entries. API keys, authorization headers, full prompts, and full model responses are never logged.</ATC_LogLevelTooltip>
+  <ATC_ApiMaxOutputTokens>ATC max output tokens per request</ATC_ApiMaxOutputTokens>
+  <ATC_ApiMaxOutputTokensTooltip>Default: 10000. Adjust this using the model documentation from the platform that issued your API credential. An excessively high value may increase costs if a model produces abnormal output. If this exceeds a known model capability, requests use the model capability instead.</ATC_ApiMaxOutputTokensTooltip>
+  <ATC_ModelOutputCapabilityKnown>Model max {0} | actual {1}</ATC_ModelOutputCapabilityKnown>
+  <ATC_ModelOutputCapabilityUnknown>Provider limit unknown</ATC_ModelOutputCapabilityUnknown>
   <ATC_Tooltip_TargetLang>【Target Language】\nSets the language that the AI will translate foreign mods into.</ATC_Tooltip_TargetLang>
   <ATC_Tooltip_Provider>【AI Provider】\nSelect your AI model provider. Google (Gemini) or OpenAI is highly recommended.</ATC_Tooltip_Provider>
   <ATC_TestConnection>Test Connection</ATC_TestConnection>
@@ -402,8 +411,8 @@
 		================================================================
 	</ATC_Export_Readme_Full>
   <ATC_Export_ConsentRecord_Full>================================================================EULA User Consent RecordConsent Time (UTC+8): {0}EULA Version: {1}Accept Count: {2}Machine Name: {3}Operating System: {4}Export Time: {5}Accepted Items:[O] I have carefully read the terms of service and understand the legal aspects.[O] I commit to using these files solely for personal play or as translation drafts.[O] I assume full responsibility for any consequences of public file distribution.================================================================Important!This file is an automated record of your terms acceptance. Please preserve it.In the event of copyright disputes, it serves as evidence showing you were informed of the terms.================================================================</ATC_Export_ConsentRecord_Full>
-  <ATC_Tab_Main>Main Terminal</ATC_Tab_Main>
-  <ATC_Tab_Settings>System ＆ API Settings</ATC_Tab_Settings>
+  <ATC_Tab_Main>Translation Workbench</ATC_Tab_Main>
+  <ATC_Tab_Settings>Settings</ATC_Tab_Settings>
   <ATC_Log_SkipRequested>[System] User requested to skip the current mod...</ATC_Log_SkipRequested>
   <ATC_Error_Unknown>Unknown Error</ATC_Error_Unknown>
   <ATC_Error_Timeout>API request timed out (Timeout). The model may be overloaded or the network unstable.</ATC_Error_Timeout>
@@ -427,7 +436,7 @@
   <ATC_Error_FetchModelsFailed>❌ Automatic fetch of［{0}］models failed! （HTTP {1}）Please check Key.</ATC_Error_FetchModelsFailed>
   <ATC_Error_FetchModelsException>⚠️ Exception fetching［{0}］models: {1}</ATC_Error_FetchModelsException>
   <ATC_Log_FakeLanguageDetected>🕵️ [Anti-Laziness System] Caught developer cutting corners! File {0} was determined to be a fake language file, forced to AI for complete re-translation!</ATC_Log_FakeLanguageDetected>
-  <ATC_Tab_Cloud>☁️ Cloud Share</ATC_Tab_Cloud>
+  <ATC_Tab_Cloud>Cloud Translation</ATC_Tab_Cloud>
   <ATC_Cloud_Refresh>🔄 Refresh Cloud List</ATC_Cloud_Refresh>
   <ATC_Cloud_Fetching>⏳ Connecting to Cloudflare brain...</ATC_Cloud_Fetching>
   <ATC_Cloud_FetchFailed>⚠️ Failed to load cloud data, please check your internet connection.</ATC_Cloud_FetchFailed>
@@ -449,7 +458,7 @@
   <ATC_Cloud_ConnectionNormal>☁️ Cloud connection normal: Currently {0} translation records in database.</ATC_Cloud_ConnectionNormal>
   <ATC_Cloud_NoModsWarning>⚠️ No translatable third-party mods found!\n(If your environment only runs official DLC and this system mod, the list will be empty!)</ATC_Cloud_NoModsWarning>
   <ATC_Cloud_Btn_BatchOfficial>👑 Batch Download Official/Group</ATC_Cloud_Btn_BatchOfficial>
-  <ATC_Cloud_Btn_BatchManual>🧑 Batch Download Player Pro</ATC_Cloud_Btn_BatchManual>
+  <ATC_Cloud_Btn_BatchManual>🧑 Batch Download Human-Curated</ATC_Cloud_Btn_BatchManual>
   <ATC_Cloud_Btn_BatchAI>🤖 Batch Download AI Translation</ATC_Cloud_Btn_BatchAI>
   <ATC_Cloud_Btn_BatchBest>✨ Batch Download Best Translation</ATC_Cloud_Btn_BatchBest>
   <ATC_Msg_DownloadStart>📥 Requesting airdrop: {0}...</ATC_Msg_DownloadStart>
@@ -483,7 +492,7 @@
   <ATC_Msg_BatchAiRebuildCandidates>The following mods have no directly shareable clean AI entries. Select one mod to re-translate from original text. ATC will rebuild only the selected mod into the upload workspace and will not overwrite your local translation pack.</ATC_Msg_BatchAiRebuildCandidates>
   <ATC_Log_AiUploadFiltered>AI upload filtered "{0}": kept {1} clean AI entries, skipped {2} entries (external patch {3}, manual edit {4}, legacy untagged {5}, other {6}).</ATC_Log_AiUploadFiltered>
   <ATC_Log_AiUploadNoCleanEntries>AI upload skipped "{0}": no clean AI entries are shareable; skipped {1} entries (external patch {2}, manual edit {3}, legacy untagged {4}, other {5}).</ATC_Log_AiUploadNoCleanEntries>
-  <ATC_Msg_AiUploadNoCleanEntries>AI upload skipped for "{0}": no clean AI translation entries are available. If this is a player proofread or translation patch, upload it as Manual or Pro Translation Team instead.</ATC_Msg_AiUploadNoCleanEntries>
+  <ATC_Msg_AiUploadNoCleanEntries>AI upload skipped for "{0}": no clean AI translation entries are available. If this was manually polished or comes from a translation patch, upload it as Human-Curated or Official instead.</ATC_Msg_AiUploadNoCleanEntries>
   <ATC_Msg_AiUploadNoCleanEntriesWithRebuild>AI upload skipped for "{0}": no clean AI translation entries are available.\n\nIf this content is a player proofread or translation patch, upload it as Manual or Pro Translation Team instead.\n\nATC can also rebuild a clean AI translation from the original mod text. The result will be placed in the upload workspace and will not overwrite your current local translation pack.</ATC_Msg_AiUploadNoCleanEntriesWithRebuild>
   <ATC_Title_PureAiRebuildForUpload>Rebuild Clean AI Upload</ATC_Title_PureAiRebuildForUpload>
   <ATC_Btn_PureAiRebuildForUpload>Re-translate from original</ATC_Btn_PureAiRebuildForUpload>
@@ -503,7 +512,7 @@
   <ATC_Cloud_Type_Select>📝 Select Translation Type:</ATC_Cloud_Type_Select>
   <ATC_Cloud_Type_AI>🤖 AI Machine Translation</ATC_Cloud_Type_AI>
   <ATC_Cloud_Type_Manual>✍️ Manual Translation Proofing</ATC_Cloud_Type_Manual>
-  <ATC_Cloud_Status_Manual>🟢 User Proofed Translation</ATC_Cloud_Status_Manual>
+  <ATC_Cloud_Status_Manual>🟢 Human-Curated</ATC_Cloud_Status_Manual>
   <ATC_Cloud_Status_LegacyAI>🟤 Legacy upload, source not recorded</ATC_Cloud_Status_LegacyAI>
   <ATC_EmergencyResetTitle>Ultimate First Aid Kit (Dangerous Zone)</ATC_EmergencyResetTitle>
   <ATC_Btn_FactoryReset>Reset All Settings and Delete Local Cache</ATC_Btn_FactoryReset>
@@ -562,7 +571,7 @@
   <ATC_Upload_ConfirmUploadBtn>✅ Inspection Complete · Upload to Cloud</ATC_Upload_ConfirmUploadBtn>
   <ATC_Msg_UploadStart>🚀 Preparing for launch! Packaging and uploading translation pack for {0}...</ATC_Msg_UploadStart>
   <ATC_Type_Official>Pro Translation Team</ATC_Type_Official>
-  <ATC_Type_Manual>Manual User Proof</ATC_Type_Manual>
+  <ATC_Type_Manual>Human-Curated</ATC_Type_Manual>
   <ATC_Type_AI>AI Translation</ATC_Type_AI>
   <ATC_Type_LegacyAI>Legacy AI Upload</ATC_Type_LegacyAI>
   <ATC_Cloud_LegacyAiTooltip>This translation was uploaded by an older version and has no recorded source. It may include AI output, player edits, or external translation sources.</ATC_Cloud_LegacyAiTooltip>
@@ -587,7 +596,7 @@
   <ATC_Cloud_RequestRejected>Connection failed, cloud host rejected request (HTTP {0})</ATC_Cloud_RequestRejected>
   <ATC_Cloud_RetryAttemptLog>Intermittent packet loss on cloud connection. Initiating quantum reconnection attempt n°{0}...</ATC_Cloud_RetryAttemptLog>
   <ATC_Cloud_DownloadRetryFailed>Download retries exhausted, communication channel severed: {0}</ATC_Cloud_DownloadRetryFailed>
-  <ATC_Tab_Editor>Global Editor</ATC_Tab_Editor>
+  <ATC_Tab_Editor>Translation Editor</ATC_Tab_Editor>
   <ATC_Workbench_SearchMod>Search mod name or ID...</ATC_Workbench_SearchMod>
   <ATC_Workbench_ShowTranslatedOnly>Show fully translated mods only</ATC_Workbench_ShowTranslatedOnly>
   <ATC_Workbench_ShowUntranslatedOnly>Show untranslated mods only</ATC_Workbench_ShowUntranslatedOnly>

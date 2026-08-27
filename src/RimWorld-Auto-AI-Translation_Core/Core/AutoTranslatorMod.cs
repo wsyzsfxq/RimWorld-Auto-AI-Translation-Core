@@ -26,6 +26,7 @@ namespace AutoTranslator_Core
         // 這個欄位保存 設定 的執行狀態或快取資料。
         // EN: This field stores settings runtime state or cached data.
         public static AutoTranslatorSettings Settings;
+        internal static string CoreModRoot { get; private set; } = string.Empty;
 
 
         // 這個欄位保存 主畫面執行緒Context 的執行狀態或快取資料。
@@ -100,6 +101,7 @@ namespace AutoTranslator_Core
             public readonly List<string> DisplayLogs = new List<string>();
             public readonly List<float> Heights = new List<float>();
             public float TotalHeight = 0f;
+            public bool FollowTail = true;
         }
 
         private sealed class ValidModSnapshot
@@ -273,10 +275,7 @@ namespace AutoTranslator_Core
         private static bool ShouldSkipValidModPackage(string packageId)
         {
             if (string.IsNullOrWhiteSpace(packageId)) return true;
-
-            string pid = packageId.ToLowerInvariant();
-            return pid == "auto.aitranslation.core" ||
-                   pid == "aitranslation.pack";
+            return AutoTranslatorScanner.IsNonTranslatableSystemPackage(packageId);
         }
 
 
@@ -284,6 +283,7 @@ namespace AutoTranslator_Core
         // EN: This constructor initializes auto translator mod.
         public AutoTranslatorMod(ModContentPack content) : base(content)
         {
+            CoreModRoot = content?.RootDir ?? string.Empty;
             EnsureNetworkDispatchReady();
 
             Settings = GetSettings<AutoTranslatorSettings>();
@@ -550,7 +550,7 @@ namespace AutoTranslator_Core
         // EN: This method ensures cloud fetch started for active tab is ready.
         private static void EnsureCloudFetchStartedForActiveTab()
         {
-            if (AutoTranslatorSettings.ActiveTab != 2) return;
+            if (AutoTranslatorSettings.ActiveTab != AutoTranslatorSettings.CloudTabIndex) return;
             if (AutoTranslatorSettings.IsFetchingCloud || AutoTranslatorSettings.HasFetchedCloudThisSession) return;
 
             StartCloudRegistryFetch();
@@ -582,19 +582,38 @@ namespace AutoTranslator_Core
                 }
 
 
-                List<TabRecord> tabs = new List<TabRecord>
+                string[] tabLabels =
                 {
-                    new TabRecord("ATC_Tab_Main".Translate(), () => AutoTranslatorSettings.ActiveTab = 0, AutoTranslatorSettings.ActiveTab == 0),
-                    new TabRecord("ATC_Tab_Editor".Translate(), () => AutoTranslatorSettings.ActiveTab = 1, AutoTranslatorSettings.ActiveTab == 1),
-                    new TabRecord("ATC_Tab_Cloud".Translate(), () => AutoTranslatorSettings.ActiveTab = 2, AutoTranslatorSettings.ActiveTab == 2),
-                    new TabRecord("ATC_Tab_Settings".Translate(), () => AutoTranslatorSettings.ActiveTab = 3, AutoTranslatorSettings.ActiveTab == 3)
+                    "ATC_Tab_Cloud".Translate(),
+                    "ATC_Tab_Main".Translate(),
+                    "ATC_Tab_Editor".Translate(),
+                    "ATC_Tab_Settings".Translate()
                 };
-                Rect tabRect = new Rect(inRect.x, inRect.y + 25f, inRect.width, 30f);
-                TabDrawer.DrawTabs(tabRect, tabs);
+                Rect tabRect = new Rect(inRect.x, inRect.y + 22f, inRect.width, 34f);
+                const float tabGap = 2f;
+                float tabWidth = (tabRect.width - tabGap * 3f) / 4f;
+                for (int tabIndex = 0; tabIndex < tabLabels.Length; tabIndex++)
+                {
+                    Rect oneTab = new Rect(
+                        tabRect.x + tabIndex * (tabWidth + tabGap),
+                        tabRect.y,
+                        tabWidth,
+                        tabRect.height);
+                    bool selected = AutoTranslatorSettings.ActiveTab == tabIndex;
+                    if (WorkflowUiStyle.Button(
+                            oneTab,
+                            tabLabels[tabIndex],
+                            selected ? WorkflowButtonStyle.ActiveTab : WorkflowButtonStyle.Tab,
+                            true,
+                            GameFont.Small))
+                        AutoTranslatorSettings.ActiveTab = tabIndex;
+                }
                 if (_lastActiveTab != AutoTranslatorSettings.ActiveTab)
                 {
+                    if (AutoTranslatorSettings.ActiveTab != AutoTranslatorSettings.WorkbenchTabIndex)
+                        EndWorkflowSelectionGesture();
                     _lastActiveTab = AutoTranslatorSettings.ActiveTab;
-                    if (AutoTranslatorSettings.ActiveTab == 2)
+                    if (AutoTranslatorSettings.ActiveTab == AutoTranslatorSettings.CloudTabIndex)
                     {
                         EnsureCloudFetchStartedForActiveTab();
                     }
@@ -605,7 +624,17 @@ namespace AutoTranslator_Core
                 }
 
 
-                Rect scrollRect = new Rect(0, 65f, inRect.width, inRect.height - 65f);
+                float contentTop = tabRect.yMax + 7f;
+                Rect scrollRect = new Rect(
+                    inRect.x,
+                    contentTop,
+                    inRect.width,
+                    Mathf.Max(1f, inRect.yMax - contentTop));
+                if (AutoTranslatorSettings.ActiveTab != AutoTranslatorSettings.CloudTabIndex)
+                {
+                    Widgets.DrawBoxSolid(scrollRect, WorkflowUiStyle.Panel);
+                    WorkflowUiStyle.DrawBorder(scrollRect, new Color(0.28f, 0.31f, 0.33f));
+                }
                 bool fixedPrimaryLayout = SettingsLayoutPolicy.UseFixedPrimaryLayout(
                     AutoTranslatorSettings.ActiveTab,
                     scrollRect.width,
@@ -621,10 +650,10 @@ namespace AutoTranslator_Core
                         workbenchListing.Begin(fixedViewRect);
                         workbenchListingStarted = true;
                         workbenchListing.Gap(5f);
-                        if (AutoTranslatorSettings.ActiveTab == 0)
+                        if (AutoTranslatorSettings.ActiveTab == AutoTranslatorSettings.WorkbenchTabIndex)
                             DrawMainTab(workbenchListing, fixedViewRect);
                         else
-                            TranslationWorkbenchTab.DrawEditorTab(workbenchListing, fixedViewRect);
+                            DrawWorkflowEditorTab(workbenchListing, fixedViewRect);
                         AutoTranslatorSettings.lastSettingsViewHeight = workbenchListing.CurHeight + 10f;
                     }
                     finally
@@ -646,10 +675,14 @@ namespace AutoTranslator_Core
                         listingStarted = true;
                         l.Gap(5f);
 
-                        if (AutoTranslatorSettings.ActiveTab == 0) DrawMainTab(l, viewRect);
-                        else if (AutoTranslatorSettings.ActiveTab == 1) TranslationWorkbenchTab.DrawEditorTab(l, viewRect);
-                        else if (AutoTranslatorSettings.ActiveTab == 2) DrawCloudTab(l, viewRect);
-                        else if (AutoTranslatorSettings.ActiveTab == 3) DrawConfigTab(l, viewRect);
+                        if (AutoTranslatorSettings.ActiveTab == AutoTranslatorSettings.CloudTabIndex)
+                            DrawCloudTab(l, viewRect);
+                        else if (AutoTranslatorSettings.ActiveTab == AutoTranslatorSettings.WorkbenchTabIndex)
+                            DrawMainTab(l, viewRect);
+                        else if (AutoTranslatorSettings.ActiveTab == AutoTranslatorSettings.EditorTabIndex)
+                            DrawWorkflowEditorTab(l, viewRect);
+                        else if (AutoTranslatorSettings.ActiveTab == AutoTranslatorSettings.SettingsTabIndex)
+                            DrawConfigTab(l, viewRect);
                         AutoTranslatorSettings.lastSettingsViewHeight = l.CurHeight + 50f;
                     }
                     finally

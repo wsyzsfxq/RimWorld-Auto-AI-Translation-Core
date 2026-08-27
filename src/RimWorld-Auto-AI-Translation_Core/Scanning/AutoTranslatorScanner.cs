@@ -23,11 +23,10 @@ namespace AutoTranslator_Core
 
         // 這個欄位保存 BlacklistedModules 的執行狀態或快取資料。
         // EN: This field stores blacklisted modules runtime state or cached data.
-        private static readonly HashSet<string> BlacklistedModules = new HashSet<string>(StringComparer.OrdinalIgnoreCase) {
-            "ludeon.rimworld", "ludeon.rimworld.royalty", "ludeon.rimworld.ideology",
-            "ludeon.rimworld.biotech", "ludeon.rimworld.anomaly", "ludeon.rimworld.odyssey",
-            "auto.aitranslation.core", "aitranslation.pack"
-        };
+        private static readonly Lazy<HashSet<string>> BlacklistedModulesLazy =
+            new Lazy<HashSet<string>>(() =>
+                new HashSet<string>(NonTranslatableSystemPackages, StringComparer.OrdinalIgnoreCase));
+        private static HashSet<string> BlacklistedModules => BlacklistedModulesLazy.Value;
 
 
         private static readonly object _pendingInjectLock = new object();
@@ -43,6 +42,9 @@ namespace AutoTranslator_Core
         private static int _memoryDropGeneration = 0;
         private static MemoryDropPayload _pendingMemoryDropPayload = null;
         private static MemoryDropApplyState _activeMemoryDropApply = null;
+        private static readonly List<TaskCompletionSource<bool>> _memoryDropCompletionWaiters =
+            new List<TaskCompletionSource<bool>>();
+        private static bool _memoryDropCycleSucceeded = true;
         private static bool _pendingStaticCachedTranslationRefresh = false;
         private static readonly object _memoryDropStampLock = new object();
         private static string _lastKeyedMemoryDropStamp = null;

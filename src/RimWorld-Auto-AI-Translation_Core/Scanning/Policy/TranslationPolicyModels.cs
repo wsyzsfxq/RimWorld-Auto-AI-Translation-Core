@@ -59,6 +59,7 @@ namespace AutoTranslator_Core.TranslationPolicy
         public string KeyOrPath { get; set; }
         public string FieldName { get; set; }
         public string SourceText { get; set; }
+        public int SourceLineNumber { get; set; }
         public string DeclaringAssembly { get; set; }
         public string SchemaFingerprint { get; set; }
     }

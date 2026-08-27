@@ -7,7 +7,8 @@ namespace AutoTranslator_Core
 
         internal static bool UseFixedPrimaryLayout(int activeTab, float width, float height)
         {
-            return (activeTab == 0 || activeTab == 1) &&
+            return (activeTab == AutoTranslatorSettings.WorkbenchTabIndex ||
+                    activeTab == AutoTranslatorSettings.EditorTabIndex) &&
                    width >= FixedLayoutMinimumWidth &&
                    height >= FixedLayoutMinimumHeight;
         }

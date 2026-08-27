@@ -17,65 +17,23 @@ namespace AutoTranslator_Core
     {
         private static bool _settingsLegacyRepairRunning;
         private static bool _settingsRestoreBackupRunning;
-        private static bool _settingsFactoryResetRunning;
+        private static bool _settingsCompatibilityExpanded;
 
 
         // 這個方法負責繪製 設定分頁 介面。
         // EN: This method draws config tab.
         private void DrawConfigTab(Listing_Standard l, Rect viewRect)
         {
-
+            DrawSettingsSectionHeader(l, WfText("常用与界面显示", "General and display"));
             Widgets.CheckboxLabeled(l.GetRect(30f), "ATC_ShowWorldMainButton".Translate(), ref Settings.ShowWorldMainButton);
             l.Gap(5f);
-
-            Rect blacklistButtonRect = l.GetRect(35f);
-            if (Widgets.ButtonText(blacklistButtonRect, "ATC_Blacklist_Open".Translate(
-                    Settings.TranslationBlacklist.Count,
-                    Settings.CloudDownloadBlacklist.Count)))
-            {
-                Find.WindowStack.Add(new Window_ModBlacklists());
-            }
-            if (Mouse.IsOver(blacklistButtonRect))
-            {
-                TooltipHandler.TipRegion(blacklistButtonRect, "ATC_Blacklist_OpenTip".Translate());
-            }
-            l.Gap(10f);
-
-            if (AutoTranslatorSettings.IsRunning) GUI.color = Color.grey;
-            Widgets.CheckboxLabeled(l.GetRect(30f), "ATC_AutoClearOldOnUpdate".Translate(), ref Settings.AutoClearOldOnUpdate);
-            Widgets.CheckboxLabeled(l.GetRect(30f), "ATC_AutoTranslateOnUpdate".Translate(), ref Settings.AutoTranslateOnUpdate);
-
-            l.Gap(5f);
-            bool previousUiInterceptor = Settings.EnableUIInterceptor;
-            Widgets.CheckboxLabeled(l.GetRect(30f), "ATC_EnableUIInterceptor".Translate(), ref Settings.EnableUIInterceptor);
-            if (previousUiInterceptor != Settings.EnableUIInterceptor)
-            {
-                if (Settings.EnableUIInterceptor)
-                    Settings.EnableHardcodedUiPrototype = false;
-                TargetedHardcodedUi.HardcodedUiTargetedPatchManager.RequestReload();
-            }
-            if (!Settings.EnableUIInterceptor && !AutoTranslatorSettings.IsRunning) GUI.color = new Color(0.5f, 0.5f, 0.5f, 0.5f);
-            Widgets.CheckboxLabeled(l.GetRect(30f), "ATC_EnableUINewTranslation".Translate(), ref Settings.EnableUINewTranslation);
-            Widgets.CheckboxLabeled(l.GetRect(30f), "ATC_EnableUIErrorLogInterception".Translate(), ref Settings.EnableUIErrorLogInterception);
-            Rect debugLogRow = l.GetRect(30f);
-            Widgets.CheckboxLabeled(debugLogRow, "ATC_EnableDevelopmentDebugLogging".Translate(), ref Settings.EnableDevelopmentDebugLogging);
-            if (Mouse.IsOver(debugLogRow))
-                TooltipHandler.TipRegion(debugLogRow, "ATC_EnableDevelopmentDebugLoggingTooltip".Translate());
-            GUI.color = AutoTranslatorSettings.IsRunning ? Color.grey : Color.white;
-            Widgets.CheckboxLabeled(l.GetRect(30f), "ATC_TranslateWorkbenchModNames".Translate(), ref Settings.TranslateWorkbenchModNames);
-            if (!Settings.EnableUIInterceptor && !AutoTranslatorSettings.IsRunning) GUI.color = new Color(0.5f, 0.5f, 0.5f, 0.5f);
-            Widgets.CheckboxLabeled(l.GetRect(30f), "ATC_ShowOriginalUI".Translate(), ref Settings.ShowOriginalUI);
-            GUI.color = Color.white;
-            l.Gap(10f);
-            DrawHardcodedUiPrototypeSettings(l);
-            l.Gap(15f);
-
-
             Rect row1 = l.GetRect(30f);
-            Rect langRect = new Rect(row1.x, row1.y, row1.width * 0.4f, row1.height);
+            Rect langRect = new Rect(row1.x, row1.y, row1.width, row1.height);
             if (AutoTranslatorSettings.IsRunning) GUI.color = Color.grey;
             if (Mouse.IsOver(langRect)) TooltipHandler.TipRegion(langRect, "ATC_Tooltip_TargetLang".Translate());
-            if (Widgets.ButtonText(langRect, "ATC_TargetLang".Translate() + ": " + GetLangLabel(Settings.TargetLang)))
+            if (WorkflowUiStyle.Button(langRect,
+                    "ATC_TargetLang".Translate() + ": " + GetLangLabel(Settings.TargetLang),
+                    WorkflowButtonStyle.Quiet, !AutoTranslatorSettings.IsRunning))
             {
                 if (!AutoTranslatorSettings.IsRunning)
                 {
@@ -88,58 +46,14 @@ namespace AutoTranslator_Core
                     Find.WindowStack.Add(new FloatMenu(options));
                 }
             }
-            Rect activeScanRect = new Rect(row1.x + row1.width * 0.45f, row1.y, row1.width * 0.55f, row1.height);
-            Widgets.CheckboxLabeled(activeScanRect, "ATC_OnlyScanActive".Translate(), ref Settings.OnlyScanActiveMods);
             GUI.color = Color.white;
+            Widgets.CheckboxLabeled(l.GetRect(30f), "ATC_TranslateWorkbenchModNames".Translate(), ref Settings.TranslateWorkbenchModNames);
             l.Gap(15f);
 
-
-            Rect threadRow = l.GetRect(30f);
-            if (AutoTranslatorSettings.IsRunning) GUI.color = Color.grey;
-            Settings.MaxThreads = (int)Widgets.HorizontalSlider(
-                threadRow, Settings.MaxThreads, 1f, 30f, false,
-                $"{"ATC_MaxThreads".Translate()}: {Settings.MaxThreads}  ({"ATC_MaxThreadsTip".Translate()})", "1", "30"
-            );
-            GUI.color = Color.white;
-            l.Gap(15f);
-
-
-            Rect timeoutRow = l.GetRect(30f);
-            if (AutoTranslatorSettings.IsRunning) GUI.color = Color.grey;
-
-            if (Mouse.IsOver(timeoutRow)) TooltipHandler.TipRegion(timeoutRow, "ATC_Setting_Timeout_Tooltip".Translate());
-
-            Settings.TimeoutSeconds = (int)Widgets.HorizontalSlider(
-                timeoutRow,
-                Settings.TimeoutSeconds,
-                15f,
-                600f,
-                false,
-                "ATC_Setting_Timeout".Translate(Settings.TimeoutSeconds.ToString()),
-                "15",
-                "600"
-            );
-            GUI.color = Color.white;
-            l.Gap(15f);
-
+            DrawSettingsSectionHeader(l, WfText("AI 接口", "AI providers"));
             DrawTranslationUsageBudgetSettings(l);
             l.Gap(15f);
-
-            DrawTranslationPolicyAgentSettings(l);
-            l.Gap(15f);
-
-            DrawTerminologySettings(l);
-            l.Gap(15f);
-
-            DrawRuntimeProfilePanel(l, viewRect);
-            l.Gap(15f);
-
-
-            Text.Font = GameFont.Small;
             Widgets.Label(l.GetRect(24f), "🔧 " + "ATC_ApiConfigTitle".Translate());
-            l.Gap(2f);
-            Widgets.DrawLineHorizontal(0, l.CurHeight, viewRect.width);
-            l.Gap(5f);
 
             for (int i = 0; i < Settings.ApiConfigs.Count; i++)
             {
@@ -165,7 +79,9 @@ namespace AutoTranslator_Core
 
                 Rect rowA = l.GetRect(30f);
                 Rect providerRect = new Rect(rowA.x, rowA.y, rowA.width * 0.3f, rowA.height - 2f);
-                if (Widgets.ButtonText(providerRect, "ATC_Provider".Translate() + ": " + config.Provider))
+                if (WorkflowUiStyle.Button(providerRect,
+                        "ATC_Provider".Translate() + ": " + config.Provider,
+                        WorkflowButtonStyle.Quiet, !AutoTranslatorSettings.IsRunning))
                 {
                     if (!AutoTranslatorSettings.IsRunning)
                     {
@@ -192,7 +108,9 @@ namespace AutoTranslator_Core
 
                 Rect delRect = new Rect(rowA.x + rowA.width * 0.92f, rowA.y, rowA.width * 0.08f, rowA.height - 2f);
                 GUI.color = new Color(1f, 0.4f, 0.4f);
-                if (Settings.ApiConfigs.Count > 1 && Widgets.ButtonText(delRect, "ATC_Delete".Translate()))
+                if (Settings.ApiConfigs.Count > 1 && WorkflowUiStyle.Button(
+                        delRect, "ATC_Delete".Translate(), WorkflowButtonStyle.Stop,
+                        !AutoTranslatorSettings.IsRunning, GameFont.Tiny))
                 {
                     Settings.ApiConfigs.RemoveAt(i);
                     GUI.color = Color.white;
@@ -228,7 +146,8 @@ namespace AutoTranslator_Core
                     }
                 }
 
-                if (Widgets.ButtonText(modelBtnRect, "▼"))
+                if (WorkflowUiStyle.Button(modelBtnRect, "▼", WorkflowButtonStyle.Quiet,
+                        !AutoTranslatorSettings.IsRunning && !config.IsFetching, GameFont.Tiny))
                 {
                     if (config.FetchedModels.Count > 0 && !AutoTranslatorSettings.IsRunning && !config.IsFetching)
                     {
@@ -246,11 +165,46 @@ namespace AutoTranslator_Core
                 DrawStructuredOutputSelector(l, config, !AutoTranslatorSettings.IsRunning);
                 DrawTranslationTaskTierSelector(l, config, !AutoTranslatorSettings.IsRunning);
 
+                Rect outputLimitRow = l.GetRect(30f);
+                Rect outputLimitLabelRect = new Rect(
+                    outputLimitRow.x, outputLimitRow.y, outputLimitRow.width * 0.48f, outputLimitRow.height);
+                Rect outputLimitInputRect = new Rect(
+                    outputLimitRow.x + outputLimitRow.width * 0.5f, outputLimitRow.y,
+                    outputLimitRow.width * 0.2f, outputLimitRow.height - 2f);
+                Rect outputCapabilityRect = new Rect(
+                    outputLimitRow.x + outputLimitRow.width * 0.72f, outputLimitRow.y,
+                    outputLimitRow.width * 0.28f, outputLimitRow.height);
+                Widgets.Label(outputLimitLabelRect, "ATC_ApiMaxOutputTokens".Translate());
+                Widgets.TextFieldNumeric(
+                    outputLimitInputRect,
+                    ref config.AtcMaxOutputTokens,
+                    ref config.AtcMaxOutputTokensBuffer,
+                    1,
+                    int.MaxValue);
+                config.AtcMaxOutputTokens = Math.Max(1, config.AtcMaxOutputTokens);
+                int? knownOutputLimit = config.GetKnownOutputTokenLimit(config.SelectedModel);
+                Text.Font = GameFont.Tiny;
+                GUI.color = knownOutputLimit.HasValue && config.AtcMaxOutputTokens > knownOutputLimit.Value
+                    ? WorkflowUiStyle.WarningText
+                    : WorkflowUiStyle.MutedText;
+                Widgets.Label(
+                    outputCapabilityRect,
+                    knownOutputLimit.HasValue
+                        ? "ATC_ModelOutputCapabilityKnown".Translate(
+                            knownOutputLimit.Value,
+                            config.ResolveActualOutputTokenLimit(config.SelectedModel))
+                        : "ATC_ModelOutputCapabilityUnknown".Translate());
+                Text.Font = GameFont.Small;
+                GUI.color = AutoTranslatorSettings.IsRunning ? Color.grey : Color.white;
+                if (Mouse.IsOver(outputLimitRow))
+                    TooltipHandler.TipRegion(outputLimitRow, "ATC_ApiMaxOutputTokensTooltip".Translate());
+
                 Rect rowC = l.GetRect(24f);
                 Rect testBtnRect = new Rect(rowC.x, rowC.y + 2f, 120f, rowC.height);
                 Rect refetchBtnRect = new Rect(testBtnRect.xMax + 10f, rowC.y + 2f, 140f, rowC.height);
 
-                if (Widgets.ButtonText(refetchBtnRect, "↻ " + "ATC_RefetchModels".Translate()))
+                if (WorkflowUiStyle.Button(refetchBtnRect, "↻ " + "ATC_RefetchModels".Translate(),
+                        WorkflowButtonStyle.Quiet, !AutoTranslatorSettings.IsRunning, GameFont.Tiny))
                 {
                     if (!config.Enabled)
                     {
@@ -277,7 +231,8 @@ namespace AutoTranslator_Core
                     bool canTestConnection = !AutoTranslatorSettings.IsRunning &&
                                              !AutoTranslatorAPI.HasOutstandingTranslationWork;
                     GUI.color = canTestConnection ? new Color(0.6f, 0.9f, 0.6f) : Color.grey;
-                    if (Widgets.ButtonText(testBtnRect, "🔌 " + "ATC_TestConnection".Translate()))
+                    if (WorkflowUiStyle.Button(testBtnRect, "🔌 " + "ATC_TestConnection".Translate(),
+                            WorkflowButtonStyle.Primary, canTestConnection, GameFont.Tiny))
                     {
                         if (!config.Enabled)
                         {
@@ -299,8 +254,9 @@ namespace AutoTranslator_Core
                 l.Gap(15f);
             }
 
-            GUI.color = new Color(0.4f, 0.8f, 1f);
-            if (!AutoTranslatorSettings.IsRunning && l.ButtonText("＋ " + "ATC_AddApiBtn".Translate()))
+            Rect addApiRect = l.GetRect(35f);
+            if (WorkflowUiStyle.Button(addApiRect, "＋ " + "ATC_AddApiBtn".Translate(),
+                    WorkflowButtonStyle.Primary, !AutoTranslatorSettings.IsRunning))
             {
                 Settings.ApiConfigs.Add(new ApiKeyConfig());
             }
@@ -308,39 +264,36 @@ namespace AutoTranslator_Core
 
 
             l.Gap(20f);
-            Widgets.DrawLineHorizontal(0, l.CurHeight, viewRect.width);
-            l.Gap(10f);
+            DrawSettingsSectionHeader(l, WfText("性能与诊断", "Performance and diagnostics"));
+            DrawPerformanceAndDiagnosticsSettings(l, viewRect);
+            l.Gap(20f);
 
-            Text.Font = GameFont.Small;
-            Widgets.Label(l.GetRect(24f), "🚑 " + "ATC_EmergencyResetTitle".Translate());
+            DrawSettingsSectionHeader(l, WfText("高级兼容模式", "Advanced compatibility"));
+            DrawCompatibilitySettings(l);
+            l.Gap(20f);
 
-
-            Rect clearUIBtnRect = l.GetRect(35f);
-            GUI.color = new Color(1f, 0.7f, 0.3f);
-            if (Widgets.ButtonText(clearUIBtnRect, "🧹 " + "ATC_Btn_ClearUICache".Translate()))
-            {
-                UIInterceptor.ClearUICache();
-                Messages.Message("ATC_Msg_UICacheCleared".Translate(), MessageTypeDefOf.PositiveEvent, false);
-            }
-            l.Gap(5f);
-
+            DrawSettingsSectionHeader(l, WfText("维护与恢复", "Maintenance and recovery"));
+            Widgets.Label(l.GetRect(24f), WfText("修复旧译文格式", "Repair legacy translation format"));
             Rect repairLegacyBtnRect = l.GetRect(35f);
             GUI.color = _settingsLegacyRepairRunning ? Color.grey : new Color(0.6f, 0.9f, 0.75f);
             string repairLegacyLabel = _settingsLegacyRepairRunning
                 ? "ATC_CheckingModStatus".Translate().ToString()
                 : "🧰 " + "ATC_Btn_RepairLegacyTranslations".Translate().ToString();
-            if (Widgets.ButtonText(repairLegacyBtnRect, repairLegacyLabel) && !_settingsLegacyRepairRunning)
+            if (WorkflowUiStyle.Button(repairLegacyBtnRect, repairLegacyLabel,
+                    WorkflowButtonStyle.Quiet, !_settingsLegacyRepairRunning) && !_settingsLegacyRepairRunning)
             {
                 QueueLegacyRepairFromSettings();
             }
-            l.Gap(5f);
+            l.Gap(15f);
 
+            Widgets.Label(l.GetRect(24f), WfText("恢复最近备份", "Restore latest backup"));
             Rect restoreBtnRect = l.GetRect(35f);
             GUI.color = _settingsRestoreBackupRunning ? Color.grey : new Color(0.5f, 0.8f, 1f);
             string restoreLabel = _settingsRestoreBackupRunning
                 ? "ATC_CheckingModStatus".Translate().ToString()
                 : "↩ " + "ATC_Btn_RestoreLatestBackup".Translate().ToString();
-            if (Widgets.ButtonText(restoreBtnRect, restoreLabel) && !_settingsRestoreBackupRunning)
+            if (WorkflowUiStyle.Button(restoreBtnRect, restoreLabel,
+                    WorkflowButtonStyle.Quiet, !_settingsRestoreBackupRunning) && !_settingsRestoreBackupRunning)
             {
                 Find.WindowStack.Add(new Dialog_MessageBox(
                     "ATC_Msg_ConfirmRestoreLatestBackup".Translate(),
@@ -353,24 +306,133 @@ namespace AutoTranslator_Core
                     "ATC_Btn_RestoreLatestBackup".Translate()
                 ));
             }
-            l.Gap(5f);
+            GUI.color = Color.white;
+        }
 
+        private static void DrawSettingsSectionHeader(Listing_Standard l, string title)
+        {
+            l.Gap(10f);
+            Rect headerRect = l.GetRect(40f);
+            Widgets.DrawBoxSolid(headerRect, WorkflowUiStyle.Header);
+            WorkflowUiStyle.DrawBorder(
+                headerRect,
+                new Color(0.31f, 0.35f, 0.38f, 1f));
+            Widgets.DrawBoxSolid(
+                new Rect(headerRect.x, headerRect.y, 4f, headerRect.height),
+                WorkflowUiStyle.GoodText);
 
-            Rect resetBtnRect = l.GetRect(35f);
-            GUI.color = _settingsFactoryResetRunning ? Color.grey : new Color(1f, 0.3f, 0.3f);
-            string resetLabel = _settingsFactoryResetRunning
-                ? "ATC_CheckingModStatus".Translate().ToString()
-                : "⚠️ " + "ATC_Btn_FactoryReset".Translate().ToString();
-            if (Widgets.ButtonText(resetBtnRect, resetLabel) && !_settingsFactoryResetRunning)
+            GameFont previousFont = Text.Font;
+            TextAnchor previousAnchor = Text.Anchor;
+            Color previousColor = GUI.color;
+            Text.Font = GameFont.Medium;
+            Text.Anchor = TextAnchor.MiddleLeft;
+            GUI.color = Color.white;
+            Widgets.Label(
+                new Rect(
+                    headerRect.x + 15f,
+                    headerRect.y + 1f,
+                    headerRect.width - 25f,
+                    headerRect.height - 2f),
+                title ?? string.Empty);
+            GUI.color = previousColor;
+            Text.Anchor = previousAnchor;
+            Text.Font = previousFont;
+            l.Gap(12f);
+        }
+
+        private void DrawPerformanceAndDiagnosticsSettings(Listing_Standard l, Rect viewRect)
+        {
+            bool canEdit = !AutoTranslatorSettings.IsRunning;
+            if (!canEdit) GUI.color = Color.grey;
+            Rect threadRow = l.GetRect(30f);
+            Settings.MaxThreads = (int)Widgets.HorizontalSlider(
+                threadRow, Settings.MaxThreads, 1f, 30f, false,
+                WfText("AI API 并发请求数：", "Concurrent AI API requests: ") + Settings.MaxThreads,
+                "1", "30");
+            TooltipHandler.TipRegion(threadRow, "ATC_MaxThreadsTip".Translate());
+            l.Gap(10f);
+
+            Rect dllRow = l.GetRect(30f);
+            int dllConcurrency = Math.Max(1, Math.Min(8, Settings.DllAnalysisMaxConcurrency));
+            int selected = (int)Widgets.HorizontalSlider(
+                dllRow, dllConcurrency, 1f, 8f, false,
+                WfText("DLL 分析并发 Mod 数：", "Concurrent DLL-analysis Mods: ") + dllConcurrency,
+                "1", "8");
+            if (canEdit) Settings.DllAnalysisMaxConcurrency = Math.Max(1, Math.Min(8, selected));
+            TooltipHandler.TipRegion(
+                dllRow,
+                WfText(
+                    "限制同时分析的 Mod 数量；每个 Mod 内的 DLL 仍按顺序分析，运行时 Harmony 扫描仍全局串行。本设置不影响大模型 API 并发。",
+                    "Limits concurrent Mods. DLLs inside a Mod remain sequential and runtime Harmony scanning remains globally serialized."));
+            l.Gap(10f);
+
+            Rect timeoutRow = l.GetRect(30f);
+            Settings.TimeoutSeconds = (int)Widgets.HorizontalSlider(
+                timeoutRow, Settings.TimeoutSeconds, 15f, 600f, false,
+                "ATC_Setting_Timeout".Translate(Settings.TimeoutSeconds.ToString()), "15", "600");
+            TooltipHandler.TipRegion(timeoutRow, "ATC_Setting_Timeout_Tooltip".Translate());
+            l.Gap(10f);
+
+            Rect logRow = l.GetRect(30f);
+            if (WorkflowUiStyle.Button(
+                    logRow,
+                    "ATC_LogLevel".Translate() + ": " + GetLogLevelLabel(Settings.LogLevel),
+                    WorkflowButtonStyle.Quiet, canEdit))
             {
-                Find.WindowStack.Add(new Dialog_MessageBox(
-                    "ATC_Msg_ConfirmFactoryReset".Translate(),
-                    "ATC_Btn_Confirm".Translate(),
-                    () => { ExecuteFactoryReset(); },
-                    "ATC_Btn_Cancel".Translate(),
-                    null,
-                    "ATC_EmergencyResetTitle".Translate()
-                ));
+                List<FloatMenuOption> options = new List<FloatMenuOption>();
+                foreach (AtcLogLevel level in Enum.GetValues(typeof(AtcLogLevel)))
+                {
+                    AtcLogLevel captured = level;
+                    options.Add(new FloatMenuOption(GetLogLevelLabel(captured), () =>
+                    {
+                        Settings.LogLevel = captured;
+                        Settings.EnableDevelopmentDebugLogging = captured == AtcLogLevel.Debug;
+                    }));
+                }
+                Find.WindowStack.Add(new FloatMenu(options));
+            }
+            TooltipHandler.TipRegion(logRow, "ATC_LogLevelTooltip".Translate());
+            GUI.color = Color.white;
+
+            if (Settings.LogLevel == AtcLogLevel.Debug)
+            {
+                l.Gap(10f);
+                DrawRuntimeProfilePanel(l, viewRect);
+            }
+        }
+
+        private void DrawCompatibilitySettings(Listing_Standard l)
+        {
+            Rect toggleRect = l.GetRect(32f);
+            if (WorkflowUiStyle.Button(
+                    toggleRect,
+                    (_settingsCompatibilityExpanded ? "▼ " : "▶ ") +
+                    WfText("显示兼容选项", "Show compatibility options"),
+                    WorkflowButtonStyle.Quiet))
+                _settingsCompatibilityExpanded = !_settingsCompatibilityExpanded;
+            if (!_settingsCompatibilityExpanded) return;
+
+            l.Gap(5f);
+            bool previousInterceptor = Settings.EnableUIInterceptor;
+            Widgets.CheckboxLabeled(l.GetRect(30f), "ATC_EnableUIInterceptor".Translate(), ref Settings.EnableUIInterceptor);
+            if (previousInterceptor != Settings.EnableUIInterceptor)
+            {
+                if (Settings.EnableUIInterceptor) Settings.EnableHardcodedUiPrototype = false;
+                TargetedHardcodedUi.HardcodedUiTargetedPatchManager.RequestReload();
+            }
+            GUI.color = Settings.EnableUIInterceptor ? Color.white : Color.grey;
+            Widgets.CheckboxLabeled(l.GetRect(30f), "ATC_EnableUINewTranslation".Translate(), ref Settings.EnableUINewTranslation);
+            Widgets.CheckboxLabeled(l.GetRect(30f), "ATC_EnableUIErrorLogInterception".Translate(), ref Settings.EnableUIErrorLogInterception);
+            Widgets.CheckboxLabeled(l.GetRect(30f), "ATC_ShowOriginalUI".Translate(), ref Settings.ShowOriginalUI);
+            GUI.color = Color.white;
+            DrawHardcodedUiPrototypeSettings(l);
+
+            Rect clearRect = l.GetRect(35f);
+            GUI.color = new Color(1f, 0.7f, 0.3f);
+            if (WorkflowUiStyle.Button(clearRect, "🧹 " + "ATC_Btn_ClearUICache".Translate(), WorkflowButtonStyle.Quiet))
+            {
+                UIInterceptor.ClearUICache();
+                Messages.Message("ATC_Msg_UICacheCleared".Translate(), MessageTypeDefOf.PositiveEvent, false);
             }
             GUI.color = Color.white;
         }
@@ -417,126 +479,14 @@ namespace AutoTranslator_Core
             GUI.color = Color.white;
         }
 
-        private void DrawTranslationPolicyAgentSettings(Listing_Standard l)
+        private static string GetLogLevelLabel(AtcLogLevel level)
         {
-            bool canEdit = !AutoTranslatorSettings.IsRunning;
-            bool enabled = Settings.EnableTranslationPolicyAgent;
-            bool enableCloudCache = false;
-            int maxCallsPerRun = Math.Min(20, Math.Max(0, Settings.PolicyAgentMaxCallsPerRun));
-            long maxEstimatedTokensPerRun = Math.Min(
-                200000L,
-                Math.Max(0L, Settings.PolicyAgentMaxEstimatedTokensPerRun));
-            int maxCallsPerMod = Math.Min(20, Math.Max(0, Settings.PolicyAgentMaxCallsPerMod));
-
-            GUI.color = canEdit ? Color.white : Color.grey;
-            Rect enableRect = l.GetRect(30f);
-            Widgets.CheckboxLabeled(enableRect, "ATC_PolicyAgent_Enable".Translate(), ref enabled);
-            if (Mouse.IsOver(enableRect))
+            switch (level)
             {
-                TooltipHandler.TipRegion(enableRect, "ATC_PolicyAgent_EnableTooltip".Translate());
+                case AtcLogLevel.Error: return "ATC_LogLevel_Error".Translate();
+                case AtcLogLevel.Debug: return "ATC_LogLevel_Debug".Translate();
+                default: return "ATC_LogLevel_Info".Translate();
             }
-
-            Text.Font = GameFont.Tiny;
-            Widgets.Label(l.GetRect(42f), "ATC_PolicyAgent_SharedModelPoolNotice".Translate());
-            Text.Font = GameFont.Small;
-
-            Rect cloudCacheRect = l.GetRect(30f);
-            GUI.color = Color.grey;
-            Widgets.CheckboxLabeled(
-                cloudCacheRect,
-                "ATC_PolicyCloud_Enable".Translate(),
-                ref enableCloudCache);
-            enableCloudCache = false;
-            TooltipHandler.TipRegion(
-                cloudCacheRect,
-                "ATC_DisabledReason".Translate("ATC_PolicyCloud_ServiceUpgradePending".Translate()));
-            GUI.color = canEdit ? Color.white : Color.grey;
-
-            Rect callsPerRunRect = l.GetRect(30f);
-            maxCallsPerRun = Mathf.RoundToInt(Widgets.HorizontalSlider(
-                callsPerRunRect,
-                maxCallsPerRun,
-                0f,
-                20f,
-                false,
-                "ATC_PolicyAgent_MaxCallsPerRun".Translate(maxCallsPerRun),
-                "0",
-                "20"));
-
-            Rect tokensPerRunRect = l.GetRect(30f);
-            float tokenSliderValue = Widgets.HorizontalSlider(
-                tokensPerRunRect,
-                maxEstimatedTokensPerRun,
-                0f,
-                200000f,
-                false,
-                "ATC_PolicyAgent_MaxEstimatedTokensPerRun".Translate(maxEstimatedTokensPerRun),
-                "0",
-                "200000");
-            maxEstimatedTokensPerRun = Mathf.RoundToInt(tokenSliderValue / 10000f) * 10000L;
-
-            Rect callsPerModRect = l.GetRect(30f);
-            maxCallsPerMod = Mathf.RoundToInt(Widgets.HorizontalSlider(
-                callsPerModRect,
-                maxCallsPerMod,
-                0f,
-                20f,
-                false,
-                "ATC_PolicyAgent_MaxCallsPerMod".Translate(maxCallsPerMod),
-                "0",
-                "20"));
-
-            Text.Font = GameFont.Tiny;
-            Widgets.Label(l.GetRect(24f), "ATC_PolicyAgent_RetryNotice".Translate(Settings.PolicyAgentMaxRetriesPerRequest));
-            Widgets.Label(l.GetRect(58f), "ATC_PolicyAgent_BudgetPrompt_Notice".Translate());
-            Text.Font = GameFont.Small;
-
-            Rect clearCacheRect = l.GetRect(32f);
-            bool clearClicked = Widgets.ButtonText(clearCacheRect, "ATC_PolicyAgent_ClearCache".Translate());
-            if (clearClicked && canEdit)
-            {
-                bool cacheCleared = AutoTranslatorScanner.ClearTranslationPolicyAgentCache();
-                Messages.Message(
-                    (cacheCleared
-                        ? "ATC_PolicyAgent_CacheCleared"
-                        : "ATC_PolicyAgent_CacheClearFailed").Translate(),
-                    cacheCleared ? MessageTypeDefOf.PositiveEvent : MessageTypeDefOf.RejectInput,
-                    false);
-            }
-
-            Rect clearTranslationCacheRect = l.GetRect(32f);
-            bool clearTranslationCacheClicked = Widgets.ButtonText(
-                clearTranslationCacheRect,
-                "ATC_TranslationCache_Clear".Translate());
-            if (clearTranslationCacheClicked && canEdit)
-            {
-                bool cacheCleared = AutoTranslatorScanner.ClearValidatedTranslationResultCache();
-                Messages.Message(
-                    (cacheCleared
-                        ? "ATC_TranslationCache_Cleared"
-                        : "ATC_TranslationCache_ClearFailed").Translate(),
-                    cacheCleared ? MessageTypeDefOf.PositiveEvent : MessageTypeDefOf.RejectInput,
-                    false);
-            }
-
-            Rect sourcePriorityRect = l.GetRect(34f);
-            if (Widgets.ButtonText(sourcePriorityRect, "ATC_SourcePriority_Open".Translate()) && canEdit)
-            {
-                Find.WindowStack.Add(new Window_TranslationSourcePriority());
-            }
-
-            if (canEdit)
-            {
-                Settings.EnableTranslationPolicyAgent = enabled;
-                Settings.EnablePolicyAnalysisCloudCache = false;
-                Settings.PolicyAgentMaxCallsPerRun = Math.Min(20, Math.Max(0, maxCallsPerRun));
-                Settings.PolicyAgentMaxEstimatedTokensPerRun = Math.Min(
-                    200000L,
-                    Math.Max(0L, maxEstimatedTokensPerRun));
-                Settings.PolicyAgentMaxCallsPerMod = Math.Min(20, Math.Max(0, maxCallsPerMod));
-            }
-
-            GUI.color = Color.white;
         }
 
         private void DrawStructuredOutputSelector(Listing_Standard l, ApiKeyConfig config, bool canEdit)
@@ -550,9 +500,10 @@ namespace AutoTranslator_Core
             GUI.color = canEdit && supported ? Color.white : Color.grey;
 
             string preferenceLabel = GetStructuredOutputPreferenceLabel(config.StructuredOutput);
-            if (Widgets.ButtonText(
+            if (WorkflowUiStyle.Button(
                     selectorRect,
-                    "ATC_StructuredOutput_Label".Translate() + ": " + preferenceLabel) &&
+                    "ATC_StructuredOutput_Label".Translate() + ": " + preferenceLabel,
+                    WorkflowButtonStyle.Quiet, canEdit && supported, GameFont.Tiny) &&
                 canEdit && supported)
             {
                 List<FloatMenuOption> options = new List<FloatMenuOption>();
@@ -587,8 +538,9 @@ namespace AutoTranslator_Core
 
             GUI.color = canEdit && enabled ? Color.white : Color.gray;
             Rect configureRect = l.GetRect(34f);
-            if (Widgets.ButtonText(configureRect,
-                    "ATC_Terminology_Configure".Translate(Settings.TerminologyEnabledPackageIds.Count)) &&
+            if (WorkflowUiStyle.Button(configureRect,
+                    "ATC_Terminology_Configure".Translate(Settings.TerminologyEnabledPackageIds.Count),
+                    WorkflowButtonStyle.Quiet, canEdit && enabled) &&
                 canEdit && enabled)
                 Find.WindowStack.Add(new Window_TerminologySettings());
             GUI.color = Color.white;
@@ -605,9 +557,10 @@ namespace AutoTranslator_Core
             bool canSelectOptionalTier = hasOtherBulkFoundation;
 
             GUI.color = canEdit ? Color.white : Color.grey;
-            if (Widgets.ButtonText(
+            if (WorkflowUiStyle.Button(
                     row,
-                    "ATC_TaskTier_Label".Translate() + ": " + GetTranslationTaskTierLabel(config.TaskTier)) &&
+                    "ATC_TaskTier_Label".Translate() + ": " + GetTranslationTaskTierLabel(config.TaskTier),
+                    WorkflowButtonStyle.Quiet, canEdit, GameFont.Tiny) &&
                 canEdit)
             {
                 List<FloatMenuOption> options = new List<FloatMenuOption>
@@ -715,7 +668,10 @@ namespace AutoTranslator_Core
             bool previousEnabled = Settings.EnableHardcodedUiPrototype;
             bool enabled = previousEnabled;
             Rect enableRect = l.GetRect(30f);
-            Widgets.CheckboxLabeled(enableRect, "ATC_HardcodedUi_EnablePrototype".Translate(), ref enabled);
+            Widgets.CheckboxLabeled(
+                enableRect,
+                WfText("应用已保存的 DLL UI 译文", "Apply saved DLL UI translations"),
+                ref enabled);
             if (Mouse.IsOver(enableRect))
             {
                 TooltipHandler.TipRegion(enableRect, "ATC_HardcodedUi_EnablePrototypeTooltip".Translate());
@@ -730,34 +686,10 @@ namespace AutoTranslator_Core
                 WriteSettings();
             }
 
-            bool previousAgentEnabled = Settings.EnableTranslationPolicyAgent;
-            bool agentEnabled = previousAgentEnabled;
-            Rect agentRect = l.GetRect(30f);
-            Widgets.CheckboxLabeled(agentRect, "ATC_HardcodedUi_UseAgent".Translate(), ref agentEnabled);
-            if (Mouse.IsOver(agentRect))
-                TooltipHandler.TipRegion(agentRect, "ATC_HardcodedUi_UseAgentTooltip".Translate());
-            if (agentEnabled != previousAgentEnabled)
-            {
-                Settings.EnableTranslationPolicyAgent = agentEnabled;
-                WriteSettings();
-            }
-
             Text.Font = GameFont.Tiny;
             Widgets.Label(l.GetRect(24f), "ATC_HardcodedUi_Status".Translate(
                 TargetedHardcodedUi.HardcodedUiTargetedPatchManager.GetStatusLine()));
             Text.Font = GameFont.Small;
-
-            Rect reloadRect = l.GetRect(32f);
-            Rect workbenchRect = new Rect(reloadRect.x, reloadRect.y, reloadRect.width * 0.62f, reloadRect.height);
-            Rect reloadButtonRect = new Rect(reloadRect.x + reloadRect.width * 0.64f, reloadRect.y, reloadRect.width * 0.36f, reloadRect.height);
-            if (Widgets.ButtonText(workbenchRect, "ATC_HardcodedUi_OpenWorkbench".Translate()))
-            {
-                Find.WindowStack.Add(new Window_HardcodedUiWorkbench());
-            }
-            if (Widgets.ButtonText(reloadButtonRect, "ATC_HardcodedUi_ReloadManifest".Translate()))
-            {
-                TargetedHardcodedUi.HardcodedUiTargetedPatchManager.RequestReload();
-            }
 
         }
 
@@ -843,8 +775,8 @@ private void DrawRuntimeProfilePanel(Listing_Standard l, Rect viewRect)
         {
             var profile = AutoTranslatorAPI.GetCurrentRuntimeProfile();
             Rect panelRect = l.GetRect(78f);
-            Widgets.DrawBoxSolid(panelRect, new Color(0.06f, 0.07f, 0.08f, 0.85f));
-            Widgets.DrawBox(panelRect, 1);
+            Widgets.DrawBoxSolid(panelRect, WorkflowUiStyle.RaisedPanel);
+            WorkflowUiStyle.DrawBorder(panelRect, new Color(0.31f, 0.35f, 0.38f));
 
             Text.Font = GameFont.Tiny;
             Rect left = new Rect(panelRect.x + 8f, panelRect.y + 6f, panelRect.width * 0.5f - 10f, panelRect.height - 8f);
@@ -874,77 +806,6 @@ private void DrawRuntimeProfilePanel(Listing_Standard l, Rect viewRect)
                     UIInterceptor.GetIgnoredCount().ToString()));
 
             Text.Font = GameFont.Small;
-        }
-
-
-        // 這個方法負責執行 FactoryReset 動作。
-        // EN: This method executes factory reset.
-        private void ExecuteFactoryReset()
-        {
-            if (_settingsFactoryResetRunning) return;
-            _settingsFactoryResetRunning = true;
-
-            try
-            {
-                string packPath = AutoTranslatorScanner.GetLocalPackPath();
-                string langsPath = System.IO.Path.Combine(packPath, "Languages");
-                Task.Run(() =>
-                {
-                    Exception failure = null;
-                    try
-                    {
-                        if (System.IO.Directory.Exists(langsPath))
-                        {
-                            foreach (string file in System.IO.Directory.GetFiles(langsPath, "*", System.IO.SearchOption.AllDirectories))
-                            {
-                                System.IO.File.SetAttributes(file, System.IO.FileAttributes.Normal);
-                            }
-
-                            System.IO.Directory.Delete(langsPath, true);
-                            AutoTranslatorScanner.NotifyTranslationFilesChanged(langsPath);
-                        }
-
-                        AutoTranslatorScanner.EnsurePackInitialized(runFullMaintenance: false);
-                    }
-                    catch (Exception ex)
-                    {
-                        failure = ex;
-                    }
-
-                    ATC_Dispatcher.RunOnMainThread(() =>
-                    {
-                        _settingsFactoryResetRunning = false;
-
-                        if (failure != null)
-                        {
-                            Verse.Log.Error($"[AutoTranslationCore] Factory Reset Failed: {failure.Message}");
-                            AutoTranslatorSettings.AddErrorLog("Factory Reset Failed: " + failure.Message);
-                            return;
-                        }
-
-                        UIInterceptor.ClearUICache();
-
-
-                        AutoTranslatorMod.Settings.ModLastVerifiedTimes.Clear();
-                        AutoTranslatorMod.Settings.ModLastVerifiedFingerprints.Clear();
-                        AutoTranslatorMod.Settings.ClearPackageBlacklists();
-                        LoadedModManager.GetMod<AutoTranslatorMod>().WriteSettings();
-
-
-                        AutoTranslatorScanner.RestoreRuntimeTranslationsAfterPackReset();
-                        AutoTranslatorSettings.ClearLog();
-                        AutoTranslatorSettings.AddLog("🚑 " + "ATC_Log_FactoryResetSuccess".Translate());
-
-                        Verse.Messages.Message("ATC_Msg_FactoryResetSuccess".Translate(), RimWorld.MessageTypeDefOf.PositiveEvent, false);
-                    });
-                });
-            }
-            catch (Exception ex)
-            {
-                _settingsFactoryResetRunning = false;
-                Verse.Log.Error($"[AutoTranslationCore] Factory Reset Failed: {ex.Message}");
-                AutoTranslatorSettings.AddErrorLog("Factory Reset Failed: " + ex.Message);
-            }
         }
     }
 }

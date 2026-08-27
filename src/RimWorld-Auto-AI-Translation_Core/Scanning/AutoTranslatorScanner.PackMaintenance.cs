@@ -9,6 +9,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
+using System.Xml.Linq;
 using Verse;
 using static AutoTranslator_Core.DeleteTranslationWindow;
 // 這個檔案負責翻譯包維護與舊資料整理。
@@ -153,6 +154,14 @@ namespace AutoTranslator_Core
             }
         }
 
+        // The workflow backend owns its own exclusive synchronization task.  It
+        // only needs the generated pack storage to exist; queuing legacy pack
+        // maintenance here would create a second, uncoordinated file writer.
+        internal static void EnsureWorkflowPackStorageReady()
+        {
+            EnsurePackSkeleton();
+        }
+
         // 這個方法負責確保 翻譯包Skeleton 已準備完成。
         // EN: This method ensures pack skeleton is ready.
         private static void EnsurePackSkeleton()
@@ -162,7 +171,33 @@ namespace AutoTranslator_Core
             if (!File.Exists(aboutPath))
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(aboutPath));
-                File.WriteAllText(aboutPath, "<?xml version=\"1.0\" encoding=\"utf-8\"?><ModMetaData><name>! AutoTranslation AI Pack</name><author>Auto Translator Core</author><packageId>AITranslation.Pack</packageId><supportedVersions><li>1.6</li></supportedVersions></ModMetaData>");
+                File.WriteAllText(aboutPath, "<?xml version=\"1.0\" encoding=\"utf-8\"?><ModMetaData><name>! AutoTranslation AI Pack</name><author>Auto Translator Core</author><packageId>AITranslation.Pack</packageId><description>这是 AI Translation Core 自动生成的数据文件 Mod，用于保存本地分析数据库和游戏可加载的翻译文件。请不要在 Mod 列表中启用或加载它，以免产生重复加载、顺序冲突或翻译覆盖异常。删除此目录会清除本地分析、分类和翻译数据，系统将在下次运行时重新建立。 / Generated data pack. Do not enable this mod.</description><supportedVersions><li>1.6</li></supportedVersions></ModMetaData>");
+            }
+            EnsureGeneratedPackDescription(aboutPath);
+        }
+
+        private static void EnsureGeneratedPackDescription(string aboutPath)
+        {
+            try
+            {
+                XDocument document = XDocument.Load(aboutPath, LoadOptions.PreserveWhitespace);
+                if (document.Root == null) return;
+                const string description = "这是 AI Translation Core 自动生成的数据文件 Mod，用于保存本地分析数据库和游戏可加载的翻译文件。请不要在 Mod 列表中启用或加载它，以免产生重复加载、顺序冲突或翻译覆盖异常。删除此目录会清除本地分析、分类和翻译数据，系统将在下次运行时重新建立。 / Generated data pack. Do not enable this mod.";
+                XElement node = document.Root.Element("description");
+                if (node != null && string.Equals(node.Value, description, StringComparison.Ordinal)) return;
+                if (node == null)
+                {
+                    node = new XElement("description", description);
+                    XElement packageId = document.Root.Element("packageId");
+                    if (packageId != null) packageId.AddAfterSelf(node);
+                    else document.Root.Add(node);
+                }
+                else node.Value = description;
+                TranslationXmlAtomicFileStore.Save(aboutPath, stream => document.Save(stream));
+            }
+            catch (Exception ex)
+            {
+                Log.Warning("[AutoTranslationCore] Generated pack description update failed: " + ex.Message);
             }
         }
 

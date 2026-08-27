@@ -180,6 +180,19 @@ namespace AutoTranslator_Core
             QueueMemoryDropPreparation(false, true);
         }
 
+        public static Task<bool> RequestMemoryDropAsync()
+        {
+            TaskCompletionSource<bool> completion = new TaskCompletionSource<bool>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            lock (_pendingInjectLock)
+            {
+                if (_memoryDropCompletionWaiters.Count == 0) _memoryDropCycleSucceeded = true;
+                _memoryDropCompletionWaiters.Add(completion);
+            }
+            QueueMemoryDropPreparation(false, true);
+            return completion.Task;
+        }
+
         public static void RequestMemoryDropForPackage(string packageId)
         {
             RequestMemoryDropForPackage(packageId, null);
@@ -377,6 +390,7 @@ namespace AutoTranslator_Core
             }
             catch (Exception ex)
             {
+                lock (_pendingInjectLock) _memoryDropCycleSucceeded = false;
                 AutoTranslatorSettings.AddErrorLog("❌ " + AutoTranslatorAPI.TranslateText("ATC_LogError_MemoryDropFailed", ex.Message));
                 Log.Error($"[AutoTranslationCore] Memory Drop preparation failed: {ex.Message}");
             }
@@ -384,6 +398,7 @@ namespace AutoTranslator_Core
             {
                 Interlocked.Exchange(ref _memoryDropPrepareRunning, 0);
                 StartMemoryDropPreparationIfNeeded();
+                CompleteMemoryDropWaitersIfIdle();
             }
         }
 
@@ -949,6 +964,8 @@ namespace AutoTranslator_Core
             }
             _activeMemoryDropApply = null;
             Interlocked.Exchange(ref _startupFullMemoryDropQueued, 0);
+            lock (_pendingInjectLock) _memoryDropCycleSucceeded = false;
+            CompleteMemoryDropWaitersIfIdle();
 
             LoadedLanguage activeLang = LanguageDatabase.activeLanguage;
             if (activeLang == null)
@@ -1156,6 +1173,10 @@ namespace AutoTranslator_Core
 
             try
             {
+                if (!success)
+                {
+                    lock (_pendingInjectLock) _memoryDropCycleSucceeded = false;
+                }
                 if (success && !state.Payload.KeyedOnly && state.NeedsDataInjection)
                 {
                     LoadedLanguage activeLang = LanguageDatabase.activeLanguage;
@@ -1220,7 +1241,27 @@ namespace AutoTranslator_Core
                 }
                 Interlocked.Exchange(ref _startupFullMemoryDropQueued, 0);
                 StartMemoryDropPreparationIfNeeded();
+                CompleteMemoryDropWaitersIfIdle();
             }
+        }
+
+        private static void CompleteMemoryDropWaitersIfIdle()
+        {
+            List<TaskCompletionSource<bool>> waiters = null;
+            bool success = true;
+            lock (_pendingInjectLock)
+            {
+                bool idle = Interlocked.CompareExchange(ref _memoryDropPrepareRunning, 0, 0) == 0 &&
+                            !_pendingMemoryDrop && !_pendingKeyedMemoryDrop &&
+                            _pendingMemoryDropPackageIds.Count == 0 &&
+                            _pendingMemoryDropPayload == null && _activeMemoryDropApply == null;
+                if (!idle || _memoryDropCompletionWaiters.Count == 0) return;
+                waiters = new List<TaskCompletionSource<bool>>(_memoryDropCompletionWaiters);
+                _memoryDropCompletionWaiters.Clear();
+                success = _memoryDropCycleSucceeded;
+                _memoryDropCycleSucceeded = true;
+            }
+            foreach (TaskCompletionSource<bool> waiter in waiters) waiter.TrySetResult(success);
         }
 
         private static void ApplyMemoryDropPayloadImmediate(MemoryDropPayload payload, System.Diagnostics.Stopwatch timer)

@@ -149,39 +149,6 @@ namespace AutoTranslator_Core
                 });
             });
 
-            Task.Run(async () =>
-            {
-                await Task.Delay(10000);
-
-                if (AutoTranslatorMod.Settings.AutoTranslateOnUpdate)
-                {
-                    var updates = ModUpdateDetector.GetUpdatedOrNewModsBlocking();
-                    if (updates.Count > 0)
-                    {
-                        // Do not keep a hidden startup job armed behind a user-started
-                        // preflight/translation task. Otherwise it begins translating the
-                        // remembered mods the instant that unrelated task becomes idle.
-                        if (AutoTranslatorSettings.IsRunning ||
-                            AutoTranslatorAPI.HasOutstandingTranslationWork)
-                            return;
-
-                        ATC_Dispatcher.RunOnMainThread(() =>
-                        {
-                            if (AutoTranslatorMod.Settings == null ||
-                                !AutoTranslatorMod.Settings.AutoTranslateOnUpdate ||
-                                AutoTranslatorSettings.IsRunning ||
-                                AutoTranslatorAPI.HasOutstandingTranslationWork)
-                                return;
-
-                            AutoTranslatorSettings.ResetPipelineCancellation();
-                            AutoTranslatorSettings.AddLog(
-                                "ATC_Log_AutoStartUpdateScan".Translate(updates.Count));
-                            AutoTranslatorScanner.StartMultiScan(updates);
-                        });
-                    }
-                }
-            });
-
             var harmony = new Harmony("MingYang.AutoTranslation.UIInterceptor");
             harmony.PatchAll(typeof(UIInterceptor).Assembly);
 
