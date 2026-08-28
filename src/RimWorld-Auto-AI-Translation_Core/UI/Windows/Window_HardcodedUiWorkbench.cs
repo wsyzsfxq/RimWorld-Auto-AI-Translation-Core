@@ -86,7 +86,7 @@ namespace AutoTranslator_Core
 
             Rect modRect = new Rect(0f, 84f, inRect.width * 0.34f, 34f);
             GUI.color = _busy ? Color.grey : Color.white;
-            if (Widgets.ButtonText(modRect, _selectedMod != null ? _selectedMod.Name : "ATC_HardcodedUi_NoActiveMods".Translate().ToString()) && !_busy)
+            if (WorkflowUiStyle.Button(modRect, _selectedMod != null ? _selectedMod.Name : "ATC_HardcodedUi_NoActiveMods".Translate().ToString()) && !_busy)
             {
                 Find.WindowStack.Add(new FloatMenu(_mods.Select(mod =>
                 {
@@ -107,7 +107,7 @@ namespace AutoTranslator_Core
 
             Rect scanButtonRect = new Rect(inRect.width * 0.35f, 84f, inRect.width * 0.10f, 34f);
             GUI.color = _busy || _selectedMod == null ? Color.grey : Color.white;
-            if (Widgets.ButtonText(scanButtonRect, "ATC_HardcodedUi_Scan".Translate()) && !_busy && _selectedMod != null)
+            if (WorkflowUiStyle.Button(scanButtonRect, "ATC_HardcodedUi_Scan".Translate()) && !_busy && _selectedMod != null)
                 StartScan();
             AddDisabledReasonTooltip(scanButtonRect, _busy || _selectedMod == null,
                 _busy ? "ATC_Disabled_WorkbenchBusy".Translate().ToString() : "ATC_Disabled_NoModSelected".Translate().ToString());
@@ -116,13 +116,13 @@ namespace AutoTranslator_Core
             int enabledCount = _scanResult == null ? 0 : _scanResult.Entries.Count(IsEffectivelyEnabled);
             Rect agentButtonRect = new Rect(inRect.width * 0.46f, 84f, inRect.width * 0.12f, 34f);
             GUI.color = _busy || _scanResult == null ? Color.grey : Color.white;
-            if (Widgets.ButtonText(agentButtonRect, "ATC_HardcodedUi_AgentAnalyze".Translate()) && !_busy && _scanResult != null)
+            if (WorkflowUiStyle.Button(agentButtonRect, "ATC_HardcodedUi_AgentAnalyze".Translate()) && !_busy && _scanResult != null)
                 StartAgentAnalysis();
             AddDisabledReasonTooltip(agentButtonRect, _busy || _scanResult == null,
                 _busy ? "ATC_Disabled_WorkbenchBusy".Translate().ToString() : "ATC_Disabled_NoScanResult".Translate().ToString());
             Rect translateButtonRect = new Rect(inRect.width * 0.59f, 84f, inRect.width * 0.12f, 34f);
             GUI.color = _busy || enabledCount == 0 ? Color.grey : Color.white;
-            if (Widgets.ButtonText(translateButtonRect, "ATC_HardcodedUi_AiTranslate".Translate()) && !_busy && enabledCount > 0)
+            if (WorkflowUiStyle.Button(translateButtonRect, "ATC_HardcodedUi_AiTranslate".Translate()) && !_busy && enabledCount > 0)
                 StartAiTranslation();
             AddDisabledReasonTooltip(translateButtonRect, _busy || enabledCount == 0,
                 _busy ? "ATC_Disabled_WorkbenchBusy".Translate().ToString() : "ATC_Disabled_NoTranslatableEntries".Translate().ToString());
@@ -132,7 +132,7 @@ namespace AutoTranslator_Core
                     record.UserOverride != HardcodedUiUserOverride.None);
             Rect restoreDefaultsRect = new Rect(inRect.width * 0.72f, 84f, inRect.width * 0.12f, 34f);
             GUI.color = _busy || _scanResult == null || overrideCount == 0 ? Color.grey : Color.white;
-            if (Widgets.ButtonText(restoreDefaultsRect, "ATC_HardcodedUi_RestoreModDefaults".Translate()) &&
+            if (WorkflowUiStyle.Button(restoreDefaultsRect, "ATC_HardcodedUi_RestoreModDefaults".Translate()) &&
                 !_busy && _scanResult != null && overrideCount > 0)
                 ConfirmRestoreCurrentModDefaults(overrideCount);
             AddDisabledReasonTooltip(
@@ -146,7 +146,7 @@ namespace AutoTranslator_Core
 
             Rect saveButtonRect = new Rect(inRect.width * 0.85f, 84f, inRect.width * 0.15f, 34f);
             GUI.color = _busy || _scanResult == null ? Color.grey : Color.white;
-            if (Widgets.ButtonText(saveButtonRect, "ATC_HardcodedUi_SaveApply".Translate()) && !_busy && _scanResult != null)
+            if (WorkflowUiStyle.Button(saveButtonRect, "ATC_HardcodedUi_SaveApply".Translate()) && !_busy && _scanResult != null)
                 SaveAndApply();
             AddDisabledReasonTooltip(saveButtonRect, _busy || _scanResult == null,
                 _busy ? "ATC_Disabled_WorkbenchBusy".Translate().ToString() : "ATC_Disabled_NoScanResult".Translate().ToString());
@@ -198,7 +198,7 @@ namespace AutoTranslator_Core
                 Widgets.EndScrollView();
             }
 
-            if (Widgets.ButtonText(new Rect(inRect.width - 160f, inRect.height - 42f, 160f, 36f), "CloseButton".Translate()))
+            if (WorkflowUiStyle.Button(new Rect(inRect.width - 160f, inRect.height - 42f, 160f, 36f), "CloseButton".Translate()))
                 Close();
         }
 
@@ -213,7 +213,7 @@ namespace AutoTranslator_Core
                     : _decisionFilter == DecisionFilter.Uncertain
                         ? "ATC_Filter_DecisionUncertain".Translate().ToString()
                         : "ATC_Filter_AllDecisions".Translate().ToString();
-            if (Widgets.ButtonText(new Rect(rect.x, rect.y, buttonWidth, rect.height), decisionLabel))
+            if (WorkflowUiStyle.Button(new Rect(rect.x, rect.y, buttonWidth, rect.height), decisionLabel))
             {
                 Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption>
                 {
@@ -229,7 +229,7 @@ namespace AutoTranslator_Core
                 : _translationFilter == TranslationFilter.Untranslated
                     ? "ATC_Filter_Untranslated".Translate().ToString()
                     : "ATC_Filter_AllTranslationStates".Translate().ToString();
-            if (Widgets.ButtonText(new Rect(rect.x + buttonWidth + gap, rect.y, buttonWidth, rect.height), translationLabel))
+            if (WorkflowUiStyle.Button(new Rect(rect.x + buttonWidth + gap, rect.y, buttonWidth, rect.height), translationLabel))
             {
                 Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption>
                 {
@@ -301,7 +301,7 @@ namespace AutoTranslator_Core
             string decisionSymbol = decision.EffectiveDecision == HardcodedUiAutomaticDecision.Translate
                 ? "✓"
                 : decision.EffectiveDecision == HardcodedUiAutomaticDecision.DoNotTranslate ? "✕" : "?";
-            bool decisionClicked = Widgets.ButtonText(decisionButtonRect, decisionSymbol);
+            bool decisionClicked = WorkflowUiStyle.Button(decisionButtonRect, decisionSymbol);
             GUI.color = Color.white;
             TooltipHandler.TipRegion(decisionButtonRect, "ATC_HardcodedUi_ChangeDecision".Translate());
             AddDisabledReasonTooltip(decisionButtonRect, _busy, "ATC_Disabled_WorkbenchBusy".Translate().ToString());
@@ -335,7 +335,7 @@ namespace AutoTranslator_Core
                     decision.AutomaticReasonCode) + overrideText);
             GUI.color = Color.white;
             if (decision.UserOverride != HardcodedUiUserOverride.None &&
-                Widgets.ButtonText(new Rect(rect.xMax - 116f, rect.y + 18f, 112f, 22f),
+                WorkflowUiStyle.Button(new Rect(rect.xMax - 116f, rect.y + 18f, 112f, 22f),
                     "ATC_HardcodedUi_RestoreAutomatic".Translate()))
             {
                 decision.RestoreAutomaticDecision();
@@ -409,13 +409,14 @@ namespace AutoTranslator_Core
         private void ConfirmRestoreCurrentModDefaults(int overrideCount)
         {
             string modName = _selectedMod != null ? _selectedMod.Name : string.Empty;
-            Find.WindowStack.Add(new Dialog_MessageBox(
+            Find.WindowStack.Add(new Window_AtcDialog(
                 "ATC_HardcodedUi_RestoreModDefaultsConfirm".Translate(modName, overrideCount),
                 "ATC_Btn_Confirm".Translate(),
                 RestoreCurrentModDefaults,
                 "ATC_Btn_Cancel".Translate(),
                 null,
-                "ATC_HardcodedUi_RestoreModDefaults".Translate()));
+                "ATC_HardcodedUi_RestoreModDefaults".Translate(),
+                true));
         }
 
         private void RestoreCurrentModDefaults()

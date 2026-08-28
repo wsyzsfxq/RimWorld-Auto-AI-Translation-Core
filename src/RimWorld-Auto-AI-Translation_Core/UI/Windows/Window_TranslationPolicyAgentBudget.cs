@@ -49,15 +49,18 @@ namespace AutoTranslator_Core
                 Rect localOnlyRect = new Rect(buttonWidth + 10f, buttonY, buttonWidth, 40f);
                 Rect cancelRect = new Rect((buttonWidth + 10f) * 2f, buttonY, buttonWidth, 40f);
 
-                if (Widgets.ButtonText(continueRect, "ATC_PolicyAgent_BudgetPrompt_Continue".Translate()))
+                if (WorkflowUiStyle.Button(continueRect, "ATC_PolicyAgent_BudgetPrompt_Continue".Translate(),
+                        WorkflowButtonStyle.Primary))
                 {
                     Resolve(TranslationPolicyAgentConsentDecision.ContinueWithAgent);
                 }
-                if (Widgets.ButtonText(localOnlyRect, "ATC_PolicyAgent_BudgetPrompt_LocalOnly".Translate()))
+                if (WorkflowUiStyle.Button(localOnlyRect, "ATC_PolicyAgent_BudgetPrompt_LocalOnly".Translate(),
+                        WorkflowButtonStyle.Quiet))
                 {
                     Resolve(TranslationPolicyAgentConsentDecision.LocalOnly);
                 }
-                if (Widgets.ButtonText(cancelRect, "ATC_PolicyAgent_BudgetPrompt_Cancel".Translate()))
+                if (WorkflowUiStyle.Button(cancelRect, "ATC_PolicyAgent_BudgetPrompt_Cancel".Translate(),
+                        WorkflowButtonStyle.Quiet))
                 {
                     Resolve(TranslationPolicyAgentConsentDecision.Cancel);
                 }

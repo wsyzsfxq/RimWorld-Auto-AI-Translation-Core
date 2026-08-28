@@ -89,6 +89,9 @@ namespace AutoTranslator_Core
             }
 
             l.Gap(6f);
+            DrawCloudListTypeFilters(l);
+
+            l.Gap(6f);
             Rect downloadRow = l.GetRect(34f);
             if (!AutoTranslatorSettings.IsFetchingCloud)
             {
@@ -103,8 +106,8 @@ namespace AutoTranslator_Core
                 if (Mouse.IsOver(bestAvailableRect))
                 {
                     TooltipHandler.TipRegion(bestAvailableRect,
-                        WfText("按当前范围批量下载。云端选择顺序：官方译文 > 人工精翻 > AI 译文；同类取最新版本。本地手动翻译保持最高优先级。",
-                            "Batch download for the current scope. Cloud priority: official > human-curated > AI; newest wins within the same type. Local manual translations remain highest priority."));
+                        WfText("按当前范围批量下载。云端选择顺序：汉化组精翻 > 人工精翻 > AI 译文；同类取最新版本。本地手动翻译保持最高优先级。",
+                            "Batch download for the current scope. Cloud priority: translation-group curated > human-curated > AI; newest wins within the same type. Local manual translations remain highest priority."));
                 }
 
                 string optionsLabel = AutoTranslatorSettings.CloudDownloadOptionsExpanded
@@ -122,7 +125,7 @@ namespace AutoTranslator_Core
             {
                 Rect downloadOptionsRow = l.GetRect(32f);
                 if (WorkflowUiStyle.Button(new Rect(downloadOptionsRow.x, downloadOptionsRow.y, 180f, 30f),
-                        WfText("仅下载官方译文", "Official only"), WorkflowButtonStyle.Quiet))
+                        WfText("仅下载汉化组精翻", "Translation-group only"), WorkflowButtonStyle.Quiet))
                     ExecuteBatchDownload("Official_Group");
                 if (WorkflowUiStyle.Button(new Rect(downloadOptionsRow.x + 190f, downloadOptionsRow.y, 180f, 30f),
                         WfText("仅下载人工精翻", "Human-curated only"), WorkflowButtonStyle.Quiet))
@@ -273,6 +276,104 @@ namespace AutoTranslator_Core
             AutoTranslatorSettings.mainScrollPos = Vector2.zero;
         }
 
+        private const int CloudListTypeTranslationGroup = 1;
+        private const int CloudListTypeHumanCurated = 2;
+        private const int CloudListTypeAi = 4;
+        private const int CloudListTypeAll = CloudListTypeTranslationGroup | CloudListTypeHumanCurated | CloudListTypeAi;
+
+        private static void DrawCloudListTypeFilters(Listing_Standard l)
+        {
+            Rect row = l.GetRect(32f);
+            Widgets.Label(new Rect(row.x, row.y + 6f, 110f, 24f),
+                WfText("线上译文类型", "Online type"));
+
+            int mask = NormalizeCloudListTypeMask(AutoTranslatorSettings.CloudListTranslationTypeMask);
+            if (DrawCloudListTypeFilterOption(new Rect(row.x + 110f, row.y, 150f, 30f),
+                    WfText("全部线上译文", "All online"), mask == CloudListTypeAll))
+            {
+                SetCloudListTypeMask(CloudListTypeAll);
+            }
+            if (DrawCloudListTypeFilterOption(new Rect(row.x + 270f, row.y, 160f, 30f),
+                    WfText("汉化组精翻", "Translation group"),
+                    mask != CloudListTypeAll && (mask & CloudListTypeTranslationGroup) != 0))
+            {
+                ToggleCloudListTypeMask(CloudListTypeTranslationGroup);
+            }
+            if (DrawCloudListTypeFilterOption(new Rect(row.x + 440f, row.y, 150f, 30f),
+                    WfText("人工精翻", "Human-curated"),
+                    mask != CloudListTypeAll && (mask & CloudListTypeHumanCurated) != 0))
+            {
+                ToggleCloudListTypeMask(CloudListTypeHumanCurated);
+            }
+            if (DrawCloudListTypeFilterOption(new Rect(row.x + 600f, row.y, 130f, 30f),
+                    WfText("AI 译文", "AI"),
+                    mask != CloudListTypeAll && (mask & CloudListTypeAi) != 0))
+            {
+                ToggleCloudListTypeMask(CloudListTypeAi);
+            }
+        }
+
+        private static bool DrawCloudListTypeFilterOption(Rect rect, string label, bool selected)
+        {
+            return WorkflowUiStyle.Button(
+                rect,
+                (selected ? "✓ " : string.Empty) + label,
+                selected ? WorkflowButtonStyle.Primary : WorkflowButtonStyle.Quiet);
+        }
+
+        private static void ToggleCloudListTypeMask(int bit)
+        {
+            int current = NormalizeCloudListTypeMask(AutoTranslatorSettings.CloudListTranslationTypeMask);
+            int next = current == CloudListTypeAll ? bit : current ^ bit;
+            SetCloudListTypeMask(next == 0 ? CloudListTypeAll : next);
+        }
+
+        private static void SetCloudListTypeMask(int mask)
+        {
+            AutoTranslatorSettings.CloudListTranslationTypeMask = NormalizeCloudListTypeMask(mask);
+            _cachedCloudDisplayMods = null;
+            _cachedOwnCloudRecords = null;
+            AutoTranslatorSettings.SelectedCloudVersion.Clear();
+            AutoTranslatorSettings.mainScrollPos = Vector2.zero;
+        }
+
+        private static int NormalizeCloudListTypeMask(int mask)
+        {
+            int normalized = mask & CloudListTypeAll;
+            return normalized == 0 ? CloudListTypeAll : normalized;
+        }
+
+        private static bool CloudRecordMatchesListTypeFilter(CloudModRecord record)
+        {
+            if (record == null) return false;
+            int recordMask;
+            if (string.Equals(record.TranslationType, "Official_Group", StringComparison.OrdinalIgnoreCase))
+                recordMask = CloudListTypeTranslationGroup;
+            else if (string.Equals(record.TranslationType, "Manual", StringComparison.OrdinalIgnoreCase))
+                recordMask = CloudListTypeHumanCurated;
+            else if (string.Equals(record.TranslationType, "AI_Auto", StringComparison.OrdinalIgnoreCase))
+                recordMask = CloudListTypeAi;
+            else
+                return false;
+
+            return (NormalizeCloudListTypeMask(AutoTranslatorSettings.CloudListTranslationTypeMask) & recordMask) != 0;
+        }
+
+        private static string GetCloudListTypeFilterLabel()
+        {
+            int mask = NormalizeCloudListTypeMask(AutoTranslatorSettings.CloudListTranslationTypeMask);
+            if (mask == CloudListTypeAll) return WfText("全部线上译文", "All online translations");
+
+            List<string> labels = new List<string>();
+            if ((mask & CloudListTypeTranslationGroup) != 0)
+                labels.Add(WfText("汉化组精翻", "Translation group"));
+            if ((mask & CloudListTypeHumanCurated) != 0)
+                labels.Add(WfText("人工精翻", "Human-curated"));
+            if ((mask & CloudListTypeAi) != 0)
+                labels.Add(WfText("AI 译文", "AI"));
+            return WfText("线上译文：", "Online: ") + string.Join("、", labels);
+        }
+
         // 這個方法負責繪製 上傳TypeOption 介面。
         // EN: This method draws upload type option.
         private static bool DrawUploadTypeOption(Rect rect, string label, bool selected)
@@ -317,7 +418,10 @@ namespace AutoTranslator_Core
         {
 
 
-            if (_cachedCloudLookup == null || _lastCloudRegistryCount != AutoTranslatorSettings.CloudRegistry.Count || _lastCloudLangFolder != targetLangFolder)
+            if (_cachedCloudLookup == null ||
+                _lastCloudRegistryCount != AutoTranslatorSettings.CloudRegistry.Count ||
+                _lastCloudRegistryGeneration != AutoTranslatorSettings.CloudFetchGeneration ||
+                _lastCloudLangFolder != targetLangFolder)
             {
                 _cachedCloudLookup = new Dictionary<string, List<CloudModRecord>>(StringComparer.OrdinalIgnoreCase);
                 foreach (var record in AutoTranslatorSettings.CloudRegistry)
@@ -342,6 +446,7 @@ namespace AutoTranslator_Core
                 }
 
                 _lastCloudRegistryCount = AutoTranslatorSettings.CloudRegistry.Count;
+                _lastCloudRegistryGeneration = AutoTranslatorSettings.CloudFetchGeneration;
                 _lastCloudLangFolder = targetLangFolder;
             }
             var cloudLookup = _cachedCloudLookup;
@@ -360,7 +465,7 @@ namespace AutoTranslator_Core
                 List<CloudModRecord> allVersions;
                 if (cloudLookup.TryGetValue(mod.PackageId, out var foundList))
                 {
-                    allVersions = foundList;
+                    allVersions = foundList.Where(CloudRecordMatchesListTypeFilter).ToList();
                 }
                 else
                 {
@@ -407,13 +512,13 @@ namespace AutoTranslator_Core
                         statusColor = new Color(0.75f, 0.75f, 0.75f);
                     }
                 }
-                else if (cloudRecord.TranslationType == "Official_Group" || cloudRecord.IsVerified)
+                else if (IsTranslationGroupCloudRecord(cloudRecord))
                 {
                     statusText = "ATC_Cloud_Status_Official".Translate();
                     statusColor = new Color(1f, 0.8f, 0.2f);
                     canDownload = true;
                 }
-                else if (cloudRecord.TranslationType == "Manual")
+                else if (string.Equals(cloudRecord.TranslationType, "Manual", StringComparison.OrdinalIgnoreCase))
                 {
                     statusText = "ATC_Cloud_Status_Manual".Translate();
                     statusColor = new Color(0.4f, 1f, 0.4f);
@@ -431,6 +536,9 @@ namespace AutoTranslator_Core
                     statusColor = new Color(0.4f, 0.8f, 1f);
                     canDownload = true;
                 }
+
+                if (cloudRecord != null && cloudRecord.IsVerified)
+                    statusText += WfText(" · 已审核", " · Verified");
 
                 if (downloadBlacklisted)
                 {
@@ -481,7 +589,7 @@ namespace AutoTranslator_Core
                             "Manual translations saved through the translation editor and recorded in the V4 database will be restored after download. " +
                             "Direct XML edits that have not been synchronized with Refresh Status may be overwritten.\n\n" +
                             "Refreshing status in Translation Workbench first is recommended. Start download anyway?");
-                        Find.WindowStack.Add(new Dialog_MessageBox(
+                        Find.WindowStack.Add(new Window_AtcDialog(
                             message,
                             WfText("确认下载", "Download"),
                             () => StartPreparedBatchDownload(

@@ -118,7 +118,7 @@ namespace AutoTranslator_Core
                     GUI.color = Color.white;
 
 
-                    if (Widgets.ButtonText(new Rect(inRect.width / 2f - 75f, inRect.height - 60f, 150f, 40f), "ATC_Btn_Cancel".Translate()))
+                    if (WorkflowUiStyle.Button(new Rect(inRect.width / 2f - 75f, inRect.height - 60f, 150f, 40f), "ATC_Btn_Cancel".Translate()))
                     {
                         this.Close();
                     }
@@ -210,16 +210,18 @@ namespace AutoTranslator_Core
                 float btnY = inRect.height - 35f;
 
 
-                GUI.color = new Color(1f, 0.5f, 0.5f);
-                if (!_isSavingChanges && Widgets.ButtonText(new Rect(0, btnY, 130f, 35f), "ATC_Btn_Cancel".Translate()))
+                if (WorkflowUiStyle.Button(new Rect(0, btnY, 130f, 35f),
+                        "ATC_Btn_Cancel".Translate(), WorkflowButtonStyle.Quiet, !_isSavingChanges))
                 {
                     this.Close();
                 }
 
 
-                if (_isEditable) GUI.color = Color.yellow;
-                else GUI.color = new Color(0.7f, 0.7f, 1f);
-                if (Widgets.ButtonText(new Rect(145f, btnY, 150f, 35f), _isEditable ? "✍️ " + "ATC_Upload_EditingMode".Translate() : "⚙️ " + "ATC_Upload_UnlockEdit".Translate()))
+                if (WorkflowUiStyle.Button(
+                        new Rect(145f, btnY, 150f, 35f),
+                        _isEditable ? "✍️ " + "ATC_Upload_EditingMode".Translate() : "⚙️ " + "ATC_Upload_UnlockEdit".Translate(),
+                        _isEditable ? WorkflowButtonStyle.ActiveTab : WorkflowButtonStyle.Quiet,
+                        !_isSavingChanges))
                 {
                     if (!_isSavingChanges) _isEditable = !_isEditable;
                 }
@@ -229,9 +231,11 @@ namespace AutoTranslator_Core
                 bool hasValidLog = !string.IsNullOrWhiteSpace(_updateLogText) && _updateLogText.Trim().Length >= 5;
                 bool canUpload = (isAdmin || hasValidLog) && !_isSavingChanges;
 
-                GUI.color = canUpload ? new Color(0.4f, 1f, 0.4f) : new Color(0.5f, 0.5f, 0.5f);
-
-                if (Widgets.ButtonText(new Rect(inRect.width - 180f, btnY, 180f, 35f), "🚀 " + "ATC_Upload_ConfirmUploadBtn".Translate()))
+                if (WorkflowUiStyle.Button(
+                        new Rect(inRect.width - 180f, btnY, 180f, 35f),
+                        "🚀 " + "ATC_Upload_ConfirmUploadBtn".Translate(),
+                        WorkflowButtonStyle.Primary,
+                        canUpload))
                 {
                     if (_isSavingChanges) return;
                     if (!canUpload)
@@ -268,7 +272,7 @@ namespace AutoTranslator_Core
             }
 
             string modName = string.IsNullOrWhiteSpace(_modName) ? _mod.Name : _modName;
-            Find.WindowStack.Add(new Dialog_MessageBox(
+            Find.WindowStack.Add(new Window_AtcDialog(
                 "ATC_Msg_AiUploadNoCleanEntriesWithRebuild".Translate(modName),
                 "ATC_Btn_PureAiRebuildForUpload".Translate(),
                 () =>

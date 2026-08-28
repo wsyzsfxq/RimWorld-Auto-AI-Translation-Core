@@ -25,7 +25,7 @@ namespace AutoTranslator_Core
 
         private enum CloudBatchDownloadMode
         {
-            Official,
+            TranslationGroup,
             Manual,
             AI,
             Best
@@ -226,7 +226,7 @@ namespace AutoTranslator_Core
                         "Manual translations saved through the translation editor and recorded in the V4 database will be restored after download. " +
                         "Direct XML edits that have not been synchronized with Refresh Status may be overwritten.\n\n" +
                         "Refreshing status in Translation Workbench first is recommended. Start download anyway?");
-                    Find.WindowStack.Add(new Dialog_MessageBox(
+                    Find.WindowStack.Add(new Window_AtcDialog(
                         message,
                         WfText("确认下载", "Download"),
                         () =>
@@ -305,7 +305,7 @@ namespace AutoTranslator_Core
 
         private static CloudBatchDownloadMode ParseBatchDownloadMode(string targetType)
         {
-            if (string.Equals(targetType, "Official_Group", StringComparison.OrdinalIgnoreCase)) return CloudBatchDownloadMode.Official;
+            if (string.Equals(targetType, "Official_Group", StringComparison.OrdinalIgnoreCase)) return CloudBatchDownloadMode.TranslationGroup;
             if (string.Equals(targetType, "Manual", StringComparison.OrdinalIgnoreCase)) return CloudBatchDownloadMode.Manual;
             if (string.Equals(targetType, "Best", StringComparison.OrdinalIgnoreCase)) return CloudBatchDownloadMode.Best;
             return CloudBatchDownloadMode.AI;
@@ -315,14 +315,14 @@ namespace AutoTranslator_Core
         {
             switch (mode)
             {
-                case CloudBatchDownloadMode.Official:
-                    return WfText("仅官方译文", "Official only");
+                case CloudBatchDownloadMode.TranslationGroup:
+                    return WfText("仅汉化组精翻", "Translation-group only");
                 case CloudBatchDownloadMode.Manual:
                     return WfText("仅人工精翻", "Human-curated only");
                 case CloudBatchDownloadMode.AI:
                     return WfText("仅 AI 译文", "AI only");
                 default:
-                    return WfText("最佳可用：官方 > 人工精翻 > AI", "Best available: official > human-curated > AI");
+                    return WfText("最佳可用：汉化组精翻 > 人工精翻 > AI", "Best available: translation-group curated > human-curated > AI");
             }
         }
 
@@ -339,8 +339,8 @@ namespace AutoTranslator_Core
 
             switch (mode)
             {
-                case CloudBatchDownloadMode.Official:
-                    return IsOfficialCloudRecord(record);
+                case CloudBatchDownloadMode.TranslationGroup:
+                    return IsTranslationGroupCloudRecord(record);
                 case CloudBatchDownloadMode.Manual:
                     return string.Equals(record.TranslationType, "Manual", StringComparison.OrdinalIgnoreCase);
                 case CloudBatchDownloadMode.Best:
@@ -351,10 +351,10 @@ namespace AutoTranslator_Core
             }
         }
 
-        private static bool IsOfficialCloudRecord(CloudModRecord record)
+        private static bool IsTranslationGroupCloudRecord(CloudModRecord record)
         {
             return record != null &&
-                   (record.IsVerified || string.Equals(record.TranslationType, "Official_Group", StringComparison.OrdinalIgnoreCase));
+                   string.Equals(record.TranslationType, "Official_Group", StringComparison.OrdinalIgnoreCase);
         }
 
         private static CloudModRecord SelectBatchDownloadRecord(IEnumerable<CloudModRecord> records, CloudBatchDownloadMode mode)
@@ -375,7 +375,7 @@ namespace AutoTranslator_Core
 
         private static int GetBatchRecordPriority(CloudModRecord record)
         {
-            if (IsOfficialCloudRecord(record)) return 3;
+            if (IsTranslationGroupCloudRecord(record)) return 3;
             if (record != null && string.Equals(record.TranslationType, "Manual", StringComparison.OrdinalIgnoreCase)) return 2;
             if (record != null && string.Equals(record.TranslationType, "AI_Auto", StringComparison.OrdinalIgnoreCase)) return 1;
             return 0;
@@ -475,11 +475,13 @@ namespace AutoTranslator_Core
                                     " record=" + (queuedItem.Record?.RecordId ?? string.Empty));
                             }
                             Task<BatchDownloadExecutionResult>[] downloads = chunkItems
-                                .Select(item => DownloadPreparedBatchItemAsync(
+                                .Select((item, chunkIndex) => DownloadPreparedBatchItemAsync(
                                     item,
                                     targetLangStr,
                                     semaphore,
-                                    taskLease.CancellationToken))
+                                    taskLease.CancellationToken,
+                                    chunkStart + chunkIndex + 1,
+                                    totalCount))
                                 .ToArray();
                             BatchDownloadExecutionResult[] chunkResults = await Task.WhenAll(downloads);
 
@@ -648,7 +650,9 @@ namespace AutoTranslator_Core
             BatchDownloadItem item,
             string targetLangStr,
             System.Threading.SemaphoreSlim semaphore,
-            System.Threading.CancellationToken cancellationToken)
+            System.Threading.CancellationToken cancellationToken,
+            int currentNumber,
+            int totalCount)
         {
             bool acquired = false;
             try
@@ -656,6 +660,9 @@ namespace AutoTranslator_Core
                 await semaphore.WaitAsync(cancellationToken);
                 acquired = true;
                 cancellationToken.ThrowIfCancellationRequested();
+                AutoTranslatorSettings.AddLog(
+                    "▶ " + WfText("云端下载", "Cloud download") +
+                    " · " + currentNumber + "/" + totalCount + " · " + item.DisplayName);
                 var clearTarget = new AutoTranslatorScanner.LocalTranslationDeleteTarget
                 {
                     PackageId = item.PackageId,
@@ -1062,7 +1069,7 @@ namespace AutoTranslator_Core
                         "Preview: " + uploadPreview + "\n" +
                         "Update note: " + updateLogState + "\n\n" +
                         "Confirm that the source, language, and category are correct. Start upload?");
-                    Find.WindowStack.Add(new Dialog_MessageBox(
+                    Find.WindowStack.Add(new Window_AtcDialog(
                         message,
                         WfText("确认上传", "Upload"),
                         () =>
@@ -1441,10 +1448,10 @@ namespace AutoTranslator_Core
         }
         // 這個方法負責清理並標準化 雲端上傳Type 內容。
         // EN: This method cleans and normalizes cloud upload type.
-        internal static string NormalizeCloudUploadType(string uploadType, bool allowOfficial = true)
+        internal static string NormalizeCloudUploadType(string uploadType, bool allowTranslationGroup = true)
         {
             if (uploadType == "Manual") return uploadType;
-            if (uploadType == "Official_Group" && allowOfficial) return uploadType;
+            if (uploadType == "Official_Group" && allowTranslationGroup) return uploadType;
             return "AI_Auto";
         }
 

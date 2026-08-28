@@ -1564,13 +1564,14 @@ namespace AutoTranslator_Core
                         "Current analysis results, translation files on disk, and model settings will not be deleted. " +
                         "The database will be compacted afterward and this may take several minutes.\n\n" +
                         "Deleted expired data cannot be recovered. Continue?");
-                    Find.WindowStack.Add(new Dialog_MessageBox(
+                    Find.WindowStack.Add(new Window_AtcDialog(
                         message,
                         WfText("确认永久删除", "Permanently delete"),
                         StartExpiredDataCleanup,
                         WfText("取消", "Cancel"),
                         null,
-                        WfText("清理过期数据", "Clean expired data")));
+                        WfText("清理过期数据", "Clean expired data"),
+                        true));
                 });
             }
             catch (Exception ex)
@@ -1616,6 +1617,130 @@ namespace AutoTranslator_Core
                 return;
             }
             Application.OpenURL("file:///" + path.Replace('\\', '/'));
+        }
+
+        private static void DrawOutlinedProgressLabel(Rect rect, string text, GameFont font)
+        {
+            TextAnchor oldAnchor = Text.Anchor;
+            GameFont oldFont = Text.Font;
+            Color oldColor = GUI.color;
+            Text.Anchor = TextAnchor.MiddleCenter;
+            Text.Font = font;
+            GUI.color = new Color(0f, 0f, 0f, 0.95f);
+            Widgets.Label(new Rect(rect.x - 1f, rect.y, rect.width, rect.height), text);
+            Widgets.Label(new Rect(rect.x + 1f, rect.y, rect.width, rect.height), text);
+            Widgets.Label(new Rect(rect.x, rect.y - 1f, rect.width, rect.height), text);
+            Widgets.Label(new Rect(rect.x, rect.y + 1f, rect.width, rect.height), text);
+            GUI.color = Color.white;
+            Widgets.Label(rect, text);
+            GUI.color = oldColor;
+            Text.Font = oldFont;
+            Text.Anchor = oldAnchor;
+        }
+
+        private void DrawLogView(Rect rect, List<string> logs, ref Vector2 scrollPos, bool isErrorBox)
+        {
+            const int runtimeDisplayLimit = 180;
+            const int errorDisplayLimit = 80;
+            int displayLimit = isErrorBox ? errorDisplayLimit : runtimeDisplayLimit;
+            float calcWidth = Mathf.Max(1f, rect.width - 20f);
+            float cacheWidth = Mathf.Round(calcWidth);
+            LogViewCache cache = isErrorBox ? _errorLogViewCache : _runtimeLogViewCache;
+            List<string> snapshot = null;
+            bool sourceCountChanged;
+
+            lock (AutoTranslatorSettings.logLock)
+            {
+                int start = Math.Max(0, logs.Count - displayLimit);
+                string firstLine = logs.Count > 0 ? logs[start] : "";
+                string lastLine = logs.Count > 0 ? logs[logs.Count - 1] : "";
+                sourceCountChanged = cache.SourceCount != logs.Count;
+                bool needsRebuild =
+                    sourceCountChanged ||
+                    !Mathf.Approximately(cache.Width, cacheWidth) ||
+                    !string.Equals(cache.FirstLine, firstLine, StringComparison.Ordinal) ||
+                    !string.Equals(cache.LastLine, lastLine, StringComparison.Ordinal);
+
+                if (needsRebuild)
+                {
+                    snapshot = new List<string>(logs.Count - start);
+                    for (int i = start; i < logs.Count; i++)
+                    {
+                        snapshot.Add(logs[i]);
+                    }
+
+                    cache.SourceCount = logs.Count;
+                    cache.FirstLine = firstLine;
+                    cache.LastLine = lastLine;
+                    cache.Width = cacheWidth;
+                }
+            }
+
+            Text.Font = GameFont.Tiny;
+            if (snapshot != null)
+            {
+                cache.DisplayLogs.Clear();
+                cache.Heights.Clear();
+                cache.TotalHeight = 0f;
+                foreach (string log in snapshot)
+                {
+                    float height = Text.CalcHeight(log, calcWidth);
+                    cache.DisplayLogs.Add(log);
+                    cache.Heights.Add(height);
+                    cache.TotalHeight += height;
+                }
+            }
+
+            List<string> displayLogs = cache.DisplayLogs;
+            List<float> heights = cache.Heights;
+            float totalHeight = cache.TotalHeight;
+            float contentHeight = Mathf.Max(totalHeight, rect.height);
+            Rect viewRect = new Rect(0, 0, rect.width - 20f, contentHeight);
+
+            float scrollBeforeInput = scrollPos.y;
+            Widgets.BeginScrollView(rect, ref scrollPos, viewRect);
+            float currentY = 0f;
+
+            for (int i = 0; i < displayLogs.Count; i++)
+            {
+                string log = displayLogs[i];
+                float height = heights[i];
+                Rect lineRect = new Rect(5f, currentY, viewRect.width, height);
+                currentY += height;
+
+                if (lineRect.yMax < scrollPos.y || lineRect.y > scrollPos.y + rect.height)
+                {
+                    continue;
+                }
+
+                if (isErrorBox || log.Contains("❌") || log.Contains("⚠️") || log.Contains("🛑"))
+                    GUI.color = new Color(1f, 0.4f, 0.4f);
+                else if (log.Contains("✅") || log.Contains("✨") || log.Contains("🎉"))
+                    GUI.color = new Color(0.4f, 1f, 0.4f);
+                else if (log.Contains("⚙️") || log.Contains("🔌") || log.Contains("🔄") || log.Contains("⏭️"))
+                    GUI.color = new Color(1f, 0.8f, 0.4f);
+                else if (log.Contains("📦") || log.Contains("🌐") || log.Contains("🚀") ||
+                         log.Contains("🔍") || log.Contains("🧹"))
+                    GUI.color = new Color(0.4f, 0.8f, 1f);
+                else
+                    GUI.color = new Color(0.8f, 0.8f, 0.8f);
+
+                Widgets.Label(lineRect, log);
+            }
+
+            float maxScroll = Mathf.Max(0f, totalHeight - rect.height);
+
+            GUI.color = Color.white;
+            Text.Font = GameFont.Small;
+            Widgets.EndScrollView();
+
+            if (scrollPos.y < scrollBeforeInput - 0.5f)
+                cache.FollowTail = false;
+            else if (maxScroll - scrollPos.y <= 1f)
+                cache.FollowTail = true;
+            if (sourceCountChanged && cache.FollowTail)
+                scrollPos.y = maxScroll;
+            scrollPos.y = Mathf.Clamp(scrollPos.y, 0f, maxScroll);
         }
 
         internal static string WfText(string chinese, string english)

@@ -60,13 +60,13 @@ namespace AutoTranslator_Core
 
             Rect resultModeRow = l.GetRect(26f);
             GUI.color = new Color(0.7f, 0.9f, 1f);
+            string typeFilterLabel = GetCloudListTypeFilterLabel();
             Widgets.Label(resultModeRow,
                 AutoTranslatorSettings.CloudShowMineOnly
-                    ? WfText("当前列表：我的上传记录（" + _cachedCloudOwnUploadCount + " 个 Mod）",
-                        "Showing my uploads (" + _cachedCloudOwnUploadCount + " mods)")
+                    ? WfText("当前列表：我的上传记录", "Showing my uploads") + " · " + typeFilterLabel
                     : (AutoTranslatorSettings.CloudOnlyActiveMods
-                        ? WfText("当前列表：已启用 Mod", "Showing active mods")
-                        : WfText("当前列表：全部已安装 Mod", "Showing all installed mods")));
+                        ? WfText("当前列表：已启用 Mod", "Showing active mods") + " · " + typeFilterLabel
+                        : WfText("当前列表：全部已安装 Mod", "Showing all installed mods") + " · " + typeFilterLabel));
             GUI.color = Color.white;
             l.Gap(10f);
 
@@ -101,11 +101,13 @@ namespace AutoTranslator_Core
                 return;
             }
 
-            List<ModMetaData> localMods = GetCloudDisplayMods();
+            List<ModMetaData> localMods = GetCloudDisplayMods(cloudLookup, targetLangFolder);
             if (localMods.Count == 0)
             {
                 GUI.color = Color.gray;
-                Widgets.Label(l.GetRect(40f), "ATC_Cloud_NoModsWarning".Translate());
+                Widgets.Label(l.GetRect(40f),
+                    WfText("当前范围内没有符合筛选条件的线上译文。",
+                        "No online translations match the current filters."));
                 GUI.color = Color.white;
                 return;
             }
@@ -128,15 +130,22 @@ namespace AutoTranslator_Core
 
         // 這個方法負責取得 雲端Display模組 資料。
         // EN: This method gets cloud display mods.
-        private List<ModMetaData> GetCloudDisplayMods()
+        private List<ModMetaData> GetCloudDisplayMods(
+            Dictionary<string, List<CloudModRecord>> cloudLookup,
+            string targetLangFolder)
         {
             List<ModMetaData> validMods = GetValidModsCached() ?? new List<ModMetaData>();
             string searchText = AutoTranslatorSettings.CloudSearchText ?? "";
+            int typeMask = NormalizeCloudListTypeMask(AutoTranslatorSettings.CloudListTranslationTypeMask);
+            int registryGeneration = AutoTranslatorSettings.CloudFetchGeneration;
 
             if (_cachedCloudDisplayMods != null &&
                 _cachedCloudSearchText == searchText &&
                 _cachedCloudValidModCount == validMods.Count &&
-                _cachedCloudDisplayValidVersion == ValidModsCacheVersion)
+                _cachedCloudDisplayValidVersion == ValidModsCacheVersion &&
+                _cachedCloudDisplayTypeMask == typeMask &&
+                _cachedCloudDisplayRegistryGeneration == registryGeneration &&
+                string.Equals(_cachedCloudDisplayLangFolder, targetLangFolder, StringComparison.Ordinal))
             {
                 return _cachedCloudDisplayMods;
             }
@@ -146,6 +155,10 @@ namespace AutoTranslator_Core
             {
                 mods = mods.Where(m => m.Active);
             }
+            mods = mods.Where(m =>
+                cloudLookup != null &&
+                cloudLookup.TryGetValue(m.PackageId ?? string.Empty, out List<CloudModRecord> records) &&
+                records.Any(CloudRecordMatchesListTypeFilter));
             if (!string.IsNullOrEmpty(searchText))
             {
                 string searchLower = searchText.ToLowerInvariant();
@@ -161,6 +174,9 @@ namespace AutoTranslator_Core
             _cachedCloudSearchText = searchText;
             _cachedCloudValidModCount = validMods.Count;
             _cachedCloudDisplayValidVersion = ValidModsCacheVersion;
+            _cachedCloudDisplayTypeMask = typeMask;
+            _cachedCloudDisplayRegistryGeneration = registryGeneration;
+            _cachedCloudDisplayLangFolder = targetLangFolder ?? string.Empty;
             return _cachedCloudDisplayMods;
         }
 
@@ -206,13 +222,17 @@ namespace AutoTranslator_Core
                 _cachedOwnCloudRecordsRegistryCount == registryCount &&
                 _cachedOwnCloudRecordsGeneration == generation &&
                 string.Equals(_cachedOwnCloudRecordsLangFolder, targetLangFolder, StringComparison.Ordinal) &&
-                string.Equals(_cachedOwnCloudRecordsSearchText, searchText, StringComparison.Ordinal))
+                string.Equals(_cachedOwnCloudRecordsSearchText, searchText, StringComparison.Ordinal) &&
+                _cachedOwnCloudRecordsTypeMask == NormalizeCloudListTypeMask(AutoTranslatorSettings.CloudListTranslationTypeMask))
             {
                 return _cachedOwnCloudRecords;
             }
 
             IEnumerable<CloudModRecord> records = AutoTranslatorSettings.CloudRegistry
-                .Where(r => r != null && r.Language == targetLangFolder && IsOwnCloudRecord(r));
+                .Where(r => r != null &&
+                    r.Language == targetLangFolder &&
+                    IsOwnCloudRecord(r) &&
+                    CloudRecordMatchesListTypeFilter(r));
 
             if (!string.IsNullOrEmpty(searchText))
             {
@@ -232,6 +252,7 @@ namespace AutoTranslator_Core
             _cachedOwnCloudRecordsGeneration = generation;
             _cachedOwnCloudRecordsLangFolder = targetLangFolder;
             _cachedOwnCloudRecordsSearchText = searchText;
+            _cachedOwnCloudRecordsTypeMask = NormalizeCloudListTypeMask(AutoTranslatorSettings.CloudListTranslationTypeMask);
             return _cachedOwnCloudRecords;
         }
     }

@@ -295,6 +295,7 @@ namespace AutoTranslator_Core
         [NonSerialized] public static string CloudSearchText = "";
         [NonSerialized] public static bool CloudShowMineOnly = false;
         [NonSerialized] public static bool CloudOnlyActiveMods = true;
+        [NonSerialized] public static int CloudListTranslationTypeMask = 7;
         [NonSerialized] public static bool CloudDownloadOptionsExpanded = false;
         [NonSerialized] public static bool CloudContributionExpanded = false;
         [NonSerialized] public static bool CloudAdminExpanded = false;

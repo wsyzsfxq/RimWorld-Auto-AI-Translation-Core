@@ -100,7 +100,7 @@ namespace AutoTranslator_Core
                     : "ATC_Blacklist_ClearAll".Translate().ToString();
                 if (WorkflowUiStyle.Button(clearRect, clearLabel, WorkflowButtonStyle.Stop))
                 {
-                    Find.WindowStack.Add(new Dialog_MessageBox(
+                    Find.WindowStack.Add(new Window_AtcDialog(
                         _cloudDownloadOnly
                             ? AutoTranslatorMod.WfText(
                                 "将允许所有 Mod 再次参与云端下载。是否清空整个下载排除列表？",
@@ -117,7 +117,8 @@ namespace AutoTranslator_Core
                         },
                         AutoTranslatorMod.WfText("取消", "Cancel"),
                         null,
-                        clearLabel));
+                        clearLabel,
+                        true));
                 }
 
                 Rect closeRect = new Rect(inRect.width - 140f, inRect.height - 40f, 140f, 35f);

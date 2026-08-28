@@ -944,7 +944,7 @@ namespace AutoTranslator_Core
                 {
                     string message = "ATC_Log_TaskError".Translate(failure != null ? failure.Message : "No result").ToString();
                     AutoTranslatorSettings.AddErrorLog(message);
-                    Find.WindowStack.Add(new Dialog_MessageBox(
+                    Find.WindowStack.Add(new Window_AtcDialog(
                         message,
                         null,
                         null,
@@ -985,7 +985,7 @@ namespace AutoTranslator_Core
                 // later when the user closes another window.
                 if (!includeCloudCache && !includeAgent)
                 {
-                    Find.WindowStack.Add(new Dialog_MessageBox(
+                    Find.WindowStack.Add(new Window_AtcDialog(
                         summaryText,
                         null,
                         null,

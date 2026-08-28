@@ -9,6 +9,7 @@ namespace AutoTranslator_Core
         Primary,
         Stop,
         Link,
+        Dropdown,
         Tab,
         ActiveTab
     }
@@ -32,6 +33,8 @@ namespace AutoTranslator_Core
             bool enabled = true,
             GameFont font = GameFont.Small)
         {
+            Color previousGuiColor = GUI.color;
+            GUI.color = Color.white;
             Color background;
             Color border;
             Color text;
@@ -51,6 +54,11 @@ namespace AutoTranslator_Core
                     background = Color.clear;
                     border = Color.clear;
                     text = LinkText;
+                    break;
+                case WorkflowButtonStyle.Dropdown:
+                    background = new Color(0.13f, 0.17f, 0.20f, 0.98f);
+                    border = new Color(0.38f, 0.55f, 0.66f);
+                    text = Color.white;
                     break;
                 case WorkflowButtonStyle.ActiveTab:
                     background = new Color(0.12f, 0.145f, 0.165f, 1f);
@@ -79,19 +87,20 @@ namespace AutoTranslator_Core
 
             GameFont previousFont = Text.Font;
             TextAnchor previousAnchor = Text.Anchor;
-            Color previousColor = GUI.color;
             Text.Font = font;
             Text.Anchor = TextAnchor.MiddleCenter;
             GUI.color = enabled ? text : new Color(text.r, text.g, text.b, 0.38f);
             Widgets.Label(new Rect(rect.x + 4f, rect.y + 1f, rect.width - 8f, rect.height - 2f),
                 label ?? string.Empty);
-            GUI.color = previousColor;
+            GUI.color = Color.white;
             Text.Anchor = previousAnchor;
             Text.Font = previousFont;
 
             if (style == WorkflowButtonStyle.ActiveTab)
                 Widgets.DrawBoxSolid(new Rect(rect.x, rect.yMax - 3f, rect.width, 3f), GoodText);
-            return enabled && Widgets.ButtonInvisible(rect);
+            bool clicked = enabled && Widgets.ButtonInvisible(rect);
+            GUI.color = previousGuiColor;
+            return clicked;
         }
 
         internal static void DrawBorder(Rect rect, Color color)

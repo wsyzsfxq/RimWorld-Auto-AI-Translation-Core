@@ -46,7 +46,8 @@ namespace AutoTranslator_Core
                 Widgets.Label(new Rect(0f, 36f, inRect.width, 42f), "ATC_Terminology_ReviewNotice".Translate());
                 Text.Font = GameFont.Small;
                 _search = Widgets.TextField(new Rect(0f, 82f, inRect.width - 150f, 30f), _search ?? string.Empty);
-                if (Widgets.ButtonText(new Rect(inRect.width - 140f, 82f, 140f, 30f), "ATC_Terminology_Refresh".Translate()))
+                if (WorkflowUiStyle.Button(new Rect(inRect.width - 140f, 82f, 140f, 30f),
+                        "ATC_Terminology_Refresh".Translate(), WorkflowButtonStyle.Quiet))
                     Reload();
 
                 List<TerminologyReviewItem> visible = FilteredItems();
@@ -61,7 +62,8 @@ namespace AutoTranslator_Core
 
                 Widgets.Label(new Rect(0f, inRect.height - 42f, inRect.width - 160f, 36f),
                     "ATC_Terminology_ReviewCount".Translate(visible.Count));
-                if (Widgets.ButtonText(new Rect(inRect.width - 140f, inRect.height - 42f, 140f, 36f), "ATC_ContactAuthor_Close".Translate()))
+                if (WorkflowUiStyle.Button(new Rect(inRect.width - 140f, inRect.height - 42f, 140f, 36f),
+                        "ATC_ContactAuthor_Close".Translate(), WorkflowButtonStyle.Quiet))
                     Close();
             }
             finally
@@ -99,10 +101,11 @@ namespace AutoTranslator_Core
 
             ScopeChoice scope = _scopes.TryGetValue(term.TermId, out ScopeChoice selected) ? selected : DefaultScope(term);
             _scopes[term.TermId] = scope;
-            if (Widgets.ButtonText(new Rect(row.xMax - 322f, row.y + 56f, 160f, 30f), scope.Label))
+            if (WorkflowUiStyle.Button(new Rect(row.xMax - 322f, row.y + 56f, 160f, 30f), scope.Label))
                 OpenScopeMenu(term);
             GUI.color = string.IsNullOrWhiteSpace(_targets[term.TermId]) ? Color.gray : Color.white;
-            if (Widgets.ButtonText(new Rect(row.xMax - 156f, row.y + 56f, 92f, 30f), "ATC_Terminology_Approve".Translate()) &&
+            if (WorkflowUiStyle.Button(new Rect(row.xMax - 156f, row.y + 56f, 92f, 30f),
+                    "ATC_Terminology_Approve".Translate(), WorkflowButtonStyle.Primary) &&
                 !string.IsNullOrWhiteSpace(_targets[term.TermId]))
             {
                 TerminologyRuntime.GetCache().Approve(
@@ -110,7 +113,8 @@ namespace AutoTranslator_Core
                 Reload();
             }
             GUI.color = Color.white;
-            if (Widgets.ButtonText(new Rect(row.xMax - 58f, row.y + 56f, 58f, 30f), "ATC_Terminology_Reject".Translate()))
+            if (WorkflowUiStyle.Button(new Rect(row.xMax - 58f, row.y + 56f, 58f, 30f),
+                    "ATC_Terminology_Reject".Translate(), WorkflowButtonStyle.Stop))
             {
                 TerminologyRuntime.GetCache().Reject(term.TermId);
                 Reload();

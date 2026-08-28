@@ -87,7 +87,7 @@ namespace AutoTranslator_Core
                 Text.Anchor = TextAnchor.MiddleCenter;
                 Widgets.Label(new Rect(0f, 85f, inRect.width, inRect.height - 155f), "ATC_Unresolved_Empty".Translate());
                 Text.Anchor = TextAnchor.UpperLeft;
-                if (Widgets.ButtonText(new Rect(inRect.width - 150f, inRect.height - 44f, 150f, 40f), "CloseButton".Translate()))
+                if (WorkflowUiStyle.Button(new Rect(inRect.width - 150f, inRect.height - 44f, 150f, 40f), "CloseButton".Translate()))
                     Close();
                 return;
             }
@@ -217,7 +217,7 @@ namespace AutoTranslator_Core
 
             const float manualWidth = 88f;
             Rect manualRect = new Rect(rowRect.xMax - manualWidth - 7f, rowRect.y + 7f, manualWidth, 27f);
-            if (!fileLevelFailure && Widgets.ButtonText(manualRect, "ATC_Unresolved_Manual".Translate()))
+            if (!fileLevelFailure && WorkflowUiStyle.Button(manualRect, "ATC_Unresolved_Manual".Translate()))
             {
                 OpenInWorkbench(entry);
                 return;
@@ -245,7 +245,7 @@ namespace AutoTranslator_Core
             List<TranslationUnresolvedEntry> visible = GetVisibleEntries();
             List<TranslationUnresolvedEntry> selected = GetSelectedEntries();
             float x = rect.x;
-            if (Widgets.ButtonText(new Rect(x, rect.y + 2f, 120f, 40f), "ATC_Unresolved_SelectVisible".Translate()))
+            if (WorkflowUiStyle.Button(new Rect(x, rect.y + 2f, 120f, 40f), "ATC_Unresolved_SelectVisible".Translate()))
             {
                 foreach (TranslationUnresolvedEntry entry in visible.Where(
                     candidate => !TranslationUnresolvedManager.IsFileLevelFailure(candidate)))
@@ -254,7 +254,7 @@ namespace AutoTranslator_Core
                 }
             }
             x += 128f;
-            if (Widgets.ButtonText(new Rect(x, rect.y + 2f, 120f, 40f), "ATC_Unresolved_ClearSelection".Translate()))
+            if (WorkflowUiStyle.Button(new Rect(x, rect.y + 2f, 120f, 40f), "ATC_Unresolved_ClearSelection".Translate()))
             {
                 _selectedEntryIds.Clear();
             }
@@ -271,7 +271,7 @@ namespace AutoTranslator_Core
             bool hasSelection = selected.Count > 0;
             bool canKeepOriginal = hasSelection && !AutoTranslatorSettings.IsRunning;
             GUI.color = canKeepOriginal ? Color.white : Color.grey;
-            if (Widgets.ButtonText(ignoreRect, "ATC_Unresolved_KeepOriginal".Translate()))
+            if (WorkflowUiStyle.Button(ignoreRect, "ATC_Unresolved_KeepOriginal".Translate()))
             {
                 if (!hasSelection)
                     Messages.Message("ATC_Unresolved_NoSelection".Translate(), MessageTypeDefOf.RejectInput, false);
@@ -283,7 +283,7 @@ namespace AutoTranslator_Core
 
             bool canRetry = hasSelection && !AutoTranslatorSettings.IsRunning && AutoTranslatorAPI.HasAnyReadyConfig();
             GUI.color = canRetry ? new Color(0.6f, 0.9f, 0.6f) : Color.grey;
-            if (Widgets.ButtonText(retryRect, "ATC_Unresolved_RetryAI".Translate()))
+            if (WorkflowUiStyle.Button(retryRect, "ATC_Unresolved_RetryAI".Translate()))
             {
                 if (!hasSelection)
                     Messages.Message("ATC_Unresolved_NoSelection".Translate(), MessageTypeDefOf.RejectInput, false);
@@ -304,7 +304,7 @@ namespace AutoTranslator_Core
         {
             List<TranslationUnresolvedEntry> entries = selected.Select(CloneEntry).ToList();
             List<string> ids = selected.Select(entry => entry.Id).ToList();
-            Find.WindowStack.Add(new Dialog_MessageBox(
+            Find.WindowStack.Add(new Window_AtcDialog(
                 "ATC_Unresolved_ConfirmIgnore".Translate(ids.Count),
                 "ATC_Unresolved_ConfirmButton".Translate(),
                 () =>
@@ -320,7 +320,8 @@ namespace AutoTranslator_Core
                 },
                 "ATC_Btn_Cancel".Translate(),
                 null,
-                "ATC_Unresolved_TitleShort".Translate()));
+                "ATC_Unresolved_TitleShort".Translate(),
+                true));
         }
 
         private static TranslationUnresolvedEntry CloneEntry(TranslationUnresolvedEntry source)

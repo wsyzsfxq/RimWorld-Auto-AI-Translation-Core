@@ -1,4 +1,4 @@
-﻿using RimWorld;
+using RimWorld;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -27,33 +27,13 @@ namespace AutoTranslator_Core
             DrawSettingsSectionHeader(l, WfText("常用与界面显示", "General and display"));
             Widgets.CheckboxLabeled(l.GetRect(30f), "ATC_ShowWorldMainButton".Translate(), ref Settings.ShowWorldMainButton);
             l.Gap(5f);
-            Rect blacklistButtonRect = l.GetRect(35f);
-            if (WorkflowUiStyle.Button(
-                    blacklistButtonRect,
-                    "ATC_Blacklist_Open".Translate(
-                        Settings.TranslationBlacklist.Count,
-                        Settings.CloudDownloadBlacklist.Count),
-                    WorkflowButtonStyle.Quiet))
-            {
-                Find.WindowStack.Add(new Window_ModBlacklists());
-            }
-            if (Mouse.IsOver(blacklistButtonRect))
-            {
-                TooltipHandler.TipRegion(blacklistButtonRect, "ATC_Blacklist_OpenTip".Translate());
-            }
-            l.Gap(5f);
-
-            if (AutoTranslatorSettings.IsRunning) GUI.color = Color.grey;
-            Widgets.CheckboxLabeled(l.GetRect(30f), "ATC_AutoClearOldOnUpdate".Translate(), ref Settings.AutoClearOldOnUpdate);
-            Widgets.CheckboxLabeled(l.GetRect(30f), "ATC_AutoTranslateOnUpdate".Translate(), ref Settings.AutoTranslateOnUpdate);
-            GUI.color = Color.white;
             Rect row1 = l.GetRect(30f);
             Rect langRect = new Rect(row1.x, row1.y, row1.width, row1.height);
             if (AutoTranslatorSettings.IsRunning) GUI.color = Color.grey;
             if (Mouse.IsOver(langRect)) TooltipHandler.TipRegion(langRect, "ATC_Tooltip_TargetLang".Translate());
             if (WorkflowUiStyle.Button(langRect,
-                    "ATC_TargetLang".Translate() + ": " + GetLangLabel(Settings.TargetLang),
-                    WorkflowButtonStyle.Quiet, !AutoTranslatorSettings.IsRunning))
+                    "ATC_TargetLang".Translate() + ": " + GetLangLabel(Settings.TargetLang) + "  ▾",
+                    WorkflowButtonStyle.Dropdown, !AutoTranslatorSettings.IsRunning))
             {
                 if (!AutoTranslatorSettings.IsRunning)
                 {
@@ -68,15 +48,6 @@ namespace AutoTranslator_Core
             }
             GUI.color = Color.white;
             Widgets.CheckboxLabeled(l.GetRect(30f), "ATC_TranslateWorkbenchModNames".Translate(), ref Settings.TranslateWorkbenchModNames);
-            Rect uiManagerRect = l.GetRect(35f);
-            if (WorkflowUiStyle.Button(
-                    uiManagerRect,
-                    "ATC_UIManager_Open".Translate(UIInterceptor.GetManagedEntryCount()),
-                    WorkflowButtonStyle.Quiet))
-            {
-                Find.WindowStack.Add(new Window_UITranslationManager());
-            }
-            TooltipHandler.TipRegion(uiManagerRect, "ATC_UIManager_OpenTip".Translate());
             l.Gap(15f);
 
             DrawSettingsSectionHeader(l, WfText("AI 接口", "AI providers"));
@@ -87,11 +58,34 @@ namespace AutoTranslator_Core
             for (int i = 0; i < Settings.ApiConfigs.Count; i++)
             {
                 var config = Settings.ApiConfigs[i];
+                Rect apiCard = l.GetRect(216f);
+                Widgets.DrawBoxSolid(apiCard, WorkflowUiStyle.Panel);
+                WorkflowUiStyle.DrawBorder(apiCard, new Color(0.31f, 0.35f, 0.38f));
+                Widgets.DrawBoxSolid(
+                    new Rect(apiCard.x, apiCard.y, 4f, apiCard.height),
+                    config.Enabled ? WorkflowUiStyle.GoodText : WorkflowUiStyle.MutedText);
+                Listing_Standard apiListing = new Listing_Standard();
+                apiListing.Begin(apiCard.ContractedBy(10f));
                 if (AutoTranslatorSettings.IsRunning) GUI.color = Color.grey;
 
-                Rect noteRow = l.GetRect(28f);
-                Rect noteRect = new Rect(noteRow.x, noteRow.y, noteRow.width * 0.66f, noteRow.height - 2f);
-                Rect enabledRect = new Rect(noteRow.x + noteRow.width * 0.69f, noteRow.y, noteRow.width * 0.31f, noteRow.height - 2f);
+                Rect noteRow = apiListing.GetRect(28f);
+                const float headerIconWidth = 42f;
+                const float headerIconGap = 6f;
+                Rect noteRect = new Rect(
+                    noteRow.x,
+                    noteRow.y,
+                    noteRow.width - headerIconWidth * 2f - headerIconGap * 2f,
+                    noteRow.height - 2f);
+                Rect enabledRect = new Rect(
+                    noteRect.xMax + headerIconGap,
+                    noteRow.y,
+                    headerIconWidth,
+                    noteRow.height - 2f);
+                Rect deleteRect = new Rect(
+                    enabledRect.xMax + headerIconGap,
+                    noteRow.y,
+                    headerIconWidth,
+                    noteRow.height - 2f);
                 config.Label = Widgets.TextField(noteRect, config.Label ?? "");
                 if (string.IsNullOrEmpty(config.Label))
                 {
@@ -101,16 +95,46 @@ namespace AutoTranslator_Core
                     Text.Font = GameFont.Small;
                     GUI.color = AutoTranslatorSettings.IsRunning ? Color.grey : Color.white;
                 }
-                Widgets.CheckboxLabeled(enabledRect, "ATC_ApiKeyEnabled".Translate(), ref config.Enabled);
+                if (WorkflowUiStyle.Button(
+                        enabledRect,
+                        config.Enabled ? "✓" : "✕",
+                        config.Enabled ? WorkflowButtonStyle.Primary : WorkflowButtonStyle.Stop,
+                        !AutoTranslatorSettings.IsRunning,
+                        GameFont.Small))
+                    config.Enabled = !config.Enabled;
+                TooltipHandler.TipRegion(
+                    enabledRect,
+                    config.Enabled
+                        ? WfText("已启用；点击停用此 API", "Enabled; click to disable this API")
+                        : WfText("已停用；点击启用此 API", "Disabled; click to enable this API"));
+
+                bool canDeleteApi = Settings.ApiConfigs.Count > 1 && !AutoTranslatorSettings.IsRunning;
+                if (WorkflowUiStyle.Button(
+                        deleteRect,
+                        "🗑",
+                        WorkflowButtonStyle.Stop,
+                        canDeleteApi,
+                        GameFont.Small))
+                {
+                    Settings.ApiConfigs.RemoveAt(i);
+                    GUI.color = Color.white;
+                    apiListing.End();
+                    break;
+                }
+                TooltipHandler.TipRegion(
+                    deleteRect,
+                    Settings.ApiConfigs.Count > 1
+                        ? WfText("删除此 API", "Delete this API")
+                        : WfText("至少保留一个 API", "At least one API must remain"));
                 GUI.color = config.Enabled
                     ? (AutoTranslatorSettings.IsRunning ? Color.grey : Color.white)
                     : new Color(0.55f, 0.55f, 0.55f, 0.85f);
 
-                Rect rowA = l.GetRect(30f);
+                Rect rowA = apiListing.GetRect(30f);
                 Rect providerRect = new Rect(rowA.x, rowA.y, rowA.width * 0.3f, rowA.height - 2f);
                 if (WorkflowUiStyle.Button(providerRect,
-                        "ATC_Provider".Translate() + ": " + config.Provider,
-                        WorkflowButtonStyle.Quiet, !AutoTranslatorSettings.IsRunning))
+                        "ATC_Provider".Translate() + ": " + config.Provider + "  ▾",
+                        WorkflowButtonStyle.Dropdown, !AutoTranslatorSettings.IsRunning))
                 {
                     if (!AutoTranslatorSettings.IsRunning)
                     {
@@ -128,26 +152,15 @@ namespace AutoTranslator_Core
                     }
                 }
 
-                Rect urlRect = new Rect(rowA.x + rowA.width * 0.32f, rowA.y, rowA.width * 0.58f, rowA.height - 2f);
+                Rect urlRect = new Rect(rowA.x + rowA.width * 0.32f, rowA.y, rowA.width * 0.68f, rowA.height - 2f);
                 if (config.Provider != TranslatorProvider.Google)
                 {
                     config.CustomBaseUrl = Widgets.TextField(urlRect, config.CustomBaseUrl);
                     if (string.IsNullOrEmpty(config.CustomBaseUrl)) Widgets.Label(urlRect, "  " + "ATC_CustomUrlOptional".Translate());
                 }
 
-                Rect delRect = new Rect(rowA.x + rowA.width * 0.92f, rowA.y, rowA.width * 0.08f, rowA.height - 2f);
-                GUI.color = new Color(1f, 0.4f, 0.4f);
-                if (Settings.ApiConfigs.Count > 1 && WorkflowUiStyle.Button(
-                        delRect, "ATC_Delete".Translate(), WorkflowButtonStyle.Stop,
-                        !AutoTranslatorSettings.IsRunning, GameFont.Tiny))
-                {
-                    Settings.ApiConfigs.RemoveAt(i);
-                    GUI.color = Color.white;
-                    break;
-                }
-
                 GUI.color = AutoTranslatorSettings.IsRunning ? Color.grey : Color.white;
-                Rect rowB = l.GetRect(30f);
+                Rect rowB = apiListing.GetRect(30f);
                 Rect keyRect = new Rect(rowB.x, rowB.y, rowB.width * 0.45f, rowB.height - 2f);
 
                 config.Key = Widgets.TextField(keyRect, config.Key);
@@ -175,7 +188,7 @@ namespace AutoTranslator_Core
                     }
                 }
 
-                if (WorkflowUiStyle.Button(modelBtnRect, "▼", WorkflowButtonStyle.Quiet,
+                if (WorkflowUiStyle.Button(modelBtnRect, "▼", WorkflowButtonStyle.Dropdown,
                         !AutoTranslatorSettings.IsRunning && !config.IsFetching, GameFont.Tiny))
                 {
                     if (config.FetchedModels.Count > 0 && !AutoTranslatorSettings.IsRunning && !config.IsFetching)
@@ -191,10 +204,9 @@ namespace AutoTranslator_Core
                 }
                 GUI.color = AutoTranslatorSettings.IsRunning ? Color.grey : Color.white;
 
-                DrawStructuredOutputSelector(l, config, !AutoTranslatorSettings.IsRunning);
-                DrawTranslationTaskTierSelector(l, config, !AutoTranslatorSettings.IsRunning);
+                DrawStructuredOutputSelector(apiListing, config, !AutoTranslatorSettings.IsRunning);
 
-                Rect outputLimitRow = l.GetRect(30f);
+                Rect outputLimitRow = apiListing.GetRect(30f);
                 Rect outputLimitLabelRect = new Rect(
                     outputLimitRow.x, outputLimitRow.y, outputLimitRow.width * 0.48f, outputLimitRow.height);
                 Rect outputLimitInputRect = new Rect(
@@ -228,9 +240,29 @@ namespace AutoTranslator_Core
                 if (Mouse.IsOver(outputLimitRow))
                     TooltipHandler.TipRegion(outputLimitRow, "ATC_ApiMaxOutputTokensTooltip".Translate());
 
-                Rect rowC = l.GetRect(24f);
-                Rect testBtnRect = new Rect(rowC.x, rowC.y + 2f, 120f, rowC.height);
-                Rect refetchBtnRect = new Rect(testBtnRect.xMax + 10f, rowC.y + 2f, 140f, rowC.height);
+                Rect rowC = apiListing.GetRect(24f);
+                const float apiBottomGap = 8f;
+                const float testButtonWidth = 120f;
+                const float refetchButtonWidth = 140f;
+                float taskTierWidth = Mathf.Max(
+                    240f,
+                    rowC.width - testButtonWidth - refetchButtonWidth - apiBottomGap * 2f);
+                Rect taskTierRect = new Rect(rowC.x, rowC.y + 2f, taskTierWidth, rowC.height);
+                Rect testBtnRect = new Rect(
+                    taskTierRect.xMax + apiBottomGap,
+                    rowC.y + 2f,
+                    testButtonWidth,
+                    rowC.height);
+                Rect refetchBtnRect = new Rect(
+                    testBtnRect.xMax + apiBottomGap,
+                    rowC.y + 2f,
+                    refetchButtonWidth,
+                    rowC.height);
+
+                DrawTranslationTaskTierSelector(
+                    taskTierRect,
+                    config,
+                    !AutoTranslatorSettings.IsRunning);
 
                 if (WorkflowUiStyle.Button(refetchBtnRect, "↻ " + "ATC_RefetchModels".Translate(),
                         WorkflowButtonStyle.Quiet, !AutoTranslatorSettings.IsRunning, GameFont.Tiny))
@@ -280,7 +312,8 @@ namespace AutoTranslator_Core
                 }
                 GUI.color = AutoTranslatorSettings.IsRunning ? Color.grey : Color.white;
 
-                l.Gap(15f);
+                apiListing.End();
+                l.Gap(14f);
             }
 
             Rect addApiRect = l.GetRect(35f);
@@ -324,9 +357,9 @@ namespace AutoTranslator_Core
             if (WorkflowUiStyle.Button(restoreBtnRect, restoreLabel,
                     WorkflowButtonStyle.Quiet, !_settingsRestoreBackupRunning) && !_settingsRestoreBackupRunning)
             {
-                Find.WindowStack.Add(new Dialog_MessageBox(
+                Find.WindowStack.Add(new Window_AtcDialog(
                     "ATC_Msg_ConfirmRestoreLatestBackup".Translate(),
-                    "ATC_Btn_Confirm".Translate(),
+                    WfText("确认还原", "Restore backup"),
                     () => {
                         QueueRestoreLatestBackupsFromSettings();
                     },
@@ -405,8 +438,8 @@ namespace AutoTranslator_Core
             Rect logRow = l.GetRect(30f);
             if (WorkflowUiStyle.Button(
                     logRow,
-                    "ATC_LogLevel".Translate() + ": " + GetLogLevelLabel(Settings.LogLevel),
-                    WorkflowButtonStyle.Quiet, canEdit))
+                    "ATC_LogLevel".Translate() + ": " + GetLogLevelLabel(Settings.LogLevel) + "  ▾",
+                    WorkflowButtonStyle.Dropdown, canEdit))
             {
                 List<FloatMenuOption> options = new List<FloatMenuOption>();
                 foreach (AtcLogLevel level in Enum.GetValues(typeof(AtcLogLevel)))
@@ -531,8 +564,8 @@ namespace AutoTranslator_Core
             string preferenceLabel = GetStructuredOutputPreferenceLabel(config.StructuredOutput);
             if (WorkflowUiStyle.Button(
                     selectorRect,
-                    "ATC_StructuredOutput_Label".Translate() + ": " + preferenceLabel,
-                    WorkflowButtonStyle.Quiet, canEdit && supported, GameFont.Tiny) &&
+                    "ATC_StructuredOutput_Label".Translate() + ": " + preferenceLabel + "  ▾",
+                    WorkflowButtonStyle.Dropdown, canEdit && supported, GameFont.Tiny) &&
                 canEdit && supported)
             {
                 List<FloatMenuOption> options = new List<FloatMenuOption>();
@@ -575,10 +608,9 @@ namespace AutoTranslator_Core
             GUI.color = Color.white;
         }
 
-        private void DrawTranslationTaskTierSelector(Listing_Standard l, ApiKeyConfig config, bool canEdit)
+        private void DrawTranslationTaskTierSelector(Rect row, ApiKeyConfig config, bool canEdit)
         {
             if (config == null) return;
-            Rect row = l.GetRect(30f);
             bool hasOtherBulkFoundation = Settings.ApiConfigs != null && Settings.ApiConfigs.Any(candidate =>
                 !ReferenceEquals(candidate, config) &&
                 AutoTranslatorAPI.IsConfigReady(candidate) &&
@@ -588,8 +620,8 @@ namespace AutoTranslator_Core
             GUI.color = canEdit ? Color.white : Color.grey;
             if (WorkflowUiStyle.Button(
                     row,
-                    "ATC_TaskTier_Label".Translate() + ": " + GetTranslationTaskTierLabel(config.TaskTier),
-                    WorkflowButtonStyle.Quiet, canEdit, GameFont.Tiny) &&
+                    "ATC_TaskTier_Label".Translate() + ": " + GetTranslationTaskTierLabel(config.TaskTier) + "  ▾",
+                    WorkflowButtonStyle.Dropdown, canEdit, GameFont.Tiny) &&
                 canEdit)
             {
                 List<FloatMenuOption> options = new List<FloatMenuOption>

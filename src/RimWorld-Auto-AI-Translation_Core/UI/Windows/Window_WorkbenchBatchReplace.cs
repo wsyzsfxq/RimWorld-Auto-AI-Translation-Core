@@ -66,14 +66,16 @@ namespace AutoTranslator_Core
                 GUI.color = Color.white;
 
                 float buttonY = inRect.height - 42f;
-                if (Widgets.ButtonText(new Rect(0f, buttonY, 150f, 38f), "ATC_Btn_Cancel".Translate()))
+                if (WorkflowUiStyle.Button(new Rect(0f, buttonY, 150f, 38f), "ATC_Btn_Cancel".Translate(),
+                        WorkflowButtonStyle.Quiet))
                 {
                     Close();
                 }
 
                 bool canApply = matchCount > 0 && !string.IsNullOrEmpty(_findText);
                 GUI.color = canApply ? new Color(0.55f, 1f, 0.6f) : Color.gray;
-                if (Widgets.ButtonText(new Rect(inRect.width - 180f, buttonY, 180f, 38f), "ATC_Workbench_BatchApplyBtn".Translate()))
+                if (WorkflowUiStyle.Button(new Rect(inRect.width - 180f, buttonY, 180f, 38f),
+                        "ATC_Workbench_BatchApplyBtn".Translate(), WorkflowButtonStyle.Primary))
                 {
                     if (canApply) ConfirmApply(matchCount);
                 }
@@ -129,7 +131,7 @@ namespace AutoTranslator_Core
         {
             bool selected = _scope == scope;
             GUI.color = selected ? new Color(0.5f, 0.85f, 1f) : Color.white;
-            if (Widgets.ButtonText(rect, label)) _scope = scope;
+            if (WorkflowUiStyle.Button(rect, label)) _scope = scope;
             GUI.color = Color.white;
         }
 
@@ -140,7 +142,7 @@ namespace AutoTranslator_Core
             bool caseSensitive = _caseSensitive;
             TranslationWorkbenchTab.WorkbenchBatchReplaceScope scope = _scope;
 
-            Find.WindowStack.Add(new Dialog_MessageBox(
+            Find.WindowStack.Add(new Window_AtcDialog(
                 "ATC_Workbench_BatchConfirm".Translate(matchCount),
                 "ATC_Btn_Confirm".Translate(),
                 () =>
@@ -158,7 +160,8 @@ namespace AutoTranslator_Core
                 },
                 "ATC_Btn_Cancel".Translate(),
                 null,
-                "ATC_Workbench_BatchReplaceTitle".Translate()));
+                "ATC_Workbench_BatchReplaceTitle".Translate(),
+                true));
         }
     }
 }

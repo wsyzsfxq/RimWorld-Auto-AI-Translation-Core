@@ -35,14 +35,35 @@ namespace AutoTranslator_Core
                     out TranslationUsageReservationHandle usageReservation,
                     out string budgetDenialReason))
             {
+                string denialText;
+                if (string.Equals(budgetDenialReason, "request_in_flight", StringComparison.Ordinal))
+                    denialText = AutoTranslatorMod.WfText(
+                        "相同的模型请求仍在进行中，本次重复请求未发送：",
+                        "An identical model request is already in flight and the duplicate was not sent: ") +
+                        budgetDenialReason;
+                else if (string.Equals(budgetDenialReason, "source_character_budget", StringComparison.Ordinal))
+                    denialText = AutoTranslatorMod.WfText(
+                        "翻译任务已达到原文字符用量上限：",
+                        "Translation source-character budget reached: ") + budgetDenialReason;
+                else if (string.Equals(budgetDenialReason, "estimated_token_budget", StringComparison.Ordinal))
+                    denialText = AutoTranslatorMod.WfText(
+                        "翻译任务已达到预计 Token 用量上限：",
+                        "Translation estimated-token budget reached: ") + budgetDenialReason;
+                else if (string.Equals(budgetDenialReason, "run_paused_by_budget", StringComparison.Ordinal))
+                    denialText = AutoTranslatorMod.WfText(
+                        "本次翻译任务已经因达到用量上限而暂停：",
+                        "This translation run is already paused by its usage budget: ") + budgetDenialReason;
+                else
+                    denialText = "Translation budget paused: " + budgetDenialReason;
                 AutoTranslatorSettings.AddDebugLog(
-                    "Request denied by local usage budget. Provider=" + provider +
-                    ", Items=" + (requestContext != null ? requestContext.ItemCount : 0) + ".");
+                    "Request reservation denied. Provider=" + provider +
+                    ", Items=" + (requestContext != null ? requestContext.ItemCount : 0) +
+                    ", Reason=" + budgetDenialReason + ".");
                 return new ATC_WebResponse
                 {
                     IsSuccess = false,
                     HttpCode = 0,
-                    ErrorText = "Translation budget paused: " + budgetDenialReason,
+                    ErrorText = denialText,
                     ResponseBody = string.Empty,
                     BudgetDenied = true,
                     BudgetDenialReason = budgetDenialReason,

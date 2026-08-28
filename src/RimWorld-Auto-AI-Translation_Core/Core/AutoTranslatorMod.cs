@@ -1,4 +1,4 @@
-﻿
+
 
 
 using HarmonyLib;
@@ -57,6 +57,7 @@ namespace AutoTranslator_Core
         // 這個欄位保存 last雲端登錄Count 的執行狀態或快取資料。
         // EN: This field stores last cloud registry count runtime state or cached data.
         private static int _lastCloudRegistryCount = -1;
+        private static int _lastCloudRegistryGeneration = -1;
         // 這個欄位保存 last雲端語言Folder 的執行狀態或快取資料。
         // EN: This field stores last cloud language folder runtime state or cached data.
         private static string _lastCloudLangFolder = "";
@@ -73,6 +74,9 @@ namespace AutoTranslator_Core
         // EN: This field stores cached cloud valid mod count runtime state or cached data.
         private static int _cachedCloudValidModCount = -1;
         private static int _cachedCloudDisplayValidVersion = -1;
+        private static int _cachedCloudDisplayTypeMask = -1;
+        private static int _cachedCloudDisplayRegistryGeneration = -1;
+        private static string _cachedCloudDisplayLangFolder = "";
         private static readonly List<CloudModRecord> EmptyCloudRecords = new List<CloudModRecord>(0);
         private static int _cachedCloudStatsRegistryCount = -1;
         private static int _cachedCloudStatsGeneration = -1;
@@ -84,6 +88,7 @@ namespace AutoTranslator_Core
         private static int _cachedOwnCloudRecordsGeneration = -1;
         private static string _cachedOwnCloudRecordsLangFolder = "";
         private static string _cachedOwnCloudRecordsSearchText = "";
+        private static int _cachedOwnCloudRecordsTypeMask = -1;
         private static Dictionary<string, ModMetaData> _cachedCloudLocalModMap = null;
         private static int _cachedCloudLocalModMapCount = -1;
         private static int _cachedCloudLocalModMapVersion = -1;
@@ -603,7 +608,7 @@ namespace AutoTranslator_Core
                     }
                     else
                     {
-                        Find.WindowStack.Add(new Dialog_MessageBox("ATC_FinishMessage_Text".Translate(), "ATC_FinishMessage_OK".Translate(), null, null, null, "ATC_FinishMessage_Title".Translate()));
+                        Find.WindowStack.Add(new Window_AtcDialog("ATC_FinishMessage_Text".Translate(), "ATC_FinishMessage_OK".Translate(), null, null, null, "ATC_FinishMessage_Title".Translate()));
                     }
                 }
 

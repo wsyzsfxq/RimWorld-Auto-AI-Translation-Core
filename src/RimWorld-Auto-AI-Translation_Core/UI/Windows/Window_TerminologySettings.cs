@@ -69,10 +69,10 @@ namespace AutoTranslator_Core
                 Widgets.Label(new Rect(0f, inRect.height - 44f, inRect.width - 340f, 36f),
                     "ATC_Terminology_SelectedCount".Translate(AutoTranslatorMod.Settings.TerminologyEnabledPackageIds.Count));
                 int reviewCount = Terminology.TerminologyRuntime.GetCache().GetReviewQueue().Count;
-                if (Widgets.ButtonText(new Rect(inRect.width - 330f, inRect.height - 44f, 180f, 36f),
+                if (WorkflowUiStyle.Button(new Rect(inRect.width - 330f, inRect.height - 44f, 180f, 36f),
                     "ATC_Terminology_Review".Translate(reviewCount)))
                     Find.WindowStack.Add(new Window_TerminologyReview());
-                if (Widgets.ButtonText(new Rect(inRect.width - 140f, inRect.height - 44f, 140f, 36f), "ATC_ContactAuthor_Close".Translate()))
+                if (WorkflowUiStyle.Button(new Rect(inRect.width - 140f, inRect.height - 44f, 140f, 36f), "ATC_ContactAuthor_Close".Translate()))
                     Close();
             }
             finally

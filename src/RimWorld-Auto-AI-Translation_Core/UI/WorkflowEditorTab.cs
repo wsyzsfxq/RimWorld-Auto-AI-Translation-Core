@@ -121,26 +121,8 @@ namespace AutoTranslator_Core
 
             Rect title = new Rect(rect.x + 7f, rect.y + 5f, rect.width - 14f, 22f);
             Text.Font = GameFont.Tiny;
-            int total = _workflowEditorSnapshot?.TotalCount ?? 0;
-            int rangeStart = total == 0 ? 0 : _workflowEditorPageIndex * WorkflowEditorPageSize + 1;
-            int rangeEnd = Math.Min(total, rangeStart + WorkflowEditorPageSize - 1);
             Widgets.Label(title, (_workflowEditorSnapshot?.DisplayName ?? _workflowEditorSelectedModDisplayName) +
-                                 "　" + (_workflowEditorSnapshot?.PackageId ?? _workflowEditorSelectedModPackageId) +
-                                 WfText($"　{rangeStart:N0}–{rangeEnd:N0} / {total:N0}", $"  {rangeStart:N0}–{rangeEnd:N0} / {total:N0}"));
-            Rect nextPage = new Rect(title.xMax - 42f, title.y, 42f, 21f);
-            Rect previousPage = new Rect(nextPage.x - 45f, title.y, 42f, 21f);
-            if (WorkflowUiStyle.Button(previousPage, "‹", WorkflowButtonStyle.Quiet,
-                    _workflowEditorPageIndex > 0, GameFont.Tiny))
-            {
-                _workflowEditorPageIndex--;
-                RequestWorkflowEditorPage();
-            }
-            if (WorkflowUiStyle.Button(nextPage, "›", WorkflowButtonStyle.Quiet,
-                    _workflowEditorSnapshot?.HasMore == true, GameFont.Tiny))
-            {
-                _workflowEditorPageIndex++;
-                RequestWorkflowEditorPage();
-            }
+                                 "　" + (_workflowEditorSnapshot?.PackageId ?? _workflowEditorSelectedModPackageId));
             float filterY = title.yMax + 3f;
             Rect search = new Rect(rect.x + 7f, filterY, rect.width * 0.46f, 27f);
             string nextSearch = Widgets.TextField(search, _workflowEditorCandidateSearch ?? string.Empty);
@@ -152,11 +134,11 @@ namespace AutoTranslator_Core
             }
             Rect classification = new Rect(search.xMax + 7f, filterY, rect.width * 0.25f, 27f);
             Rect translation = new Rect(classification.xMax + 7f, filterY, rect.xMax - classification.xMax - 14f, 27f);
-            if (WorkflowUiStyle.Button(classification, GetEditorClassificationFilterLabel(),
-                    WorkflowButtonStyle.Quiet, true, GameFont.Tiny))
+            if (WorkflowUiStyle.Button(classification, GetEditorClassificationFilterLabel() + "  ▾",
+                    WorkflowButtonStyle.Dropdown, true, GameFont.Tiny))
                 OpenWorkflowEditorClassificationFilterMenu();
-            if (WorkflowUiStyle.Button(translation, GetEditorTranslationFilterLabel(),
-                    WorkflowButtonStyle.Quiet, true, GameFont.Tiny))
+            if (WorkflowUiStyle.Button(translation, GetEditorTranslationFilterLabel() + "  ▾",
+                    WorkflowButtonStyle.Dropdown, true, GameFont.Tiny))
                 OpenWorkflowEditorTranslationFilterMenu();
 
             float detailHeight = 250f;
@@ -173,6 +155,7 @@ namespace AutoTranslator_Core
             Widgets.DrawBoxSolid(rect, WorkflowUiStyle.Panel);
             WorkflowUiStyle.DrawBorder(rect, new Color(0.28f, 0.31f, 0.33f));
             const float headerHeight = 22f;
+            const float paginationHeight = 34f;
             const float rowHeight = 34f;
             Rect header = new Rect(rect.x, rect.y, rect.width, headerHeight);
             Widgets.DrawBoxSolid(header, WorkflowUiStyle.Header);
@@ -186,7 +169,11 @@ namespace AutoTranslator_Core
             }
 
             List<WorkflowCandidateEditorItem> items = GetFilteredWorkflowEditorCandidates();
-            Rect outRect = new Rect(rect.x + 2f, header.yMax, rect.width - 4f, rect.height - headerHeight - 2f);
+            Rect outRect = new Rect(
+                rect.x + 2f,
+                header.yMax,
+                rect.width - 4f,
+                rect.height - headerHeight - paginationHeight - 3f);
             Rect view = new Rect(0f, 0f, outRect.width - 16f, Mathf.Max(outRect.height, items.Count * rowHeight));
             Widgets.BeginScrollView(outRect, ref _workflowEditorCandidateScroll, view);
             for (int i = 0; i < items.Count; i++)
@@ -223,6 +210,89 @@ namespace AutoTranslator_Core
                 Widgets.Label(new Rect(8f, 9f, view.width - 16f, 25f), message);
             }
             Widgets.EndScrollView();
+            DrawWorkflowEditorPagination(new Rect(
+                rect.x + 2f,
+                rect.yMax - paginationHeight - 1f,
+                rect.width - 4f,
+                paginationHeight));
+        }
+
+        private static void DrawWorkflowEditorPagination(Rect rect)
+        {
+            int totalItems = _workflowEditorSnapshot?.TotalCount ?? 0;
+            int pageCount = totalItems == 0
+                ? 0
+                : (totalItems + WorkflowEditorPageSize - 1) / WorkflowEditorPageSize;
+            int currentPage = pageCount == 0
+                ? 0
+                : Mathf.Clamp(_workflowEditorPageIndex, 0, pageCount - 1);
+
+            Widgets.DrawBoxSolid(rect, WorkflowUiStyle.RaisedPanel);
+            WorkflowUiStyle.DrawBorder(rect, new Color(0.28f, 0.31f, 0.33f));
+
+            const float gap = 4f;
+            const float counterWidth = 72f;
+            const float edgeWidth = 30f;
+            const float navWidth = 72f;
+            const float pageWidth = 34f;
+            int visiblePageCount = Math.Min(5, pageCount);
+            float contentWidth = counterWidth + edgeWidth * 2f + navWidth * 2f +
+                                 pageWidth * visiblePageCount + gap * (5 + visiblePageCount);
+            float x = rect.x + Mathf.Max(4f, (rect.width - contentWidth) * 0.5f);
+            float y = rect.y + 4f;
+            const float height = 26f;
+
+            Text.Anchor = TextAnchor.MiddleCenter;
+            GUI.color = WorkflowUiStyle.MutedText;
+            Widgets.Label(new Rect(x, y, counterWidth, height),
+                pageCount == 0 ? "0 / 0" : (currentPage + 1) + " / " + pageCount);
+            GUI.color = Color.white;
+            Text.Anchor = TextAnchor.UpperLeft;
+            x += counterWidth + gap;
+
+            bool hasPrevious = currentPage > 0;
+            bool hasNext = currentPage + 1 < pageCount;
+            if (WorkflowUiStyle.Button(new Rect(x, y, edgeWidth, height), "«",
+                    WorkflowButtonStyle.Quiet, hasPrevious, GameFont.Tiny))
+                SetWorkflowEditorPage(0, pageCount);
+            x += edgeWidth + gap;
+            if (WorkflowUiStyle.Button(new Rect(x, y, navWidth, height), WfText("‹ 上一页", "‹ Previous"),
+                    WorkflowButtonStyle.Quiet, hasPrevious, GameFont.Tiny))
+                SetWorkflowEditorPage(currentPage - 1, pageCount);
+            x += navWidth + gap;
+
+            int firstVisiblePage = pageCount <= visiblePageCount
+                ? 0
+                : Mathf.Clamp(currentPage - 2, 0, pageCount - visiblePageCount);
+            for (int i = 0; i < visiblePageCount; i++)
+            {
+                int pageIndex = firstVisiblePage + i;
+                if (WorkflowUiStyle.Button(
+                        new Rect(x, y, pageWidth, height),
+                        (pageIndex + 1).ToString(),
+                        pageIndex == currentPage ? WorkflowButtonStyle.ActiveTab : WorkflowButtonStyle.Quiet,
+                        true,
+                        GameFont.Tiny))
+                    SetWorkflowEditorPage(pageIndex, pageCount);
+                x += pageWidth + gap;
+            }
+
+            if (WorkflowUiStyle.Button(new Rect(x, y, navWidth, height), WfText("下一页 ›", "Next ›"),
+                    WorkflowButtonStyle.Quiet, hasNext, GameFont.Tiny))
+                SetWorkflowEditorPage(currentPage + 1, pageCount);
+            x += navWidth + gap;
+            if (WorkflowUiStyle.Button(new Rect(x, y, edgeWidth, height), "»",
+                    WorkflowButtonStyle.Quiet, hasNext, GameFont.Tiny))
+                SetWorkflowEditorPage(pageCount - 1, pageCount);
+        }
+
+        private static void SetWorkflowEditorPage(int pageIndex, int pageCount)
+        {
+            if (pageCount <= 0) return;
+            int nextPage = Mathf.Clamp(pageIndex, 0, pageCount - 1);
+            if (nextPage == _workflowEditorPageIndex) return;
+            _workflowEditorPageIndex = nextPage;
+            RequestWorkflowEditorPage();
         }
 
         private void DrawWorkflowEditorDetail(Rect rect)
@@ -245,31 +315,38 @@ namespace AutoTranslator_Core
             ClassificationLayer localLayer = item.SourceDomain == CandidateSourceDomain.Dll
                 ? ClassificationLayer.Dll
                 : ClassificationLayer.Xml;
-            Widgets.Label(new Rect(rect.x + 7f, rect.y + 5f, 58f, 22f),
+            Widgets.Label(new Rect(rect.x + 7f, rect.y + 5f, 58f, 27f),
                 WfText("分类层：", "Layers: "));
             float layerX = rect.x + 65f;
-            float layerWidth = Mathf.Max(118f, (rect.width - 79f) / 3f);
-            DrawWorkflowEditorLayer(new Rect(layerX, rect.y + 4f, layerWidth, 24f),
+            const float layerGap = 5f;
+            float clearAiWidth = Mathf.Min(176f, rect.width * 0.19f);
+            float layerWidth = Mathf.Max(108f,
+                (rect.xMax - layerX - clearAiWidth - layerGap * 3f - 7f) / 3f);
+            Rect localLayerRect = new Rect(layerX, rect.y + 4f, layerWidth, 27f);
+            Rect aiLayerRect = new Rect(localLayerRect.xMax + layerGap, localLayerRect.y, layerWidth, 27f);
+            Rect manualLayerRect = new Rect(aiLayerRect.xMax + layerGap, localLayerRect.y, layerWidth, 27f);
+            Rect clearAiRect = new Rect(manualLayerRect.xMax + layerGap, localLayerRect.y,
+                rect.xMax - manualLayerRect.xMax - layerGap - 7f, 27f);
+            DrawWorkflowEditorLayer(localLayerRect,
                 GetWorkflowEditorLocalLayerLabel(item.SourceDomain) + " · " +
                 GetClassificationLabel(localClassification), item.EffectiveLayer == localLayer);
-            DrawWorkflowEditorLayer(new Rect(layerX + layerWidth, rect.y + 4f, layerWidth, 24f),
+            DrawWorkflowEditorLayer(aiLayerRect,
                 "AI · " + GetClassificationLabel(item.AiClassification),
                 item.EffectiveLayer == ClassificationLayer.AiReview);
-            DrawWorkflowEditorLayer(new Rect(layerX + layerWidth * 2f, rect.y + 4f, layerWidth, 24f),
-                WfText("手动 · ", "Manual · ") +
-                (item.ManualClassification == CandidateClassification.NotAnalyzed
-                    ? WfText("未设置", "Not set")
-                    : GetClassificationLabel(item.ManualClassification)),
-                item.EffectiveLayer == ClassificationLayer.Manual);
-
-            Rect manualClassification = new Rect(rect.x + 7f, rect.y + 33f, Mathf.Min(260f, rect.width * 0.42f), 27f);
-            if (WorkflowUiStyle.Button(manualClassification,
-                    GetWorkflowEditorManualClassificationLabel(item.ManualClassification),
-                    WorkflowButtonStyle.Quiet, !AutoTranslatorSettings.IsRunning, GameFont.Tiny))
+            string manualLabel = WfText("手动 · ", "Manual · ") +
+                                 (item.ManualClassification == CandidateClassification.NotAnalyzed
+                                     ? WfText("未设置", "Not set")
+                                     : GetClassificationLabel(item.ManualClassification)) + "  ▾";
+            if (WorkflowUiStyle.Button(
+                    manualLayerRect,
+                    manualLabel,
+                    item.EffectiveLayer == ClassificationLayer.Manual
+                        ? WorkflowButtonStyle.ActiveTab
+                        : WorkflowButtonStyle.Dropdown,
+                    !AutoTranslatorSettings.IsRunning,
+                    GameFont.Tiny))
                 OpenWorkflowEditorManualClassificationMenu(item);
-            Rect clearAi = new Rect(manualClassification.xMax + 7f, manualClassification.y,
-                Mathf.Min(190f, rect.xMax - manualClassification.xMax - 14f), 27f);
-            if (WorkflowUiStyle.Button(clearAi, WfText("清除 AI 复核结果", "Clear AI review result"),
+            if (WorkflowUiStyle.Button(clearAiRect, WfText("清除 AI 复核结果", "Clear AI review"),
                     WorkflowButtonStyle.Quiet,
                     !AutoTranslatorSettings.IsRunning && item.AiClassification != CandidateClassification.NotAnalyzed,
                     GameFont.Tiny))
@@ -281,7 +358,7 @@ namespace AutoTranslator_Core
                     true);
             }
             float half = (rect.width - 21f) * 0.5f;
-            Rect sourceLabel = new Rect(rect.x + 7f, rect.y + 65f, half, 18f);
+            Rect sourceLabel = new Rect(rect.x + 7f, rect.y + 39f, half, 18f);
             Rect translationLabel = new Rect(sourceLabel.xMax + 7f, sourceLabel.y, half, 18f);
             Widgets.Label(sourceLabel, WfText("原文（只读）", "Source (read-only)"));
             Widgets.Label(translationLabel, WfText("译文", "Translation"));
@@ -548,14 +625,6 @@ namespace AutoTranslator_Core
                 : item.SourceDomain == CandidateSourceDomain.Dll
                     ? ClassificationLayer.Dll
                     : ClassificationLayer.Xml;
-        }
-
-        private static string GetWorkflowEditorManualClassificationLabel(CandidateClassification classification)
-        {
-            return WfText("手动分类：", "Manual classification: ") +
-                (classification == CandidateClassification.NotAnalyzed
-                    ? WfText("未设置（跟随自动结果）", "Not set (follow automatic result)")
-                    : GetClassificationLabel(classification));
         }
 
         private static void OpenWorkflowEditorManualClassificationMenu(WorkflowCandidateEditorItem item)
