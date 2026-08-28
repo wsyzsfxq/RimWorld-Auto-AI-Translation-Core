@@ -70,6 +70,12 @@ namespace AutoTranslator_Core
             public string Error;
         }
 
+        private sealed class BatchDownloadExecutionResult
+        {
+            public BatchDownloadItem Item;
+            public bool Success;
+        }
+
         private sealed class BatchUploadPreparationResult
         {
             public List<BatchUploadSourceItem> UploadSources = new List<BatchUploadSourceItem>();
@@ -430,13 +436,15 @@ namespace AutoTranslator_Core
                         "cloud.download.batch start total=" + totalCount + " language=" + targetLangStr);
 
                     const int clearChunkSize = 32;
-                    for (int i = 0; i < totalCount; i++)
+                    int completedCount = 0;
+                    int maxParallel = Math.Max(1, Math.Min(4, AutoTranslatorMod.Settings.CloudBatchDownloadConcurrency));
+                    using (var semaphore = new System.Threading.SemaphoreSlim(maxParallel, maxParallel))
                     {
-                        taskLease.CancellationToken.ThrowIfCancellationRequested();
-                        if (i % clearChunkSize == 0)
+                        for (int chunkStart = 0; chunkStart < totalCount; chunkStart += clearChunkSize)
                         {
+                            taskLease.CancellationToken.ThrowIfCancellationRequested();
                             List<AutoTranslatorScanner.LocalTranslationDeleteTarget> clearTargets = modsToDownload
-                                .Skip(i)
+                                .Skip(chunkStart)
                                 .Take(clearChunkSize)
                                 .Select(item => new AutoTranslatorScanner.LocalTranslationDeleteTarget
                                 {
@@ -453,79 +461,68 @@ namespace AutoTranslator_Core
                             {
                                 pendingPreclearedPackages.Add(target.PackageId);
                             }
-                        }
 
-                        BatchDownloadItem mod = modsToDownload[i];
-                        int currentNumber = i + 1;
-                        int remainingBeforeDownload = totalCount - i;
-                        string runningDetail = WfText("正在下载", "Downloading") +
-                            " · " + WfText("成功 ", "Succeeded ") + successCount +
-                            " · " + WfText("失败 ", "Failed ") + failCount +
-                            " · " + WfText("剩余 ", "Remaining ") + remainingBeforeDownload;
-                        WorkflowTaskCoordinator.Instance.ReportProgress(
-                            i,
-                            totalCount,
-                            mod.DisplayName,
-                            runningDetail,
-                            currentNumber,
-                            totalCount,
-                            writeRuntimeLog: false);
-                        AutoTranslatorSettings.AddLog(
-                            "▶ " + WfText("云端下载", "Cloud download") +
-                            " · " + currentNumber + "/" + totalCount + " · " + mod.DisplayName);
-                        AutoTranslatorSettings.AddDebugLog(
-                            "cloud.download.mod start index=" + currentNumber + "/" + totalCount +
-                            " package=" + mod.PackageId + " record=" + (mod.Record?.RecordId ?? string.Empty));
+                            List<BatchDownloadItem> chunkItems = modsToDownload
+                                .Skip(chunkStart)
+                                .Take(clearChunkSize)
+                                .ToList();
+                            foreach (BatchDownloadItem queuedItem in chunkItems)
+                            {
+                                int queuedNumber = modsToDownload.IndexOf(queuedItem) + 1;
+                                AutoTranslatorSettings.AddDebugLog(
+                                    "cloud.download.mod queued index=" + queuedNumber + "/" + totalCount +
+                                    " package=" + queuedItem.PackageId +
+                                    " record=" + (queuedItem.Record?.RecordId ?? string.Empty));
+                            }
+                            Task<BatchDownloadExecutionResult>[] downloads = chunkItems
+                                .Select(item => DownloadPreparedBatchItemAsync(
+                                    item,
+                                    targetLangStr,
+                                    semaphore,
+                                    taskLease.CancellationToken))
+                                .ToArray();
+                            BatchDownloadExecutionResult[] chunkResults = await Task.WhenAll(downloads);
 
-                        var clearTarget = new AutoTranslatorScanner.LocalTranslationDeleteTarget
-                        {
-                            PackageId = mod.PackageId,
-                            ModName = mod.DisplayName
-                        };
-                        bool success = await AutoTranslatorCloudClient.DownloadAndInjectAsync(
-                            mod.PackageId,
-                            targetLangStr,
-                            mod.Record,
-                            requestMemoryDrop: false,
-                            requestRuntimeRefreshAfterClear: false,
-                            clearTarget: clearTarget,
-                            clearExistingTranslations: false,
-                            restoreBackupOnFailure: false);
-                        if (success)
-                        {
-                            pendingPreclearedPackages.Remove(mod.PackageId);
-                            successCount++;
-                            repairedPackages.Add(mod.PackageId);
-                            AutoTranslatorSettings.AddLog(
-                                "✓ " + WfText("云端下载", "Cloud download") +
-                                " · " + currentNumber + "/" + totalCount + " · " + mod.DisplayName +
-                                WfText(" · 下载成功", " · Succeeded"));
-                        }
-                        else
-                        {
-                            RestorePreclearedBatchPackage(mod.PackageId, packagesWithPreviousTranslations);
-                            pendingPreclearedPackages.Remove(mod.PackageId);
-                            failCount++;
-                            failedMods.Add(mod.DisplayName);
-                            AutoTranslatorSettings.AddErrorLog(
-                                WfText("云端下载失败", "Cloud download failed") +
-                                " · " + currentNumber + "/" + totalCount + " · " + mod.DisplayName +
-                                " · " + mod.PackageId,
-                                showMessage: false);
-                        }
+                            foreach (BatchDownloadExecutionResult download in chunkResults)
+                            {
+                                BatchDownloadItem mod = download.Item;
+                                completedCount++;
+                                if (download.Success)
+                                {
+                                    pendingPreclearedPackages.Remove(mod.PackageId);
+                                    successCount++;
+                                    repairedPackages.Add(mod.PackageId);
+                                    AutoTranslatorSettings.AddLog(
+                                        "✓ " + WfText("云端下载", "Cloud download") +
+                                        " · " + completedCount + "/" + totalCount + " · " + mod.DisplayName +
+                                        WfText(" · 下载成功", " · Succeeded"));
+                                }
+                                else
+                                {
+                                    RestorePreclearedBatchPackage(mod.PackageId, packagesWithPreviousTranslations);
+                                    pendingPreclearedPackages.Remove(mod.PackageId);
+                                    failCount++;
+                                    failedMods.Add(mod.DisplayName);
+                                    AutoTranslatorSettings.AddErrorLog(
+                                        WfText("云端下载失败", "Cloud download failed") +
+                                        " · " + completedCount + "/" + totalCount + " · " + mod.DisplayName +
+                                        " · " + mod.PackageId,
+                                        showMessage: false);
+                                }
 
-                        int completedCount = i + 1;
-                        WorkflowTaskCoordinator.Instance.ReportProgress(
-                            completedCount,
-                            totalCount,
-                            mod.DisplayName,
-                            WfText("已处理", "Processed") +
-                            " · " + WfText("成功 ", "Succeeded ") + successCount +
-                            " · " + WfText("失败 ", "Failed ") + failCount +
-                            " · " + WfText("剩余 ", "Remaining ") + (totalCount - completedCount),
-                            completedCount,
-                            totalCount,
-                            writeRuntimeLog: false);
+                                WorkflowTaskCoordinator.Instance.ReportProgress(
+                                    completedCount,
+                                    totalCount,
+                                    mod.DisplayName,
+                                    WfText("已处理", "Processed") +
+                                    " · " + WfText("成功 ", "Succeeded ") + successCount +
+                                    " · " + WfText("失败 ", "Failed ") + failCount +
+                                    " · " + WfText("剩余 ", "Remaining ") + (totalCount - completedCount),
+                                    completedCount,
+                                    totalCount,
+                                    writeRuntimeLog: false);
+                            }
+                        }
                     }
 
                     if (successCount > 0)
@@ -644,6 +641,50 @@ namespace AutoTranslator_Core
                 AutoTranslatorSettings.AddErrorLog(
                     WfText("云端翻译状态同步失败：", "Cloud translation synchronization failed: ") + ex.Message);
                 return ex.Message;
+            }
+        }
+
+        private static async Task<BatchDownloadExecutionResult> DownloadPreparedBatchItemAsync(
+            BatchDownloadItem item,
+            string targetLangStr,
+            System.Threading.SemaphoreSlim semaphore,
+            System.Threading.CancellationToken cancellationToken)
+        {
+            bool acquired = false;
+            try
+            {
+                await semaphore.WaitAsync(cancellationToken);
+                acquired = true;
+                cancellationToken.ThrowIfCancellationRequested();
+                var clearTarget = new AutoTranslatorScanner.LocalTranslationDeleteTarget
+                {
+                    PackageId = item.PackageId,
+                    ModName = item.DisplayName
+                };
+                bool success = await AutoTranslatorCloudClient.DownloadAndInjectAsync(
+                    item.PackageId,
+                    targetLangStr,
+                    item.Record,
+                    requestMemoryDrop: false,
+                    requestRuntimeRefreshAfterClear: false,
+                    clearTarget: clearTarget,
+                    clearExistingTranslations: false,
+                    restoreBackupOnFailure: false);
+                return new BatchDownloadExecutionResult { Item = item, Success = success };
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Verse.Log.Warning("[AutoTranslationCore] Batch cloud download failed for " + item.PackageId + ": " + ex.Message);
+                return new BatchDownloadExecutionResult { Item = item, Success = false };
+            }
+            finally
+            {
+                if (acquired)
+                    semaphore.Release();
             }
         }
 

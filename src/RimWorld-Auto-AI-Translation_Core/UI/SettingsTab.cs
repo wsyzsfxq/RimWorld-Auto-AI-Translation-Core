@@ -27,6 +27,26 @@ namespace AutoTranslator_Core
             DrawSettingsSectionHeader(l, WfText("常用与界面显示", "General and display"));
             Widgets.CheckboxLabeled(l.GetRect(30f), "ATC_ShowWorldMainButton".Translate(), ref Settings.ShowWorldMainButton);
             l.Gap(5f);
+            Rect blacklistButtonRect = l.GetRect(35f);
+            if (WorkflowUiStyle.Button(
+                    blacklistButtonRect,
+                    "ATC_Blacklist_Open".Translate(
+                        Settings.TranslationBlacklist.Count,
+                        Settings.CloudDownloadBlacklist.Count),
+                    WorkflowButtonStyle.Quiet))
+            {
+                Find.WindowStack.Add(new Window_ModBlacklists());
+            }
+            if (Mouse.IsOver(blacklistButtonRect))
+            {
+                TooltipHandler.TipRegion(blacklistButtonRect, "ATC_Blacklist_OpenTip".Translate());
+            }
+            l.Gap(5f);
+
+            if (AutoTranslatorSettings.IsRunning) GUI.color = Color.grey;
+            Widgets.CheckboxLabeled(l.GetRect(30f), "ATC_AutoClearOldOnUpdate".Translate(), ref Settings.AutoClearOldOnUpdate);
+            Widgets.CheckboxLabeled(l.GetRect(30f), "ATC_AutoTranslateOnUpdate".Translate(), ref Settings.AutoTranslateOnUpdate);
+            GUI.color = Color.white;
             Rect row1 = l.GetRect(30f);
             Rect langRect = new Rect(row1.x, row1.y, row1.width, row1.height);
             if (AutoTranslatorSettings.IsRunning) GUI.color = Color.grey;
@@ -48,6 +68,15 @@ namespace AutoTranslator_Core
             }
             GUI.color = Color.white;
             Widgets.CheckboxLabeled(l.GetRect(30f), "ATC_TranslateWorkbenchModNames".Translate(), ref Settings.TranslateWorkbenchModNames);
+            Rect uiManagerRect = l.GetRect(35f);
+            if (WorkflowUiStyle.Button(
+                    uiManagerRect,
+                    "ATC_UIManager_Open".Translate(UIInterceptor.GetManagedEntryCount()),
+                    WorkflowButtonStyle.Quiet))
+            {
+                Find.WindowStack.Add(new Window_UITranslationManager());
+            }
+            TooltipHandler.TipRegion(uiManagerRect, "ATC_UIManager_OpenTip".Translate());
             l.Gap(15f);
 
             DrawSettingsSectionHeader(l, WfText("AI 接口", "AI providers"));

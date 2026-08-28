@@ -253,7 +253,7 @@ namespace AutoTranslator_Core
                     List<string> existingFiles = cached.Files.Where(File.Exists).ToList();
                     if (existingFiles.Count == cached.Files.Count)
                     {
-                        return new List<string>(existingFiles);
+                        return ApplyTranslationFileLoadOrder(fullPath, existingFiles);
                     }
 
                     XmlFileListCache.Remove(cacheKey);
@@ -262,7 +262,9 @@ namespace AutoTranslator_Core
 
             try
             {
-                files = Directory.GetFiles(fullPath, "*.xml", searchOption).ToList();
+                files = ApplyTranslationFileLoadOrder(
+                    fullPath,
+                    Directory.GetFiles(fullPath, "*.xml", searchOption));
             }
             catch
             {

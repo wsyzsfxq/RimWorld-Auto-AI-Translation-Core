@@ -132,6 +132,34 @@ namespace AutoTranslator_Core
                     ExecuteBatchDownload("AI_Auto");
             }
 
+            l.Gap(5f);
+            Rect orderRow = l.GetRect(30f);
+            Rect orderButtonRect = new Rect(orderRow.x, orderRow.y, 220f, orderRow.height);
+            if (WorkflowUiStyle.Button(orderButtonRect,
+                    "ATC_Cloud_OrderButton".Translate(), WorkflowButtonStyle.Quiet))
+            {
+                Find.WindowStack.Add(new Window_CloudTranslationOrder());
+            }
+            TooltipHandler.TipRegion(orderButtonRect, "ATC_Cloud_OrderButtonTip".Translate());
+
+            Widgets.Label(new Rect(orderRow.x + 235f, orderRow.y + 4f, 190f, 24f),
+                "ATC_Cloud_ParallelDownloads".Translate(Settings.CloudBatchDownloadConcurrency));
+            int parallelDownloads = Mathf.RoundToInt(Widgets.HorizontalSlider(
+                new Rect(orderRow.x + 430f, orderRow.y + 7f, Mathf.Max(100f, orderRow.width - 430f), 20f),
+                Settings.CloudBatchDownloadConcurrency,
+                1f,
+                4f,
+                false,
+                null,
+                "1",
+                "4",
+                1f));
+            if (parallelDownloads != Settings.CloudBatchDownloadConcurrency)
+            {
+                Settings.CloudBatchDownloadConcurrency = parallelDownloads;
+                WriteSettings();
+            }
+
             l.Gap(8f);
             Rect contributionHeader = l.GetRect(30f);
             string contributionLabel = AutoTranslatorSettings.CloudContributionExpanded
