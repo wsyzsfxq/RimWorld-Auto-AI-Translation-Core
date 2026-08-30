@@ -783,6 +783,7 @@ namespace AutoTranslator_Core.Workflow.Persistence
                     command.CommandText = @"UPDATE Candidates SET
                         classification_flags=(classification_flags & @keep_mask),
                         ai_review_version=CASE WHEN @clear_ai=1 THEN '' ELSE ai_review_version END,
+                        ai_review_prompt_version=CASE WHEN @clear_ai=1 THEN '' ELSE ai_review_prompt_version END,
                         ai_review_fingerprint=CASE WHEN @clear_ai=1 THEN '' ELSE ai_review_fingerprint END,
                         ai_review_reason=CASE WHEN @clear_ai=1 THEN '' ELSE ai_review_reason END,
                         manual_updated_utc=CASE WHEN @clear_manual=1 THEN '' ELSE manual_updated_utc END,
@@ -832,7 +833,7 @@ namespace AutoTranslator_Core.Workflow.Persistence
                     WHERE TranslationResults.target_language=@target
                       AND TranslationResults.translation_origin=@local_ai;";
                 Add(command, "@target", targetLanguage ?? string.Empty);
-                Add(command, "@local_ai", (int)TranslationOrigin.LocalAi);
+                Add(command, "@local_ai", (int)TranslationOrigin.AiTranslation);
                 return Convert.ToInt64(command.ExecuteScalar());
             }
         }
@@ -878,7 +879,7 @@ namespace AutoTranslator_Core.Workflow.Persistence
                     ORDER BY Candidates.candidate_id
                     LIMIT @limit;";
                 Add(command, "@target", targetLanguage ?? string.Empty);
-                Add(command, "@local_ai", (int)TranslationOrigin.LocalAi);
+                Add(command, "@local_ai", (int)TranslationOrigin.AiTranslation);
                 Add(command, "@cursor", afterCandidateId ?? string.Empty);
                 Add(command, "@limit", pageSize + 1);
                 using (DbDataReader reader = command.ExecuteReader())
@@ -1489,6 +1490,7 @@ namespace AutoTranslator_Core.Workflow.Persistence
                     command.CommandText = @"UPDATE Candidates SET
                         classification_flags=((classification_flags & @keep_mask) | @value),
                         ai_review_version=CASE WHEN @is_ai=1 THEN @ai_version ELSE ai_review_version END,
+                        ai_review_prompt_version=CASE WHEN @is_ai=1 THEN '' ELSE ai_review_prompt_version END,
                         ai_review_fingerprint=CASE WHEN @is_ai=1 THEN @ai_fingerprint ELSE ai_review_fingerprint END,
                         ai_review_reason=CASE WHEN @is_ai=1 THEN '' ELSE ai_review_reason END,
                         manual_updated_utc=CASE WHEN @is_manual=1 AND @classification=0 THEN ''
@@ -1526,6 +1528,7 @@ namespace AutoTranslator_Core.Workflow.Persistence
                         command.CommandText = @"UPDATE Candidates SET
                             classification_flags=((classification_flags & @keep_mask) | @value),
                             ai_review_version=@version,
+                            ai_review_prompt_version=@prompt_version,
                             ai_review_fingerprint=@fingerprint,
                             ai_review_reason=@reason,
                             updated_utc=@updated
@@ -1533,6 +1536,7 @@ namespace AutoTranslator_Core.Workflow.Persistence
                         Add(command, "@keep_mask", 255 ^ mask);
                         Add(command, "@value", (int)update.Classification << shift);
                         Add(command, "@version", update.ReviewVersion);
+                        Add(command, "@prompt_version", update.PromptVersion);
                         Add(command, "@fingerprint", update.ReviewFingerprint);
                         Add(command, "@reason", LimitText(update.Reason, 500));
                         Add(command, "@updated", ToDbTime(DateTime.UtcNow));
@@ -1557,7 +1561,7 @@ namespace AutoTranslator_Core.Workflow.Persistence
                     command.Transaction = transaction;
                     command.CommandText = @"UPDATE Candidates SET
                         classification_flags=(classification_flags & 15),
-                        ai_review_version='', ai_review_fingerprint='', ai_review_reason='',
+                        ai_review_version='', ai_review_prompt_version='', ai_review_fingerprint='', ai_review_reason='',
                         manual_updated_utc='', updated_utc=@updated
                         WHERE candidate_id IN (SELECT candidate_id FROM SelectedWorkflowCandidates);";
                     Add(command, "@updated", ToDbTime(DateTime.UtcNow));
@@ -1592,7 +1596,9 @@ namespace AutoTranslator_Core.Workflow.Persistence
                     source_text_hash_at_translation=excluded.source_text_hash_at_translation,
                     managed_output_file=excluded.managed_output_file, managed_output_key=excluded.managed_output_key,
                     validation_status='Valid', last_sync_status='Synced', last_sync_error='',
-                    last_synced_utc=excluded.last_synced_utc, error_text='', updated_utc=excluded.updated_utc
+                    last_synced_utc=excluded.last_synced_utc, error_text='',
+                    ai_provider='', ai_model='', ai_prompt_version='', ai_run_id='', ai_batch_index=0,
+                    updated_utc=excluded.updated_utc
                     WHERE excluded.translation_origin >= TranslationResults.translation_origin;";
                 Add(command, "@target", targetLanguage);
                 Add(command, "@state", (int)CandidateTranslationState.Translated);
@@ -1698,7 +1704,8 @@ namespace AutoTranslator_Core.Workflow.Persistence
                     last_sync_status=CASE WHEN TranslationResults.managed_output_file<>''
                         THEN 'SourceChanged' ELSE 'Synced' END,
                     last_sync_error='', last_synced_utc=excluded.last_synced_utc,
-                    error_text='', updated_utc=excluded.updated_utc
+                    error_text='', ai_provider='', ai_model='', ai_prompt_version='',
+                    ai_run_id='', ai_batch_index=0, updated_utc=excluded.updated_utc
                     WHERE excluded.translation_origin >= TranslationResults.translation_origin;";
                 Add(command, "@target", targetLanguage);
                 Add(command, "@state", (int)CandidateTranslationState.Translated);
@@ -1725,6 +1732,7 @@ namespace AutoTranslator_Core.Workflow.Persistence
                     translation_state=0, translation_origin=0, translation_text='', translation_hash='',
                     source_text_hash_at_translation='', source_package_id='',
                     source_file_relative_path='', source_entry_key='', validation_status='',
+                    ai_provider='', ai_model='', ai_prompt_version='', ai_run_id='', ai_batch_index=0,
                     last_sync_status='SourceMissing',
                     last_sync_error='External translation source changed', updated_utc=@updated
                     WHERE candidate_id=@candidate AND target_language=@target
@@ -1811,7 +1819,7 @@ namespace AutoTranslator_Core.Workflow.Persistence
                       AND Candidates.output_relative_path<>'' AND Candidates.output_entry_key<>'';";
                 Add(command, "@target", targetLanguage);
                 Add(command, "@translated", (int)CandidateTranslationState.Translated);
-                Add(command, "@local_ai", (int)TranslationOrigin.LocalAi);
+                Add(command, "@local_ai", (int)TranslationOrigin.AiTranslation);
                 Add(command, "@updated", ToDbTime(DateTime.UtcNow));
                 Add(command, "@mod", modIdentity);
                 Add(command, "@xml_version", WorkflowIdentity.XmlAnalyzerVersion);
@@ -1860,9 +1868,12 @@ namespace AutoTranslator_Core.Workflow.Persistence
                         command.CommandText = @"INSERT INTO PendingFileOperations
                             (operation_id, candidate_id, target_language, operation_kind,
                              translation_origin, relative_path, entry_key, desired_text,
-                             desired_hash, source_text_hash, state, created_utc, error_text)
+                             desired_hash, source_text_hash, ai_provider, ai_model,
+                             ai_prompt_version, ai_run_id, ai_batch_index,
+                             state, created_utc, error_text)
                             SELECT @operation, candidate_id, @target, @kind, @origin, @path, @key,
-                                   @text, @hash, source_text_hash, 0, @created, ''
+                                   @text, @hash, source_text_hash, @ai_provider, @ai_model,
+                                   @ai_prompt_version, @ai_run_id, @ai_batch_index, 0, @created, ''
                             FROM Candidates WHERE candidate_id=@candidate;";
                         Add(command, "@operation", operation.OperationId.ToString("N"));
                         Add(command, "@candidate", operation.CandidateId);
@@ -1873,6 +1884,11 @@ namespace AutoTranslator_Core.Workflow.Persistence
                         Add(command, "@key", operation.EntryKey);
                         Add(command, "@text", operation.DesiredText);
                         Add(command, "@hash", operation.DesiredHash);
+                        Add(command, "@ai_provider", operation.AiProvider);
+                        Add(command, "@ai_model", operation.AiModel);
+                        Add(command, "@ai_prompt_version", operation.AiPromptVersion);
+                        Add(command, "@ai_run_id", operation.AiRunId);
+                        Add(command, "@ai_batch_index", operation.AiBatchIndex);
                         Add(command, "@created", ToDbTime(DateTime.UtcNow));
                         if (command.ExecuteNonQuery() != 1)
                             throw new InvalidOperationException(
@@ -1908,7 +1924,12 @@ namespace AutoTranslator_Core.Workflow.Persistence
                             EntryKey = Convert.ToString(reader["entry_key"]),
                             DesiredText = Convert.ToString(reader["desired_text"]),
                             DesiredHash = Convert.ToString(reader["desired_hash"]),
-                            SourceTextHash = Convert.ToString(reader["source_text_hash"])
+                            SourceTextHash = Convert.ToString(reader["source_text_hash"]),
+                            AiProvider = Convert.ToString(reader["ai_provider"]),
+                            AiModel = Convert.ToString(reader["ai_model"]),
+                            AiPromptVersion = Convert.ToString(reader["ai_prompt_version"]),
+                            AiRunId = Convert.ToString(reader["ai_run_id"]),
+                            AiBatchIndex = Convert.ToInt32(reader["ai_batch_index"])
                         });
                     }
                 }
@@ -1924,7 +1945,12 @@ namespace AutoTranslator_Core.Workflow.Persistence
             TranslationOrigin origin,
             string relativePath,
             string entryKey,
-            bool markManualClassification = false)
+            bool markManualClassification = false,
+            string aiProvider = "",
+            string aiModel = "",
+            string aiPromptVersion = "",
+            string aiRunId = "",
+            int aiBatchIndex = 0)
         {
             CompletePendingTranslations(new[]
             {
@@ -1937,7 +1963,12 @@ namespace AutoTranslator_Core.Workflow.Persistence
                     Origin = origin,
                     RelativePath = relativePath,
                     EntryKey = entryKey,
-                    MarkManualClassification = markManualClassification
+                    MarkManualClassification = markManualClassification,
+                    AiProvider = aiProvider ?? string.Empty,
+                    AiModel = aiModel ?? string.Empty,
+                    AiPromptVersion = aiPromptVersion ?? string.Empty,
+                    AiRunId = aiRunId ?? string.Empty,
+                    AiBatchIndex = aiBatchIndex
                 }
             });
         }
@@ -1959,9 +1990,11 @@ namespace AutoTranslator_Core.Workflow.Persistence
                         candidate.CommandText = @"INSERT INTO TranslationResults
                             (candidate_id, target_language, translation_state, translation_origin, translation_text,
                              translation_hash, source_text_hash_at_translation, managed_output_file, managed_output_key,
-                             validation_status, last_sync_status, last_sync_error, last_synced_utc, updated_utc)
+                             validation_status, last_sync_status, last_sync_error, last_synced_utc,
+                             ai_provider, ai_model, ai_prompt_version, ai_run_id, ai_batch_index, updated_utc)
                             SELECT candidate_id, @target, @state, @origin, @text, @hash, source_text_hash, @path, @key,
-                                   'Valid', 'Synced', '', @updated, @updated
+                                   'Valid', 'Synced', '', @updated, @ai_provider, @ai_model,
+                                   @ai_prompt_version, @ai_run_id, @ai_batch_index, @updated
                             FROM Candidates WHERE candidate_id=@id
                             ON CONFLICT(candidate_id, target_language) DO UPDATE SET
                             translation_state=excluded.translation_state, translation_origin=excluded.translation_origin,
@@ -1969,7 +2002,10 @@ namespace AutoTranslator_Core.Workflow.Persistence
                             source_text_hash_at_translation=excluded.source_text_hash_at_translation,
                             managed_output_file=excluded.managed_output_file, managed_output_key=excluded.managed_output_key,
                             validation_status='Valid', last_sync_status='Synced', last_sync_error='',
-                            last_synced_utc=excluded.last_synced_utc, error_text='', updated_utc=excluded.updated_utc
+                            last_synced_utc=excluded.last_synced_utc, error_text='',
+                            ai_provider=excluded.ai_provider, ai_model=excluded.ai_model,
+                            ai_prompt_version=excluded.ai_prompt_version, ai_run_id=excluded.ai_run_id,
+                            ai_batch_index=excluded.ai_batch_index, updated_utc=excluded.updated_utc
                             WHERE excluded.translation_origin >= TranslationResults.translation_origin;";
                         Add(candidate, "@target", completion.TargetLanguage);
                         Add(candidate, "@state", (int)CandidateTranslationState.Translated);
@@ -1978,6 +2014,11 @@ namespace AutoTranslator_Core.Workflow.Persistence
                         Add(candidate, "@hash", WorkflowIdentity.HashText(completion.TranslationText));
                         Add(candidate, "@path", completion.RelativePath);
                         Add(candidate, "@key", completion.EntryKey);
+                        Add(candidate, "@ai_provider", completion.AiProvider);
+                        Add(candidate, "@ai_model", completion.AiModel);
+                        Add(candidate, "@ai_prompt_version", completion.AiPromptVersion);
+                        Add(candidate, "@ai_run_id", completion.AiRunId);
+                        Add(candidate, "@ai_batch_index", completion.AiBatchIndex);
                         Add(candidate, "@updated", now);
                         Add(candidate, "@id", completion.CandidateId);
                         candidate.ExecuteNonQuery();
@@ -2065,6 +2106,7 @@ namespace AutoTranslator_Core.Workflow.Persistence
                         source_text_hash_at_translation='', source_package_id='', source_file_relative_path='',
                         source_entry_key='', managed_output_file='', managed_output_key='', error_text='',
                         validation_status='', last_sync_status='Synced', last_sync_error='',
+                        ai_provider='', ai_model='', ai_prompt_version='', ai_run_id='', ai_batch_index=0,
                         last_synced_utc=excluded.last_synced_utc, updated_utc=excluded.updated_utc;";
                     Add(translation, "@candidate", candidateId);
                     Add(translation, "@target", targetLanguage);
@@ -2703,6 +2745,7 @@ namespace AutoTranslator_Core.Workflow.Persistence
                 DllAnalyzerVersion = Convert.ToString(reader["dll_analyzer_version"]),
                 DllAnalysisFingerprint = Convert.ToString(reader["dll_analysis_fingerprint"]),
                 AiReviewVersion = Convert.ToString(reader["ai_review_version"]),
+                AiReviewPromptVersion = Convert.ToString(reader["ai_review_prompt_version"]),
                 AiReviewFingerprint = Convert.ToString(reader["ai_review_fingerprint"]),
                 XmlReasonCode = Convert.ToString(reader["xml_reason_code"]),
                 DllReasonCode = Convert.ToString(reader["dll_reason_code"]),

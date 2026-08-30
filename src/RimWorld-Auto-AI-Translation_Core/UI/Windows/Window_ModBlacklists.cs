@@ -139,7 +139,7 @@ namespace AutoTranslator_Core
             if (_cachedSearchText == search && _cachedMods != null) return _cachedMods;
 
             IEnumerable<ModMetaData> mods = ModLister.AllInstalledMods
-                .Where(mod => mod != null &&
+                .Where(mod => mod != null && mod.Active &&
                               !string.IsNullOrWhiteSpace(mod.PackageId) &&
                               !AutoTranslatorScanner.IsOfficialBaseGameOrDlcPackage(mod.PackageId) &&
                               !string.Equals(mod.PackageId, "auto.aitranslation.core", StringComparison.OrdinalIgnoreCase));

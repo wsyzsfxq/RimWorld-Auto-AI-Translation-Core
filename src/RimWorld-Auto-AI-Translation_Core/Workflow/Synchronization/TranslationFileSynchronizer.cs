@@ -819,9 +819,9 @@ namespace AutoTranslator_Core.Workflow.Synchronization
                 if (string.Equals(kind, AutoTranslatorScanner.ProvenanceKindAI, StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(kind, AutoTranslatorScanner.ProvenanceKindAIFromSecondary, StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(kind, AutoTranslatorScanner.ProvenanceKindLocalPackExisting, StringComparison.OrdinalIgnoreCase))
-                    return TranslationOrigin.LocalAi;
+                    return TranslationOrigin.AiTranslation;
             }
-            return changedAfterBaseline ? TranslationOrigin.Manual : TranslationOrigin.LocalAi;
+            return changedAfterBaseline ? TranslationOrigin.Manual : TranslationOrigin.AiTranslation;
         }
 
         private void RecoverPendingOperations(
@@ -905,7 +905,10 @@ namespace AutoTranslator_Core.Workflow.Synchronization
                             operation.OperationId, operation.CandidateId, targetLanguage,
                             operation.DesiredText, operation.TranslationOrigin,
                             operation.RelativePath, operation.EntryKey,
-                            operation.TranslationOrigin == TranslationOrigin.Manual);
+                            operation.TranslationOrigin == TranslationOrigin.Manual,
+                            operation.AiProvider, operation.AiModel,
+                            operation.AiPromptVersion, operation.AiRunId,
+                            operation.AiBatchIndex);
                         result.RecoveredPendingOperations++;
                     }
                     else if (operation.OperationKind == 2)

@@ -37,7 +37,6 @@ namespace AutoTranslator_Core
             return Math.Max(1, Math.Min(8, DllAnalysisMaxConcurrency));
         }
 
-        public static readonly bool IsPolicyAnalysisCloudCacheAvailable = false;
         // 這個欄位保存 目標語言 的執行狀態或快取資料。
         // EN: This field stores target language runtime state or cached data.
         public TargetLanguage TargetLang = TargetLanguage.Traditional;
@@ -58,7 +57,6 @@ namespace AutoTranslator_Core
         public AtcLogLevel LogLevel = AtcLogLevel.Info;
         // Legacy serialization bridge. New code must use LogLevel.
         public bool EnableDevelopmentDebugLogging = false;
-        public bool EnablePolicyAnalysisCloudCache = false;
         public bool EnableTerminologyConsistency = false;
         public List<string> TerminologyEnabledPackageIds = new List<string>();
         public Dictionary<string, string> TerminologyGroupByPackageId =
@@ -294,7 +292,6 @@ namespace AutoTranslator_Core
         // EN: This field stores cloud scroll pos runtime state or cached data.
         [NonSerialized] public static string CloudSearchText = "";
         [NonSerialized] public static bool CloudShowMineOnly = false;
-        [NonSerialized] public static bool CloudOnlyActiveMods = true;
         [NonSerialized] public static int CloudListTranslationTypeMask = 7;
         [NonSerialized] public static bool CloudDownloadOptionsExpanded = false;
         [NonSerialized] public static bool CloudContributionExpanded = false;
@@ -870,11 +867,10 @@ namespace AutoTranslator_Core
                     : (EnableDevelopmentDebugLogging ? AtcLogLevel.Debug : AtcLogLevel.Info);
                 EnableDevelopmentDebugLogging = LogLevel == AtcLogLevel.Debug;
             }
-            Scribe_Values.Look(ref EnablePolicyAnalysisCloudCache, "EnablePolicyAnalysisCloudCache", false);
-            // The client implementation is retained, but the public service has not deployed the
-            // candidate-domain/schema-v2 contract yet. Never reactivate a value saved by an older build.
-            EnablePolicyAnalysisCloudCache = false;
             Scribe_Values.Look(ref EnableTerminologyConsistency, "EnableTerminologyConsistency", false);
+            // V4 keeps terminology data for a future integration, but the current
+            // translation workflow must not silently activate the unfinished feature.
+            EnableTerminologyConsistency = false;
             Scribe_Collections.Look(
                 ref TerminologyEnabledPackageIds,
                 "TerminologyEnabledPackageIds",

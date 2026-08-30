@@ -6,7 +6,7 @@ namespace AutoTranslator_Core.Workflow.Persistence
 {
     internal static class WorkflowDatabaseSchema
     {
-        public const int CurrentVersion = 14;
+        public const int CurrentVersion = 15;
 
         private static readonly IReadOnlyDictionary<int, string[]> Migrations =
             new Dictionary<int, string[]>
@@ -254,6 +254,20 @@ namespace AutoTranslator_Core.Workflow.Persistence
                 {
                     @"CREATE INDEX IF NOT EXISTS IX_Candidates_SynchronizationCursor
                         ON Candidates(is_present, source_domain, candidate_id);"
+                },
+                [15] = new[]
+                {
+                    @"ALTER TABLE Candidates ADD COLUMN ai_review_prompt_version TEXT NOT NULL DEFAULT '';",
+                    @"ALTER TABLE TranslationResults ADD COLUMN ai_provider TEXT NOT NULL DEFAULT '';",
+                    @"ALTER TABLE TranslationResults ADD COLUMN ai_model TEXT NOT NULL DEFAULT '';",
+                    @"ALTER TABLE TranslationResults ADD COLUMN ai_prompt_version TEXT NOT NULL DEFAULT '';",
+                    @"ALTER TABLE TranslationResults ADD COLUMN ai_run_id TEXT NOT NULL DEFAULT '';",
+                    @"ALTER TABLE TranslationResults ADD COLUMN ai_batch_index INTEGER NOT NULL DEFAULT 0;",
+                    @"ALTER TABLE PendingFileOperations ADD COLUMN ai_provider TEXT NOT NULL DEFAULT '';",
+                    @"ALTER TABLE PendingFileOperations ADD COLUMN ai_model TEXT NOT NULL DEFAULT '';",
+                    @"ALTER TABLE PendingFileOperations ADD COLUMN ai_prompt_version TEXT NOT NULL DEFAULT '';",
+                    @"ALTER TABLE PendingFileOperations ADD COLUMN ai_run_id TEXT NOT NULL DEFAULT '';",
+                    @"ALTER TABLE PendingFileOperations ADD COLUMN ai_batch_index INTEGER NOT NULL DEFAULT 0;"
                 }
             };
 

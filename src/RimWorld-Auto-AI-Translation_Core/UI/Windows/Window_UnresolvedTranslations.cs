@@ -571,7 +571,7 @@ namespace AutoTranslator_Core
             string languageFolder = AutoTranslatorScanner.GetFolderNameByLanguage(
                 AutoTranslatorMod.Settings.TargetLang);
             foreach (ModMetaData mod in ModLister.AllInstalledMods.Where(candidate =>
-                candidate != null && !string.IsNullOrWhiteSpace(candidate.PackageId)))
+                candidate != null && candidate.Active && !string.IsNullOrWhiteSpace(candidate.PackageId)))
             {
                 if (!HardcodedUiBatchScanCoordinator.TryGet(mod.PackageId, out HardcodedUiBatchScanSummary summary) ||
                     summary?.Result?.Entries == null)

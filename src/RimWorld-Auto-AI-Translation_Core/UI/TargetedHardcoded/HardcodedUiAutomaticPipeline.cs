@@ -37,19 +37,16 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
             AutoTranslatorMod.Settings.SubTaskName = "ATC_HardcodedUi_AutoAnalyzing".Translate();
             List<HardcodedUiBatchScanSummary> summaries =
                 await HardcodedUiBatchScanCoordinator.ScanActiveModsAsync(selected);
-            bool enableCloudCache = AutoTranslatorSettings.IsPolicyAnalysisCloudCacheAvailable &&
-                                    AutoTranslatorMod.Settings.EnablePolicyAnalysisCloudCache;
             bool ownsPolicyRun = false;
             long agentRunId = 0L;
             bool agentCompleted = false;
             try
             {
-                if ((enableCloudCache || enableAgent) &&
+                if (enableAgent &&
                     !TranslationPolicyAgentCoordinator.IsEnabledForCurrentRun)
                 {
                     agentRunId = TranslationPolicyAgentCoordinator.BeginRun(
                         AutoTranslatorMod.Settings,
-                        enableCloudCache,
                         enableAgent);
                     ownsPolicyRun = agentRunId != 0L;
                 }
@@ -58,7 +55,7 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
                 {
                     if (AutoTranslatorSettings.IsCancellationRequested) break;
                     if (summary?.Result == null) continue;
-                    if (enableCloudCache || enableAgent)
+                    if (enableAgent)
                     {
                         List<HardcodedUiPatchEntry> pending =
                             HardcodedUiPolicyBridge.GetAgentCandidates(summary.Result);
@@ -73,8 +70,7 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
                                     summary.PackageId,
                                     pending.Select(entry =>
                                         HardcodedUiPolicyBridge.CreateCandidate(entry, modName)),
-                                    true,
-                                    PolicyAnalysisCandidateDomain.Dll);
+                                    false);
                             HardcodedUiPolicyBridge.ApplyAgentOutcomes(
                                 summary.Result,
                                 pending,

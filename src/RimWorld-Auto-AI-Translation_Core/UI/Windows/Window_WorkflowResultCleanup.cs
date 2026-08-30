@@ -57,11 +57,11 @@ namespace AutoTranslator_Core
                 AutoTranslatorMod.WfText("手动分类结果", "Manual classification results"),
                 ref _clearManualClassification);
             Widgets.CheckboxLabeled(translationRect,
-                AutoTranslatorMod.WfText("AI 翻译结果（仅本地 AI）", "AI translation results (local AI only)"),
+                AutoTranslatorMod.WfText("AI 翻译结果", "AI translation results"),
                 ref _clearLocalAiTranslation);
             TooltipHandler.TipRegion(translationRect, AutoTranslatorMod.WfText(
-                "仅删除 ATC 本地 AI 生成的译文记录和受管输出；不会删除云端、手工、Mod 原生或第三方译文。",
-                "Deletes only ATC local-AI translation records and managed output. Cloud, manual, mod-native, and third-party translations are preserved."));
+                "仅删除 ATC 调用 AI 生成的译文记录和受管输出；不会删除云端下载、手工、Mod 原生或第三方译文。AI 提供方和模型另行记录。",
+                "Deletes only translations generated through ATC AI calls and their managed output. Cloud downloads, manual, mod-native, and third-party translations are preserved. AI provider and model are recorded separately."));
 
             GUI.color = WorkflowUiStyle.ErrorText;
             Text.Font = GameFont.Tiny;

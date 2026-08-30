@@ -110,7 +110,9 @@ namespace AutoTranslator_Core.TranslationPolicy
                     node.Name,
                     context,
                     candidates,
-                    0);
+                    0,
+                    !string.IsNullOrWhiteSpace(node.Attributes?["ParentName"]?.Value) &&
+                    !IsFalseInheritance(node.Attributes?["Inherit"]?.Value));
             }
             return candidates.OrderBy(candidate => candidate.CandidateId, StringComparer.Ordinal).ToList();
         }
@@ -327,7 +329,8 @@ namespace AutoTranslator_Core.TranslationPolicy
                             originalNode.Name,
                             context,
                             candidates,
-                            sourceLineNumber);
+                            sourceLineNumber,
+                            true);
                     }
                     continue;
                 }
@@ -606,7 +609,8 @@ namespace AutoTranslator_Core.TranslationPolicy
             string defType,
             TranslationPolicySourceContext context,
             List<TranslationPolicyCandidate> candidates,
-            int sourceLineNumber)
+            int sourceLineNumber,
+            bool isInherited)
         {
             if (node == null) return;
             int liIndex = 0;
@@ -637,13 +641,13 @@ namespace AutoTranslator_Core.TranslationPolicy
                     {
                         AddCandidate(
                             candidates, context, TranslationPolicyBucket.DefInjected,
-                            defType, childPath, childName, text, sourceLineNumber);
+                            defType, childPath, childName, text, sourceLineNumber, isInherited);
                     }
                 }
                 else if (child.HasChildNodes)
                 {
                     TraverseV3DefNode(
-                        child, childPath, defType, context, candidates, sourceLineNumber);
+                        child, childPath, defType, context, candidates, sourceLineNumber, isInherited);
                 }
             }
         }
@@ -809,7 +813,8 @@ namespace AutoTranslator_Core.TranslationPolicy
         private static void AddCandidate(
             List<TranslationPolicyCandidate> candidates, TranslationPolicySourceContext context,
             TranslationPolicyBucket bucket, string defType, string keyOrPath,
-            string fieldName, string sourceText, int sourceLineNumber)
+            string fieldName, string sourceText, int sourceLineNumber,
+            bool isInherited = false)
         {
             TranslationPolicySourceContext safeContext = context ?? new TranslationPolicySourceContext();
             TranslationPolicyCandidate candidate = new TranslationPolicyCandidate
@@ -823,6 +828,7 @@ namespace AutoTranslator_Core.TranslationPolicy
                 FieldName = fieldName ?? string.Empty,
                 SourceText = sourceText ?? string.Empty,
                 SourceLineNumber = sourceLineNumber,
+                IsInherited = isInherited,
                 DeclaringAssembly = safeContext.DeclaringAssembly ?? string.Empty,
                 SchemaFingerprint = safeContext.SchemaFingerprint ?? string.Empty
             };

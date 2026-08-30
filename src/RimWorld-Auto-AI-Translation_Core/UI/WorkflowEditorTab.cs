@@ -768,10 +768,23 @@ namespace AutoTranslator_Core
         private static string GetTranslationStateLabel(WorkflowCandidateEditorItem item)
         {
             if (item.TranslationState == CandidateTranslationState.Translated && item.TranslationIsCurrent)
-                return WfText("已翻译", "Translated") + " · " + item.TranslationOrigin;
+                return WfText("已翻译", "Translated") + " · " + GetTranslationOriginLabel(item.TranslationOrigin);
             if (item.TranslationState == CandidateTranslationState.Failed) return WfText("失败", "Failed");
             if (item.TranslationState == CandidateTranslationState.Translating) return WfText("翻译中", "Translating");
             return WfText("未翻译", "Untranslated");
+        }
+
+        private static string GetTranslationOriginLabel(TranslationOrigin origin)
+        {
+            switch (origin)
+            {
+                case TranslationOrigin.AiTranslation: return WfText("AI 翻译", "AI translation");
+                case TranslationOrigin.Cloud: return WfText("云端下载", "Cloud download");
+                case TranslationOrigin.ModNative: return WfText("Mod 自带", "Mod native");
+                case TranslationOrigin.ThirdParty: return WfText("第三方译文", "Third-party");
+                case TranslationOrigin.Manual: return WfText("手工翻译", "Manual");
+                default: return WfText("未知来源", "Unknown origin");
+            }
         }
     }
 }

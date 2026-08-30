@@ -457,7 +457,6 @@ namespace AutoTranslator_Core
                         {
                             policyRunId = TranslationPolicyAgentCoordinator.BeginRun(
                                 AutoTranslatorMod.Settings,
-                                includeCloudCache,
                                 includeAgent);
                             TranslationPolicyAgentCoordinator.SetEstimatedBatchTotal(
                                 policyRunId,
@@ -507,8 +506,7 @@ namespace AutoTranslator_Core
                                             dll.PackageId,
                                             pending.Select(entry =>
                                                 HardcodedUiPolicyBridge.CreateCandidate(entry, modName)),
-                                            true,
-                                            PolicyAnalysisCandidateDomain.Dll);
+                                            false);
                                     HardcodedUiPolicyBridge.ApplyAgentOutcomes(
                                         dll.Result,
                                         pending,

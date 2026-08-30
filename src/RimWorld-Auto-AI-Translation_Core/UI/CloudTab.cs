@@ -64,9 +64,7 @@ namespace AutoTranslator_Core
             Widgets.Label(resultModeRow,
                 AutoTranslatorSettings.CloudShowMineOnly
                     ? WfText("当前列表：我的上传记录", "Showing my uploads") + " · " + typeFilterLabel
-                    : (AutoTranslatorSettings.CloudOnlyActiveMods
-                        ? WfText("当前列表：已启用 Mod", "Showing active mods") + " · " + typeFilterLabel
-                        : WfText("当前列表：全部已安装 Mod", "Showing all installed mods") + " · " + typeFilterLabel));
+                    : WfText("当前列表：已加载 Mod / DLC", "Showing loaded mods / DLC") + " · " + typeFilterLabel);
             GUI.color = Color.white;
             l.Gap(10f);
 
@@ -151,10 +149,7 @@ namespace AutoTranslator_Core
             }
 
             IEnumerable<ModMetaData> mods = validMods.Where(m => m != null && !ShouldSkipCloudSharingMod(m));
-            if (AutoTranslatorSettings.CloudOnlyActiveMods)
-            {
-                mods = mods.Where(m => m.Active);
-            }
+            mods = mods.Where(m => m.Active);
             mods = mods.Where(m =>
                 cloudLookup != null &&
                 cloudLookup.TryGetValue(m.PackageId ?? string.Empty, out List<CloudModRecord> records) &&

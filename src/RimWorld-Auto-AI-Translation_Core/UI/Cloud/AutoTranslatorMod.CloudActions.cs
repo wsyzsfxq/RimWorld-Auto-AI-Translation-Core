@@ -149,7 +149,7 @@ namespace AutoTranslator_Core
             CloudBatchDownloadMode mode = ParseBatchDownloadMode(targetType);
             string targetLangStr = AutoTranslatorScanner.GetFolderNameByLanguage(AutoTranslatorMod.Settings.CloudTargetLang);
             List<CloudLocalModSnapshot> localMods = Verse.ModLister.AllInstalledMods
-                .Where(m => (!AutoTranslatorSettings.CloudOnlyActiveMods || m.Active) &&
+                .Where(m => m.Active &&
                             !ShouldSkipCloudSharingMod(m) &&
                             !AutoTranslatorMod.Settings.IsCloudDownloadBlacklisted(m.PackageId) &&
                             !AutoTranslatorScanner.IsOfficialBaseGameOrDlcPackage(m.PackageId))
@@ -191,9 +191,7 @@ namespace AutoTranslator_Core
                     }
 
                     string modeLabel = GetCloudBatchDownloadModeLabel(mode);
-                    string scopeLabel = AutoTranslatorSettings.CloudOnlyActiveMods
-                        ? WfText("已启用 Mod", "Active mods")
-                        : WfText("全部已安装 Mod", "All installed mods");
+                    string scopeLabel = WfText("已加载 Mod / DLC", "Loaded mods / DLC");
                     string targetLangLabel = GetLangLabel(Settings.CloudTargetLang);
                     string preview = string.Join("、", result.Items
                         .Take(8)
@@ -740,7 +738,7 @@ namespace AutoTranslator_Core
             WriteSettings();
 
             List<CloudLocalModSnapshot> installedModSnapshots = Verse.ModLister.AllInstalledMods
-                .Where(m => m != null && !string.IsNullOrEmpty(m.PackageId))
+                .Where(m => m != null && m.Active && !string.IsNullOrEmpty(m.PackageId))
                 .Select(m => new CloudLocalModSnapshot
                 {
                     PackageId = m.PackageId,
@@ -809,7 +807,7 @@ namespace AutoTranslator_Core
                 var uploadablePackages = BuildUploadableLocalPackPackageSet(liveLangDir, Verse.ModLister.AllInstalledMods);
                 foreach (var mod in Verse.ModLister.AllInstalledMods)
                 {
-                    if (mod == null || string.IsNullOrEmpty(mod.PackageId)) continue;
+                    if (mod == null || !mod.Active || string.IsNullOrEmpty(mod.PackageId)) continue;
                     if (ShouldSkipCloudSharingMod(mod))
                     {
                         skippedPatchModCount++;

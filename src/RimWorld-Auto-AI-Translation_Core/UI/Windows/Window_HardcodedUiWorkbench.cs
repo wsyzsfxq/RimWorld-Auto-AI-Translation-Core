@@ -450,7 +450,7 @@ namespace AutoTranslator_Core
 
             _busy = true;
             _agentOutcomes.Clear();
-            long runId = TranslationPolicyAgentCoordinator.BeginRun(settings, false, true);
+            long runId = TranslationPolicyAgentCoordinator.BeginRun(settings, true);
             bool completed = false;
             try
             {

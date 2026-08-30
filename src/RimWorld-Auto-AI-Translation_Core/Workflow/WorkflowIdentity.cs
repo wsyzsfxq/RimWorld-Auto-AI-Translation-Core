@@ -13,7 +13,12 @@ namespace AutoTranslator_Core.Workflow
         // Def inheritance before candidate generation.
         public const string XmlAnalyzerVersion = "xml-3";
         public const string DllAnalyzerVersion = "dll-3.03";
-        public const string AiReviewVersion = "ai-review-3";
+        // Major compatibility version for saved AI review decisions. Minor prompt
+        // wording revisions are tracked separately and do not invalidate a stable
+        // candidate whose source/evidence is unchanged.
+        public const string AiReviewVersion = "ai-review-4";
+        public const string AiReviewPromptVersion = "ai-review-prompt-4.0";
+        public const string AiTranslationPromptVersion = "ai-translation-prompt-2.0";
         private const string CandidateIdPrefix = "atc1_";
 
         public static string CreateCandidateId(
@@ -113,8 +118,8 @@ namespace AutoTranslator_Core.Workflow
         {
             if (candidate == null) return string.Empty;
             return HashText(
-                AiReviewVersion + "\n" + candidate.CandidateId + "\n" +
-                candidate.SourceTextHash + "\n" + candidate.LogicalLocator + "\n" +
+                candidate.CandidateId + "\n" + candidate.SourceTextHash + "\n" +
+                candidate.LogicalLocator + "\n" + candidate.SourceFileRelativePath + "\n" +
                 candidate.ContextJson);
         }
 

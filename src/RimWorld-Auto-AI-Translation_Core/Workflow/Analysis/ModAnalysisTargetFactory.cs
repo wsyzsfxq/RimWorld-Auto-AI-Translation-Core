@@ -93,7 +93,7 @@ namespace AutoTranslator_Core.Workflow.Analysis
                     RootPath = root,
                     InstallationSource = installationSource,
                     InstallationSourceId = workshopId,
-                    IsActive = true,
+                    IsActive = mod.Active,
                     GameVersion = ReadGameVersion(),
                     LoadFoldersJson = JsonConvert.SerializeObject(
                         effectiveLanguageRoots.Concat(xmlDirectories)

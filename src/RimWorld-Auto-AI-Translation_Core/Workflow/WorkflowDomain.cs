@@ -30,7 +30,7 @@ namespace AutoTranslator_Core.Workflow
     public enum TranslationOrigin : byte
     {
         None = 0,
-        LocalAi = 1,
+        AiTranslation = 1,
         Cloud = 2,
         ModNative = 3,
         ThirdParty = 4,
@@ -214,6 +214,7 @@ namespace AutoTranslator_Core.Workflow
         public string DllAnalyzerVersion { get; set; } = string.Empty;
         public string DllAnalysisFingerprint { get; set; } = string.Empty;
         public string AiReviewVersion { get; set; } = string.Empty;
+        public string AiReviewPromptVersion { get; set; } = string.Empty;
         public string AiReviewFingerprint { get; set; } = string.Empty;
         public string XmlReasonCode { get; set; } = string.Empty;
         public string DllReasonCode { get; set; } = string.Empty;
@@ -294,6 +295,11 @@ namespace AutoTranslator_Core.Workflow
         public string DesiredText { get; set; } = string.Empty;
         public string DesiredHash { get; set; } = string.Empty;
         public string SourceTextHash { get; set; } = string.Empty;
+        public string AiProvider { get; set; } = string.Empty;
+        public string AiModel { get; set; } = string.Empty;
+        public string AiPromptVersion { get; set; } = string.Empty;
+        public string AiRunId { get; set; } = string.Empty;
+        public int AiBatchIndex { get; set; }
     }
 
     public sealed class PendingTranslationCompletion
@@ -306,6 +312,11 @@ namespace AutoTranslator_Core.Workflow
         public string RelativePath { get; set; } = string.Empty;
         public string EntryKey { get; set; } = string.Empty;
         public bool MarkManualClassification { get; set; }
+        public string AiProvider { get; set; } = string.Empty;
+        public string AiModel { get; set; } = string.Empty;
+        public string AiPromptVersion { get; set; } = string.Empty;
+        public string AiRunId { get; set; } = string.Empty;
+        public int AiBatchIndex { get; set; }
     }
 
     public sealed class AiClassificationUpdate
@@ -313,6 +324,7 @@ namespace AutoTranslator_Core.Workflow
         public string CandidateId { get; set; } = string.Empty;
         public CandidateClassification Classification { get; set; }
         public string ReviewVersion { get; set; } = string.Empty;
+        public string PromptVersion { get; set; } = string.Empty;
         public string ReviewFingerprint { get; set; } = string.Empty;
         public string Reason { get; set; } = string.Empty;
     }

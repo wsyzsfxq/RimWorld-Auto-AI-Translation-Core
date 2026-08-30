@@ -437,8 +437,8 @@ namespace AutoTranslator_Core.Workflow
                                     (int)Math.Min(Math.Max(1L, total), int.MaxValue),
                                     candidate.ModIdentity,
                                     AutoTranslatorMod.WfText(
-                                        "正在清除本地 AI 译文 " + completed + "/" + total,
-                                        "Clearing local AI translations " + completed + "/" + total));
+                                        "正在清除 AI 翻译结果 " + completed + "/" + total,
+                                        "Clearing AI translation results " + completed + "/" + total));
                             }
                             cursor = page.NextCandidateId;
                             if (!page.HasMore) break;
@@ -464,11 +464,11 @@ namespace AutoTranslator_Core.Workflow
 
         private void ClearLocalAiTranslation(CandidateRecord candidate, string targetLanguage)
         {
-            if (candidate == null || candidate.TranslationOrigin != TranslationOrigin.LocalAi) return;
+            if (candidate == null || candidate.TranslationOrigin != TranslationOrigin.AiTranslation) return;
             if (string.IsNullOrWhiteSpace(candidate.TranslationFileRelativePath))
             {
                 _repository.ClearTranslationIfOrigin(
-                    candidate.CandidateId, targetLanguage, TranslationOrigin.LocalAi);
+                    candidate.CandidateId, targetLanguage, TranslationOrigin.AiTranslation);
                 return;
             }
 
@@ -478,7 +478,7 @@ namespace AutoTranslator_Core.Workflow
                 EntryKey = candidate.TranslationEntryKey
             };
             Guid operationId = _repository.CreatePendingFileOperation(
-                candidate.CandidateId, targetLanguage, 2, TranslationOrigin.LocalAi,
+                candidate.CandidateId, targetLanguage, 2, TranslationOrigin.AiTranslation,
                 target.RelativePath, target.EntryKey, string.Empty);
             try
             {

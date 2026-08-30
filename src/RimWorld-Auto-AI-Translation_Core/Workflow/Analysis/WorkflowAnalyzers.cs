@@ -47,6 +47,11 @@ namespace AutoTranslator_Core.Workflow.Analysis
     public sealed class XmlWorkflowCandidateContext
     {
         public string DefType { get; set; } = string.Empty;
+        public string DefName { get; set; } = string.Empty;
+        public string FieldPath { get; set; } = string.Empty;
+        public string ParentPath { get; set; } = string.Empty;
+        public bool IsInherited { get; set; }
+        public List<string> NearbyEntries { get; set; } = new List<string>();
         public string PolicyReasonCode { get; set; } = string.Empty;
     }
 
@@ -217,9 +222,12 @@ namespace AutoTranslator_Core.Workflow.Analysis
                     reportProgress,
                     defInheritanceIndex,
                     warning => result.Diagnostics.Add(relativePath + ": " + warning));
+            Dictionary<string, XmlWorkflowCandidateContext> xmlContexts =
+                BuildXmlCandidateContexts(policyCandidates);
 
-            foreach (TranslationPolicyCandidate policyCandidate in policyCandidates)
+            for (int policyIndex = 0; policyIndex < policyCandidates.Count; policyIndex++)
             {
+                TranslationPolicyCandidate policyCandidate = policyCandidates[policyIndex];
                 cancellationToken.ThrowIfCancellationRequested();
                 CandidateClassification classification = CandidateClassification.NeedsTranslation;
                 byte flags = ClassificationFlagsCodec.Set(0, ClassificationLayer.Xml, classification);
@@ -236,11 +244,8 @@ namespace AutoTranslator_Core.Workflow.Analysis
                     SourceDomain = CandidateSourceDomain.Xml,
                     EntryKind = policyCandidate.Bucket.ToString(),
                     LogicalLocator = locator,
-                    ContextJson = JsonConvert.SerializeObject(new XmlWorkflowCandidateContext
-                    {
-                        DefType = policyCandidate.DefType,
-                        PolicyReasonCode = "v3_translation_target"
-                    }),
+                    ContextJson = JsonConvert.SerializeObject(
+                        xmlContexts[policyCandidate.CandidateId]),
                     DefaultOutputFileRelativePath = CreateDefaultOutputPath(
                         target, policyCandidate.Bucket, policyCandidate.DefType),
                     TranslationEntryKey = policyCandidate.KeyOrPath,
@@ -268,6 +273,66 @@ namespace AutoTranslator_Core.Workflow.Analysis
                             target.Snapshot.ModIdentity, CandidateSourceDomain.Xml, policyCandidate.Bucket.ToString(), locator)));
                 }
             }
+        }
+
+        private static Dictionary<string, XmlWorkflowCandidateContext> BuildXmlCandidateContexts(
+            IList<TranslationPolicyCandidate> candidates)
+        {
+            Dictionary<string, XmlWorkflowCandidateContext> result =
+                new Dictionary<string, XmlWorkflowCandidateContext>(StringComparer.Ordinal);
+            foreach (IGrouping<string, TranslationPolicyCandidate> group in
+                     (candidates ?? Array.Empty<TranslationPolicyCandidate>())
+                     .GroupBy(candidate => GetXmlContextGroupKey(candidate), StringComparer.Ordinal))
+            {
+                List<TranslationPolicyCandidate> ordered = group
+                    .OrderBy(candidate => candidate.SourceLineNumber)
+                    .ThenBy(candidate => candidate.KeyOrPath, StringComparer.Ordinal)
+                    .ToList();
+                for (int index = 0; index < ordered.Count; index++)
+                {
+                    TranslationPolicyCandidate candidate = ordered[index];
+                    string keyOrPath = candidate.KeyOrPath ?? string.Empty;
+                    int firstSeparator = keyOrPath.IndexOf('.');
+                    string defName = candidate.Bucket == TranslationPolicyBucket.DefInjected && firstSeparator > 0
+                        ? keyOrPath.Substring(0, firstSeparator)
+                        : string.Empty;
+                    string fieldPath = firstSeparator > 0
+                        ? keyOrPath.Substring(firstSeparator + 1)
+                        : keyOrPath;
+                    int parentSeparator = fieldPath.LastIndexOf('.');
+                    List<string> nearby = new List<string>();
+                    for (int offset = -2; offset <= 2; offset++)
+                    {
+                        if (offset == 0 || index + offset < 0 || index + offset >= ordered.Count) continue;
+                        TranslationPolicyCandidate neighbor = ordered[index + offset];
+                        string text = neighbor.SourceText ?? string.Empty;
+                        if (text.Length > 180) text = text.Substring(0, 180) + "…";
+                        nearby.Add((neighbor.KeyOrPath ?? string.Empty) + " = " + text);
+                    }
+                    result[candidate.CandidateId] = new XmlWorkflowCandidateContext
+                    {
+                        DefType = candidate.DefType ?? string.Empty,
+                        DefName = defName,
+                        FieldPath = fieldPath,
+                        ParentPath = parentSeparator > 0
+                            ? fieldPath.Substring(0, parentSeparator)
+                            : string.Empty,
+                        IsInherited = candidate.IsInherited,
+                        NearbyEntries = nearby,
+                        PolicyReasonCode = "v3_translation_target"
+                    };
+                }
+            }
+            return result;
+        }
+
+        private static string GetXmlContextGroupKey(TranslationPolicyCandidate candidate)
+        {
+            if (candidate == null) return string.Empty;
+            string keyOrPath = candidate.KeyOrPath ?? string.Empty;
+            if (candidate.Bucket != TranslationPolicyBucket.DefInjected) return "keyed";
+            int separator = keyOrPath.IndexOf('.');
+            return separator > 0 ? keyOrPath.Substring(0, separator) : keyOrPath;
         }
 
         private static string CreateStableXmlLocator(TranslationPolicyCandidate candidate)
@@ -424,6 +489,9 @@ namespace AutoTranslator_Core.Workflow.Analysis
         {
             if (target == null || target.Snapshot == null || target.Mod == null)
                 throw new ArgumentNullException(nameof(target));
+            if (!target.Mod.Active || !target.Snapshot.IsActive)
+                throw new InvalidOperationException(
+                    "DLL analysis requires a loaded mod or DLC; unloaded assemblies are not treated as a successful empty scan.");
             cancellationToken.ThrowIfCancellationRequested();
             reportProgress?.Invoke(0d, "DLL · " +
                 AutoTranslatorMod.WfText("扫描程序集", "scanning assemblies"));

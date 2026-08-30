@@ -71,17 +71,10 @@ namespace AutoTranslator_Core
             l.Gap(6f);
             Rect scopeRow = l.GetRect(32f);
             Widgets.Label(new Rect(scopeRow.x, scopeRow.y + 6f, 90f, 24f), WfText("下载范围", "Scope"));
-            bool activeOnly = AutoTranslatorSettings.CloudOnlyActiveMods;
-            if (DrawUploadTypeOption(new Rect(scopeRow.x + 90f, scopeRow.y, 150f, 30f),
-                    WfText("已启用 Mod", "Active mods"), activeOnly))
-            {
-                SetCloudModScope(true);
-            }
-            if (DrawUploadTypeOption(new Rect(scopeRow.x + 250f, scopeRow.y, 170f, 30f),
-                    WfText("全部已安装", "All installed"), !activeOnly))
-            {
-                SetCloudModScope(false);
-            }
+            GUI.color = WorkflowUiStyle.MutedText;
+            Widgets.Label(new Rect(scopeRow.x + 90f, scopeRow.y + 6f, 250f, 24f),
+                WfText("已加载 Mod / DLC", "Loaded mods / DLC"));
+            GUI.color = Color.white;
             if (WorkflowUiStyle.Button(new Rect(scopeRow.xMax - 190f, scopeRow.y, 190f, 30f),
                     WfText("管理下载排除列表", "Download exclusions"), WorkflowButtonStyle.Quiet))
             {
@@ -262,18 +255,6 @@ namespace AutoTranslator_Core
             l.Gap(10f);
             Widgets.DrawLineHorizontal(0, l.CurHeight, viewRect.width);
             l.Gap(10f);
-        }
-
-        private static void SetCloudModScope(bool activeOnly)
-        {
-            bool changed = AutoTranslatorSettings.CloudOnlyActiveMods != activeOnly ||
-                AutoTranslatorSettings.CloudShowMineOnly;
-            if (!changed) return;
-            AutoTranslatorSettings.CloudOnlyActiveMods = activeOnly;
-            AutoTranslatorSettings.CloudShowMineOnly = false;
-            _cachedCloudDisplayMods = null;
-            _cachedCloudSearchText = null;
-            AutoTranslatorSettings.mainScrollPos = Vector2.zero;
         }
 
         private const int CloudListTypeTranslationGroup = 1;

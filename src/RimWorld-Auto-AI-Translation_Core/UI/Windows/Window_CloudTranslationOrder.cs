@@ -117,7 +117,7 @@ namespace AutoTranslator_Core
         private void BuildRows(bool useSavedOrder)
         {
             Dictionary<string, ModMetaData> installed = ModLister.AllInstalledMods
-                .Where(mod => mod != null && !string.IsNullOrWhiteSpace(mod.PackageId))
+                .Where(mod => mod != null && mod.Active && !string.IsNullOrWhiteSpace(mod.PackageId))
                 .GroupBy(mod => mod.PackageId, StringComparer.OrdinalIgnoreCase)
                 .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
             List<string> gameHighFirst = (LoadedModManager.RunningModsListForReading ?? new List<ModContentPack>())
@@ -136,7 +136,6 @@ namespace AutoTranslator_Core
             foreach (string packageId in ordered)
             {
                 if (!installed.TryGetValue(packageId, out ModMetaData mod)) continue;
-                if (!mod.Active && !saved.Contains(packageId, StringComparer.OrdinalIgnoreCase)) continue;
                 if (!ModUpdateDetector.HasLocalTranslationFiles(mod) && !saved.Contains(packageId, StringComparer.OrdinalIgnoreCase)) continue;
                 _rows.Add(new OrderRow
                 {

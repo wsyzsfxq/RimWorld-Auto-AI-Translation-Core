@@ -24,12 +24,6 @@ namespace AutoTranslator_Core
             public long WorkbenchDataRevision;
         }
 
-        private enum WorkflowModScope
-        {
-            Enabled,
-            All
-        }
-
         private enum WorkflowInspectorMode
         {
             Collapsed,
@@ -58,7 +52,6 @@ namespace AutoTranslator_Core
         private static WorkflowConfiguration _workflowUiConfiguration;
         private static string _workflowUiLoadError = string.Empty;
         private static string _workflowModSearch = string.Empty;
-        private static WorkflowModScope _workflowModScope = WorkflowModScope.Enabled;
         private static WorkflowModFilter _workflowModFilter;
         private static readonly HashSet<string> _workflowSelectedModIdentities =
             new HashSet<string>(StringComparer.Ordinal);
@@ -176,8 +169,11 @@ namespace AutoTranslator_Core
             }
             TooltipHandler.TipRegion(searchGroupRect, WfText("搜索 Mod 名称或 Package ID", "Search mod name or package ID"));
 
-            if (WorkflowUiStyle.Button(scopeRect, GetWorkflowScopeLabel()))
-                OpenWorkflowScopeMenu();
+            Text.Anchor = TextAnchor.MiddleCenter;
+            GUI.color = WorkflowUiStyle.MutedText;
+            Widgets.Label(scopeRect, GetWorkflowScopeLabel());
+            GUI.color = Color.white;
+            Text.Anchor = TextAnchor.UpperLeft;
             if (WorkflowUiStyle.Button(filterRect, GetWorkflowFilterLabel()))
                 OpenWorkflowFilterMenu();
             bool busy = WorkflowTaskCoordinator.Instance.IsBusy || AutoTranslatorSettings.LegacyPipelineIsRunning;
@@ -1039,10 +1035,10 @@ namespace AutoTranslator_Core
                             WfText(
                                 "清除完成：AI 复核 " + result.AiReviewCandidateCount.ToString("N0") +
                                 " 条，手动分类 " + result.ManualClassificationCandidateCount.ToString("N0") +
-                                " 条，本地 AI 译文 " + result.LocalAiTranslationCount.ToString("N0") + " 条。",
+                                " 条，AI 翻译结果 " + result.LocalAiTranslationCount.ToString("N0") + " 条。",
                                 "Cleanup complete: AI review " + result.AiReviewCandidateCount.ToString("N0") +
                                 ", manual classifications " + result.ManualClassificationCandidateCount.ToString("N0") +
-                                ", local AI translations " + result.LocalAiTranslationCount.ToString("N0") + "."),
+                                ", AI translation results " + result.LocalAiTranslationCount.ToString("N0") + "."),
                             MessageTypeDefOf.PositiveEvent,
                             false));
                     },
@@ -1070,8 +1066,7 @@ namespace AutoTranslator_Core
         {
             IEnumerable<WorkflowModSummary> query = _workflowUiSnapshot?.Mods ??
                                                      Enumerable.Empty<WorkflowModSummary>();
-            if (_workflowModScope == WorkflowModScope.Enabled)
-                query = query.Where(mod => mod.IsActive);
+            query = query.Where(mod => mod.IsActive);
             if (!string.IsNullOrWhiteSpace(_workflowModSearch))
             {
                 string search = _workflowModSearch.Trim();
@@ -1142,39 +1137,13 @@ namespace AutoTranslator_Core
         {
             return _workflowSelectedModIdentities
                 .Select(identity => _workflowModsByIdentity.TryGetValue(identity, out ModMetaData mod) ? mod : null)
-                .Where(mod => mod != null && WorkflowStepSelection.IsTranslationTarget(mod))
+                .Where(mod => mod != null && mod.Active && WorkflowStepSelection.IsTranslationTarget(mod))
                 .ToList();
         }
 
         private static string GetWorkflowScopeLabel()
         {
-            return WfText("Mod 范围：", "Mod scope: ") +
-                   (_workflowModScope == WorkflowModScope.Enabled
-                       ? WfText("已启用", "Enabled")
-                       : WfText("全部", "All"));
-        }
-
-        private static void OpenWorkflowScopeMenu()
-        {
-            List<FloatMenuOption> options = new List<FloatMenuOption>
-            {
-                new FloatMenuOption(
-                    (_workflowModScope == WorkflowModScope.Enabled ? "✓ " : "   ") +
-                    WfText("已启用", "Enabled"),
-                    () => SetWorkflowModScope(WorkflowModScope.Enabled)),
-                new FloatMenuOption(
-                    (_workflowModScope == WorkflowModScope.All ? "✓ " : "   ") +
-                    WfText("全部", "All"),
-                    () => SetWorkflowModScope(WorkflowModScope.All))
-            };
-            Find.WindowStack.Add(new FloatMenu(options));
-        }
-
-        private static void SetWorkflowModScope(WorkflowModScope scope)
-        {
-            if (_workflowModScope == scope) return;
-            _workflowModScope = scope;
-            _workflowModScroll = Vector2.zero;
+            return WfText("范围：已加载 Mod / DLC", "Scope: loaded mods / DLC");
         }
 
         private static string GetWorkflowFilterLabel()
@@ -1309,7 +1278,7 @@ namespace AutoTranslator_Core
                 new List<Tuple<WorkflowModMetadataSnapshot, ModMetaData>>();
             foreach (ModMetaData mod in Verse.ModLister.AllInstalledMods)
             {
-                if (mod?.RootDir == null) continue;
+                if (mod?.RootDir == null || !mod.Active) continue;
                 try
                 {
                     string identity = ModAnalysisTargetFactory.CreateModIdentity(mod);
