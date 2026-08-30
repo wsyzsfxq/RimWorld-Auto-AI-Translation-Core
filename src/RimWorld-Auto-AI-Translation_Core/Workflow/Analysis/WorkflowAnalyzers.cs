@@ -75,7 +75,8 @@ namespace AutoTranslator_Core.Workflow.Analysis
         public string CreateAnalysisFingerprint(ModAnalysisTarget target)
         {
             return WorkflowIdentity.CreateAnalysisFingerprint(
-                Version, target.Snapshot.VersionFingerprint, "v3.0-622d6af+def-inheritance-v1");
+                Version, target.Snapshot.VersionFingerprint,
+                "v3.1-translation-policy-classifier+def-inheritance-v1");
         }
 
         public AnalyzerResult Analyze(
@@ -229,10 +230,15 @@ namespace AutoTranslator_Core.Workflow.Analysis
             {
                 TranslationPolicyCandidate policyCandidate = policyCandidates[policyIndex];
                 cancellationToken.ThrowIfCancellationRequested();
-                CandidateClassification classification = CandidateClassification.NeedsTranslation;
+                TranslationPolicyClassification policyClassification =
+                    TranslationPolicyClassifier.Classify(policyCandidate);
+                CandidateClassification classification = ToWorkflowClassification(
+                    policyClassification.Decision);
                 byte flags = ClassificationFlagsCodec.Set(0, ClassificationLayer.Xml, classification);
                 string locator = CreateStableXmlLocator(policyCandidate);
                 string sourceText = policyCandidate.SourceText;
+                XmlWorkflowCandidateContext xmlContext = xmlContexts[policyCandidate.CandidateId];
+                xmlContext.PolicyReasonCode = policyClassification.ReasonCode;
                 result.Candidates.Add(new CandidateRecord
                 {
                     CandidateId = WorkflowIdentity.CreateCandidateId(
@@ -244,8 +250,7 @@ namespace AutoTranslator_Core.Workflow.Analysis
                     SourceDomain = CandidateSourceDomain.Xml,
                     EntryKind = policyCandidate.Bucket.ToString(),
                     LogicalLocator = locator,
-                    ContextJson = JsonConvert.SerializeObject(
-                        xmlContexts[policyCandidate.CandidateId]),
+                    ContextJson = JsonConvert.SerializeObject(xmlContext),
                     DefaultOutputFileRelativePath = CreateDefaultOutputPath(
                         target, policyCandidate.Bucket, policyCandidate.DefType),
                     TranslationEntryKey = policyCandidate.KeyOrPath,
@@ -260,7 +265,7 @@ namespace AutoTranslator_Core.Workflow.Analysis
                     ClassificationFlags = flags,
                     XmlAnalyzerVersion = AnalyzerVersion,
                     XmlAnalysisFingerprint = result.AnalysisFingerprint,
-                    XmlReasonCode = "v3_translation_target",
+                    XmlReasonCode = policyClassification.ReasonCode,
                     UpdatedUtc = DateTime.UtcNow
                 });
                 string translationLookup = CreateTranslationLookupKey(
@@ -272,6 +277,20 @@ namespace AutoTranslator_Core.Workflow.Analysis
                         WorkflowIdentity.CreateCandidateId(
                             target.Snapshot.ModIdentity, CandidateSourceDomain.Xml, policyCandidate.Bucket.ToString(), locator)));
                 }
+            }
+        }
+
+        private static CandidateClassification ToWorkflowClassification(
+            TranslationPolicyDecision decision)
+        {
+            switch (decision)
+            {
+                case TranslationPolicyDecision.HardAllow:
+                    return CandidateClassification.NeedsTranslation;
+                case TranslationPolicyDecision.HardDeny:
+                    return CandidateClassification.NoTranslationNeeded;
+                default:
+                    return CandidateClassification.Undetermined;
             }
         }
 

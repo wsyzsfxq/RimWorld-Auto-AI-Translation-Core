@@ -1010,17 +1010,30 @@ namespace AutoTranslator_Core.Workflow.Persistence
             string modIdentity,
             string targetLanguage,
             ICollection<CandidateClassification> classifications,
-            bool requireTranslationNotCurrent)
+            bool requireTranslationNotCurrent,
+            ICollection<string> candidateIds = null)
         {
             List<CandidateClassification> selected = (classifications ?? Array.Empty<CandidateClassification>())
                 .Distinct().ToList();
             if (string.IsNullOrWhiteSpace(modIdentity) || selected.Count == 0) return 0L;
+            bool restrictCandidates = candidateIds != null;
+            List<string> selectedCandidateIds = (candidateIds ?? Array.Empty<string>())
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Distinct(StringComparer.Ordinal).ToList();
+            if (restrictCandidates && selectedCandidateIds.Count == 0) return 0L;
             using (DbConnection connection = _connections.OpenConnection())
             using (DbCommand command = connection.CreateCommand())
             {
+                if (restrictCandidates)
+                    CreateAndFillTemporarySelection(
+                        connection, SelectedWorkflowCandidatesTable, CandidateIdColumn, selectedCandidateIds);
                 string effective = GetEffectiveClassificationSql();
                 command.CommandText = "SELECT COUNT(*) FROM Candidates " +
                     "INNER JOIN Mods ON Mods.mod_identity=Candidates.mod_identity " +
+                    (restrictCandidates
+                        ? "INNER JOIN SelectedWorkflowCandidates selectedCandidates " +
+                          "ON selectedCandidates.candidate_id=Candidates.candidate_id "
+                        : string.Empty) +
                     "LEFT JOIN TranslationResults ON TranslationResults.candidate_id=Candidates.candidate_id " +
                     "AND TranslationResults.target_language=@target_language " +
                     "WHERE Candidates.is_present=1 AND Candidates.mod_identity=@mod " +
@@ -1038,16 +1051,25 @@ namespace AutoTranslator_Core.Workflow.Persistence
             ICollection<CandidateClassification> classifications,
             bool requireTranslationNotCurrent,
             AiCandidateCursor cursor,
-            int pageSize)
+            int pageSize,
+            ICollection<string> candidateIds = null)
         {
             AiCandidatePage page = new AiCandidatePage();
             List<CandidateClassification> selected = (classifications ?? Array.Empty<CandidateClassification>())
                 .Distinct().ToList();
             if (string.IsNullOrWhiteSpace(modIdentity) || selected.Count == 0) return page;
+            bool restrictCandidates = candidateIds != null;
+            List<string> selectedCandidateIds = (candidateIds ?? Array.Empty<string>())
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Distinct(StringComparer.Ordinal).ToList();
+            if (restrictCandidates && selectedCandidateIds.Count == 0) return page;
             pageSize = Math.Max(1, Math.Min(1000, pageSize));
             using (DbConnection connection = _connections.OpenConnection())
             using (DbCommand command = connection.CreateCommand())
             {
+                if (restrictCandidates)
+                    CreateAndFillTemporarySelection(
+                        connection, SelectedWorkflowCandidatesTable, CandidateIdColumn, selectedCandidateIds);
                 string effective = GetEffectiveClassificationSql();
                 string cursorWhere = cursor == null ? string.Empty : @" AND (
                     Candidates.source_file_relative_path>@cursor_file OR
@@ -1063,6 +1085,10 @@ namespace AutoTranslator_Core.Workflow.Persistence
                     "AS translation_entry_key, '' AS validation_status, " +
                     "'' AS last_sync_status, '' AS last_sync_error, '' AS last_synced_utc " +
                     "FROM Candidates INNER JOIN Mods ON Mods.mod_identity=Candidates.mod_identity " +
+                    (restrictCandidates
+                        ? "INNER JOIN SelectedWorkflowCandidates selectedCandidates " +
+                          "ON selectedCandidates.candidate_id=Candidates.candidate_id "
+                        : string.Empty) +
                     "LEFT JOIN TranslationResults ON TranslationResults.candidate_id=Candidates.candidate_id " +
                     "AND TranslationResults.target_language=@target_language " +
                     "WHERE Candidates.is_present=1 AND Candidates.mod_identity=@mod " +

@@ -41,6 +41,9 @@ namespace AutoTranslator_Core
         private static Task<WorkflowEditorSnapshot> _workflowEditorLoadTask;
         private static string _workflowEditorLoadError = string.Empty;
         private static string _workflowEditorSelectedCandidateId = string.Empty;
+        private static bool _workflowEditorMultiSelectMode;
+        private static readonly HashSet<string> _workflowEditorSelectedCandidateIds =
+            new HashSet<string>(StringComparer.Ordinal);
         private static string _workflowEditorTranslationBuffer = string.Empty;
         private static bool _workflowEditorRefreshRequested;
         private static bool _workflowEditorPreviouslyBusy;
@@ -119,10 +122,25 @@ namespace AutoTranslator_Core
                 return;
             }
 
-            Rect title = new Rect(rect.x + 7f, rect.y + 5f, rect.width - 14f, 22f);
+            const float modeButtonWidth = 126f;
+            Rect modeButton = new Rect(rect.xMax - modeButtonWidth - 7f, rect.y + 3f,
+                modeButtonWidth, 24f);
+            Rect title = new Rect(rect.x + 7f, rect.y + 5f,
+                modeButton.x - rect.x - 14f, 22f);
             Text.Font = GameFont.Tiny;
             Widgets.Label(title, (_workflowEditorSnapshot?.DisplayName ?? _workflowEditorSelectedModDisplayName) +
                                  "　" + (_workflowEditorSnapshot?.PackageId ?? _workflowEditorSelectedModPackageId));
+            if (WorkflowUiStyle.Button(
+                    modeButton,
+                    _workflowEditorMultiSelectMode
+                        ? WfText("返回单选", "Single select")
+                        : WfText("切换为多选", "Multi-select"),
+                    _workflowEditorMultiSelectMode
+                        ? WorkflowButtonStyle.ActiveTab
+                        : WorkflowButtonStyle.Quiet,
+                    !AutoTranslatorSettings.IsRunning,
+                    GameFont.Tiny))
+                ToggleWorkflowEditorSelectionMode();
             float filterY = title.yMax + 3f;
             Rect search = new Rect(rect.x + 7f, filterY, rect.width * 0.46f, 27f);
             string nextSearch = Widgets.TextField(search, _workflowEditorCandidateSearch ?? string.Empty);
@@ -130,6 +148,7 @@ namespace AutoTranslator_Core
             {
                 _workflowEditorCandidateSearch = nextSearch;
                 _workflowEditorPageIndex = 0;
+                _workflowEditorSelectedCandidateIds.Clear();
                 RequestWorkflowEditorPage();
             }
             Rect classification = new Rect(search.xMax + 7f, filterY, rect.width * 0.25f, 27f);
@@ -141,12 +160,16 @@ namespace AutoTranslator_Core
                     WorkflowButtonStyle.Dropdown, true, GameFont.Tiny))
                 OpenWorkflowEditorTranslationFilterMenu();
 
-            float detailHeight = 250f;
+            float detailHeight = _workflowEditorMultiSelectMode ? 0f : 205f;
             Rect list = new Rect(rect.x + 6f, search.yMax + 5f, rect.width - 12f,
-                rect.height - (search.yMax - rect.y) - detailHeight - 12f);
+                rect.height - (search.yMax - rect.y) - detailHeight -
+                (_workflowEditorMultiSelectMode ? 7f : 12f));
             DrawWorkflowEditorCandidateList(list);
-            Rect detail = new Rect(rect.x + 6f, list.yMax + 6f, rect.width - 12f, detailHeight);
-            DrawWorkflowEditorDetail(detail);
+            if (!_workflowEditorMultiSelectMode)
+            {
+                Rect detail = new Rect(rect.x + 6f, list.yMax + 6f, rect.width - 12f, detailHeight);
+                DrawWorkflowEditorDetail(detail);
+            }
             Text.Font = GameFont.Small;
         }
 
@@ -159,9 +182,28 @@ namespace AutoTranslator_Core
             const float rowHeight = 34f;
             Rect header = new Rect(rect.x, rect.y, rect.width, headerHeight);
             Widgets.DrawBoxSolid(header, WorkflowUiStyle.Header);
-            float[] widths = { rect.width * 0.38f, rect.width * 0.17f, rect.width * 0.19f, rect.width * 0.26f - 18f };
-            string[] labels = { WfText("条目／位置", "Entry / location"), WfText("有效分类", "Classification"), WfText("翻译状态", "Translation"), WfText("来源文件", "Source file") };
-            float x = header.x + 5f;
+            float selectionWidth = _workflowEditorMultiSelectMode ? 30f : 0f;
+            float availableWidth = rect.width - 18f - selectionWidth;
+            float typeWidth = Mathf.Clamp(availableWidth * 0.10f, 72f, 100f);
+            float sourceTextWidth = availableWidth * 0.31f;
+            float classificationWidth = availableWidth * 0.17f;
+            float translationWidth = availableWidth * 0.17f;
+            float sourceFileWidth = availableWidth - typeWidth - sourceTextWidth -
+                                    classificationWidth - translationWidth;
+            float[] widths =
+            {
+                typeWidth, sourceTextWidth, classificationWidth,
+                translationWidth, sourceFileWidth
+            };
+            string[] labels =
+            {
+                WfText("类型", "Type"), WfText("原文", "Source text"),
+                WfText("有效分类", "Classification"), WfText("翻译状态", "Translation"),
+                WfText("来源文件", "Source file")
+            };
+            float x = header.x + 5f + selectionWidth;
+            if (_workflowEditorMultiSelectMode)
+                Widgets.Label(new Rect(header.x + 5f, header.y + 3f, selectionWidth, 17f), "✓");
             for (int i = 0; i < labels.Length; i++)
             {
                 Widgets.Label(new Rect(x, header.y + 3f, widths[i], 17f), labels[i]);
@@ -181,24 +223,51 @@ namespace AutoTranslator_Core
                 WorkflowCandidateEditorItem item = items[i];
                 Rect row = new Rect(0f, i * rowHeight, view.width, rowHeight);
                 if (row.yMax < _workflowEditorCandidateScroll.y || row.y > _workflowEditorCandidateScroll.y + outRect.height) continue;
-                if (string.Equals(_workflowEditorSelectedCandidateId, item.CandidateId, StringComparison.Ordinal))
+                bool selected = _workflowEditorMultiSelectMode
+                    ? _workflowEditorSelectedCandidateIds.Contains(item.CandidateId)
+                    : string.Equals(_workflowEditorSelectedCandidateId, item.CandidateId, StringComparison.Ordinal);
+                if (selected)
                     Widgets.DrawBoxSolid(row, WorkflowUiStyle.Selection);
                 else if ((i & 1) == 1) Widgets.DrawBoxSolid(row, new Color(1f, 1f, 1f, 0.025f));
                 Widgets.DrawLineHorizontal(row.x, row.yMax - 1f, row.width);
                 string[] values =
                 {
-                    item.SourceDomain + " · " + item.LogicalLocator,
+                    GetWorkflowEditorEntryTypeLabel(item),
+                    item.SourceText ?? string.Empty,
                     GetClassificationLabel(item.EffectiveClassification) + " · " + GetLayerLabel(item.EffectiveLayer),
                     GetTranslationStateLabel(item),
                     item.SourceFileRelativePath + (item.SourceLineNumber > 0 ? ":" + item.SourceLineNumber : string.Empty)
                 };
-                float cellX = row.x + 5f;
+                if (_workflowEditorMultiSelectMode)
+                {
+                    bool checkedValue = selected;
+                    Widgets.Checkbox(new Vector2(row.x + 4f, row.y + 7f), ref checkedValue, 20f);
+                    if (checkedValue != selected)
+                        SetWorkflowEditorCandidateSelected(item.CandidateId, checkedValue);
+                }
+                float cellX = row.x + 5f + selectionWidth;
+                bool previousWordWrap = Text.WordWrap;
+                Text.WordWrap = false;
                 for (int column = 0; column < values.Length; column++)
                 {
                     Widgets.Label(new Rect(cellX, row.y + 8f, widths[column], 18f), values[column]);
                     cellX += widths[column];
                 }
-                if (Widgets.ButtonInvisible(row)) SelectWorkflowEditorCandidate(item);
+                Text.WordWrap = previousWordWrap;
+                Rect rowClickRect = new Rect(row.x + selectionWidth, row.y,
+                    row.width - selectionWidth, row.height);
+                if (Widgets.ButtonInvisible(rowClickRect))
+                {
+                    if (_workflowEditorMultiSelectMode)
+                        SetWorkflowEditorCandidateSelected(item.CandidateId, !selected);
+                    else
+                        SelectWorkflowEditorCandidate(item);
+                }
+                Rect originalCell = new Rect(
+                    row.x + 5f + selectionWidth + widths[0], row.y + 3f,
+                    widths[1], row.height - 6f);
+                if (Mouse.IsOver(originalCell) && !string.IsNullOrWhiteSpace(item.SourceText))
+                    TooltipHandler.TipRegion(originalCell, item.SourceText);
             }
             if (items.Count == 0)
             {
@@ -236,9 +305,13 @@ namespace AutoTranslator_Core
             const float navWidth = 72f;
             const float pageWidth = 34f;
             int visiblePageCount = Math.Min(5, pageCount);
+            const float batchButtonWidth = 156f;
+            float paginationRight = _workflowEditorMultiSelectMode
+                ? rect.xMax - batchButtonWidth - gap * 2f
+                : rect.xMax;
             float contentWidth = counterWidth + edgeWidth * 2f + navWidth * 2f +
                                  pageWidth * visiblePageCount + gap * (5 + visiblePageCount);
-            float x = rect.x + Mathf.Max(4f, (rect.width - contentWidth) * 0.5f);
+            float x = rect.x + Mathf.Max(4f, (paginationRight - rect.x - contentWidth) * 0.5f);
             float y = rect.y + 4f;
             const float height = 26f;
 
@@ -284,6 +357,21 @@ namespace AutoTranslator_Core
             if (WorkflowUiStyle.Button(new Rect(x, y, edgeWidth, height), "»",
                     WorkflowButtonStyle.Quiet, hasNext, GameFont.Tiny))
                 SetWorkflowEditorPage(pageCount - 1, pageCount);
+
+            if (_workflowEditorMultiSelectMode)
+            {
+                int selectedCount = _workflowEditorSelectedCandidateIds.Count;
+                Rect batchRect = new Rect(rect.xMax - batchButtonWidth - gap, y,
+                    batchButtonWidth, height);
+                if (WorkflowUiStyle.Button(
+                        batchRect,
+                        WfText("AI 批量翻译", "AI batch translate") + " (" + selectedCount + ")",
+                        WorkflowButtonStyle.Primary,
+                        selectedCount > 0 && !AutoTranslatorSettings.IsRunning,
+                        GameFont.Tiny))
+                    StartWorkflowEditorAiTranslation(
+                        _workflowEditorSelectedCandidateIds.ToList(), true);
+            }
         }
 
         private static void SetWorkflowEditorPage(int pageIndex, int pageCount)
@@ -362,8 +450,11 @@ namespace AutoTranslator_Core
             Rect translationLabel = new Rect(sourceLabel.xMax + 7f, sourceLabel.y, half, 18f);
             Widgets.Label(sourceLabel, WfText("原文（只读）", "Source (read-only)"));
             Widgets.Label(translationLabel, WfText("译文", "Translation"));
-            Rect sourceBox = new Rect(sourceLabel.x, sourceLabel.yMax + 2f, half, 105f);
-            Rect translationBox = new Rect(translationLabel.x, translationLabel.yMax + 2f, half, 105f);
+            float buttonY = rect.yMax - 38f;
+            float textBoxY = sourceLabel.yMax + 2f;
+            float textBoxHeight = Mathf.Max(54f, buttonY - textBoxY - 7f);
+            Rect sourceBox = new Rect(sourceLabel.x, textBoxY, half, textBoxHeight);
+            Rect translationBox = new Rect(translationLabel.x, textBoxY, half, textBoxHeight);
             Widgets.DrawBoxSolid(sourceBox, WorkflowUiStyle.Panel);
             WorkflowUiStyle.DrawBorder(sourceBox, new Color(0.28f, 0.31f, 0.33f));
             Widgets.Label(sourceBox.ContractedBy(5f), item.SourceText ?? string.Empty);
@@ -373,17 +464,20 @@ namespace AutoTranslator_Core
                 translationBox, _workflowEditorTranslationBuffer ?? string.Empty);
             GUI.color = Color.white;
 
-            float buttonY = sourceBox.yMax + 7f;
             const float buttonGap = 5f;
-            float buttonWidth = (rect.width - 14f - buttonGap) * 0.5f;
+            float buttonWidth = (rect.width - 14f - buttonGap * 2f) / 3f;
             string[] labels =
             {
-                WfText("保存译文", "Save translation"), WfText("删除译文", "Delete translation")
+                WfText("保存译文", "Save translation"),
+                WfText("删除译文", "Delete translation"),
+                WfText("AI 翻译", "AI translate")
             };
             for (int i = 0; i < labels.Length; i++)
             {
                 Rect button = new Rect(rect.x + 7f + i * (buttonWidth + buttonGap), buttonY, buttonWidth, 31f);
-                WorkflowButtonStyle style = i == 0 ? WorkflowButtonStyle.Primary : WorkflowButtonStyle.Stop;
+                WorkflowButtonStyle style = i == 0
+                    ? WorkflowButtonStyle.Primary
+                    : i == 1 ? WorkflowButtonStyle.Stop : WorkflowButtonStyle.Dropdown;
                 bool clicked = WorkflowUiStyle.Button(button, labels[i], style, !busy, GameFont.Tiny);
                 if (!clicked || busy) continue;
                 switch (i)
@@ -396,6 +490,9 @@ namespace AutoTranslator_Core
                         StartWorkflowEditorOperation(backend => backend.DeleteTranslationAsync(item.CandidateId),
                             WfText("删除译文", "Delete translation"));
                         break;
+                    case 2:
+                        StartWorkflowEditorAiTranslation(new[] { item.CandidateId }, false);
+                        break;
                 }
             }
         }
@@ -403,16 +500,24 @@ namespace AutoTranslator_Core
         private static void DrawWorkflowEditorLayer(Rect rect, string label, bool isEffective)
         {
             Widgets.DrawBoxSolid(rect, isEffective
-                ? new Color(0.20f, 0.29f, 0.13f, 0.95f)
+                ? new Color(0.12f, 0.145f, 0.165f, 1f)
                 : new Color(0.10f, 0.12f, 0.135f, 0.95f));
-            WorkflowUiStyle.DrawBorder(rect, isEffective
-                ? WorkflowUiStyle.GoodText
-                : new Color(0.28f, 0.31f, 0.33f));
+            WorkflowUiStyle.DrawBorder(rect, new Color(0.31f, 0.35f, 0.38f));
+            if (isEffective)
+                Widgets.DrawBoxSolid(new Rect(rect.x, rect.yMax - 3f, rect.width, 3f),
+                    WorkflowUiStyle.GoodText);
             GUI.color = isEffective ? Color.white : WorkflowUiStyle.MutedText;
-            Widgets.Label(new Rect(rect.x + 5f, rect.y + 3f, rect.width - 10f, rect.height - 6f), label + (isEffective
-                ? WfText(" [当前生效]", " [effective]")
-                : string.Empty));
+            bool previousWordWrap = Text.WordWrap;
+            Text.WordWrap = false;
+            Widgets.Label(new Rect(rect.x + 5f, rect.y + 3f, rect.width - 10f, rect.height - 6f), label);
+            Text.WordWrap = previousWordWrap;
             GUI.color = Color.white;
+            TooltipHandler.TipRegion(
+                rect,
+                isEffective
+                    ? WfText("当前生效的有效分类结果。", "This is the effective classification result.")
+                    : WfText("此分类层当前仅作为参考，未覆盖有效分类。",
+                        "This classification layer is currently reference-only."));
         }
 
         private static string GetWorkflowEditorLocalLayerLabel(CandidateSourceDomain sourceDomain)
@@ -420,6 +525,18 @@ namespace AutoTranslator_Core
             return sourceDomain == CandidateSourceDomain.Dll
                 ? WfText("本地分析（DLL）", "Local analysis (DLL)")
                 : WfText("本地分析（XML）", "Local analysis (XML)");
+        }
+
+        private static string GetWorkflowEditorEntryTypeLabel(WorkflowCandidateEditorItem item)
+        {
+            if (item == null) return string.Empty;
+            if (item.SourceDomain == CandidateSourceDomain.Dll)
+                return WfText("DLL · UI", "DLL · UI");
+            if (string.Equals(item.EntryKind, "DefInjected", StringComparison.OrdinalIgnoreCase))
+                return WfText("XML · Def", "XML · Def");
+            if (string.Equals(item.EntryKind, "Keyed", StringComparison.OrdinalIgnoreCase))
+                return WfText("XML · 键值", "XML · Keyed");
+            return "XML · " + (item.EntryKind ?? string.Empty);
         }
 
         private static void SelectWorkflowEditorMod(ModMetaData mod, string modIdentity = null)
@@ -432,6 +549,7 @@ namespace AutoTranslator_Core
             _workflowEditorSelectedModDisplayName = mod.Name ?? mod.PackageId ?? string.Empty;
             _workflowEditorSnapshot = null;
             _workflowEditorSelectedCandidateId = string.Empty;
+            _workflowEditorSelectedCandidateIds.Clear();
             _workflowEditorTranslationBuffer = string.Empty;
             _workflowEditorCandidateScroll = Vector2.zero;
             _workflowEditorPageIndex = 0;
@@ -443,6 +561,79 @@ namespace AutoTranslator_Core
             if (item == null) return;
             _workflowEditorSelectedCandidateId = item.CandidateId;
             _workflowEditorTranslationBuffer = item.TranslationText ?? string.Empty;
+        }
+
+        private static void ToggleWorkflowEditorSelectionMode()
+        {
+            if (_workflowEditorMultiSelectMode)
+            {
+                if (_workflowEditorSelectedCandidateIds.Count == 1)
+                {
+                    string candidateId = _workflowEditorSelectedCandidateIds.First();
+                    WorkflowCandidateEditorItem item = _workflowEditorSnapshot?.Candidates?
+                        .FirstOrDefault(candidate => string.Equals(
+                            candidate.CandidateId, candidateId, StringComparison.Ordinal));
+                    if (item != null) SelectWorkflowEditorCandidate(item);
+                }
+                _workflowEditorSelectedCandidateIds.Clear();
+                _workflowEditorMultiSelectMode = false;
+                return;
+            }
+
+            _workflowEditorSelectedCandidateIds.Clear();
+            if (!string.IsNullOrWhiteSpace(_workflowEditorSelectedCandidateId))
+                _workflowEditorSelectedCandidateIds.Add(_workflowEditorSelectedCandidateId);
+            _workflowEditorMultiSelectMode = true;
+        }
+
+        private static void SetWorkflowEditorCandidateSelected(string candidateId, bool selected)
+        {
+            if (string.IsNullOrWhiteSpace(candidateId)) return;
+            if (selected) _workflowEditorSelectedCandidateIds.Add(candidateId);
+            else _workflowEditorSelectedCandidateIds.Remove(candidateId);
+        }
+
+        private static void StartWorkflowEditorAiTranslation(
+            ICollection<string> candidateIds,
+            bool clearSelectionAfterStart)
+        {
+            List<string> selected = (candidateIds ?? Array.Empty<string>())
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Distinct(StringComparer.Ordinal).ToList();
+            if (selected.Count == 0) return;
+            if (!_workflowModsByIdentity.TryGetValue(
+                    _workflowEditorSelectedModIdentity, out ModMetaData mod) || mod == null)
+            {
+                AutoTranslatorSettings.AddErrorLog(
+                    WfText("无法找到当前 Mod，不能开始 AI 翻译。",
+                        "The current Mod could not be resolved for AI translation."));
+                return;
+            }
+
+            HashSet<string> selectedSet = new HashSet<string>(selected, StringComparer.Ordinal);
+            StartWorkflowEditorOperation(
+                backend => backend.RunCandidateAiTranslationAsync(mod, selected),
+                selected.Count == 1
+                    ? WfText("AI 翻译当前条目", "AI translate selected entry")
+                    : WfText("AI 批量翻译所选条目", "AI translate selected entries"),
+                () =>
+                {
+                    foreach (WorkflowCandidateEditorItem item in
+                             _workflowEditorSnapshot?.Candidates ??
+                             new List<WorkflowCandidateEditorItem>())
+                    {
+                        if (selectedSet.Contains(item.CandidateId))
+                        {
+                            if (item.EffectiveClassification != CandidateClassification.NeedsTranslation)
+                            {
+                                ApplyWorkflowEditorManualClassification(
+                                    item, CandidateClassification.NeedsTranslation);
+                            }
+                        }
+                    }
+                    if (clearSelectionAfterStart)
+                        _workflowEditorSelectedCandidateIds.Clear();
+                });
         }
 
         private static WorkflowCandidateEditorItem GetSelectedWorkflowEditorCandidate()
@@ -699,6 +890,7 @@ namespace AutoTranslator_Core
             {
                 _workflowEditorClassificationFilter = filter;
                 _workflowEditorPageIndex = 0;
+                _workflowEditorSelectedCandidateIds.Clear();
                 RequestWorkflowEditorPage();
             }));
         }
@@ -738,6 +930,7 @@ namespace AutoTranslator_Core
             {
                 _workflowEditorTranslationFilter = filter;
                 _workflowEditorPageIndex = 0;
+                _workflowEditorSelectedCandidateIds.Clear();
                 RequestWorkflowEditorPage();
             }));
         }

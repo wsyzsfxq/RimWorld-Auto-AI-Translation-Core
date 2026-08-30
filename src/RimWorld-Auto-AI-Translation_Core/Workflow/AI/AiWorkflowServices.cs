@@ -1416,6 +1416,11 @@ namespace AutoTranslator_Core.Workflow.AI
             List<string> selectedMods = (modIdentities ?? new List<string>())
                 .Where(value => !string.IsNullOrWhiteSpace(value))
                 .Distinct(StringComparer.Ordinal).ToList();
+            ICollection<string> selectedCandidateIds = options?.CandidateIds == null
+                ? null
+                : options.CandidateIds
+                    .Where(value => !string.IsNullOrWhiteSpace(value))
+                    .Distinct(StringComparer.Ordinal).ToList();
             reporter.Complete(
                 "input_normalize", "规范化输入", normalizeTimer,
                 runtimeFields: "有效 Mod 身份 " + selectedMods.Count + " 个",
@@ -1451,14 +1456,16 @@ namespace AutoTranslator_Core.Workflow.AI
                 identity => identity,
                 identity => _repository.CountAiCandidates(
                     identity, targetLanguage,
-                    new[] { CandidateClassification.NeedsTranslation }, true),
+                    new[] { CandidateClassification.NeedsTranslation }, true,
+                    selectedCandidateIds),
                 StringComparer.Ordinal);
             Dictionary<string, long> rawUndeterminedCounts = eligibility.EligibleModIdentities.ToDictionary(
                 identity => identity,
                 identity => isSimulation
                     ? _repository.CountAiCandidates(
                         identity, targetLanguage,
-                        new[] { CandidateClassification.Undetermined }, true)
+                        new[] { CandidateClassification.Undetermined }, true,
+                        selectedCandidateIds)
                     : 0L,
                 StringComparer.Ordinal);
             Dictionary<string, long> undeterminedCounts = eligibility.EligibleModIdentities.ToDictionary(
@@ -1499,7 +1506,7 @@ namespace AutoTranslator_Core.Workflow.AI
                         {
                             CandidateClassification.NeedsTranslation,
                             CandidateClassification.Undetermined
-                        }, false);
+                        }, false, selectedCandidateIds);
                     estimate.CoveredByCurrentTranslationByMod[modIdentity] =
                         Math.Max(0L, allRelevant - needsCounts[modIdentity] - rawUndeterminedCounts[modIdentity]);
                 }
@@ -1525,7 +1532,7 @@ namespace AutoTranslator_Core.Workflow.AI
                         needsCounts[modIdentity] + undeterminedCounts[modIdentity],
                         pageSize, targetLanguage, totalCandidates, isSimulation,
                         estimate, failures, modIndex, eligibility.EligibleModIdentities.Count,
-                        aiRunId, reporter, cancellationToken);
+                        aiRunId, reporter, selectedCandidateIds, cancellationToken);
                 }
             }
             catch (OperationCanceledException)
@@ -1599,6 +1606,7 @@ namespace AutoTranslator_Core.Workflow.AI
             int totalMods,
             string aiRunId,
             AiWorkflowStageReporter reporter,
+            ICollection<string> selectedCandidateIds,
             CancellationToken cancellationToken)
         {
             Stopwatch modTimer = reporter.Start(
@@ -1643,7 +1651,8 @@ namespace AutoTranslator_Core.Workflow.AI
                     "page=" + pageIndex + " page_size=" + pageSize +
                     " cursor_id=" + (cursor?.CandidateId ?? string.Empty));
                 AiCandidatePage page = _repository.GetAiCandidatePage(
-                    modIdentity, targetLanguage, classifications, true, cursor, pageSize);
+                    modIdentity, targetLanguage, classifications, true, cursor, pageSize,
+                    selectedCandidateIds);
                 reporter.Complete(
                     pageIndex == 1 ? "first_page_read" : "next_page_read",
                     pageIndex == 1 ? "读取当前 Mod 第一页" : "读取当前 Mod 后续页",
@@ -1806,13 +1815,12 @@ namespace AutoTranslator_Core.Workflow.AI
                                         " saved=" + applied.SavedCount +
                                         " validation_rejected=" + applied.ValidationRejectedCount);
                                     if (applied.ValidationRejectedCount > 0)
-                                        AutoTranslatorSettings.AddErrorLog(
-                                            "AI翻译：本地译文校验器拒绝 " +
+                                        AutoTranslatorSettings.AddLog(
+                                            "⚠️ AI翻译：本地译文校验器拒绝 " +
                                             applied.ValidationRejectedCount + " 条；Mod=" + modIdentity +
                                             "；源文件=" + current.Sources +
                                             "；批次=" + current.BatchIndex +
-                                            "；模型请求已完整成功，其他有效译文已保存。",
-                                            false);
+                                            "；模型请求已完整成功，其他有效译文已保存。");
                                 }
                                 catch (OperationCanceledException) { throw; }
                                 catch (Exception ex)

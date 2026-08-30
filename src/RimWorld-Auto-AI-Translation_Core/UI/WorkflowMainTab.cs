@@ -108,13 +108,12 @@ namespace AutoTranslator_Core
             float inspectorHeight = anyTask
                 ? (_workflowInspectorMode == WorkflowInspectorMode.Collapsed ? 116f : 178f)
                 : (_workflowInspectorMode == WorkflowInspectorMode.Collapsed ? 25f : 132f);
-            float dryRunHeight = _workflowUiSnapshot?.LatestDryRun == null ? 0f : 22f;
             const float optionsHeight = 27f;
-            const float actionsHeight = 40f;
-            const float lowerGaps = 14f;
+            const float actionsHeight = 31f;
+            const float lowerGaps = 12f;
             float listHeight = Mathf.Max(
                 245f,
-                full.yMax - y - inspectorHeight - dryRunHeight - optionsHeight - actionsHeight - lowerGaps);
+                full.yMax - y - inspectorHeight - optionsHeight - actionsHeight - lowerGaps);
 
             DrawWorkflowModList(new Rect(full.x, y, full.width, listHeight));
             y += listHeight + 5f;
@@ -124,12 +123,6 @@ namespace AutoTranslator_Core
                 DrawWorkflowInspector(
                     new Rect(full.x, y, full.width, inspectorHeight), task, anyTask);
                 y += inspectorHeight + 3f;
-            }
-
-            if (dryRunHeight > 0f)
-            {
-                DrawLatestDryRunLine(new Rect(full.x, y, full.width, dryRunHeight));
-                y += dryRunHeight;
             }
 
             DrawWorkflowOptions(new Rect(full.x, y, full.width, optionsHeight), anyTask);
@@ -787,11 +780,14 @@ namespace AutoTranslator_Core
                     hasCurrentLog = (_workflowInspectorMode == WorkflowInspectorMode.ErrorLog
                         ? AutoTranslatorSettings.ErrorLogs
                         : AutoTranslatorSettings.RuntimeLogs).Count > 0;
-                Rect clearButton = new Rect(copyButton.x - 79f, header.y, 75f, 21f);
-                if (WorkflowUiStyle.Button(clearButton, WfText("清空当前日志", "Clear current"),
+                Rect clearButton = new Rect(copyButton.x - 55f, header.y, 51f, 21f);
+                if (WorkflowUiStyle.Button(clearButton, WfText("清空", "Clear"),
                         WorkflowButtonStyle.Link, hasCurrentLog, GameFont.Tiny))
                     AutoTranslatorSettings.ClearCurrentDisplayedLog(
                         _workflowInspectorMode == WorkflowInspectorMode.ErrorLog);
+                TooltipHandler.TipRegion(clearButton,
+                    WfText("仅清空当前界面显示，不删除日志文件。",
+                        "Clear only the current on-screen list; the log file is not deleted."));
             }
             else
                 DrawWorkflowCopyButton(new Rect(collapseX - 55f, header.y, 51f, 21f), task);
@@ -907,49 +903,44 @@ namespace AutoTranslator_Core
             return Math.Max(1, (int)age.TotalMinutes) + WfText(" 分钟前", "m ago");
         }
 
-        private void DrawLatestDryRunLine(Rect rect)
-        {
-            DryRunReport report = _workflowUiSnapshot?.LatestDryRun;
-            if (report == null) return;
-            string text = WfText("上次试跑预计 ", "Last dry run estimated ") +
-                          report.ProtectedBudgetTokens.ToString("N0") +
-                          WfText(" 总 Token", " total tokens");
-            Text.Font = GameFont.Tiny;
-            Vector2 size = Text.CalcSize(text);
-            float totalWidth = size.x + 78f;
-            float start = rect.x + (rect.width - totalWidth) * 0.5f;
-            Rect summaryText = new Rect(start, rect.y + 2f, size.x + 4f, rect.height);
-            GUI.color = WorkflowUiStyle.LinkText;
-            Widgets.Label(summaryText, text);
-            GUI.color = Color.white;
-            if (Widgets.ButtonInvisible(summaryText))
-                Find.WindowStack.Add(new Window_WorkflowDryRunReport(report, _workflowUiSnapshot));
-            if (WorkflowUiStyle.Button(new Rect(start + size.x + 7f, rect.y, 70f, 21f),
-                    WfText("查看详细", "Details"), WorkflowButtonStyle.Link, true, GameFont.Tiny))
-                Find.WindowStack.Add(new Window_WorkflowDryRunReport(report, _workflowUiSnapshot));
-            Text.Font = GameFont.Small;
-        }
-
         private void DrawWorkflowOptions(Rect rect, bool busy)
         {
+            const float gap = 6f;
+            float width = (rect.width - gap * 6f) / 7f;
             Text.Font = GameFont.Tiny;
             bool force = _workflowForceAnalysis;
-            string forceLabel = WfText("强制分析", "Force analysis");
-            float forceWidth = Text.CalcSize(forceLabel).x + 30f;
+            string forceLabel = WfText("强制分析", "Force");
+            float forceWidth = Mathf.Min(width * 0.58f, Text.CalcSize(forceLabel).x + 30f);
             Rect forceRect = new Rect(rect.x, rect.y + 3f, forceWidth, rect.height - 3f);
             Widgets.CheckboxLabeled(forceRect, forceLabel, ref force);
             if (!busy) _workflowForceAnalysis = force;
 
             bool dllEnabled = _workflowUiConfiguration?.EnableDllAnalysis ?? false;
-            Rect dllRect = new Rect(forceRect.xMax + 16f, rect.y, 150f, rect.height - 2f);
+            Rect dllRect = new Rect(forceRect.xMax + 4f, rect.y,
+                rect.x + width - forceRect.xMax - 4f, rect.height - 2f);
             if (WorkflowUiStyle.Button(dllRect,
-                    WfText("DLL 分析：", "DLL analysis: ") + (dllEnabled ? WfText("已开启", "On") : WfText("未开启", "Off")),
-                    WorkflowButtonStyle.Quiet, !busy, GameFont.Tiny))
+                    WfText("DLL 分析", "DLL analysis"),
+                    dllEnabled ? WorkflowButtonStyle.ActiveTab : WorkflowButtonStyle.Quiet,
+                    !busy, GameFont.Tiny))
                 SaveWorkflowConfiguration(config => config.EnableDllAnalysis = !dllEnabled);
+            TooltipHandler.TipRegion(dllRect, dllEnabled
+                ? WfText("DLL 分析已开启；点击关闭。", "DLL analysis is enabled; click to disable.")
+                : WfText("DLL 分析未开启；点击开启。", "DLL analysis is disabled; click to enable."));
+
+            DryRunReport report = _workflowUiSnapshot?.LatestDryRun;
+            Rect dryRunRect = new Rect(rect.x + width + gap, rect.y, width, rect.height - 2f);
+            if (report != null && WorkflowUiStyle.Button(
+                    dryRunRect,
+                    WfText("上次：", "Last: ") + report.ProtectedBudgetTokens.ToString("N0") + " Token",
+                    WorkflowButtonStyle.Link, true, GameFont.Tiny))
+                Find.WindowStack.Add(new Window_WorkflowDryRunReport(report, _workflowUiSnapshot));
+            if (report != null)
+                TooltipHandler.TipRegion(dryRunRect,
+                    WfText("点击查看上次试跑详情。", "View the latest dry-run details."));
 
             string scope = GetAiReviewScopeLabel(_workflowUiConfiguration?.AiReviewScope);
-            Rect scopeRect = new Rect(rect.xMax - 255f, rect.y, 255f, rect.height - 2f);
-            if (WorkflowUiStyle.Button(scopeRect, WfText("AI 复核范围：", "AI review scope: ") + scope,
+            Rect scopeRect = new Rect(rect.x + (width + gap) * 2f, rect.y, width, rect.height - 2f);
+            if (WorkflowUiStyle.Button(scopeRect, WfText("复核范围：", "Scope: ") + scope,
                     WorkflowButtonStyle.Quiet, !busy, GameFont.Tiny))
                 OpenAiReviewScopeMenu();
             Text.Font = GameFont.Small;
@@ -968,13 +959,23 @@ namespace AutoTranslator_Core
             bool canRun = !busy && selectedMods.Count > 0;
             string[] labels =
             {
-                WfText("分析\n补齐本地结果", "Analyze\nComplete local data"),
-                WfText($"试跑（{selectedMods.Count}）\n只估算 Token", $"Dry run ({selectedMods.Count})\nEstimate tokens"),
-                WfText("AI 复核\n判断条目分类", "AI review\nClassify entries"),
-                WfText("AI 翻译\n翻译需要项", "AI translate\nTranslate needed"),
-                WfText("一键翻译\n分析 → 复核 → 翻译", "One-click\nAnalyze → review → translate"),
+                WfText("分析", "Analyze"),
+                WfText($"试跑（{selectedMods.Count}）", $"Dry run ({selectedMods.Count})"),
+                WfText("AI 复核", "AI review"),
+                WfText("AI 翻译", "AI translate"),
+                WfText("一键翻译", "One-click"),
                 WfText("清除结果…", "Clear results..."),
                 WfText("停止", "Stop")
+            };
+            string[] tooltips =
+            {
+                WfText("补齐所选 Mod 的本地 XML／DLL 分析结果。", "Complete local XML/DLL analysis for selected mods."),
+                WfText("只估算所选 Mod 的 Token，不调用模型。", "Estimate tokens without calling the model."),
+                WfText("使用 AI 复核所选 Mod 的条目分类。", "Use AI to review classifications for selected mods."),
+                WfText("翻译当前需要翻译且尚无有效译文的条目。", "Translate needed entries without a valid translation."),
+                WfText("依次执行分析、AI 复核和 AI 翻译。", "Run analysis, AI review, and AI translation in sequence."),
+                WfText("清除所选 Mod 的分类或翻译结果。", "Clear classification or translation results for selected mods."),
+                WfText("请求停止当前后台任务。", "Request cancellation of the current background task.")
             };
             Text.Font = GameFont.Tiny;
             for (int i = 0; i < 7; i++)
@@ -985,6 +986,7 @@ namespace AutoTranslator_Core
                     ? WorkflowButtonStyle.Primary
                     : i == 6 ? WorkflowButtonStyle.Stop : WorkflowButtonStyle.Quiet;
                 bool clicked = WorkflowUiStyle.Button(button, labels[i], style, enabled, GameFont.Tiny);
+                TooltipHandler.TipRegion(button, tooltips[i]);
                 if (!clicked || !enabled) continue;
                 switch (i)
                 {
@@ -1123,6 +1125,9 @@ namespace AutoTranslator_Core
         private static void OpenWorkflowEditorForMod(string modIdentity)
         {
             if (!_workflowModsByIdentity.TryGetValue(modIdentity ?? string.Empty, out ModMetaData mod)) return;
+            _workflowEditorCandidateSearch = string.Empty;
+            _workflowEditorClassificationFilter = WorkflowEditorClassificationFilter.All;
+            _workflowEditorTranslationFilter = WorkflowEditorTranslationFilter.All;
             SelectWorkflowEditorMod(mod, modIdentity);
             AutoTranslatorSettings.ActiveTab = AutoTranslatorSettings.EditorTabIndex;
         }

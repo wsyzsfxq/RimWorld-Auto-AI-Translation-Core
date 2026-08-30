@@ -166,7 +166,8 @@ namespace AutoTranslator_Core.Workflow
             return RunExclusiveAsync(
                 WorkflowTaskKind.DryRun,
                 "Token dry run",
-                token => _dryRun.ExecuteAsync(targets, options, token),
+                token => Task.Run(
+                    () => _dryRun.ExecuteAsync(targets, options, token), token),
                 cancellationToken,
                 CreateIdentitySelectionInput(targets, options));
         }
@@ -181,7 +182,8 @@ namespace AutoTranslator_Core.Workflow
             return RunExclusiveAsync(
                 WorkflowTaskKind.AiReview,
                 "AI classification review",
-                token => _review.ExecuteAsync(modIdentities, options, false, token),
+                token => Task.Run(
+                    () => _review.ExecuteAsync(modIdentities, options, false, token), token),
                 cancellationToken,
                 CreateSelectionInput(targets, null, options));
         }
@@ -196,9 +198,77 @@ namespace AutoTranslator_Core.Workflow
             return RunExclusiveAsync(
                 WorkflowTaskKind.AiTranslation,
                 "AI translation",
-                token => _translation.ExecuteAsync(modIdentities, false, options, token),
+                token => Task.Run(
+                    () => _translation.ExecuteAsync(modIdentities, false, options, token), token),
                 cancellationToken,
                 CreateSelectionInput(targets, null, options));
+        }
+
+        public Task<AiStepEstimate> RunCandidateAiTranslationAsync(
+            ModMetaData mod,
+            ICollection<string> candidateIds,
+            WorkflowExecutionOptions options = null,
+            CancellationToken cancellationToken = default(CancellationToken))
+        {
+            if (mod == null) throw new ArgumentNullException(nameof(mod));
+            List<ModMetaData> targets = WorkflowStepSelection.FilterTranslationTargets(
+                new[] { mod });
+            if (targets.Count != 1)
+                throw new InvalidOperationException("The selected Mod is not an eligible translation target.");
+            string modIdentity = ModAnalysisTargetFactory.CreateModIdentity(targets[0]);
+            List<string> requested = (candidateIds ?? Array.Empty<string>())
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Distinct(StringComparer.Ordinal).ToList();
+            if (requested.Count == 0)
+                throw new InvalidOperationException("No translation entries were selected.");
+
+            return RunExclusiveAsync(
+                WorkflowTaskKind.AiTranslation,
+                "Selected-entry AI translation",
+                token => Task.Run(async () =>
+                {
+                    string targetLanguage = WorkflowRuntimeSettings.GetTargetLanguageFolder();
+                    List<CandidateRecord> scopedCandidates = requested
+                        .Select(candidateId => _repository.GetCandidate(candidateId, targetLanguage))
+                        .Where(candidate => candidate != null && string.Equals(
+                            candidate.ModIdentity, modIdentity, StringComparison.Ordinal))
+                        .ToList();
+                    token.ThrowIfCancellationRequested();
+                    if (scopedCandidates.Count == 0)
+                        throw new InvalidOperationException(
+                            "None of the selected entries belong to the current Mod.");
+
+                    List<string> scoped = scopedCandidates
+                        .Select(candidate => candidate.CandidateId).ToList();
+                    List<string> requiresManualClassification = scopedCandidates
+                        .Where(candidate => candidate.EffectiveClassification !=
+                                            CandidateClassification.NeedsTranslation)
+                        .Select(candidate => candidate.CandidateId).ToList();
+                    if (requiresManualClassification.Count > 0)
+                    {
+                        _repository.SetClassification(
+                            requiresManualClassification,
+                            ClassificationLayer.Manual,
+                            CandidateClassification.NeedsTranslation);
+                    }
+                    WorkflowExecutionOptions targetedOptions = new WorkflowExecutionOptions
+                    {
+                        TemporaryAiReviewScope = options?.TemporaryAiReviewScope,
+                        TemporaryUndeterminedTranslationRatio =
+                            options?.TemporaryUndeterminedTranslationRatio,
+                        CandidateIds = scoped
+                    };
+                    return await _translation.ExecuteAsync(
+                        new[] { modIdentity }, false, targetedOptions, token).ConfigureAwait(false);
+                }, token),
+                cancellationToken,
+                JsonConvert.SerializeObject(new
+                {
+                    modIdentity,
+                    operation = "selected-entry-ai-translation",
+                    candidateSelection = JsonConvert.DeserializeObject(
+                        CreateCandidateSelectionInput(requested, "ai-translation"))
+                }));
         }
 
         public Task<TranslationSynchronizationResult> RunManualTranslationStateRefreshAsync(
@@ -640,8 +710,10 @@ namespace AutoTranslator_Core.Workflow
 
             try
             {
-                AiStepEstimate reviewResult = await _review.ExecuteAsync(
-                    modIdentities, options, false, cancellationToken);
+                AiStepEstimate reviewResult = await Task.Run(
+                    () => _review.ExecuteAsync(
+                        modIdentities, options, false, cancellationToken),
+                    cancellationToken).ConfigureAwait(false);
                 PersistPerModResult(Guid.NewGuid(), WorkflowTaskKind.AiReview, reviewResult);
             }
             catch (OperationCanceledException) { throw; }
@@ -659,8 +731,10 @@ namespace AutoTranslator_Core.Workflow
 
             try
             {
-                AiStepEstimate translationResult = await _translation.ExecuteAsync(
-                    modIdentities, false, options, cancellationToken);
+                AiStepEstimate translationResult = await Task.Run(
+                    () => _translation.ExecuteAsync(
+                        modIdentities, false, options, cancellationToken),
+                    cancellationToken).ConfigureAwait(false);
                 PersistPerModResult(
                     Guid.NewGuid(), WorkflowTaskKind.AiTranslation, translationResult);
             }

@@ -161,6 +161,11 @@ namespace AutoTranslator_Core.TranslationPolicy
                 return Result(candidateId, TranslationPolicyDecision.HardDeny, "structured_numeric_range");
             }
 
+            if (TryClassifyNonLinguisticFormattedText(text, out string formattedReason))
+            {
+                return Result(candidateId, TranslationPolicyDecision.HardDeny, formattedReason);
+            }
+
             if (LooksLikeStrongPathOrResource(text))
             {
                 return Result(candidateId, TranslationPolicyDecision.HardDeny, "path_or_resource_value");
@@ -308,6 +313,35 @@ namespace AutoTranslator_Core.TranslationPolicy
             return firstSlash >= 0 &&
                    text.IndexOf('/', firstSlash + 1) >= 0 &&
                    !text.Any(char.IsWhiteSpace);
+        }
+
+        private static bool TryClassifyNonLinguisticFormattedText(
+            string text,
+            out string reasonCode)
+        {
+            reasonCode = string.Empty;
+            if (string.IsNullOrWhiteSpace(text) || !ProtectedGrammarTokenRegex.IsMatch(text))
+                return false;
+
+            string visible = ProtectedGrammarTokenRegex.Replace(text, " ");
+            visible = Regex.Replace(visible, @"\\[nrt]", " ", RegexOptions.CultureInvariant);
+            visible = Regex.Replace(
+                visible, @"[^\p{L}\p{Nd}]+", " ", RegexOptions.CultureInvariant).Trim();
+            if (visible.Length == 0)
+            {
+                reasonCode = "format_control_only";
+                return true;
+            }
+
+            string[] tokens = visible.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            bool abbreviationOnly = tokens.Length > 0 && tokens.All(token =>
+                token.Length >= 2 && token.Length <= 4 &&
+                token.Any(char.IsLetter) &&
+                token.All(character => !char.IsLetter(character) || char.IsUpper(character)));
+            if (!abbreviationOnly) return false;
+
+            reasonCode = "technical_abbreviation_format";
+            return true;
         }
 
         private static bool LooksLikeStrongIdentifier(string text)

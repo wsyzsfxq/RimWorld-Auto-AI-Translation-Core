@@ -6,7 +6,7 @@ namespace AutoTranslator_Core.Workflow.Persistence
 {
     internal static class WorkflowDatabaseSchema
     {
-        public const int CurrentVersion = 15;
+        public const int CurrentVersion = 16;
 
         private static readonly IReadOnlyDictionary<int, string[]> Migrations =
             new Dictionary<int, string[]>
@@ -268,6 +268,11 @@ namespace AutoTranslator_Core.Workflow.Persistence
                     @"ALTER TABLE PendingFileOperations ADD COLUMN ai_prompt_version TEXT NOT NULL DEFAULT '';",
                     @"ALTER TABLE PendingFileOperations ADD COLUMN ai_run_id TEXT NOT NULL DEFAULT '';",
                     @"ALTER TABLE PendingFileOperations ADD COLUMN ai_batch_index INTEGER NOT NULL DEFAULT 0;"
+                },
+                [16] = new[]
+                {
+                    @"CREATE INDEX IF NOT EXISTS IX_PendingFileOperations_Readiness
+                        ON PendingFileOperations(candidate_id, target_language, state);"
                 }
             };
 

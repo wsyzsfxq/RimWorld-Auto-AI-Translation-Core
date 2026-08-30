@@ -69,22 +69,23 @@ namespace AutoTranslator_Core
                 if (AutoTranslatorSettings.IsRunning) GUI.color = Color.grey;
 
                 Rect noteRow = apiListing.GetRect(28f);
-                const float headerIconWidth = 42f;
-                const float headerIconGap = 6f;
+                const float enabledButtonWidth = 92f;
+                const float deleteButtonWidth = 42f;
+                const float headerIconGap = 12f;
                 Rect noteRect = new Rect(
                     noteRow.x,
                     noteRow.y,
-                    noteRow.width - headerIconWidth * 2f - headerIconGap * 2f,
+                    noteRow.width - enabledButtonWidth - deleteButtonWidth - headerIconGap * 2f,
                     noteRow.height - 2f);
                 Rect enabledRect = new Rect(
                     noteRect.xMax + headerIconGap,
                     noteRow.y,
-                    headerIconWidth,
+                    enabledButtonWidth,
                     noteRow.height - 2f);
                 Rect deleteRect = new Rect(
                     enabledRect.xMax + headerIconGap,
                     noteRow.y,
-                    headerIconWidth,
+                    deleteButtonWidth,
                     noteRow.height - 2f);
                 config.Label = Widgets.TextField(noteRect, config.Label ?? "");
                 if (string.IsNullOrEmpty(config.Label))
@@ -97,10 +98,12 @@ namespace AutoTranslator_Core
                 }
                 if (WorkflowUiStyle.Button(
                         enabledRect,
-                        config.Enabled ? "✓" : "✕",
-                        config.Enabled ? WorkflowButtonStyle.Primary : WorkflowButtonStyle.Stop,
+                        config.Enabled
+                            ? WfText("✓ 已启用", "✓ Enabled")
+                            : WfText("○ 已停用", "○ Disabled"),
+                        config.Enabled ? WorkflowButtonStyle.Primary : WorkflowButtonStyle.Quiet,
                         !AutoTranslatorSettings.IsRunning,
-                        GameFont.Small))
+                        GameFont.Tiny))
                     config.Enabled = !config.Enabled;
                 TooltipHandler.TipRegion(
                     enabledRect,
@@ -109,12 +112,14 @@ namespace AutoTranslator_Core
                         : WfText("已停用；点击启用此 API", "Disabled; click to enable this API"));
 
                 bool canDeleteApi = Settings.ApiConfigs.Count > 1 && !AutoTranslatorSettings.IsRunning;
-                if (WorkflowUiStyle.Button(
-                        deleteRect,
-                        "🗑",
-                        WorkflowButtonStyle.Stop,
-                        canDeleteApi,
-                        GameFont.Small))
+                bool deleteClicked = WorkflowUiStyle.Button(
+                    deleteRect,
+                    string.Empty,
+                    WorkflowButtonStyle.Stop,
+                    canDeleteApi,
+                    GameFont.Small);
+                DrawTrashCanIcon(deleteRect, canDeleteApi ? Color.white : new Color(1f, 1f, 1f, 0.38f));
+                if (deleteClicked)
                 {
                     Settings.ApiConfigs.RemoveAt(i);
                     GUI.color = Color.white;
@@ -400,6 +405,21 @@ namespace AutoTranslator_Core
             Text.Anchor = previousAnchor;
             Text.Font = previousFont;
             l.Gap(12f);
+        }
+
+        private static void DrawTrashCanIcon(Rect rect, Color color)
+        {
+            Color previous = GUI.color;
+            GUI.color = color;
+            float centerX = rect.x + rect.width * 0.5f;
+            float top = rect.y + 7f;
+            Widgets.DrawBoxSolid(new Rect(centerX - 7f, top + 4f, 14f, 2f), color);
+            Widgets.DrawBoxSolid(new Rect(centerX - 4f, top + 1f, 8f, 2f), color);
+            WorkflowUiStyle.DrawBorder(
+                new Rect(centerX - 6f, top + 7f, 12f, 11f), color);
+            Widgets.DrawBoxSolid(new Rect(centerX - 2f, top + 9f, 1f, 7f), color);
+            Widgets.DrawBoxSolid(new Rect(centerX + 2f, top + 9f, 1f, 7f), color);
+            GUI.color = previous;
         }
 
         private void DrawPerformanceAndDiagnosticsSettings(Listing_Standard l, Rect viewRect)

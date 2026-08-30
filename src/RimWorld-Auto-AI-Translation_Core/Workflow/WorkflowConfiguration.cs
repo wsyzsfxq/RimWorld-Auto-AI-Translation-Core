@@ -3,6 +3,7 @@ using AutoTranslator_Core.Workflow.Persistence;
 using Newtonsoft.Json;
 using RimWorld;
 using System;
+using System.Collections.Generic;
 
 namespace AutoTranslator_Core.Workflow
 {
@@ -39,6 +40,7 @@ namespace AutoTranslator_Core.Workflow
     {
         public AiReviewScope TemporaryAiReviewScope { get; set; }
         public double? TemporaryUndeterminedTranslationRatio { get; set; }
+        public ICollection<string> CandidateIds { get; set; }
     }
 
     internal sealed class WorkflowConfigurationStore
