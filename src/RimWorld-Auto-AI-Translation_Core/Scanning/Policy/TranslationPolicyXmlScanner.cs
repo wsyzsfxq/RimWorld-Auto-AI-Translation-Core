@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Xml;
 using System.Xml.Linq;
 
@@ -69,12 +70,7 @@ namespace AutoTranslator_Core.TranslationPolicy
             string rootName = GetQualifiedName(document.Root);
             if (rootName.Equals("Defs", StringComparison.OrdinalIgnoreCase))
             {
-                foreach (XElement defNode in document.Root.Elements())
-                {
-                    string defName = GetDirectChildText(defNode, "defName");
-                    if (string.IsNullOrEmpty(defName)) continue;
-                    TraverseV3DefNode(defNode, defName, GetQualifiedName(defNode), context, candidates);
-                }
+                return ScanResolvedDefsXml(xml, context);
             }
             else if (rootName.Equals("LanguageData", StringComparison.OrdinalIgnoreCase) ||
                      IsLanguageSourcePath(sourceFile))
@@ -87,12 +83,85 @@ namespace AutoTranslator_Core.TranslationPolicy
             return candidates.OrderBy(candidate => candidate.CandidateId, StringComparer.Ordinal).ToList();
         }
 
+        private static List<TranslationPolicyCandidate> ScanResolvedDefsXml(
+            string xml,
+            TranslationPolicySourceContext context)
+        {
+            XmlDocument document = LoadXmlDocument(xml);
+            List<TranslationPolicyCandidate> candidates = new List<TranslationPolicyCandidate>();
+            if (document.DocumentElement == null ||
+                !document.DocumentElement.Name.Equals("Defs", StringComparison.OrdinalIgnoreCase))
+                return candidates;
+
+            DefXmlInheritanceResolver.Index index = DefXmlInheritanceResolver.CreateIndex();
+            foreach (XmlNode node in document.DocumentElement.ChildNodes)
+            {
+                if (node.NodeType == XmlNodeType.Element) index.Add(node);
+            }
+            foreach (XmlNode node in document.DocumentElement.ChildNodes)
+            {
+                if (node.NodeType != XmlNodeType.Element) continue;
+                ResolvedDefXmlNode resolved = index.Resolve(node, context?.SourceFile);
+                string defName = DefXmlInheritanceResolver.GetDirectChildText(node, "defName").Trim();
+                if (string.IsNullOrEmpty(defName) || resolved.ResolvedNode == null) continue;
+                TraverseV3DefNode(
+                    resolved.ResolvedNode,
+                    defName,
+                    node.Name,
+                    context,
+                    candidates,
+                    0);
+            }
+            return candidates.OrderBy(candidate => candidate.CandidateId, StringComparer.Ordinal).ToList();
+        }
+
+        public static DefXmlInheritanceResolver.Index CreateDefInheritanceIndex(
+            IEnumerable<string> sourceFiles,
+            CancellationToken cancellationToken,
+            Action<string> warning = null)
+        {
+            DefXmlInheritanceResolver.Index index = DefXmlInheritanceResolver.CreateIndex();
+            foreach (string path in sourceFiles ?? Enumerable.Empty<string>())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) continue;
+                try
+                {
+                    using (FileStream stream = new FileStream(
+                               path, FileMode.Open, FileAccess.Read, FileShare.Read,
+                               65536, FileOptions.SequentialScan))
+                    using (XmlReader reader = XmlReader.Create(stream, CreateReaderSettings()))
+                    {
+                        reader.MoveToContent();
+                        if (!reader.Name.Equals("Defs", StringComparison.OrdinalIgnoreCase)) continue;
+                        int rootDepth = reader.Depth;
+                        while (reader.Read())
+                        {
+                            cancellationToken.ThrowIfCancellationRequested();
+                            if (reader.NodeType != XmlNodeType.Element || reader.Depth != rootDepth + 1) continue;
+                            if (string.IsNullOrWhiteSpace(reader.GetAttribute("Name"))) continue;
+                            XmlDocument document = LoadDefSubtree(reader);
+                            if (document.DocumentElement != null) index.Add(document.DocumentElement);
+                        }
+                    }
+                }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception ex)
+                {
+                    warning?.Invoke((path ?? string.Empty) + ": " + ex.Message);
+                }
+            }
+            return index;
+        }
+
         public static List<TranslationPolicyCandidate> ScanSourceXmlFile(
             string path,
             string sourceFile,
             string defType,
             TranslationPolicySourceContext context,
-            Action<long, long, int> reportProgress = null)
+            Action<long, long, int> reportProgress = null,
+            DefXmlInheritanceResolver.Index defInheritanceIndex = null,
+            Action<string> inheritanceWarning = null)
         {
             if (string.IsNullOrWhiteSpace(path)) throw new ArgumentNullException(nameof(path));
             long totalBytes = new FileInfo(path).Length;
@@ -105,7 +174,9 @@ namespace AutoTranslator_Core.TranslationPolicy
                 reader.MoveToContent();
                 string rootName = reader.Name;
                 if (rootName.Equals("Defs", StringComparison.OrdinalIgnoreCase))
-                    StreamDefs(reader, candidates, context, reportProgress, stream, totalBytes);
+                    StreamDefs(
+                        reader, candidates, context, reportProgress, stream, totalBytes,
+                        defInheritanceIndex, inheritanceWarning);
                 else if (rootName.Equals("LanguageData", StringComparison.OrdinalIgnoreCase) ||
                          IsLanguageSourcePath(sourceFile))
                     StreamLanguageData(
@@ -168,6 +239,16 @@ namespace AutoTranslator_Core.TranslationPolicy
                 return XDocument.Load(reader, LoadOptions.SetLineInfo);
         }
 
+        private static XmlDocument LoadXmlDocument(string xml)
+        {
+            if (xml == null) throw new ArgumentNullException(nameof(xml));
+            XmlDocument document = new XmlDocument { XmlResolver = null };
+            using (StringReader stringReader = new StringReader(xml))
+            using (XmlReader reader = XmlReader.Create(stringReader, CreateReaderSettings()))
+                document.Load(reader);
+            return document;
+        }
+
         private static XmlReaderSettings CreateReaderSettings()
         {
             return new XmlReaderSettings
@@ -212,7 +293,9 @@ namespace AutoTranslator_Core.TranslationPolicy
             TranslationPolicySourceContext context,
             Action<long, long, int> reportProgress,
             Stream stream,
-            long totalBytes)
+            long totalBytes,
+            DefXmlInheritanceResolver.Index defInheritanceIndex,
+            Action<string> inheritanceWarning)
         {
             int rootDepth = reader.Depth;
             long lastReported = -1;
@@ -220,10 +303,50 @@ namespace AutoTranslator_Core.TranslationPolicy
             {
                 ReportStreamProgress(reader, stream, totalBytes, reportProgress, ref lastReported);
                 if (reader.NodeType != XmlNodeType.Element || reader.Depth != rootDepth + 1) continue;
+                string parentName = reader.GetAttribute("ParentName");
+                string inherit = reader.GetAttribute("Inherit");
+                if (defInheritanceIndex != null &&
+                    !string.IsNullOrWhiteSpace(parentName) &&
+                    !IsFalseInheritance(inherit))
+                {
+                    int sourceLineNumber = GetReaderLineNumber(reader);
+                    XmlDocument document = LoadDefSubtree(reader);
+                    XmlNode originalNode = document.DocumentElement;
+                    ResolvedDefXmlNode resolved = defInheritanceIndex.Resolve(
+                        originalNode,
+                        context?.SourceFile,
+                        inheritanceWarning);
+                    string defName = DefXmlInheritanceResolver
+                        .GetDirectChildText(originalNode, "defName")
+                        .Trim();
+                    if (!string.IsNullOrEmpty(defName) && resolved.ResolvedNode != null)
+                    {
+                        TraverseV3DefNode(
+                            resolved.ResolvedNode,
+                            defName,
+                            originalNode.Name,
+                            context,
+                            candidates,
+                            sourceLineNumber);
+                    }
+                    continue;
+                }
                 using (XmlReader subtree = reader.ReadSubtree())
                     StreamSingleDef(
                         subtree, candidates, context, reportProgress, stream, totalBytes);
             }
+        }
+
+        private static XmlDocument LoadDefSubtree(XmlReader reader)
+        {
+            XmlDocument document = new XmlDocument { XmlResolver = null };
+            using (XmlReader subtree = reader.ReadSubtree()) document.Load(subtree);
+            return document;
+        }
+
+        private static bool IsFalseInheritance(string value)
+        {
+            return string.Equals(value, "false", StringComparison.OrdinalIgnoreCase) || value == "0";
         }
 
         private static void StreamSingleDef(
@@ -475,6 +598,62 @@ namespace AutoTranslator_Core.TranslationPolicy
                     TraverseV3DefNode(child, childPath, defType, context, candidates);
                 }
             }
+        }
+
+        private static void TraverseV3DefNode(
+            XmlNode node,
+            string currentPath,
+            string defType,
+            TranslationPolicySourceContext context,
+            List<TranslationPolicyCandidate> candidates,
+            int sourceLineNumber)
+        {
+            if (node == null) return;
+            int liIndex = 0;
+            foreach (XmlNode child in node.ChildNodes)
+            {
+                if (child == null || child.NodeType != XmlNodeType.Element) continue;
+                string childName = child.Name;
+                if (childName == "defName") continue;
+                bool isListItem = childName == "li";
+                string childPath = isListItem
+                    ? currentPath + "." + (liIndex++).ToString(CultureInfo.InvariantCulture)
+                    : currentPath + "." + childName;
+
+                if (IsV3PureText(child))
+                {
+                    string text = (child.InnerText ?? string.Empty).Trim();
+                    bool isGarbage = text.Length < 2 || Regex.IsMatch(text, @"^[\d\s\-\+\.\%]+$");
+                    if (isGarbage || string.IsNullOrWhiteSpace(text) || text.Contains(".xml") ||
+                        text.StartsWith("Tex/") || text.StartsWith("UI/")) continue;
+
+                    bool knownPath = V3IsKnownTranslatablePath(childPath);
+                    bool shouldTranslate = !V3IsProtectedDefPath(childPath) &&
+                                           (knownPath || !V3LooksLikeDefReferenceValue(text)) &&
+                                           (knownPath || V3IsTranslationTarget(childName, text));
+                    if (isListItem && V3ShouldForceTranslateListItem(node.Name, currentPath, text))
+                        shouldTranslate = true;
+                    if (shouldTranslate)
+                    {
+                        AddCandidate(
+                            candidates, context, TranslationPolicyBucket.DefInjected,
+                            defType, childPath, childName, text, sourceLineNumber);
+                    }
+                }
+                else if (child.HasChildNodes)
+                {
+                    TraverseV3DefNode(
+                        child, childPath, defType, context, candidates, sourceLineNumber);
+                }
+            }
+        }
+
+        private static bool IsV3PureText(XmlNode node)
+        {
+            return node != null &&
+                   node.ChildNodes.Count == 1 &&
+                   (node.FirstChild.NodeType == XmlNodeType.Text ||
+                    node.FirstChild.NodeType == XmlNodeType.CDATA);
         }
 
         private static bool V3IsTranslationTarget(string tagName, string value)

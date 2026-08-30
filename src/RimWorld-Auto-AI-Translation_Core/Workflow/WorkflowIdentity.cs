@@ -9,9 +9,9 @@ namespace AutoTranslator_Core.Workflow
     public static class WorkflowIdentity
     {
         public const string CandidateIdentitySchemaVersion = "atc-candidate-v1";
-        // xml-2 stores the frozen v3.0 XML candidate corpus in the V4 database and
-        // invalidates results produced by the earlier V4 all-leaf analyzer.
-        public const string XmlAnalyzerVersion = "xml-2";
+        // xml-3 keeps the frozen v3.0 field-selection rules while resolving named
+        // Def inheritance before candidate generation.
+        public const string XmlAnalyzerVersion = "xml-3";
         public const string DllAnalyzerVersion = "dll-3.03";
         public const string AiReviewVersion = "ai-review-3";
         private const string CandidateIdPrefix = "atc1_";

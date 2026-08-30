@@ -487,6 +487,18 @@ namespace AutoTranslator_Core
             Widgets.CheckboxLabeled(l.GetRect(30f), "ATC_EnableUIErrorLogInterception".Translate(), ref Settings.EnableUIErrorLogInterception);
             Widgets.CheckboxLabeled(l.GetRect(30f), "ATC_ShowOriginalUI".Translate(), ref Settings.ShowOriginalUI);
             GUI.color = Color.white;
+
+            Rect uiManagerRect = l.GetRect(35f);
+            if (WorkflowUiStyle.Button(
+                    uiManagerRect,
+                    "ATC_UIManager_Open".Translate(UIInterceptor.GetManagedEntryCount()),
+                    WorkflowButtonStyle.Quiet))
+            {
+                Find.WindowStack.Add(new Window_UITranslationManager());
+            }
+            TooltipHandler.TipRegion(uiManagerRect, "ATC_UIManager_OpenTip".Translate());
+            l.Gap(5f);
+
             DrawHardcodedUiPrototypeSettings(l);
 
             Rect clearRect = l.GetRect(35f);

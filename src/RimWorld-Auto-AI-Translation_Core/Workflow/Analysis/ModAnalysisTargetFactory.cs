@@ -38,7 +38,6 @@ namespace AutoTranslator_Core.Workflow.Analysis
                 .Where(path => !string.IsNullOrWhiteSpace(path) && Directory.Exists(path))
                 .Select(Path.GetFullPath)
                 .Distinct(WorkflowPath.Comparer)
-                .OrderBy(path => path, WorkflowPath.Comparer)
                 .ToList();
             List<string> xmlDirectories = effectiveLanguageRoots
                 .SelectMany(languageRoot =>

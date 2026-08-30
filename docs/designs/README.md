@@ -17,7 +17,7 @@
 
 | 文档 ID | 状态 | 文档 | 适用范围 | 阅读优先级 |
 |---|---|---|---|---:|
-| ATC-DES-003 | 当前基准 | [五步独立翻译工作流与数据架构](./v4-five-stage-independent-translation-workflow.md) | 五步工作流、稳定条目 ID/文本哈希分层、8位分类位图、试跑模拟、AI复核、译文来源覆盖、SQLite 1.6 跨平台选型、启动同步/热重载、全局任务互斥与重构边界 | 1 |
+| ATC-DES-003 | 当前基准 | [五步独立翻译工作流与数据架构](./v4-five-stage-independent-translation-workflow.md) | 五步工作流、稳定条目 ID/文本哈希分层、Def XML 继承、8位分类位图、试跑模拟、AI复核、译文来源覆盖、SQLite 1.6 跨平台选型、启动同步/热重载、全局任务互斥与重构边界 | 1 |
 | ATC-IMP-001 | 实施记录 | [V4 后台重构实施记录](./v4-backend-implementation-notes.md) | 后台实施中发现的问题、兼容处理、UI 接线事项与静态风险 | 1 |
 | ATC-DES-001 | 部分有效 | [V4 DLL UI、Policy、API 与术语统一实施计划](./v4-dll-ui-policy-and-terminology-implementation-plan.md) | 一键翻译编排、DLL 静态分析、编辑器、API 生命周期、术语系统及既有实现背景；其中云分析设计已废弃 | 2 |
 | ATC-DES-000 | 历史背景 | [项目设计说明](../../DESIGN_NOTES.md) | XML 翻译、全局翻译记忆、翻译包、热重载和兼容性底线 | 4 |

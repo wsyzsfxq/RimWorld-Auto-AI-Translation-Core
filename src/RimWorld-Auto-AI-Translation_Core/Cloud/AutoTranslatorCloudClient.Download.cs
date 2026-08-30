@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine.Networking;
 using Verse;
@@ -29,8 +30,9 @@ namespace AutoTranslator_Core
 
         // 這個方法負責下載 AndInjectAsync 資料。
         // EN: This method downloads and inject async.
-        public static async Task<bool> DownloadAndInjectAsync(string packageId, string targetLangFolder, CloudModRecord targetRecord = null, bool requestMemoryDrop = true, bool requestRuntimeRefreshAfterClear = true, AutoTranslatorScanner.LocalTranslationDeleteTarget clearTarget = null, bool clearExistingTranslations = true, bool restoreBackupOnFailure = true)
+        public static async Task<bool> DownloadAndInjectAsync(string packageId, string targetLangFolder, CloudModRecord targetRecord = null, bool requestMemoryDrop = true, bool requestRuntimeRefreshAfterClear = true, AutoTranslatorScanner.LocalTranslationDeleteTarget clearTarget = null, bool clearExistingTranslations = true, bool restoreBackupOnFailure = true, CancellationToken cancellationToken = default(CancellationToken))
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (AutoTranslatorMod.Settings != null && AutoTranslatorMod.Settings.IsCloudDownloadBlacklisted(packageId))
             {
                 AutoTranslatorSettings.AddLog(AutoTranslatorAPI.TranslateText("ATC_Blacklist_DownloadSkipped", packageId));
@@ -45,6 +47,7 @@ namespace AutoTranslator_Core
 
             for (int attempt = 0; attempt <= maxRetries; attempt++)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 try
                 {
                     string baseUrl = attempt >= 3 ? BackupApiBaseUrl : PrimaryApiBaseUrl;
@@ -61,7 +64,8 @@ namespace AutoTranslator_Core
                     CloudDownloadAttemptResult response = await DownloadCloudArchiveAttemptAsync(
                         url,
                         attemptZipPath,
-                        120 + attempt * 60);
+                        120 + attempt * 60,
+                        cancellationToken);
                     if (response.Success)
                     {
                         downloadedZipPath = response.FilePath;
@@ -89,6 +93,7 @@ namespace AutoTranslator_Core
                     {
                         registryRefreshAttempted = true;
                         List<CloudModRecord> refreshed = await FetchRegistryAsync();
+                        cancellationToken.ThrowIfCancellationRequested();
                         CloudModRecord replacement = CloudDownloadRecoveryPolicy.SelectReplacement(
                             refreshed,
                             packageId,
@@ -120,6 +125,11 @@ namespace AutoTranslator_Core
                         return false;
                     }
                 }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    TryDeleteCloudTempFile(downloadedZipPath);
+                    throw;
+                }
                 catch (Exception ex)
                 {
                     if (attempt == maxRetries)
@@ -130,9 +140,10 @@ namespace AutoTranslator_Core
                 }
 
                 int delayMs = (int)Math.Pow(2, attempt + 1) * 1000 + new System.Random().Next(100, 500);
-                await Task.Delay(delayMs);
+                await Task.Delay(delayMs, cancellationToken);
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
             if (string.IsNullOrEmpty(downloadedZipPath) || !File.Exists(downloadedZipPath) || new FileInfo(downloadedZipPath).Length == 0)
             {
                 TryDeleteCloudTempFile(downloadedZipPath);
@@ -141,6 +152,7 @@ namespace AutoTranslator_Core
 
             try
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 if (clearTarget == null)
                 {
                     foreach (var m in Verse.ModLister.AllInstalledMods)
@@ -171,6 +183,7 @@ namespace AutoTranslator_Core
                 {
                     foreach (var entry in archive.Entries)
                     {
+                        cancellationToken.ThrowIfCancellationRequested();
                         if (string.IsNullOrEmpty(entry.Name)) continue;
 
                         string destPath = GetSafeCloudExtractPath(extractRoot, entry.FullName);
@@ -190,6 +203,7 @@ namespace AutoTranslator_Core
                 }
                 TryDeleteCloudTempFile(downloadedZipPath);
 
+                cancellationToken.ThrowIfCancellationRequested();
                 if (resolvedRecord != null)
                 {
                     var meta = new LocalModMeta
@@ -205,6 +219,7 @@ namespace AutoTranslator_Core
                     System.IO.File.WriteAllText(metaPath, JsonConvert.SerializeObject(meta, Newtonsoft.Json.Formatting.Indented));
                 }
 
+                cancellationToken.ThrowIfCancellationRequested();
                 AutoTranslatorScanner.NotifyTranslationFilesChanged(extractRoot);
                 AutoTranslatorScanner.NotifyTranslationFilesChanged(workspaceDir);
 
@@ -227,6 +242,12 @@ namespace AutoTranslator_Core
                     extractedWorkspaceFiles);
                 return true;
             }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                RollbackFailedCloudDownload(targetMod, clearTarget, requestRuntimeRefreshAfterClear, restoreBackupOnFailure);
+                TryDeleteCloudTempFile(downloadedZipPath);
+                throw;
+            }
             catch (Exception ex)
             {
                 RollbackFailedCloudDownload(targetMod, clearTarget, requestRuntimeRefreshAfterClear, restoreBackupOnFailure);
@@ -241,33 +262,58 @@ namespace AutoTranslator_Core
         private static async Task<CloudDownloadAttemptResult> DownloadCloudArchiveAttemptAsync(
             string url,
             string tempFilePath,
-            int timeoutSeconds)
+            int timeoutSeconds,
+            CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var tcs = new TaskCompletionSource<CloudDownloadAttemptResult>();
             ATC_Dispatcher.RunOnMainThread(() =>
             {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    tcs.TrySetCanceled();
+                    return;
+                }
+                UnityWebRequest request = null;
+                CancellationTokenRegistration cancellationRegistration = default(CancellationTokenRegistration);
                 try
                 {
                     TryDeleteCloudTempFile(tempFilePath);
-                    var request = new UnityWebRequest(url, "GET")
+                    request = new UnityWebRequest(url, "GET")
                     {
                         timeout = timeoutSeconds,
                         downloadHandler = new DownloadHandlerFile(tempFilePath) { removeFileOnAbort = true }
                     };
                     UnityWebRequestAsyncOperation operation = request.SendWebRequest();
+                    cancellationRegistration = cancellationToken.Register(() =>
+                    {
+                        ATC_Dispatcher.RunOnMainThread(() =>
+                        {
+                            try { request.Abort(); }
+                            catch (Exception) { }
+                            finally { tcs.TrySetCanceled(); }
+                        });
+                    });
                     operation.completed += _ =>
                     {
                         try
                         {
-                            tcs.TrySetResult(new CloudDownloadAttemptResult
+                            if (cancellationToken.IsCancellationRequested)
                             {
-                                Success = UnityWebRequestCompat.IsSuccess(request),
-                                StatusCode = request.responseCode,
-                                Error = request.error,
-                                FilePath = tempFilePath,
-                                ServedRecordId = request.GetResponseHeader("X-ATC-Record-Id"),
-                                FallbackReason = request.GetResponseHeader("X-ATC-Record-Fallback")
-                            });
+                                tcs.TrySetCanceled();
+                            }
+                            else
+                            {
+                                tcs.TrySetResult(new CloudDownloadAttemptResult
+                                {
+                                    Success = UnityWebRequestCompat.IsSuccess(request),
+                                    StatusCode = request.responseCode,
+                                    Error = request.error,
+                                    FilePath = tempFilePath,
+                                    ServedRecordId = request.GetResponseHeader("X-ATC-Record-Id"),
+                                    FallbackReason = request.GetResponseHeader("X-ATC-Record-Fallback")
+                                });
+                            }
                         }
                         catch (Exception innerEx)
                         {
@@ -275,12 +321,15 @@ namespace AutoTranslator_Core
                         }
                         finally
                         {
+                            cancellationRegistration.Dispose();
                             request.Dispose();
                         }
                     };
                 }
                 catch (Exception dispatchEx)
                 {
+                    cancellationRegistration.Dispose();
+                    request?.Dispose();
                     tcs.TrySetException(dispatchEx);
                 }
             });

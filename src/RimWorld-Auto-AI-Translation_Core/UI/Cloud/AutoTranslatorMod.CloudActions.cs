@@ -676,7 +676,8 @@ namespace AutoTranslator_Core
                     requestRuntimeRefreshAfterClear: false,
                     clearTarget: clearTarget,
                     clearExistingTranslations: false,
-                    restoreBackupOnFailure: false);
+                    restoreBackupOnFailure: false,
+                    cancellationToken: cancellationToken);
                 return new BatchDownloadExecutionResult { Item = item, Success = success };
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

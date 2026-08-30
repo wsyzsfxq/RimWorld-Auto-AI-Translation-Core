@@ -20,6 +20,43 @@ namespace AutoTranslator_Core
 
     public static class DefXmlInheritanceResolver
     {
+        public sealed class Index
+        {
+            private readonly Dictionary<string, XmlNode> _namedNodes =
+                new Dictionary<string, XmlNode>(StringComparer.OrdinalIgnoreCase);
+
+            public int Count => _namedNodes.Count;
+
+            public void Add(XmlNode node)
+            {
+                string name = GetAttribute(node, "Name");
+                if (string.IsNullOrWhiteSpace(name)) return;
+                _namedNodes[name.Trim()] = CloneIntoNewDocument(node);
+            }
+
+            public ResolvedDefXmlNode Resolve(
+                XmlNode node,
+                string sourceFile,
+                Action<string> warning = null)
+            {
+                return new ResolvedDefXmlNode
+                {
+                    OriginalNode = node,
+                    ResolvedNode = ResolveNode(
+                        node,
+                        _namedNodes,
+                        new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+                        warning),
+                    SourceFile = sourceFile ?? string.Empty
+                };
+            }
+        }
+
+        public static Index CreateIndex()
+        {
+            return new Index();
+        }
+
         public static List<ResolvedDefXmlNode> Resolve(
             IEnumerable<DefXmlSourceDocument> sourceDocuments,
             Action<string> warning = null)
@@ -27,7 +64,7 @@ namespace AutoTranslator_Core
             List<DefXmlSourceDocument> documents = (sourceDocuments ?? Enumerable.Empty<DefXmlSourceDocument>())
                 .Where(source => source != null && source.Document != null)
                 .ToList();
-            var namedNodes = new Dictionary<string, XmlNode>(StringComparer.OrdinalIgnoreCase);
+            Index index = CreateIndex();
 
             foreach (DefXmlSourceDocument source in documents)
             {
@@ -36,8 +73,7 @@ namespace AutoTranslator_Core
 
                 foreach (XmlNode node in ElementChildren(root))
                 {
-                    string name = GetAttribute(node, "Name");
-                    if (!string.IsNullOrWhiteSpace(name)) namedNodes[name.Trim()] = node;
+                    index.Add(node);
                 }
             }
 
@@ -49,16 +85,7 @@ namespace AutoTranslator_Core
 
                 foreach (XmlNode node in ElementChildren(root))
                 {
-                    result.Add(new ResolvedDefXmlNode
-                    {
-                        OriginalNode = node,
-                        ResolvedNode = ResolveNode(
-                            node,
-                            namedNodes,
-                            new HashSet<string>(StringComparer.OrdinalIgnoreCase),
-                            warning),
-                        SourceFile = source.SourceFile ?? string.Empty
-                    });
+                    result.Add(index.Resolve(node, source.SourceFile, warning));
                 }
             }
 

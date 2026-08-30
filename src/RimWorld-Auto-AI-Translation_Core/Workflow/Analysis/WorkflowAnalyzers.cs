@@ -70,7 +70,7 @@ namespace AutoTranslator_Core.Workflow.Analysis
         public string CreateAnalysisFingerprint(ModAnalysisTarget target)
         {
             return WorkflowIdentity.CreateAnalysisFingerprint(
-                Version, target.Snapshot.VersionFingerprint, "v3.0-622d6af");
+                Version, target.Snapshot.VersionFingerprint, "v3.0-622d6af+def-inheritance-v1");
         }
 
         public AnalyzerResult Analyze(
@@ -86,7 +86,7 @@ namespace AutoTranslator_Core.Workflow.Analysis
                 ReadExistingTargetTranslations(target, cancellationToken, result.Diagnostics);
             HashSet<string> visitedFiles = new HashSet<string>(WorkflowPath.Comparer);
             List<string> sourceFiles = new List<string>();
-            foreach (string directory in target.XmlSourceDirectories.OrderBy(path => path, WorkflowPath.Comparer))
+            foreach (string directory in target.XmlSourceDirectories)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory)) continue;
@@ -98,6 +98,16 @@ namespace AutoTranslator_Core.Workflow.Analysis
                     if (visitedFiles.Add(fullPath)) sourceFiles.Add(fullPath);
                 }
             }
+            reportProgress?.Invoke(
+                0d,
+                "XML · " + AutoTranslatorMod.WfText(
+                    "建立 Def 继承索引",
+                    "building Def inheritance index"));
+            DefXmlInheritanceResolver.Index defInheritanceIndex =
+                TranslationPolicyXmlScanner.CreateDefInheritanceIndex(
+                    sourceFiles,
+                    cancellationToken,
+                    warning => result.Diagnostics.Add("Def inheritance: " + warning));
             int processedFiles = 0;
             foreach (string fullPath in sourceFiles)
             {
@@ -113,6 +123,7 @@ namespace AutoTranslator_Core.Workflow.Analysis
                 {
                     ReadFile(
                         target, fullPath, existingTranslations, result, cancellationToken,
+                        defInheritanceIndex,
                         (completedBytes, totalBytes, currentLine) =>
                         {
                             cancellationToken.ThrowIfCancellationRequested();
@@ -187,6 +198,7 @@ namespace AutoTranslator_Core.Workflow.Analysis
             IDictionary<string, DetectedTranslationRecord> existingTranslations,
             AnalyzerResult result,
             CancellationToken cancellationToken,
+            DefXmlInheritanceResolver.Index defInheritanceIndex,
             Action<long, long, int> reportProgress)
         {
             string relativePath = Relative(target, file);
@@ -198,7 +210,13 @@ namespace AutoTranslator_Core.Workflow.Analysis
             };
             List<TranslationPolicyCandidate> policyCandidates =
                 TranslationPolicyXmlScanner.ScanSourceXmlFile(
-                    file, relativePath, GetDefType(relativePath), context, reportProgress);
+                    file,
+                    relativePath,
+                    GetDefType(relativePath),
+                    context,
+                    reportProgress,
+                    defInheritanceIndex,
+                    warning => result.Diagnostics.Add(relativePath + ": " + warning));
 
             foreach (TranslationPolicyCandidate policyCandidate in policyCandidates)
             {
