@@ -1121,7 +1121,7 @@ namespace AutoTranslator_Core.Workflow.AI
             return byIndex;
         }
 
-        private static object ParseCompactContext(string contextJson)
+        internal static object ParseCompactContext(string contextJson)
         {
             if (string.IsNullOrWhiteSpace(contextJson)) return string.Empty;
             try { return JToken.Parse(contextJson); }
@@ -2081,7 +2081,7 @@ namespace AutoTranslator_Core.Workflow.AI
                 {
                     index,
                     candidate.LogicalLocator,
-                    ParseCompactContext(candidate.ContextJson),
+                    AiReviewService.ParseCompactContext(candidate.ContextJson),
                     candidate.SourceText
                 })
             }));
