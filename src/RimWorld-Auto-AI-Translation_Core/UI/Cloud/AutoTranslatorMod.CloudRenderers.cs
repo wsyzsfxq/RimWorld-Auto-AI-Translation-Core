@@ -614,8 +614,12 @@ namespace AutoTranslator_Core
                         {
                             string mTag = v.IsSmartMerged ? "ATC_Cloud_SmartMerged".Translate().ToString() : "";
                             string vLocType = GetCloudTranslationTypeLabel(v);
+                            string uploader = string.IsNullOrWhiteSpace(v.Author)
+                                ? WfText("未知", "Unknown")
+                                : v.Author.Trim();
 
-                            string optLabel = $"[{v.LastUpdated:yyyy-MM-dd}] ({vLocType}) - {v.Author}{mTag}";
+                            string optLabel = $"[{v.LastUpdated:yyyy-MM-dd}] ({vLocType}){mTag} · " +
+                                WfText("上传者：", "Uploader: ") + uploader;
                             verOptions.Add(new FloatMenuOption(optLabel, () => { AutoTranslatorSettings.SelectedCloudVersion[mod.PackageId] = v; }));
                         }
                         Find.WindowStack.Add(new FloatMenu(verOptions));
