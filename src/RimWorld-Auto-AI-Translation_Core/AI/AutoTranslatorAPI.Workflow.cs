@@ -23,12 +23,22 @@ namespace AutoTranslator_Core
 
     public static partial class AutoTranslatorAPI
     {
+        private static long? ReadNullableTokenCount(JToken token)
+        {
+            if (token == null) return null;
+            long value;
+            return long.TryParse(token.ToString(), out value) && value >= 0L ? (long?)value : null;
+        }
         internal static async Task<WorkflowRawModelResponse> InvokeWorkflowJsonAsync(
             string prompt,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            ApiKeyConfig selectedConfiguration = null)
         {
-            ApiKeyConfig config = GetNextWorkflowConfig();
-            if (config == null) throw new InvalidOperationException("No enabled API configuration is available.");
+            ApiKeyConfig config = selectedConfiguration ?? GetNextWorkflowConfig();
+            if (config == null) throw new InvalidOperationException(DescribeUnavailableWorkflowConfigurations());
+            string configurationProblem = GetWorkflowConfigurationProblem(config);
+            if (configurationProblem != null)
+                throw new InvalidOperationException(configurationProblem);
 
             string apiKey = CleanInput(config.Key);
             string model = CleanInput(config.SelectedModel);
@@ -96,8 +106,8 @@ namespace AutoTranslator_Core
                     payload["provider"] = new JObject { ["require_parameters"] = false };
             }
 
-            int timeoutSeconds = TranslationPolicyAgentTimeout.Resolve(
-                AutoTranslatorMod.Settings != null ? AutoTranslatorMod.Settings.TimeoutSeconds : 120, 0);
+            int timeoutSeconds = WorkflowRequestTimeout.Resolve(
+                AutoTranslatorMod.Settings != null ? AutoTranslatorMod.Settings.TimeoutSeconds : 120);
             AutoTranslatorSettings.AddLog(
                 "模型请求参数：响应超时 " + timeoutSeconds + " 秒；超过该时间仍未收到完整响应将判定为超时");
             Func<bool> cancelled = () => cancellationToken.IsCancellationRequested ||
@@ -176,11 +186,11 @@ namespace AutoTranslator_Core
             if (provider == TranslatorProvider.Google)
             {
                 JArray parts = envelope["candidates"]?[0]?["content"]?["parts"] as JArray;
-                result.Content = parts?
+                result.Content = string.Concat(parts?
                     .OfType<JObject>()
                     .Where(part => part["thought"]?.Type != JTokenType.Boolean || !part["thought"].Value<bool>())
-                    .Select(part => part["text"]?.ToString())
-                    .LastOrDefault(text => !string.IsNullOrWhiteSpace(text)) ?? string.Empty;
+                    .Select(part => ReadWorkflowTextFragment(part["text"]))
+                    .Where(text => text != null) ?? Enumerable.Empty<string>());
                 result.InputTokens = ReadNullableTokenCount(envelope["usageMetadata"]?["promptTokenCount"]);
                 result.OutputTokens = ReadNullableTokenCount(envelope["usageMetadata"]?["candidatesTokenCount"]);
             }
@@ -199,11 +209,33 @@ namespace AutoTranslator_Core
             if (content.Type == JTokenType.String) return content.ToString();
             if (content is JArray blocks)
             {
-                return blocks.OfType<JObject>()
-                    .Select(block => block["text"]?.ToString() ?? block["content"]?.ToString())
-                    .LastOrDefault(text => !string.IsNullOrWhiteSpace(text)) ?? string.Empty;
+                return string.Concat(blocks.OfType<JObject>()
+                    .Select(ReadOpenAiTextBlock)
+                    .Where(text => text != null));
             }
             return content.ToString();
+        }
+
+        private static string ReadOpenAiTextBlock(JObject block)
+        {
+            string type = block["type"]?.ToString() ?? string.Empty;
+            if ((block["thought"]?.Type == JTokenType.Boolean && block["thought"].Value<bool>()) ||
+                type.Equals("thinking", StringComparison.OrdinalIgnoreCase) ||
+                type.Equals("reasoning", StringComparison.OrdinalIgnoreCase))
+                return null;
+            if (type.Length > 0 &&
+                !type.Equals("text", StringComparison.OrdinalIgnoreCase) &&
+                !type.Equals("output_text", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("模型返回了非文本响应片段，无法作为翻译 JSON 处理。");
+            return ReadWorkflowTextFragment(block["text"] ?? block["content"]);
+        }
+
+        private static string ReadWorkflowTextFragment(JToken text)
+        {
+            if (text == null || text.Type == JTokenType.Null) return null;
+            if (text.Type != JTokenType.String)
+                throw new InvalidOperationException("模型响应的文本片段不是字符串，无法作为翻译 JSON 处理。");
+            return text.Value<string>();
         }
 
         private static string ReadWorkflowFinishReason(JObject envelope, TranslatorProvider provider)
@@ -248,11 +280,36 @@ namespace AutoTranslator_Core
                                     " Never return an empty response; emit the complete JSON object now.";
         }
 
+        private static string GetWorkflowConfigurationProblem(ApiKeyConfig config)
+        {
+            if (config == null) return AutoTranslatorMod.WfText("配置不存在", "Configuration is missing");
+            if (!config.Enabled) return AutoTranslatorMod.WfText("配置未启用", "Configuration is disabled");
+            if (config.Provider == TranslatorProvider.DeepL)
+                return AutoTranslatorMod.WfText("DeepL 不支持工作流 JSON 模型调用", "DeepL does not support workflow JSON model requests");
+            if (string.IsNullOrEmpty(CleanInput(config.Key)))
+                return AutoTranslatorMod.WfText("API Key 清理空白和无效字符后为空", "API key is empty after input normalization");
+            if (string.IsNullOrEmpty(CleanInput(config.SelectedModel)))
+                return AutoTranslatorMod.WfText("模型名称清理空白和无效字符后为空", "Model name is empty after input normalization");
+            return null;
+        }
+
+        private static string DescribeUnavailableWorkflowConfigurations()
+        {
+            List<ApiKeyConfig> configs = AutoTranslatorMod.Settings?.ApiConfigs?.ToList() ?? new List<ApiKeyConfig>();
+            string summary = AutoTranslatorMod.WfText("没有可用于翻译或复核的 API 配置。", "No API configuration is available for translation or review.");
+            if (configs.Count == 0)
+                return summary + AutoTranslatorMod.WfText("请先在设置中添加接口。", " Add an API configuration in settings.");
+            return summary + " " + string.Join("; ", configs.Select((item, index) =>
+                "API " + (index + 1) + ": " +
+                (GetWorkflowConfigurationProblem(item) ?? AutoTranslatorMod.WfText(
+                    "配置已变化，请重新尝试", "Configuration changed; try again"))));
+        }
+
         private static ApiKeyConfig GetNextWorkflowConfig()
         {
             if (AutoTranslatorMod.Settings?.ApiConfigs == null) return null;
             var ready = AutoTranslatorMod.Settings.ApiConfigs
-                .Where(config => IsConfigReady(config) && config.Provider != TranslatorProvider.DeepL)
+                .Where(IsConfigReady)
                 .ToList();
             var eligible = TranslationTaskTierRouter.SelectEligible(ready, TranslationTaskTier.Precision);
             if (eligible.Count == 0) eligible = ready;

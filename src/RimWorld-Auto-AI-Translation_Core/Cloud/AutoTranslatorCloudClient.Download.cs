@@ -225,7 +225,7 @@ namespace AutoTranslator_Core
 
                 if (requestMemoryDrop)
                 {
-                    AutoTranslatorLegacyRepairer.RepairPackage(packageId, targetLangFolder, requestMemoryDrop: false);
+                    TranslationFileRepairService.RepairPackage(packageId, targetLangFolder, requestMemoryDrop: false);
                     AutoTranslatorScanner.RequestMemoryDrop();
                 }
                 AutoTranslatorScanner.MarkCloudDownloadedTranslations(

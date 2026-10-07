@@ -55,15 +55,10 @@ namespace AutoTranslator_Core
             new Dictionary<string, ProvenanceIndexCacheEntry>(StringComparer.OrdinalIgnoreCase);
         private const int MaximumProvenanceIndexCacheEntries = 64;
 
-        internal sealed class TranslationUploadProvenanceSummary
+        internal sealed class UploadLabelValidationSummary
         {
             public int IncludedEntries;
-            public int SkippedEntries;
-            public int SkippedExternalPatch;
-            public int SkippedManualEdit;
-            public int SkippedUnknownLegacy;
-            public int SkippedOther;
-            public int WrittenFiles;
+            public string BlockReason;
         }
 
         internal static TranslationProvenanceEntry CreateProvenance(
@@ -216,121 +211,7 @@ namespace AutoTranslator_Core
             }
         }
 
-        internal static bool TryPrepareUploadSourceFolder(
-            string sourceFolder,
-            string packageId,
-            string languageFolder,
-            string translationType,
-            out string preparedSourceFolder,
-            out TranslationUploadProvenanceSummary summary)
-        {
-            preparedSourceFolder = sourceFolder;
-            summary = new TranslationUploadProvenanceSummary();
 
-            if (!IsAiUploadType(translationType)) return true;
-            if (string.IsNullOrWhiteSpace(sourceFolder) ||
-                string.IsNullOrWhiteSpace(packageId) ||
-                !Directory.Exists(sourceFolder))
-            {
-                return false;
-            }
-
-            string stagingDir = Path.Combine(Path.GetTempPath(), "ATC_AIUploadFiltered_" + SanitizeFileName(packageId) + "_" + Guid.NewGuid().ToString("N"));
-            try
-            {
-                Directory.CreateDirectory(stagingDir);
-
-                string id1 = packageId.ToLowerInvariant();
-                string id2 = packageId.Replace(".", "_").ToLowerInvariant();
-                bool isWorkspace = sourceFolder.IndexOf("Upload_Workspace", StringComparison.OrdinalIgnoreCase) >= 0;
-                Dictionary<string, TranslationProvenanceEntry> provenance = LoadProvenanceIndex(sourceFolder, packageId);
-
-                foreach (string file in GetXmlFilesForTranslationCache(sourceFolder, SearchOption.AllDirectories))
-                {
-                    if (file.IndexOf("ATC_Provenance", StringComparison.OrdinalIgnoreCase) >= 0) continue;
-                    if (IsWorkbenchManualExportPath(file)) continue;
-
-                    string fileName = Path.GetFileName(file).ToLowerInvariant();
-                    bool shouldPack = isWorkspace ||
-                                      fileName.StartsWith(id1 + "_") ||
-                                      fileName.StartsWith(id1 + ".") ||
-                                      fileName.StartsWith(id2 + "_") ||
-                                      fileName.StartsWith(id2 + ".");
-                    if (!shouldPack) continue;
-
-                    Dictionary<string, string> sourceData = LoadXmlFileToDict(file);
-                    if (sourceData.Count == 0) continue;
-
-                    Dictionary<string, string> filtered = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-                    string relativePath = GetRelativeTranslationPath(sourceFolder, file);
-                    foreach (KeyValuePair<string, string> pair in sourceData)
-                    {
-                        string entryId = string.IsNullOrEmpty(relativePath) ? "" : relativePath + "|" + pair.Key;
-                        TranslationProvenanceEntry entry = null;
-                        if (!string.IsNullOrEmpty(entryId)) provenance.TryGetValue(entryId, out entry);
-
-                        if (entry != null && HashMatches(entry, pair.Value) && IsAllowedForAiUpload(entry))
-                        {
-                            filtered[pair.Key] = pair.Value;
-                            summary.IncludedEntries++;
-                        }
-                        else
-                        {
-                            AddSkippedUploadEntry(summary, entry != null ? entry.SourceKind : ProvenanceKindUnknownLegacy);
-                        }
-                    }
-
-                    if (filtered.Count == 0) continue;
-
-                    string relPath = GetUploadRelativePath(sourceFolder, file, packageId);
-                    string destPath = Path.Combine(stagingDir, relPath);
-                    SaveXml(destPath, filtered);
-                    summary.WrittenFiles++;
-                }
-
-                if (summary.WrittenFiles == 0)
-                {
-                    Directory.Delete(stagingDir, true);
-                    return false;
-                }
-
-                CopyUploadMetaIfPresent(sourceFolder, stagingDir, packageId);
-                preparedSourceFolder = stagingDir;
-                if (summary.SkippedEntries > 0)
-                {
-                    AutoTranslatorSettings.AddLog("☁️ " + FormatAiUploadFilteredLog(packageId, summary));
-                }
-                return true;
-            }
-            catch (Exception ex)
-            {
-                try
-                {
-                    if (Directory.Exists(stagingDir)) Directory.Delete(stagingDir, true);
-                }
-                catch { }
-
-                Verse.Log.Warning($"[AutoTranslationCore] Failed to prepare filtered AI upload for {packageId}: {ex.Message}");
-                return false;
-            }
-        }
-
-        private static void CopyUploadMetaIfPresent(string sourceFolder, string stagingDir, string packageId)
-        {
-            if (string.IsNullOrWhiteSpace(sourceFolder) ||
-                string.IsNullOrWhiteSpace(stagingDir) ||
-                string.IsNullOrWhiteSpace(packageId))
-            {
-                return;
-            }
-
-            string id2 = packageId.Replace(".", "_").ToLowerInvariant();
-            string sourceMeta = Path.Combine(sourceFolder, id2 + "_ATC_Meta.json");
-            if (!File.Exists(sourceMeta)) return;
-
-            Directory.CreateDirectory(stagingDir);
-            File.Copy(sourceMeta, Path.Combine(stagingDir, Path.GetFileName(sourceMeta)), true);
-        }
 
         internal static void DeletePreparedUploadSourceFolder(string originalSourceFolder, string preparedSourceFolder)
         {
@@ -347,45 +228,9 @@ namespace AutoTranslator_Core
             catch { }
         }
 
-        internal static bool IsAiUploadBlockedByProvenance(TranslationUploadProvenanceSummary summary)
-        {
-            return summary != null &&
-                   summary.WrittenFiles == 0 &&
-                   summary.IncludedEntries == 0 &&
-                   summary.SkippedEntries > 0;
-        }
 
-        internal static string FormatAiUploadFilteredLog(string displayName, TranslationUploadProvenanceSummary summary)
-        {
-            summary = summary ?? new TranslationUploadProvenanceSummary();
-            return AutoTranslatorAPI.TranslateText(
-                "ATC_Log_AiUploadFiltered",
-                displayName ?? "",
-                summary.IncludedEntries,
-                summary.SkippedEntries,
-                summary.SkippedExternalPatch,
-                summary.SkippedManualEdit,
-                summary.SkippedUnknownLegacy,
-                summary.SkippedOther);
-        }
 
-        internal static string FormatAiUploadNoCleanLog(string displayName, TranslationUploadProvenanceSummary summary)
-        {
-            summary = summary ?? new TranslationUploadProvenanceSummary();
-            return AutoTranslatorAPI.TranslateText(
-                "ATC_Log_AiUploadNoCleanEntries",
-                displayName ?? "",
-                summary.SkippedEntries,
-                summary.SkippedExternalPatch,
-                summary.SkippedManualEdit,
-                summary.SkippedUnknownLegacy,
-                summary.SkippedOther);
-        }
 
-        internal static string FormatAiUploadNoCleanMessage(string displayName)
-        {
-            return AutoTranslatorAPI.TranslateText("ATC_Msg_AiUploadNoCleanEntries", displayName ?? "");
-        }
 
         private static Dictionary<string, TranslationProvenanceEntry> LoadProvenanceIndex(string languageRoot, string packageId)
         {
@@ -520,53 +365,9 @@ namespace AutoTranslator_Core
             return Path.GetFileName(file);
         }
 
-        private static string GetUploadRelativePath(string sourceFolder, string file, string packageId)
-        {
-            string relPath = file.Substring(sourceFolder.Length).TrimStart('\\', '/');
-            string id1 = packageId.ToLowerInvariant();
-            string id2 = packageId.Replace(".", "_").ToLowerInvariant();
-            string justFileName = Path.GetFileName(file).ToLowerInvariant();
 
-            if (!justFileName.StartsWith(id1 + "_") && !justFileName.StartsWith(id1 + ".") &&
-                !justFileName.StartsWith(id2 + "_") && !justFileName.StartsWith(id2 + "."))
-            {
-                string dirName = Path.GetDirectoryName(relPath);
-                string newFileName = id2 + "_" + Path.GetFileName(file);
-                relPath = string.IsNullOrEmpty(dirName) ? newFileName : Path.Combine(dirName, newFileName);
-            }
 
-            return relPath;
-        }
 
-        private static bool IsAiUploadType(string translationType)
-        {
-            return string.Equals(translationType, "AI_Auto", StringComparison.OrdinalIgnoreCase);
-        }
-
-        private static bool IsAllowedForAiUpload(TranslationProvenanceEntry entry)
-        {
-            if (entry == null) return false;
-
-            string sourceKind = NormalizeProvenanceKind(entry.SourceKind);
-            if (sourceKind == ProvenanceKindAI) return true;
-            if (sourceKind != ProvenanceKindAIFromSecondary) return false;
-
-            string previousKind = NormalizeProvenanceKind(entry.PreviousSourceKind);
-            return previousKind == ProvenanceKindModNativeTarget ||
-                   previousKind == ProvenanceKindAI;
-        }
-
-        private static void AddSkippedUploadEntry(TranslationUploadProvenanceSummary summary, string sourceKind)
-        {
-            if (summary == null) return;
-
-            summary.SkippedEntries++;
-            sourceKind = NormalizeProvenanceKind(sourceKind);
-            if (sourceKind == ProvenanceKindExternalPatch) summary.SkippedExternalPatch++;
-            else if (sourceKind == ProvenanceKindManualEdit) summary.SkippedManualEdit++;
-            else if (sourceKind == ProvenanceKindUnknownLegacy) summary.SkippedUnknownLegacy++;
-            else summary.SkippedOther++;
-        }
 
         private static string NormalizeProvenanceKind(string sourceKind)
         {

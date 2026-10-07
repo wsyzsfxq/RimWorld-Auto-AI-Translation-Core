@@ -1,5 +1,6 @@
 using System;
 using System.Threading;
+using AutoTranslator_Core.TargetedHardcodedUi;
 
 namespace AutoTranslator_Core.Workflow
 {
@@ -78,7 +79,12 @@ namespace AutoTranslator_Core.Workflow
 
         public bool IsBusy
         {
-            get { lock (_sync) return _active != null; }
+            get
+            {
+                lock (_sync)
+                    return _active != null || AutoTranslatorScanner.IsMemoryDropBusy ||
+                           HardcodedUiTargetedPatchManager.IsLoading;
+            }
         }
 
         public long WorkbenchDataRevision => Interlocked.Read(ref _workbenchDataRevision);
@@ -144,10 +150,15 @@ namespace AutoTranslator_Core.Workflow
         {
             lock (_sync)
             {
-                if (_active != null || AutoTranslatorSettings.LegacyPipelineIsRunning)
+                bool memoryDropBusy = AutoTranslatorScanner.IsMemoryDropBusy;
+                bool dllReloadBusy = HardcodedUiTargetedPatchManager.IsLoading;
+                if (_active != null || AutoTranslatorSettings.LegacyPipelineIsRunning ||
+                    memoryDropBusy || dllReloadBusy)
                 {
                     AutoTranslatorSettings.AddDebugLog(
-                        "workflow.begin rejected kind=" + kind + " reason=busy");
+                        "workflow.begin rejected kind=" + kind + " reason=" +
+                        (memoryDropBusy ? "memory_drop_busy" :
+                         dllReloadBusy ? "dll_reload_busy" : "busy"));
                     lease = null;
                     return false;
                 }
@@ -346,6 +357,8 @@ namespace AutoTranslator_Core.Workflow
                     return AutoTranslatorMod.WfText("清理过期数据", "Expired data cleanup");
                 case WorkflowTaskKind.ResultCleanup:
                     return AutoTranslatorMod.WfText("清除所选 Mod 的结果", "Clear selected mod results");
+                case WorkflowTaskKind.RuntimeTranslationReload:
+                    return AutoTranslatorMod.WfText("译文热重载", "Translation hot reload");
                 default:
                     return AutoTranslatorMod.WfText("后台任务", "Background task");
             }

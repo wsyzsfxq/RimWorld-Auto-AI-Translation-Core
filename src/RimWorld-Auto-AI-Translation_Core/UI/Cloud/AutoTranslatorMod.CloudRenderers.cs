@@ -75,20 +75,25 @@ namespace AutoTranslator_Core
             Widgets.Label(new Rect(scopeRow.x + 90f, scopeRow.y + 6f, 250f, 24f),
                 WfText("已加载 Mod / DLC", "Loaded mods / DLC"));
             GUI.color = Color.white;
-            if (WorkflowUiStyle.Button(new Rect(scopeRow.xMax - 190f, scopeRow.y, 190f, 30f),
-                    WfText("管理下载排除列表", "Download exclusions"), WorkflowButtonStyle.Quiet))
-            {
-                Find.WindowStack.Add(new Window_ModBlacklists(cloudDownloadOnly: true));
-            }
 
             l.Gap(6f);
             DrawCloudListTypeFilters(l);
 
             l.Gap(6f);
             Rect downloadRow = l.GetRect(34f);
+            const float downloadButtonGap = 10f;
+            float downloadButtonWidth = Mathf.Clamp(
+                (downloadRow.width - downloadButtonGap * 2f) / 3f, 180f, 250f);
+            Rect bestAvailableRect = new Rect(
+                downloadRow.x, downloadRow.y, downloadButtonWidth, 32f);
+            Rect downloadOptionsRect = new Rect(
+                bestAvailableRect.xMax + downloadButtonGap, downloadRow.y,
+                downloadButtonWidth, 32f);
+            Rect exclusionsRect = new Rect(
+                downloadOptionsRect.xMax + downloadButtonGap, downloadRow.y,
+                downloadButtonWidth, 32f);
             if (!AutoTranslatorSettings.IsFetchingCloud)
             {
-                Rect bestAvailableRect = new Rect(downloadRow.x, downloadRow.y, 250f, 32f);
                 GUI.color = new Color(0.45f, 1f, 0.65f);
                 if (WorkflowUiStyle.Button(bestAvailableRect, WfText("一键下载最佳可用译文", "Download best available"),
                         WorkflowButtonStyle.Primary))
@@ -106,31 +111,41 @@ namespace AutoTranslator_Core
                 string optionsLabel = AutoTranslatorSettings.CloudDownloadOptionsExpanded
                     ? WfText("收起其他下载方式", "Hide other download methods")
                     : WfText("其他下载方式", "Other download methods");
-                if (WorkflowUiStyle.Button(new Rect(downloadRow.x + 260f, downloadRow.y, 160f, 32f),
-                        optionsLabel, WorkflowButtonStyle.Quiet))
+                if (WorkflowUiStyle.Button(downloadOptionsRect, optionsLabel, WorkflowButtonStyle.Quiet))
                 {
                     AutoTranslatorSettings.CloudDownloadOptionsExpanded =
                         !AutoTranslatorSettings.CloudDownloadOptionsExpanded;
                 }
             }
+            if (WorkflowUiStyle.Button(exclusionsRect,
+                    WfText("管理下载排除列表", "Download exclusions"), WorkflowButtonStyle.Quiet))
+            {
+                Find.WindowStack.Add(new Window_ModBlacklists(cloudDownloadOnly: true));
+            }
 
             if (AutoTranslatorSettings.CloudDownloadOptionsExpanded && !AutoTranslatorSettings.IsFetchingCloud)
             {
                 Rect downloadOptionsRow = l.GetRect(32f);
-                if (WorkflowUiStyle.Button(new Rect(downloadOptionsRow.x, downloadOptionsRow.y, 180f, 30f),
+                if (WorkflowUiStyle.Button(new Rect(
+                            downloadOptionsRow.x, downloadOptionsRow.y, downloadButtonWidth, 30f),
                         WfText("仅下载汉化组精翻", "Translation-group only"), WorkflowButtonStyle.Quiet))
                     ExecuteBatchDownload("Official_Group");
-                if (WorkflowUiStyle.Button(new Rect(downloadOptionsRow.x + 190f, downloadOptionsRow.y, 180f, 30f),
+                if (WorkflowUiStyle.Button(new Rect(
+                            downloadOptionsRow.x + downloadButtonWidth + downloadButtonGap,
+                            downloadOptionsRow.y, downloadButtonWidth, 30f),
                         WfText("仅下载人工精翻", "Human-curated only"), WorkflowButtonStyle.Quiet))
                     ExecuteBatchDownload("Manual");
-                if (WorkflowUiStyle.Button(new Rect(downloadOptionsRow.x + 380f, downloadOptionsRow.y, 180f, 30f),
+                if (WorkflowUiStyle.Button(new Rect(
+                            downloadOptionsRow.x + (downloadButtonWidth + downloadButtonGap) * 2f,
+                            downloadOptionsRow.y, downloadButtonWidth, 30f),
                         WfText("仅下载 AI 译文", "AI only"), WorkflowButtonStyle.Quiet))
                     ExecuteBatchDownload("AI_Auto");
             }
 
             l.Gap(5f);
             Rect orderRow = l.GetRect(30f);
-            Rect orderButtonRect = new Rect(orderRow.x, orderRow.y, 220f, orderRow.height);
+            Rect orderButtonRect = new Rect(
+                orderRow.x, orderRow.y, downloadButtonWidth, orderRow.height);
             if (WorkflowUiStyle.Button(orderButtonRect,
                     "ATC_Cloud_OrderButton".Translate(), WorkflowButtonStyle.Quiet))
             {
@@ -138,10 +153,12 @@ namespace AutoTranslator_Core
             }
             TooltipHandler.TipRegion(orderButtonRect, "ATC_Cloud_OrderButtonTip".Translate());
 
-            Widgets.Label(new Rect(orderRow.x + 235f, orderRow.y + 4f, 190f, 24f),
+            float parallelLabelX = orderRow.x + downloadButtonWidth + downloadButtonGap;
+            Widgets.Label(new Rect(parallelLabelX, orderRow.y + 4f, 190f, 24f),
                 "ATC_Cloud_ParallelDownloads".Translate(Settings.CloudBatchDownloadConcurrency));
             int parallelDownloads = Mathf.RoundToInt(Widgets.HorizontalSlider(
-                new Rect(orderRow.x + 430f, orderRow.y + 7f, Mathf.Max(100f, orderRow.width - 430f), 20f),
+                new Rect(parallelLabelX + 195f, orderRow.y + 7f,
+                    Mathf.Max(100f, orderRow.xMax - parallelLabelX - 195f), 20f),
                 Settings.CloudBatchDownloadConcurrency,
                 1f,
                 4f,
@@ -206,7 +223,7 @@ namespace AutoTranslator_Core
                     Settings.CloudUploadType = currentUploadType;
                     WriteSettings();
                 }
-                Widgets.Label(new Rect(typeRow.x, typeRow.y + 5f, 100f, 24f), WfText("译文类型", "Type"));
+                Widgets.Label(new Rect(typeRow.x, typeRow.y + 5f, 100f, 24f), WfText("上传标记", "Label"));
                 if (DrawUploadTypeOption(new Rect(typeRow.x + 100f, typeRow.y, 170f, 30f),
                         "ATC_Cloud_Type_AI".Translate().ToString(), Settings.CloudUploadType == "AI_Auto"))
                 {
@@ -219,6 +236,9 @@ namespace AutoTranslator_Core
                     Settings.CloudUploadType = "Manual";
                     WriteSettings();
                 }
+                Widgets.Label(l.GetRect(42f), WfText(
+                    "按本次上传内容逐个 Mod 检查：AI 来源超过 50% 不能标记人工精翻；来源不明和外部导入不计为 AI。标记不会改变译文，也不会调用 AI。",
+                    "Each mod is checked against this upload: over 50% AI cannot be labeled Human-curated. Unknown and imported sources are not AI. Labels do not change text or call AI."));
 
                 string adminLabel = AutoTranslatorSettings.CloudAdminExpanded
                     ? WfText("管理员模式　▲", "Administrator  ▲")
@@ -618,8 +638,9 @@ namespace AutoTranslator_Core
                                 ? WfText("未知", "Unknown")
                                 : v.Author.Trim();
 
-                            string optLabel = $"[{v.LastUpdated:yyyy-MM-dd}] ({vLocType}){mTag} · " +
-                                WfText("上传者：", "Uploader: ") + uploader;
+                            string optLabel = $"v{v.LatestVersion} ({vLocType}){mTag} · " +
+                                WfText("上传者：", "Uploader: ") + uploader +
+                                $" · {v.LastUpdated:yyyy-MM-dd}";
                             verOptions.Add(new FloatMenuOption(optLabel, () => { AutoTranslatorSettings.SelectedCloudVersion[mod.PackageId] = v; }));
                         }
                         Find.WindowStack.Add(new FloatMenu(verOptions));
@@ -633,7 +654,11 @@ namespace AutoTranslator_Core
                         string logDisplay = string.IsNullOrWhiteSpace(cloudRecord.UpdateLog) ? "ATC_Cloud_NoLog".Translate().ToString() : cloudRecord.UpdateLog;
 
 
-                        string tipStr = "ATC_Cloud_UploadDate".Translate(cloudRecord.LastUpdated.ToString("yyyy-MM-dd HH:mm")) + "\n" +
+                        string currentUploader = string.IsNullOrWhiteSpace(cloudRecord.Author)
+                            ? WfText("未知", "Unknown")
+                            : cloudRecord.Author.Trim();
+                        string tipStr = WfText("上传者：", "Uploader: ") + currentUploader + "\n" +
+                                        "ATC_Cloud_UploadDate".Translate(cloudRecord.LastUpdated.ToString("yyyy-MM-dd HH:mm")) + "\n" +
                                         "ATC_Cloud_TransType".Translate(currentLocType) + "\n" +
                                         "ATC_Cloud_IsSmartMerged".Translate(mergeStatus) + "\n" +
                                         "📜 " + "ATC_Cloud_LogTitle".Translate() + ": " + logDisplay;

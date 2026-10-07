@@ -96,7 +96,8 @@ namespace AutoTranslator_Core
                 if (string.IsNullOrWhiteSpace(p.Key) || !ValidXmlNameRegex.IsMatch(p.Key))
                 {
                     AddValidationStat(s => s.XmlKeySkipped++);
-                    AutoTranslatorSettings.AddErrorLog("⚠️ " + AutoTranslatorAPI.TranslateText("ATC_LogError_InvalidXmlKey", p.Key ?? "<null>"));
+                    AutoTranslatorSettings.AddWarningLog(
+                        AutoTranslatorAPI.TranslateText("ATC_LogError_InvalidXmlKey", p.Key ?? "<null>"));
                     continue;
                 }
 
@@ -110,7 +111,8 @@ namespace AutoTranslator_Core
                 {
 
                     AddValidationStat(s => s.XmlKeySkipped++);
-                    AutoTranslatorSettings.AddErrorLog("⚠️ " + AutoTranslatorAPI.TranslateText("ATC_LogError_InvalidXmlKey", $"{p.Key} ({ex.Message})"));
+                    AutoTranslatorSettings.AddWarningLog(
+                        AutoTranslatorAPI.TranslateText("ATC_LogError_InvalidXmlKey", $"{p.Key} ({ex.Message})"));
                     continue;
                 }
             }

@@ -11,6 +11,7 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
         {
             public readonly Dictionary<string, string> Translations;
             public readonly Dictionary<string, string> SourceTexts;
+            public readonly HashSet<string> TranslatedTexts;
 
             public RuntimeSnapshot(
                 Dictionary<string, string> translations,
@@ -18,6 +19,7 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
             {
                 Translations = translations ?? new Dictionary<string, string>(System.StringComparer.Ordinal);
                 SourceTexts = sourceTexts ?? new Dictionary<string, string>(System.StringComparer.Ordinal);
+                TranslatedTexts = new HashSet<string>(Translations.Values, System.StringComparer.Ordinal);
             }
         }
 
@@ -50,6 +52,13 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
             }
 
             return source;
+        }
+
+        internal static bool IsAppliedTranslationText(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return false;
+            RuntimeSnapshot snapshot = Volatile.Read(ref _snapshot);
+            return snapshot != null && snapshot.TranslatedTexts.Contains(text);
         }
 
         internal static void ReplaceSnapshot(Dictionary<string, string> translations)

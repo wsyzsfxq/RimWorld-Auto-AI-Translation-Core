@@ -1,4 +1,5 @@
 using HarmonyLib;
+using Mono.Cecil;
 using RimWorld;
 using System;
 using System.Collections.Generic;
@@ -34,6 +35,12 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
             internal List<HardcodedUiPatchEntry> Entries;
         }
 
+        private sealed class RuntimeAssemblySource
+        {
+            internal Assembly RuntimeAssembly;
+            internal string SourcePath;
+        }
+
         internal static HardcodedUiScanResult Scan(ModMetaData mod)
         {
             return Scan(mod, true);
@@ -60,7 +67,7 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
             string root = Path.GetFullPath(mod.RootDir.FullName)
                 .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
             string rootPrefix = root + Path.DirectorySeparatorChar;
-            List<Assembly> assemblies;
+            List<RuntimeAssemblySource> assemblies;
             reportProgress?.Invoke(
                 0d,
                 AutoTranslatorMod.WfText(
@@ -81,17 +88,20 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
                     AutoTranslatorMod.WfText(
                         " · 阶段 1/2：运行时扫描",
                         " · stage 1/2: runtime scan"));
-                assemblies = AppDomain.CurrentDomain.GetAssemblies()
-                    .Where(assembly => IsAssemblyInsideRoot(assembly, rootPrefix))
-                    .OrderBy(assembly => SafeLocation(assembly), StringComparer.OrdinalIgnoreCase)
-                    .ToList();
+                IReadOnlyList<string> effectiveAssemblyPaths = AutoTranslatorScanner.GetAllEffectiveAssemblyPaths(mod);
+                assemblies = ResolveRuntimeAssemblySources(
+                    rootPrefix,
+                    effectiveAssemblyPaths,
+                    result.Diagnostics,
+                    cancellationToken);
                 result.AssemblyCount = assemblies.Count;
                 int runtimeAssemblyIndex = 0;
 
-                foreach (Assembly assembly in assemblies)
+                foreach (RuntimeAssemblySource source in assemblies)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    string location = SafeLocation(assembly);
+                    Assembly assembly = source.RuntimeAssembly;
+                    string location = source.SourcePath;
                     string relativePath = location.Substring(rootPrefix.Length)
                         .Replace(Path.DirectorySeparatorChar, '/');
                     string assemblyHash = HardcodedUiMethodIdentity.ComputeFileSha256(location);
@@ -432,6 +442,77 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
             return location.Length > rootPrefix.Length &&
                    location.StartsWith(rootPrefix, WorkflowPath.Comparison) &&
                    File.Exists(location);
+        }
+
+        private static List<RuntimeAssemblySource> ResolveRuntimeAssemblySources(
+            string rootPrefix,
+            IEnumerable<string> effectiveAssemblyPaths,
+            ICollection<string> diagnostics,
+            CancellationToken cancellationToken)
+        {
+            List<Assembly> loadedAssemblies = AppDomain.CurrentDomain.GetAssemblies().ToList();
+            List<string> normalizedEffectivePaths = (effectiveAssemblyPaths ?? Enumerable.Empty<string>())
+                .Where(path => !string.IsNullOrWhiteSpace(path) && File.Exists(path))
+                .Select(WorkflowPath.NormalizeAbsolute)
+                .Distinct(WorkflowPath.Comparer)
+                .OrderBy(path => path, WorkflowPath.Comparer)
+                .ToList();
+            var effectivePathSet = new HashSet<string>(normalizedEffectivePaths, WorkflowPath.Comparer);
+            var result = new List<RuntimeAssemblySource>();
+            var addedRuntimeAssemblies = new HashSet<Assembly>();
+            var loadedByMvid = new Dictionary<Guid, Assembly>();
+
+            foreach (Assembly assembly in loadedAssemblies)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                try
+                {
+                    Guid mvid = assembly.ManifestModule.ModuleVersionId;
+                    if (!loadedByMvid.ContainsKey(mvid)) loadedByMvid[mvid] = assembly;
+                }
+                catch { }
+
+                string directLocation = SafeLocation(assembly);
+                if (!IsAssemblyInsideRoot(assembly, rootPrefix) ||
+                    !effectivePathSet.Contains(directLocation) ||
+                    !addedRuntimeAssemblies.Add(assembly))
+                    continue;
+                result.Add(new RuntimeAssemblySource
+                {
+                    RuntimeAssembly = assembly,
+                    SourcePath = directLocation
+                });
+            }
+
+            foreach (string diskPath in normalizedEffectivePaths)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                try
+                {
+                    using (ModuleDefinition module = ModuleDefinition.ReadModule(
+                               diskPath,
+                               new ReaderParameters { ReadingMode = ReadingMode.Deferred, ReadSymbols = false }))
+                    {
+                        if (!loadedByMvid.TryGetValue(module.Mvid, out Assembly loaded) ||
+                            !addedRuntimeAssemblies.Add(loaded))
+                            continue;
+                        result.Add(new RuntimeAssemblySource
+                        {
+                            RuntimeAssembly = loaded,
+                            SourcePath = Path.GetFullPath(diskPath)
+                        });
+                        diagnostics?.Add(
+                            "Resolved loaded assembly by MVID because its runtime location was outside the Mod root: " +
+                            HardcodedUiMethodIdentity.NormalizeRelativePath(
+                                Path.GetFullPath(diskPath).Substring(rootPrefix.Length)));
+                    }
+                }
+                catch (BadImageFormatException) { }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+            }
+
+            return result.OrderBy(item => item.SourcePath, WorkflowPath.Comparer).ToList();
         }
 
         private static string SafeLocation(Assembly assembly)

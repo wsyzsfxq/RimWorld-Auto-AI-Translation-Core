@@ -253,7 +253,6 @@ namespace AutoTranslator_Core
                     RunDetoxScanner();
                     RunAdvancedDetoxScanner();
                     RunNewlineDetoxScanner();
-                    AutoTranslatorLegacyRepairer.QueueBackgroundRepairOnce();
                 }
             }
             catch (Exception ex)

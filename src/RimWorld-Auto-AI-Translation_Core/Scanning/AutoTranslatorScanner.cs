@@ -41,7 +41,8 @@ namespace AutoTranslator_Core
         private static int _memoryDropPrepareRunning = 0;
         private static int _memoryDropGeneration = 0;
         private static MemoryDropPayload _pendingMemoryDropPayload = null;
-        private static MemoryDropApplyState _activeMemoryDropApply = null;
+        private static volatile MemoryDropApplyState _activeMemoryDropApply = null;
+        private static int _lastMemoryDropApplyFrame = -1;
         private static readonly List<TaskCompletionSource<bool>> _memoryDropCompletionWaiters =
             new List<TaskCompletionSource<bool>>();
         private static bool _memoryDropCycleSucceeded = true;
@@ -69,7 +70,6 @@ namespace AutoTranslator_Core
         private static Dictionary<string, TranslationProvenanceEntry> GlobalTranslationDatabaseCachedPrimaryKeyedSourceDict = null;
         private static Dictionary<string, TranslationProvenanceEntry> GlobalTranslationDatabaseCachedSecondaryKeyedSourceDict = null;
         private static readonly TranslationValidationStats _validationStats = new TranslationValidationStats();
-        private static readonly HashSet<string> _loggedEnglishResidualContexts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         // 這個類別負責 翻譯ValidationStats 的主要流程與狀態。
         // EN: This class manages the main workflow and state for TranslationValidationStats.
@@ -131,7 +131,7 @@ namespace AutoTranslator_Core
             "pawnSingular", "pawnPlural", "pawnsPlural", "leaderTitle", "adjective", "royalFavorLabel", "arrivalText", "arrivalTextEnemy",
             "logRulesInitiator", "logRulesRecipient", "useLabel", "ingestCommandString", "ingestReportString",
             "meatLabel", "corpseLabel", "discoverLetterTitle", "discoverLetterText", "letterLabelEnemy", "letterTextEnemy",
-            "commandLabel", "commandDescription", "formatString", "outfitName", "labelNoun", "labelNounPretty",
+            "commandLabel", "commandDescription", "formatString", "outfitName", "labelNoun", "labelNounPretty", "stuffAdjective",
             "customSummary", "summary", "title", "titleShort", "titleFemale", "titleShortFemale", "titleMale",
             "titleShortMale", "subtitle", "theme", "member", "ideoName", "successMessage",
             "successMessageNoNegativeThought", "failureMessage", "failMessage", "warningMessage",

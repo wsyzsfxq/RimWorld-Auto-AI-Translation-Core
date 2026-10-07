@@ -769,6 +769,65 @@ namespace AutoTranslator_Core.Workflow.Synchronization
             return value.Length <= 12 ? value : value.Substring(0, 12);
         }
 
+        internal int WriteChangedSourceTranslations(string targetLanguage, CancellationToken cancellationToken)
+        {
+            int written = 0;
+            string after = string.Empty;
+            while (true)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                List<CandidateRecord> page = _repository.GetCurrentManagedTranslationsPage(
+                    targetLanguage, after, 500, changedSourcesOnly: true);
+                if (page.Count == 0) return written;
+                List<TranslationOutputWrite> writes = page.Select(candidate => new TranslationOutputWrite
+                {
+                    Candidate = candidate,
+                    TranslatedText = candidate.TranslationText,
+                    Origin = candidate.TranslationOrigin,
+                    Target = new TranslationWriteTarget
+                    {
+                        RelativePath = candidate.TranslationFileRelativePath,
+                        EntryKey = candidate.TranslationEntryKey
+                    }
+                }).ToList();
+                List<PendingFileOperationRecord> pending = writes.Select(write => new PendingFileOperationRecord
+                {
+                    CandidateId = write.Candidate.CandidateId,
+                    TargetLanguage = targetLanguage,
+                    OperationKind = 1,
+                    TranslationOrigin = write.Origin,
+                    RelativePath = write.Target.RelativePath,
+                    EntryKey = write.Target.EntryKey,
+                    DesiredText = write.TranslatedText
+                }).ToList();
+                cancellationToken.ThrowIfCancellationRequested();
+                try
+                {
+                    _repository.CreatePendingFileOperations(pending);
+                    _outputStore.WriteBatch(writes, targetLanguage);
+                    _repository.CompletePendingTranslations(pending.Select(operation => new PendingTranslationCompletion
+                    {
+                        OperationId = operation.OperationId,
+                        CandidateId = operation.CandidateId,
+                        TargetLanguage = targetLanguage,
+                        TranslationText = operation.DesiredText,
+                        Origin = operation.TranslationOrigin,
+                        RelativePath = operation.RelativePath,
+                        EntryKey = operation.EntryKey
+                    }).ToList());
+                }
+                catch (Exception ex)
+                {
+                    foreach (PendingFileOperationRecord operation in pending)
+                        if (operation.OperationId != Guid.Empty)
+                            _repository.FailPendingFileOperation(operation.OperationId, ex);
+                    throw;
+                }
+                written += page.Count;
+                after = page[page.Count - 1].CandidateId;
+            }
+        }
+
         private void WriteManagedTranslation(
             CandidateRecord candidate,
             string targetLanguage,
@@ -817,11 +876,10 @@ namespace AutoTranslator_Core.Workflow.Synchronization
                 if (string.Equals(kind, AutoTranslatorScanner.ProvenanceKindCloud, StringComparison.OrdinalIgnoreCase))
                     return TranslationOrigin.Cloud;
                 if (string.Equals(kind, AutoTranslatorScanner.ProvenanceKindAI, StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(kind, AutoTranslatorScanner.ProvenanceKindAIFromSecondary, StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(kind, AutoTranslatorScanner.ProvenanceKindLocalPackExisting, StringComparison.OrdinalIgnoreCase))
+                    string.Equals(kind, AutoTranslatorScanner.ProvenanceKindAIFromSecondary, StringComparison.OrdinalIgnoreCase))
                     return TranslationOrigin.AiTranslation;
             }
-            return changedAfterBaseline ? TranslationOrigin.Manual : TranslationOrigin.AiTranslation;
+            return changedAfterBaseline ? TranslationOrigin.Manual : TranslationOrigin.None;
         }
 
         private void RecoverPendingOperations(

@@ -7,6 +7,7 @@ namespace AutoTranslator_Core
     {
         Quiet,
         Primary,
+        Warning,
         Stop,
         Link,
         Dropdown,
@@ -43,6 +44,11 @@ namespace AutoTranslator_Core
                 case WorkflowButtonStyle.Primary:
                     background = new Color(0.26f, 0.36f, 0.15f, 0.98f);
                     border = new Color(0.46f, 0.60f, 0.28f);
+                    text = Color.white;
+                    break;
+                case WorkflowButtonStyle.Warning:
+                    background = new Color(0.46f, 0.35f, 0.08f, 0.98f);
+                    border = new Color(0.78f, 0.61f, 0.18f);
                     text = Color.white;
                     break;
                 case WorkflowButtonStyle.Stop:

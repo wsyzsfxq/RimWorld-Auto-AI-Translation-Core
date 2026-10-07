@@ -43,6 +43,9 @@ namespace AutoTranslator_Core
             // EN: This field stores is editable runtime state or cached data.
             private bool _isEditable = false;
             private bool _isSavingChanges = false;
+            private string _uploadType;
+            private Workflow.UploadClassificationSummary _uploadClassification;
+            private string _uploadClassificationError;
 
             // 這個類別負責 PreviewItem 的主要流程與狀態。
             // EN: This class manages the main workflow and state for PreviewItem.
@@ -51,6 +54,7 @@ namespace AutoTranslator_Core
                 // 這個欄位保存 Key 的執行狀態或快取資料。
                 // EN: This field stores key runtime state or cached data.
                 public string Key;
+                public string SourceFile;
                 // 這個欄位保存 OriginalText 的執行狀態或快取資料。
                 // EN: This field stores original text runtime state or cached data.
                 public string OriginalText;
@@ -82,6 +86,8 @@ namespace AutoTranslator_Core
                 _targetLangFolder = targetLangFolder;
                 _sourceDir = sourceDir;
                 _modName = modName;
+                _uploadType = AutoTranslatorMod.NormalizeCloudUploadType(AutoTranslatorMod.Settings.CloudUploadType,
+                    !string.IsNullOrWhiteSpace(AutoTranslatorMod.Settings.CloudAdminToken));
                 this.doCloseButton = false;
                 this.doCloseX = true;
                 this.forcePause = true;
@@ -125,7 +131,28 @@ namespace AutoTranslator_Core
                     return;
                 }
 
-                float topOffset = 45f;
+                Widgets.Label(new Rect(0f, 40f, inRect.width, 22f), _uploadClassification != null
+                    ? _uploadClassification.Description
+                    : AutoTranslatorMod.WfText("无法读取来源统计：", "Source statistics unavailable: ") + _uploadClassificationError);
+                if (WorkflowUiStyle.Button(new Rect(0f, 65f, 140f, 28f),
+                        AutoTranslatorMod.WfText("AI 翻译", "AI translation"), WorkflowButtonStyle.Dropdown))
+                    _uploadType = "AI_Auto";
+                bool canLabelManual = _uploadClassification != null && _uploadClassification.CanLabelManual;
+                if (WorkflowUiStyle.Button(new Rect(150f, 65f, 140f, 28f),
+                        AutoTranslatorMod.WfText("人工精翻", "Human-curated"), WorkflowButtonStyle.Dropdown,
+                        canLabelManual)) _uploadType = "Manual";
+                TooltipHandler.TipRegion(new Rect(150f, 65f, 140f, 28f),
+                    canLabelManual ? AutoTranslatorMod.WfText("选择人工精翻标记", "Choose Human-curated label")
+                        : _uploadClassification?.ManualBlockedReason ?? _uploadClassificationError ?? string.Empty);
+                if (!string.IsNullOrWhiteSpace(AutoTranslatorMod.Settings.CloudAdminToken) &&
+                    WorkflowUiStyle.Button(new Rect(300f, 65f, 140f, 28f),
+                        "ATC_Type_Official".Translate(), WorkflowButtonStyle.Dropdown)) _uploadType = "Official_Group";
+                string selectedTypeLabel = _uploadType == "Official_Group" ? "ATC_Type_Official".Translate().ToString()
+                    : _uploadType == "Manual" ? AutoTranslatorMod.WfText("人工精翻", "Human-curated")
+                    : AutoTranslatorMod.WfText("AI 翻译", "AI translation");
+                Widgets.Label(new Rect(460f, 68f, inRect.width - 460f, 24f),
+                    AutoTranslatorMod.WfText("上传标记：", "Upload label: ") + selectedTypeLabel);
+                float topOffset = 105f;
                 float leftWidth = 220f;
                 float spacing = 15f;
                 float rightWidth = inRect.width - leftWidth - spacing;
@@ -180,7 +207,13 @@ namespace AutoTranslator_Core
                         if (_isEditable && !_isSavingChanges)
                         {
                             string newText = Widgets.TextArea(transRect, item.TranslatedText ?? "");
-                            if (newText != item.TranslatedText) { item.TranslatedText = newText; item.IsModified = true; }
+                            if (newText != item.TranslatedText)
+                            {
+                                item.TranslatedText = newText;
+                                item.IsModified = true;
+                                RefreshPreviewClassification();
+                                canLabelManual = _uploadClassification != null && _uploadClassification.CanLabelManual;
+                            }
                         }
                         else
                         {
@@ -229,7 +262,8 @@ namespace AutoTranslator_Core
 
                 bool isAdmin = !string.IsNullOrEmpty(AutoTranslatorMod.Settings.CloudAdminToken);
                 bool hasValidLog = !string.IsNullOrWhiteSpace(_updateLogText) && _updateLogText.Trim().Length >= 5;
-                bool canUpload = (isAdmin || hasValidLog) && !_isSavingChanges;
+                bool canUpload = (isAdmin || hasValidLog) && !_isSavingChanges &&
+                    (_uploadType != "Manual" || canLabelManual);
 
                 if (WorkflowUiStyle.Button(
                         new Rect(inRect.width - 180f, btnY, 180f, 35f),
@@ -257,35 +291,19 @@ namespace AutoTranslator_Core
             }
         }
 
-        private void PromptPureAiRebuildForUpload()
+        private void RefreshPreviewClassification()
         {
-            if (_mod == null)
-            {
-                Messages.Message(AutoTranslatorScanner.FormatAiUploadNoCleanMessage(_modName), MessageTypeDefOf.RejectInput, false);
-                return;
-            }
-
-            if (AutoTranslatorSettings.IsRunning)
-            {
-                Messages.Message("ATC_Msg_PureAiRebuildBusy".Translate(), MessageTypeDefOf.RejectInput, false);
-                return;
-            }
-
-            string modName = string.IsNullOrWhiteSpace(_modName) ? _mod.Name : _modName;
-            Find.WindowStack.Add(new Window_AtcDialog(
-                "ATC_Msg_AiUploadNoCleanEntriesWithRebuild".Translate(modName),
-                "ATC_Btn_PureAiRebuildForUpload".Translate(),
-                () =>
+            if (_uploadClassification == null) return;
+            _uploadClassification.TotalEntries = 0;
+            _uploadClassification.AiEntries = 0;
+            foreach (var category in _categorizedData)
+                foreach (PreviewItem item in category.Value)
                 {
-                    this.Close();
-                    AutoTranslatorSettings.ActiveTab = AutoTranslatorSettings.WorkbenchTabIndex;
-                    AutoTranslatorSettings.mainScrollPos = Vector2.zero;
-                    AutoTranslatorScanner.StartPureAiRebuildForUpload(_mod);
-                },
-                "ATC_Btn_Cancel".Translate(),
-                null,
-                "ATC_Title_PureAiRebuildForUpload".Translate()
-            ));
+                    if (string.IsNullOrWhiteSpace(item.TranslatedText)) continue;
+                    _uploadClassification.TotalEntries++;
+                    if (_uploadClassification.IsAiEntry(item.SourceFile, item.Key, item.TranslatedText))
+                        _uploadClassification.AiEntries++;
+                }
         }
     }
 

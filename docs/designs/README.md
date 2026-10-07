@@ -22,11 +22,23 @@
 | ATC-DES-001 | 部分有效 | [V4 DLL UI、Policy、API 与术语统一实施计划](./v4-dll-ui-policy-and-terminology-implementation-plan.md) | 一键翻译编排、DLL 静态分析、编辑器、API 生命周期、术语系统及既有实现背景；其中云分析设计已废弃 | 2 |
 | ATC-DES-000 | 历史背景 | [项目设计说明](../../DESIGN_NOTES.md) | XML 翻译、全局翻译记忆、翻译包、热重载和兼容性底线 | 4 |
 | ATC-DES-002 | 已废弃 | [Policy 云端判断加速契约](./v4-policy-analysis-cloud-contract.md) | 仅保留已否决的云分析历史方案，不得实施 | 99 |
+| ATC-DES-004 | 当前基准 | [云端上传标记与来源占比](./cloud-upload-labels.md) | AI/人工上传标记、本次上传条目占比、未知及外部来源、不再强制 AI 重建；汉化组精翻保持原逻辑 | 1 |
 
 辅助工程资料：
 
+- [DLL 采集归属与 API 配置筛选](../reports/dll-capture-api-eligibility-2026-10-08.md)：历史采集误归 Harmony、停止翻译影响独立采集、配置统一筛选与具体错误原因；仅静态审阅。
+
+
+- [旧实现调用链清理](../reports/legacy-call-chain-cleanup-2026-10-07.md)：全量静态清单、旧入口删除、新版接线及上传标记改造；未经编译或运行验证。
+- [批量模型请求静态修复](../reports/batch-request-static-fixes-2026-10-07.md)：协程异常收尾、多段响应拼接和逐批提交取消检查；尚不能确认群反馈根因。
+
 - [项目结构](../../PROJECT_STRUCTURE.md)：源码、项目文件、构建输出和 Mod 包目录约定。
 - [硬编码 UI 候选报告](../reports/drop-pod-jammer-hardcoded-ui-candidates.md)：特定样本的静态分析记录，不是通用产品设计。
+- [V4.5 真实 Mod 回归问题跟踪](../reports/v4.5-real-mod-regression-tracker.md)：用户截图、隔离 Workshop 样本、当前修复状态与人工验收顺序。
+- [RJW XML 文件规则审阅与参考字典](../reports/rjw-xml-rule-audit-2026-10-07.md)：授权文件扫描结果、通用材料修饰语漏项与内置术语来源。
+- [新旧 XML 收集规则对照](../reports/old-new-xml-rule-comparison-2026-10-07.md)：旧版明确文本规则漏迁、共享字段与路径修复；其中宽召回范围已由 2026-10-08 补充确认。
+- [XML 未知文本宽召回](../reports/xml-unknown-text-recall-2026-10-08.md)：`xml-3.01` 未知自然语言候选进入待复核、三种读取路径统一与静态审阅边界。
+- [XML 规则修复验证](../reports/xml-rule-verification-2026-10-07.md)：用户授权的 199 项定向文件规则检查、官方字段实例及 RJW 样本前后对照，不含游戏验收。
 
 ## 3. 文档覆盖关系
 
@@ -38,6 +50,12 @@
 4. 当前代码行为不自动等于当前产品设计；重构时必须区分“现状”和“目标”。
 
 当前已确认的覆盖关系：
+
+- `ATC-DES-003` 的 2026-10-08 补充确认原生译文读取失败允许一键流程继续 AI，取代此前中止要求；同时补齐 XML/DLL 目标语种记录、原生译文落盘、上传预览人工保存与 Tooltip 来源定位。见 [静态审阅与修复记录](../reports/current-changes-static-review-2026-10-08.md)。
+
+- `ATC-DES-003` 的 2026-10-07 补充授权实施手工参考字典、官方内置种子和按批次提供语境参考，取代此前字典暂缓范围；不包含自动词库学习或批量替换。
+
+- `ATC-DES-003` 的 2026-10-06 补充确认首次页面 Mod 名录同步、XML/DLL 触发的全体已加载 Mod 原生译文收集，以及按语种和条目键识别已有译文；实施情况见 `ATC-IMP-001` 同日记录。
 
 - `ATC-DES-003` 细化 `ATC-DES-001` 的内部步骤职责、独立入口、单一裁决优先级、状态模型和持久化边界，不废弃一键翻译。一键翻译作为显式编排器调用步骤 1、2、4、5，步骤 3 仍是独立的成本预估入口。
 - `ATC-DES-001` 的一键翻译方向、DLL 候选召回、静态 IL 分析、编辑器、API 生命周期、错误诊断和术语设计继续有效；其中所有云分析、云端判断缓存、同步云端判断及其服务端协议内容全部废弃。涉及具体步骤输入输出时以 `ATC-DES-003` 为准。

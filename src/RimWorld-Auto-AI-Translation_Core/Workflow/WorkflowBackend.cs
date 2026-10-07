@@ -18,6 +18,7 @@ namespace AutoTranslator_Core.Workflow
     public sealed partial class WorkflowBackend
     {
         private readonly WorkflowRepository _repository;
+        private readonly string _generatedPackRoot;
         private readonly AnalysisWorkflowService _analysis;
         private readonly AiReviewService _review;
         private readonly AiTranslationService _translation;
@@ -37,6 +38,7 @@ namespace AutoTranslator_Core.Workflow
             WorkflowDatabaseConnectionFactory connections = new WorkflowDatabaseConnectionFactory(
                 coreModRoot, generatedPackRoot);
             _repository = new WorkflowRepository(connections);
+            _generatedPackRoot = System.IO.Path.GetFullPath(generatedPackRoot);
             _configuration = new WorkflowConfigurationStore(_repository);
             LanguageModelGateway gateway = new LanguageModelGateway(modelTransport);
             CompositeTranslationOutputStore output = new CompositeTranslationOutputStore(generatedPackRoot);
@@ -121,7 +123,8 @@ namespace AutoTranslator_Core.Workflow
             return RunExclusiveAsync(
                 WorkflowTaskKind.AnalysisBatch,
                 "Local analysis",
-                token => _analysis.RunAnalysisButtonAsync(targets, forceAnalysis, token),
+                token => RunLocalAnalysisAsync(
+                    () => _analysis.RunAnalysisButtonAsync(targets, forceAnalysis, token), token),
                 cancellationToken,
                 CreateSelectionInput(targets, forceAnalysis, null));
         }
@@ -135,7 +138,8 @@ namespace AutoTranslator_Core.Workflow
             return RunExclusiveAsync(
                 WorkflowTaskKind.XmlAnalysis,
                 "XML analysis",
-                token => _analysis.RunXmlOnlyAsync(targets, forceAnalysis, token),
+                token => RunLocalAnalysisAsync(
+                    () => _analysis.RunXmlOnlyAsync(targets, forceAnalysis, token), token),
                 cancellationToken,
                 CreateSelectionInput(targets, forceAnalysis, null));
         }
@@ -149,7 +153,8 @@ namespace AutoTranslator_Core.Workflow
             return RunExclusiveAsync(
                 WorkflowTaskKind.DllAnalysis,
                 "DLL analysis",
-                token => _analysis.RunDllOnlyAsync(targets, forceAnalysis, token),
+                token => RunLocalAnalysisAsync(
+                    () => _analysis.RunDllOnlyAsync(targets, forceAnalysis, token), token),
                 cancellationToken,
                 CreateSelectionInput(targets, forceAnalysis, null));
         }
@@ -198,8 +203,8 @@ namespace AutoTranslator_Core.Workflow
             return RunExclusiveAsync(
                 WorkflowTaskKind.AiTranslation,
                 "AI translation",
-                token => Task.Run(
-                    () => _translation.ExecuteAsync(modIdentities, false, options, token), token),
+                token => ExecuteAiTranslationWithInitialSynchronizationAsync(
+                    modIdentities, options, token),
                 cancellationToken,
                 CreateSelectionInput(targets, null, options));
         }
@@ -258,8 +263,8 @@ namespace AutoTranslator_Core.Workflow
                             options?.TemporaryUndeterminedTranslationRatio,
                         CandidateIds = scoped
                     };
-                    return await _translation.ExecuteAsync(
-                        new[] { modIdentity }, false, targetedOptions, token).ConfigureAwait(false);
+                    return await ExecuteAiTranslationWithInitialSynchronizationAsync(
+                        new[] { modIdentity }, targetedOptions, token).ConfigureAwait(false);
                 }, token),
                 cancellationToken,
                 JsonConvert.SerializeObject(new
@@ -288,6 +293,108 @@ namespace AutoTranslator_Core.Workflow
                 },
                 cancellationToken,
                 JsonConvert.SerializeObject(new { manualRefresh = true }));
+        }
+
+        public Task RunRuntimeTranslationReloadAsync(
+            CancellationToken cancellationToken = default(CancellationToken))
+        {
+            return RunExclusiveAsync(
+                WorkflowTaskKind.RuntimeTranslationReload,
+                "Translation hot reload",
+                async token =>
+                {
+                    string targetLanguage = WorkflowRuntimeSettings.GetTargetLanguageFolder();
+                    RuntimeTranslationMaterializationSummary restored = await Task.Run(
+                        () => RebuildManagedTranslationOutputs(targetLanguage, token), token);
+                    token.ThrowIfCancellationRequested();
+                    bool refreshed = await RuntimeTranslationRefresher.ForceReloadAllAsync();
+                    if (!refreshed)
+                        throw new InvalidOperationException(
+                            "One or more runtime translation reload requests failed.");
+                    token.ThrowIfCancellationRequested();
+                    string completed = "已从数据库重建并热重载全部已保存译文：共 " +
+                        restored.Total + " 条（XML " + restored.Xml + "，DLL " + restored.Dll + "）";
+                    WorkflowTaskCoordinator.Instance.ReportStage(
+                        string.Empty, completed, "✓ " + completed,
+                        "workflow.runtime-reload complete total=" + restored.Total +
+                        " xml=" + restored.Xml + " dll=" + restored.Dll);
+                },
+                cancellationToken,
+                JsonConvert.SerializeObject(new
+                {
+                    rebuildManagedOutputs = true,
+                    forceXmlReload = true,
+                    reloadDllManifest = true
+                }));
+        }
+
+        private RuntimeTranslationMaterializationSummary RebuildManagedTranslationOutputs(
+            string targetLanguage,
+            CancellationToken cancellationToken)
+        {
+            const int pageSize = 500;
+            int total = _repository.CountCurrentManagedTranslations(targetLanguage);
+            int completed = 0;
+            int xml = 0;
+            int dll = 0;
+            string afterCandidateId = string.Empty;
+            WorkflowTaskCoordinator.Instance.ReportProgress(
+                0, total, string.Empty,
+                "从数据库重建已保存译文 0/" + total,
+                subCompletedUnits: 0, subTotalUnits: total,
+                writeRuntimeLog: false);
+            while (true)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                List<CandidateRecord> page = _repository.GetCurrentManagedTranslationsPage(
+                    targetLanguage, afterCandidateId, pageSize);
+                if (page.Count == 0) break;
+                List<TranslationOutputWrite> writes = new List<TranslationOutputWrite>(page.Count);
+                foreach (CandidateRecord candidate in page)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    writes.Add(new TranslationOutputWrite
+                    {
+                        Candidate = candidate,
+                        TranslatedText = candidate.TranslationText,
+                        Origin = candidate.TranslationOrigin,
+                        Target = new TranslationWriteTarget
+                        {
+                            RelativePath = candidate.TranslationFileRelativePath,
+                            EntryKey = candidate.TranslationEntryKey
+                        }
+                    });
+                    if (candidate.SourceDomain == CandidateSourceDomain.Dll) dll++;
+                    else xml++;
+                }
+                _output.WriteBatch(writes, targetLanguage);
+                completed += page.Count;
+                afterCandidateId = page[page.Count - 1].CandidateId;
+                WorkflowTaskCoordinator.Instance.ReportProgress(
+                    completed, total, string.Empty,
+                    "从数据库重建已保存译文 " + completed + "/" + total,
+                    subCompletedUnits: completed, subTotalUnits: total,
+                    writeRuntimeLog: false);
+            }
+            if (completed != total)
+                throw new InvalidOperationException(
+                    "Saved translation paging ended early: " + completed + "/" + total + ".");
+            AutoTranslatorSettings.AddLog(
+                "已从数据库重建已保存译文：共 " + completed +
+                " 条（XML " + xml + "，DLL " + dll + "）");
+            return new RuntimeTranslationMaterializationSummary
+            {
+                Total = completed,
+                Xml = xml,
+                Dll = dll
+            };
+        }
+
+        private sealed class RuntimeTranslationMaterializationSummary
+        {
+            public int Total;
+            public int Xml;
+            public int Dll;
         }
 
         public Task<TranslationSynchronizationResult> RunCloudTranslationStateRefreshAsync(
@@ -358,12 +465,12 @@ namespace AutoTranslator_Core.Workflow
                 "Save manual translation",
                 async token =>
                 {
-                    await Task.Run(() =>
+                    CandidateSourceDomain sourceDomain = await Task.Run(() =>
                     {
                         token.ThrowIfCancellationRequested();
-                        _manualTranslation.Save(candidateId, translatedText);
+                        return _manualTranslation.Save(candidateId, translatedText);
                     }, token);
-                    if (!await AutoTranslatorScanner.RequestMemoryDropAsync())
+                    if (!await RefreshEditedTranslationAsync(sourceDomain))
                         throw new InvalidOperationException("Translation was saved, but the runtime refresh failed.");
                 },
                 cancellationToken,
@@ -384,12 +491,12 @@ namespace AutoTranslator_Core.Workflow
                 "Delete translation",
                 async token =>
                 {
-                    await Task.Run(() =>
+                    CandidateSourceDomain sourceDomain = await Task.Run(() =>
                     {
                         token.ThrowIfCancellationRequested();
-                        _manualTranslation.Delete(candidateId);
+                        return _manualTranslation.Delete(candidateId);
                     }, token);
-                    if (!await AutoTranslatorScanner.RequestMemoryDropAsync())
+                    if (!await RefreshEditedTranslationAsync(sourceDomain))
                         throw new InvalidOperationException("Translation was deleted, but the runtime refresh failed.");
                 },
                 cancellationToken,
@@ -398,6 +505,13 @@ namespace AutoTranslator_Core.Workflow
                     candidateId = candidateId ?? string.Empty,
                     operation = "delete"
                 }));
+        }
+
+        private static Task<bool> RefreshEditedTranslationAsync(CandidateSourceDomain sourceDomain)
+        {
+            return sourceDomain == CandidateSourceDomain.Dll
+                ? RuntimeTranslationRefresher.EnableAndRequestDllReloadAsync()
+                : AutoTranslatorScanner.RequestMemoryDropAsync();
         }
 
         public Task SetManualClassificationAsync(
@@ -690,6 +804,33 @@ namespace AutoTranslator_Core.Workflow
             }
         }
 
+        private async Task RunLocalAnalysisAsync(Func<Task> analyze, CancellationToken token)
+        {
+            string language = WorkflowRuntimeSettings.GetTargetLanguageFolder();
+            try
+            {
+                await analyze();
+            }
+            finally
+            {
+                // Partial analysis may already have accepted native translations. Commit
+                // those source changes to existing managed outputs before runtime reload.
+                if (!token.IsCancellationRequested)
+                {
+                    int changed = await Task.Run(
+                        () => _synchronizer.WriteChangedSourceTranslations(language, token), token);
+                    if (changed > 0)
+                    {
+                        AutoTranslatorScanner.NotifyTranslationFilesChanged(
+                            System.IO.Path.Combine(_generatedPackRoot, "Languages", language));
+                        if (!await AutoTranslatorScanner.RequestMemoryDropAsync())
+                            throw new InvalidOperationException(
+                                "原生译文已更新到本地文件，但游戏内译文刷新失败，请重试热重载。");
+                    }
+                }
+            }
+        }
+
         private async Task RunOneClickTranslationCoreAsync(
             IList<ModMetaData> mods,
             bool forceAnalysis,
@@ -700,12 +841,14 @@ namespace AutoTranslator_Core.Workflow
             List<string> modIdentities = WorkflowStepSelection.ResolveModIdentities(mods);
             try
             {
-                await _analysis.RunAnalysisButtonAsync(mods, forceAnalysis, cancellationToken);
+                await RunLocalAnalysisAsync(
+                    () => _analysis.RunAnalysisButtonAsync(mods, forceAnalysis, cancellationToken),
+                    cancellationToken);
             }
             catch (OperationCanceledException) { throw; }
             catch (Exception ex)
             {
-                failures.Add(new InvalidOperationException("Local analysis step failed.", ex));
+                failures.Add(new InvalidOperationException("本地分析步骤失败。", ex));
             }
 
             try
@@ -722,19 +865,18 @@ namespace AutoTranslator_Core.Workflow
                 PersistPerModResult(
                     Guid.NewGuid(), WorkflowTaskKind.AiReview, ex.PartialResult);
                 failures.Add(new InvalidOperationException(
-                    "AI classification review step failed.", ex));
+                    "AI 复核步骤失败。", ex));
             }
             catch (Exception ex)
             {
-                failures.Add(new InvalidOperationException("AI classification review step failed.", ex));
+                failures.Add(new InvalidOperationException("AI 复核步骤失败。", ex));
             }
 
             try
             {
-                AiStepEstimate translationResult = await Task.Run(
-                    () => _translation.ExecuteAsync(
-                        modIdentities, false, options, cancellationToken),
-                    cancellationToken).ConfigureAwait(false);
+                AiStepEstimate translationResult =
+                    await ExecuteAiTranslationWithInitialSynchronizationAsync(
+                        modIdentities, options, cancellationToken).ConfigureAwait(false);
                 PersistPerModResult(
                     Guid.NewGuid(), WorkflowTaskKind.AiTranslation, translationResult);
             }
@@ -744,14 +886,49 @@ namespace AutoTranslator_Core.Workflow
                 PersistPerModResult(
                     Guid.NewGuid(), WorkflowTaskKind.AiTranslation, ex.PartialResult);
                 failures.Add(new InvalidOperationException(
-                    "AI translation step failed.", ex));
+                    "AI 翻译步骤失败。", ex));
             }
             catch (Exception ex)
             {
-                failures.Add(new InvalidOperationException("AI translation step failed.", ex));
+                failures.Add(new InvalidOperationException("AI 翻译步骤失败。", ex));
             }
 
-            if (failures.Count > 0) throw new AggregateException(failures);
+            if (failures.Count > 0)
+                throw new InvalidOperationException(
+                    "一键翻译未全部完成；已完成并保存的结果会保留，请查看错误日志中的具体步骤。",
+                    failures.Count == 1 ? failures[0] : new AggregateException(failures));
+        }
+
+        private async Task<AiStepEstimate> ExecuteAiTranslationWithInitialSynchronizationAsync(
+            IList<string> modIdentities,
+            WorkflowExecutionOptions options,
+            CancellationToken cancellationToken)
+        {
+            string targetLanguage = WorkflowRuntimeSettings.GetTargetLanguageFolder();
+            if (!_repository.HasCompletedSynchronization(targetLanguage))
+            {
+                WorkflowTaskCoordinator.Instance.ReportStage(
+                    string.Empty,
+                    "首次翻译前自动同步译文状态",
+                    "⏳ AI 翻译：首次运行，正在自动同步译文状态",
+                    "workflow.ai-translation initial-sync start target_language=" + targetLanguage);
+                await Task.Run(
+                    () => _synchronizer.Synchronize(cancellationToken, targetLanguage),
+                    cancellationToken).ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!_repository.HasCompletedSynchronization(targetLanguage))
+                    throw new InvalidOperationException(
+                        "首次译文状态同步未能完成，AI 翻译尚未开始；请查看同步错误日志。");
+                WorkflowTaskCoordinator.Instance.ReportStage(
+                    string.Empty,
+                    "首次译文状态同步完成，继续 AI 翻译",
+                    "✓ AI 翻译：首次译文状态同步完成",
+                    "workflow.ai-translation initial-sync complete target_language=" + targetLanguage);
+            }
+            return await Task.Run(
+                () => _translation.ExecuteAsync(
+                    modIdentities, false, options, cancellationToken),
+                cancellationToken).ConfigureAwait(false);
         }
 
         private void PersistPerModResult<T>(Guid runId, WorkflowTaskKind kind, T result)

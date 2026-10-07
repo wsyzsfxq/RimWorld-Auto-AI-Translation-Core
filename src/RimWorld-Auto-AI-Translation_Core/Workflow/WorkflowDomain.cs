@@ -59,7 +59,12 @@ namespace AutoTranslator_Core.Workflow
         ClassificationEdit = 11,
         ConfigurationEdit = 12,
         ExpiredDataCleanup = 13,
-        ResultCleanup = 14
+        ResultCleanup = 14,
+        RuntimeTranslationReload = 15,
+        ModCatalogSynchronization = 16,
+        ReferenceDictionaryEdit = 17,
+        ApiConnectionTest = 18,
+        TranslationFileMaintenance = 19
     }
 
     public enum WorkflowRunState : byte
@@ -80,6 +85,7 @@ namespace AutoTranslator_Core.Workflow
 
     public sealed class AnalysisRunStatusSummary
     {
+        public string TargetLanguage { get; set; } = string.Empty;
         public string ModIdentity { get; set; } = string.Empty;
         public CandidateSourceDomain SourceDomain { get; set; }
         public WorkflowRunState State { get; set; }
@@ -232,6 +238,7 @@ namespace AutoTranslator_Core.Workflow
         public string TranslationSourceFileRelativePath { get; set; } = string.Empty;
         public string TranslationSourceEntryKey { get; set; } = string.Empty;
         public string ValidationStatus { get; set; } = string.Empty;
+        public string TranslationError { get; set; } = string.Empty;
         public string LastSyncStatus { get; set; } = string.Empty;
         public string LastSyncError { get; set; } = string.Empty;
         public DateTime? LastSyncedUtc { get; set; }

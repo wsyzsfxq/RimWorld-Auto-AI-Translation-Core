@@ -29,6 +29,7 @@ namespace AutoTranslator_Core
             Collapsed,
             TaskDetail,
             RuntimeLog,
+            WarningLog,
             ErrorLog
         }
 
@@ -77,6 +78,7 @@ namespace AutoTranslator_Core
         private static bool _workflowForceAnalysis;
         private static bool _workflowOperationCompletionPendingRefresh;
         private static bool _workflowUiPreviouslyBusy;
+        private static Guid _workflowLastCollapsedCompletionRunId;
         private static int _workflowUiLoadedModSnapshotVersion = -1;
         private static long _workflowUiLoadedDataRevision = -1;
         private static bool _expiredDataPreviewLoading;
@@ -104,7 +106,8 @@ namespace AutoTranslator_Core
             y += 28f;
 
             WorkflowTaskSnapshot task = WorkflowTaskCoordinator.Instance.Current;
-            bool anyTask = task.IsBusy || AutoTranslatorSettings.LegacyPipelineIsRunning;
+            bool anyTask = task.IsBusy || WorkflowTaskCoordinator.Instance.IsBusy ||
+                           AutoTranslatorSettings.LegacyPipelineIsRunning;
             float inspectorHeight = anyTask
                 ? (_workflowInspectorMode == WorkflowInspectorMode.Collapsed ? 116f : 178f)
                 : (_workflowInspectorMode == WorkflowInspectorMode.Collapsed ? 25f : 132f);
@@ -133,19 +136,21 @@ namespace AutoTranslator_Core
         private void DrawWorkflowToolbar(Rect rect)
         {
             float gap = rect.width < 850f ? 3f : 7f;
-            float available = rect.width - gap * 4f;
+            float available = rect.width - gap * 5f;
             float searchWidth = available * 0.31f;
             float scopeWidth = available * 0.19f;
             float filterWidth = available * 0.21f;
-            float refreshWidth = available * 0.15f;
+            float actionWidth = (available - searchWidth - scopeWidth - filterWidth) / 3f;
             Rect searchGroupRect = new Rect(rect.x, rect.y, searchWidth, rect.height);
             Rect searchIconRect = new Rect(searchGroupRect.x, searchGroupRect.y, 27f, searchGroupRect.height);
             Rect searchRect = new Rect(searchIconRect.xMax + 3f, searchGroupRect.y,
                 searchGroupRect.width - searchIconRect.width - 3f, searchGroupRect.height);
             Rect scopeRect = new Rect(searchRect.xMax + gap, rect.y, scopeWidth, rect.height);
             Rect filterRect = new Rect(scopeRect.xMax + gap, rect.y, filterWidth, rect.height);
-            Rect refreshRect = new Rect(filterRect.xMax + gap, rect.y, refreshWidth, rect.height);
-            Rect manageRect = new Rect(refreshRect.xMax + gap, rect.y, rect.xMax - refreshRect.xMax - gap, rect.height);
+            Rect refreshRect = new Rect(filterRect.xMax + gap, rect.y, actionWidth, rect.height);
+            Rect hotReloadRect = new Rect(refreshRect.xMax + gap, rect.y, actionWidth, rect.height);
+            Rect manageRect = new Rect(hotReloadRect.xMax + gap, rect.y,
+                rect.xMax - hotReloadRect.xMax - gap, rect.height);
 
             Text.Font = GameFont.Medium;
             Text.Anchor = TextAnchor.MiddleCenter;
@@ -175,6 +180,14 @@ namespace AutoTranslator_Core
                 StartWorkflowOperation(
                     backend => backend.RunManualTranslationStateRefreshAsync(),
                     WfText("刷新翻译状态", "Refresh translation state"));
+            if (WorkflowUiStyle.Button(hotReloadRect, WfText("热重载", "Hot reload"),
+                    WorkflowButtonStyle.Warning, !busy))
+                StartWorkflowOperation(
+                    backend => backend.RunRuntimeTranslationReloadAsync(),
+                    WfText("热重载 XML／DLL 译文", "Hot reload XML/DLL translations"));
+            TooltipHandler.TipRegion(hotReloadRect, WfText(
+                "先根据数据库中的已保存结果重建缺失或不一致的 XML／DLL 输出文件，再重新加载到游戏。\n不需要勾选 Mod，不会重新分析，也不会调用 AI。",
+                "Rebuild missing or inconsistent XML/DLL output files from saved database results, then reload them into the game.\nNo Mod selection, analysis, or AI call is required."));
             if (WorkflowUiStyle.Button(manageRect, WfText("管理", "Manage")))
                 OpenWorkflowManagementMenu();
         }
@@ -764,9 +777,12 @@ namespace AutoTranslator_Core
             DrawInspectorTab(new Rect(header.x + tabWidth + 3f, header.y, tabWidth, 21f),
                 WfText("运行日志", "Runtime"), WorkflowInspectorMode.RuntimeLog);
             DrawInspectorTab(new Rect(header.x + (tabWidth + 3f) * 2f, header.y, tabWidth, 21f),
+                WfText("警告日志", "Warnings"), WorkflowInspectorMode.WarningLog);
+            DrawInspectorTab(new Rect(header.x + (tabWidth + 3f) * 3f, header.y, tabWidth, 21f),
                 WfText("错误日志", "Errors"), WorkflowInspectorMode.ErrorLog);
             float collapseX = header.xMax - 62f;
             if (_workflowInspectorMode == WorkflowInspectorMode.RuntimeLog ||
+                _workflowInspectorMode == WorkflowInspectorMode.WarningLog ||
                 _workflowInspectorMode == WorkflowInspectorMode.ErrorLog)
             {
                 Rect openFile = new Rect(collapseX - 96f, header.y, 92f, 21f);
@@ -777,14 +793,13 @@ namespace AutoTranslator_Core
                     copyButton, task);
                 bool hasCurrentLog;
                 lock (AutoTranslatorSettings.logLock)
-                    hasCurrentLog = (_workflowInspectorMode == WorkflowInspectorMode.ErrorLog
-                        ? AutoTranslatorSettings.ErrorLogs
-                        : AutoTranslatorSettings.RuntimeLogs).Count > 0;
+                    hasCurrentLog = GetCurrentWorkflowLogList().Count > 0;
                 Rect clearButton = new Rect(copyButton.x - 55f, header.y, 51f, 21f);
                 if (WorkflowUiStyle.Button(clearButton, WfText("清空", "Clear"),
                         WorkflowButtonStyle.Link, hasCurrentLog, GameFont.Tiny))
                     AutoTranslatorSettings.ClearCurrentDisplayedLog(
-                        _workflowInspectorMode == WorkflowInspectorMode.ErrorLog);
+                        _workflowInspectorMode == WorkflowInspectorMode.ErrorLog,
+                        _workflowInspectorMode == WorkflowInspectorMode.WarningLog);
                 TooltipHandler.TipRegion(clearButton,
                     WfText("仅清空当前界面显示，不删除日志文件。",
                         "Clear only the current on-screen list; the log file is not deleted."));
@@ -799,12 +814,17 @@ namespace AutoTranslator_Core
             if (_workflowInspectorMode == WorkflowInspectorMode.RuntimeLog)
             {
                 DrawLogView(body, AutoTranslatorSettings.RuntimeLogs,
-                    ref AutoTranslatorSettings.logScrollPos, false);
+                    ref AutoTranslatorSettings.logScrollPos, _runtimeLogViewCache, false, false);
+            }
+            else if (_workflowInspectorMode == WorkflowInspectorMode.WarningLog)
+            {
+                DrawLogView(body, AutoTranslatorSettings.WarningLogs,
+                    ref AutoTranslatorSettings.warningScrollPos, _warningLogViewCache, false, true);
             }
             else if (_workflowInspectorMode == WorkflowInspectorMode.ErrorLog)
             {
                 DrawLogView(body, AutoTranslatorSettings.ErrorLogs,
-                    ref AutoTranslatorSettings.errorScrollPos, true);
+                    ref AutoTranslatorSettings.errorScrollPos, _errorLogViewCache, true, false);
             }
             else
             {
@@ -822,7 +842,29 @@ namespace AutoTranslator_Core
 
         private static void DrawWorkflowTaskDetail(Rect body, WorkflowTaskSnapshot task)
         {
-            Widgets.Label(body, BuildWorkflowTaskDetailText(task));
+            if (task == null || !task.IsBusy)
+            {
+                Widgets.Label(body, BuildWorkflowTaskDetailText(task));
+                return;
+            }
+
+            string detailText = BuildWorkflowTaskDetailText(task);
+            int detailLineStart = -1;
+            for (int line = 0, searchFrom = 0; line < 4; line++)
+            {
+                int separator = detailText.IndexOf('\n', searchFrom);
+                if (separator < 0) break;
+                detailLineStart = separator;
+                searchFrom = separator + 1;
+            }
+            string summary = detailLineStart >= 0 ? detailText.Substring(0, detailLineStart) : detailText;
+            string latest = detailLineStart >= 0 ? detailText.Substring(detailLineStart + 1) : string.Empty;
+            float summaryHeight = Text.LineHeight * 4f;
+            Widgets.Label(new Rect(body.x, body.y, body.width, summaryHeight), summary);
+            // Keep the volatile latest-update field at the bottom and reserve three
+            // lines so wrapping or a temporarily empty detail never moves the summary.
+            Widgets.Label(new Rect(body.x, body.y + summaryHeight, body.width,
+                Math.Min(Text.LineHeight * 3f, Math.Max(0f, body.height - summaryHeight))), latest);
         }
 
         private static string BuildWorkflowTaskDetailText(WorkflowTaskSnapshot task)
@@ -832,11 +874,31 @@ namespace AutoTranslator_Core
                 WorkflowTaskSnapshot last = WorkflowTaskCoordinator.Instance.LastCompleted;
                 if (last == null || last.RunId == Guid.Empty)
                     return WfText("当前无任务，尚无最近任务记录。", "No active or recent task.");
+                bool usesPerRunResult = last.Kind == WorkflowTaskKind.AiReview ||
+                                        last.Kind == WorkflowTaskKind.AiTranslation ||
+                                        last.Kind == WorkflowTaskKind.OneClickTranslation;
+                string perRunDetail = last.State == WorkflowRunState.Failed &&
+                                      !string.IsNullOrWhiteSpace(last.ErrorText)
+                    ? last.ErrorText
+                    : last.Detail;
+                bool isGlobalReload = last.Kind == WorkflowTaskKind.RuntimeTranslationReload;
+                string resultLineZh = isGlobalReload
+                    ? "范围：全部已保存译文　最终步骤：" + perRunDetail
+                    : usesPerRunResult
+                    ? "本次结果：" + perRunDetail
+                    : $"范围：{last.TotalItems} 个 Mod　最终步骤：{last.Detail}";
+                string resultLineEn = isGlobalReload
+                    ? "Scope: all saved translations  Final step: " + perRunDetail
+                    : usesPerRunResult
+                    ? "This run: " + perRunDetail
+                    : $"Scope: {last.TotalItems} mods  Final step: {last.Detail}";
+                bool appendSeparateError = !usesPerRunResult &&
+                                           !string.IsNullOrWhiteSpace(last.ErrorText);
                 return WfText(
-                    $"当前无任务\n最近任务：{last.DisplayName}\n终态：{last.State}　完成：{last.CompletedUtc.ToLocalTime():yyyy-MM-dd HH:mm:ss}\n范围：{last.TotalItems} 个 Mod　最终步骤：{last.Detail}" +
-                    (string.IsNullOrWhiteSpace(last.ErrorText) ? string.Empty : "\n错误：" + last.ErrorText),
-                    $"No active task\nLast: {last.DisplayName}\nState: {last.State}  Completed: {last.CompletedUtc.ToLocalTime():yyyy-MM-dd HH:mm:ss}\nScope: {last.TotalItems} mods  Final step: {last.Detail}" +
-                    (string.IsNullOrWhiteSpace(last.ErrorText) ? string.Empty : "\nError: " + last.ErrorText));
+                    $"当前无任务\n最近任务：{last.DisplayName}\n终态：{last.State}　完成：{last.CompletedUtc.ToLocalTime():yyyy-MM-dd HH:mm:ss}\n{resultLineZh}" +
+                    (appendSeparateError ? "\n错误：" + last.ErrorText : string.Empty),
+                    $"No active task\nLast: {last.DisplayName}\nState: {last.State}  Completed: {last.CompletedUtc.ToLocalTime():yyyy-MM-dd HH:mm:ss}\n{resultLineEn}" +
+                    (appendSeparateError ? "\nError: " + last.ErrorText : string.Empty));
             }
             string state = task.IsCancellationRequested
                 ? WfText("正在停止", "Stopping")
@@ -849,15 +911,24 @@ namespace AutoTranslator_Core
             string subProgress = task.SubTotalUnits > 0 || task.SubProgressRatio >= 0d
                 ? (task.SubProgress * 100f).ToString("F0") + "%"
                 : WfText("未提供", "Unavailable");
+            if (task.Kind == WorkflowTaskKind.RuntimeTranslationReload)
+            {
+                string entryProgress = task.TotalUnits > 0
+                    ? task.CompletedUnits + "/" + task.TotalUnits
+                    : WfText("正在准备", "Preparing");
+                return WfText(
+                    $"状态：{state}\n任务范围：全部已保存译文　当前：{entryProgress}\n当前阶段：重建输出并加载运行时译文\n总体进度：{task.Progress * 100f:F0}%　当前步骤进度：{subProgress}\n当前步骤：{task.Detail}",
+                    $"State: {state}\nScope: all saved translations  Current: {entryProgress}\nStage: rebuild outputs and reload runtime translations\nOverall: {task.Progress * 100f:F0}%  Current step: {subProgress}\nCurrent step: {task.Detail}");
+            }
             if (task.IsConcurrentStage)
             {
                 return WfText(
-                    $"状态：{state}\n任务范围：{task.TotalItems} 个 Mod　已完成：{item}\n并发状态：{task.CurrentMod}\n最近更新：{task.Detail}\n总体进度：{task.Progress * 100f:F0}%　本阶段综合进度：{subProgress}",
-                    $"State: {state}\nScope: {task.TotalItems} mods  Completed: {item}\nConcurrency: {task.CurrentMod}\nLatest update: {task.Detail}\nOverall: {task.Progress * 100f:F0}%  Stage aggregate: {subProgress}");
+                    $"状态：{state}\n任务范围：{task.TotalItems} 个 Mod　已完成：{item}\n并发状态：{task.CurrentMod}\n总体进度：{task.Progress * 100f:F0}%　本阶段综合进度：{subProgress}\n最近更新：{task.Detail}",
+                    $"State: {state}\nScope: {task.TotalItems} mods  Completed: {item}\nConcurrency: {task.CurrentMod}\nOverall: {task.Progress * 100f:F0}%  Stage aggregate: {subProgress}\nLatest update: {task.Detail}");
             }
             return WfText(
-                $"状态：{state}\n任务范围：{task.TotalItems} 个 Mod　当前：{item}\n当前 Mod：{task.CurrentMod}\n当前步骤：{task.Detail}\n总体进度：{task.Progress * 100f:F0}%　当前步骤进度：{subProgress}",
-                $"State: {state}\nScope: {task.TotalItems} mods  Current: {item}\nCurrent mod: {task.CurrentMod}\nCurrent step: {task.Detail}\nOverall: {task.Progress * 100f:F0}%  Current step: {subProgress}");
+                $"状态：{state}\n任务范围：{task.TotalItems} 个 Mod　当前：{item}\n当前 Mod：{task.CurrentMod}\n总体进度：{task.Progress * 100f:F0}%　当前步骤进度：{subProgress}\n当前步骤：{task.Detail}",
+                $"State: {state}\nScope: {task.TotalItems} mods  Current: {item}\nCurrent mod: {task.CurrentMod}\nOverall: {task.Progress * 100f:F0}%  Current step: {subProgress}\nCurrent step: {task.Detail}");
         }
 
         private static string GetWorkflowInspectorCopyText(WorkflowTaskSnapshot task)
@@ -866,9 +937,7 @@ namespace AutoTranslator_Core
                 return BuildWorkflowTaskDetailText(task);
             lock (AutoTranslatorSettings.logLock)
             {
-                IEnumerable<string> lines = _workflowInspectorMode == WorkflowInspectorMode.ErrorLog
-                    ? AutoTranslatorSettings.ErrorLogs
-                    : AutoTranslatorSettings.RuntimeLogs;
+                IEnumerable<string> lines = GetCurrentWorkflowLogList();
                 return string.Join("\n", lines.ToList());
             }
         }
@@ -881,9 +950,7 @@ namespace AutoTranslator_Core
             else
             {
                 lock (AutoTranslatorSettings.logLock)
-                    hasContent = (_workflowInspectorMode == WorkflowInspectorMode.ErrorLog
-                        ? AutoTranslatorSettings.ErrorLogs
-                        : AutoTranslatorSettings.RuntimeLogs).Count > 0;
+                    hasContent = GetCurrentWorkflowLogList().Count > 0;
             }
             if (!WorkflowUiStyle.Button(
                     rect, WfText("复制", "Copy"), WorkflowButtonStyle.Link,
@@ -919,8 +986,10 @@ namespace AutoTranslator_Core
             Rect dllRect = new Rect(forceRect.xMax + 4f, rect.y,
                 rect.x + width - forceRect.xMax - 4f, rect.height - 2f);
             if (WorkflowUiStyle.Button(dllRect,
-                    WfText("DLL 分析", "DLL analysis"),
-                    dllEnabled ? WorkflowButtonStyle.ActiveTab : WorkflowButtonStyle.Quiet,
+                    dllEnabled
+                        ? WfText("✓ DLL 分析", "✓ DLL analysis")
+                        : WfText("○ DLL 分析", "○ DLL analysis"),
+                    dllEnabled ? WorkflowButtonStyle.Primary : WorkflowButtonStyle.Quiet,
                     !busy, GameFont.Tiny))
                 SaveWorkflowConfiguration(config => config.EnableDllAnalysis = !dllEnabled);
             TooltipHandler.TipRegion(dllRect, dllEnabled
@@ -931,8 +1000,8 @@ namespace AutoTranslator_Core
             Rect dryRunRect = new Rect(rect.x + width + gap, rect.y, width, rect.height - 2f);
             if (report != null && WorkflowUiStyle.Button(
                     dryRunRect,
-                    WfText("上次：", "Last: ") + report.ProtectedBudgetTokens.ToString("N0") + " Token",
-                    WorkflowButtonStyle.Link, true, GameFont.Tiny))
+                    WfText("查看上次：", "View last: ") + report.ProtectedBudgetTokens.ToString("N0") + " Token",
+                    WorkflowButtonStyle.Quiet, true, GameFont.Tiny))
                 Find.WindowStack.Add(new Window_WorkflowDryRunReport(report, _workflowUiSnapshot));
             if (report != null)
                 TooltipHandler.TipRegion(dryRunRect,
@@ -940,8 +1009,9 @@ namespace AutoTranslator_Core
 
             string scope = GetAiReviewScopeLabel(_workflowUiConfiguration?.AiReviewScope);
             Rect scopeRect = new Rect(rect.x + (width + gap) * 2f, rect.y, width, rect.height - 2f);
-            if (WorkflowUiStyle.Button(scopeRect, WfText("复核范围：", "Scope: ") + scope,
-                    WorkflowButtonStyle.Quiet, !busy, GameFont.Tiny))
+            if (WorkflowUiStyle.Button(scopeRect,
+                    WfText("复核范围：", "Scope: ") + scope + "  ▾",
+                    WorkflowButtonStyle.Dropdown, !busy, GameFont.Tiny))
                 OpenAiReviewScopeMenu();
             Text.Font = GameFont.Small;
         }
@@ -972,8 +1042,8 @@ namespace AutoTranslator_Core
                 WfText("补齐所选 Mod 的本地 XML／DLL 分析结果。", "Complete local XML/DLL analysis for selected mods."),
                 WfText("只估算所选 Mod 的 Token，不调用模型。", "Estimate tokens without calling the model."),
                 WfText("使用 AI 复核所选 Mod 的条目分类。", "Use AI to review classifications for selected mods."),
-                WfText("翻译当前需要翻译且尚无有效译文的条目。", "Translate needed entries without a valid translation."),
-                WfText("依次执行分析、AI 复核和 AI 翻译。", "Run analysis, AI review, and AI translation in sequence."),
+                WfText("翻译当前需要翻译且尚无有效译文的条目；首次缺少译文状态同步时会自动补一次。", "Translate needed entries without a valid translation; the initial translation-state sync runs automatically when required."),
+                WfText("依次执行分析、AI 复核和 AI 翻译；首次缺少译文状态同步时会在翻译前自动补一次。", "Run analysis, AI review, and AI translation in sequence; the initial translation-state sync runs automatically before translation when required."),
                 WfText("清除所选 Mod 的分类或翻译结果。", "Clear classification or translation results for selected mods."),
                 WfText("请求停止当前后台任务。", "Request cancellation of the current background task.")
             };
@@ -1007,16 +1077,111 @@ namespace AutoTranslator_Core
                             WfText("AI 翻译", "AI translation"));
                         break;
                     case 4:
-                        StartWorkflowOperation(
-                            backend => backend.RunOneClickTranslationAsync(
-                                selectedMods, _workflowForceAnalysis),
-                            WfText("一键翻译", "One-click translation"));
+                        OpenOneClickTranslationConfirmation(
+                            selectedMods,
+                            _workflowForceAnalysis,
+                            _workflowUiConfiguration?.EnableDllAnalysis ?? false,
+                            _workflowUiConfiguration?.AiReviewScope);
                         break;
                     case 5: OpenWorkflowResultCleanup(selectedModIdentities); break;
                     case 6: RequestWorkflowStop(); break;
                 }
             }
             Text.Font = GameFont.Small;
+        }
+
+        private static void OpenOneClickTranslationConfirmation(
+            IEnumerable<ModMetaData> selectedMods,
+            bool forceAnalysis,
+            bool dllAnalysisEnabled,
+            AiReviewScope reviewScope)
+        {
+            List<ModMetaData> frozenSelection = (selectedMods ?? Enumerable.Empty<ModMetaData>())
+                .Where(mod => mod != null)
+                .ToList();
+            if (frozenSelection.Count == 0) return;
+
+            AiReviewScope frozenReviewScope = new AiReviewScope
+            {
+                IncludeNeedsTranslation = reviewScope?.IncludeNeedsTranslation ?? false,
+                IncludeUndetermined = reviewScope?.IncludeUndetermined ?? true,
+                IncludeNoTranslationNeeded = reviewScope?.IncludeNoTranslationNeeded ?? false
+            };
+            string reviewScopeLabel = GetAiReviewScopeLabel(frozenReviewScope);
+            string analysisTarget = dllAnalysisEnabled ? "XML／DLL" : "XML";
+            string analysisTargetEnglish = dllAnalysisEnabled ? "XML/DLL" : "XML";
+            string analysisDescription = forceAnalysis
+                ? "强制重新生成所选 Mod 的" + analysisTarget + "本地分析结果。"
+                : "复用并跳过已有有效的" + analysisTarget + "分析结果，只补齐缺失或已失效的结果。";
+            string analysisDescriptionEnglish = forceAnalysis
+                ? "force regeneration of local " + analysisTargetEnglish + " analysis results for the selected mods."
+                : "reuse and skip valid existing " + analysisTargetEnglish +
+                  " analysis results, processing only missing or stale results.";
+            WorkflowExecutionOptions frozenOptions = new WorkflowExecutionOptions
+            {
+                TemporaryAiReviewScope = frozenReviewScope
+            };
+            string forceWarning = forceAnalysis
+                ? "⚠ 当前已开启【强制分析】。已有有效分析结果也会重新生成，处理时间可能明显增加。\n\n"
+                : string.Empty;
+            string forceWarningEnglish = forceAnalysis
+                ? "WARNING: Force analysis is enabled. Valid existing analysis results will also be regenerated, " +
+                  "which may significantly increase processing time.\n\n"
+                : string.Empty;
+
+            string message = WfText(
+                forceWarning +
+                "一键翻译将对当前选择的 " + frozenSelection.Count + " 个 Mod 自动依次执行：\n\n" +
+                "1. 分析：" + analysisDescription + "\n" +
+                "2. AI 复核：按照当前复核范围（" + reviewScopeLabel + "）判断条目是否需要翻译；已有 AI 复核结果的条目会跳过。\n" +
+                "3. AI 翻译：翻译需要翻译且尚无有效译文的条目。\n\n" +
+                "若当前语言尚未完成首次译文状态同步，进入 AI 翻译前会自动同步一次；已有同步记录时不会重复执行。\n\n" +
+                "处理时间取决于 Mod 数量、条目数量和网络状况，可能需要较长时间。" +
+                "AI 复核和 AI 翻译会使用已启用的模型接口，并可能产生 Token 用量。\n\n" +
+                "任务开始后可以点击“停止”请求终止；已经完成并保存的结果会保留。\n\n" +
+                "是否开始一键翻译？",
+                forceWarningEnglish +
+                "One-click translation will run these steps in sequence for the " +
+                frozenSelection.Count + " selected mods:\n\n" +
+                "1. Analysis: " + analysisDescriptionEnglish + "\n" +
+                "2. AI review: decide whether entries in the current review scope (" +
+                reviewScopeLabel + ") need translation; entries with saved AI review results are skipped.\n" +
+                "3. AI translation: translate needed entries that have no valid translation.\n\n" +
+                "If the current language has never completed translation-state synchronization, it will run automatically once before AI translation; an existing synchronization record is reused.\n\n" +
+                "Processing time depends on the number of mods and entries and on network conditions, " +
+                "and may take a while. AI review and AI translation use enabled model providers and may consume tokens.\n\n" +
+                "After the task starts, you can request cancellation with Stop; completed and saved results will be kept.\n\n" +
+                "Start one-click translation?");
+
+            Find.WindowStack.Add(new Window_AtcDialog(
+                message,
+                WfText("开始", "Start"),
+                () =>
+                {
+                    if (WorkflowTaskCoordinator.Instance.IsBusy ||
+                        AutoTranslatorSettings.LegacyPipelineIsRunning)
+                    {
+                        Messages.Message(WfText(
+                                "当前已有后台任务，请等待任务结束后再试。",
+                                "A background task is already running. Try again after it finishes."),
+                            MessageTypeDefOf.NeutralEvent, false);
+                        return;
+                    }
+
+                    StartWorkflowOperation(
+                        backend => backend.RunOneClickTranslationAsync(
+                            frozenSelection, forceAnalysis, frozenOptions),
+                        WfText("一键翻译", "One-click translation"));
+                },
+                WfText("取消", "Cancel"),
+                null,
+                forceAnalysis
+                    ? WfText("确认一键翻译（强制分析已开启）",
+                        "Confirm one-click translation (force analysis enabled)")
+                    : WfText("确认一键翻译", "Confirm one-click translation"),
+                false,
+                true,
+                new Vector2(760f, 440f)));
         }
 
         private static void OpenWorkflowResultCleanup(ICollection<string> selectedModIdentities)
@@ -1132,6 +1297,15 @@ namespace AutoTranslator_Core
             AutoTranslatorSettings.ActiveTab = AutoTranslatorSettings.EditorTabIndex;
         }
 
+        private static List<string> GetCurrentWorkflowLogList()
+        {
+            if (_workflowInspectorMode == WorkflowInspectorMode.ErrorLog)
+                return AutoTranslatorSettings.ErrorLogs;
+            if (_workflowInspectorMode == WorkflowInspectorMode.WarningLog)
+                return AutoTranslatorSettings.WarningLogs;
+            return AutoTranslatorSettings.RuntimeLogs;
+        }
+
         private static void OpenPerModDryRunReport(WorkflowModSummary mod, DryRunReport perMod)
         {
             if (mod == null || perMod == null) return;
@@ -1205,7 +1379,17 @@ namespace AutoTranslator_Core
             bool busy = WorkflowTaskCoordinator.Instance.IsBusy ||
                         AutoTranslatorSettings.LegacyPipelineIsRunning;
             if (_workflowUiPreviouslyBusy && !busy)
+            {
                 _workflowOperationCompletionPendingRefresh = true;
+                _workflowInspectorMode = WorkflowInspectorMode.Collapsed;
+            }
+            WorkflowTaskSnapshot lastCompleted = WorkflowTaskCoordinator.Instance.LastCompleted;
+            if (!busy && lastCompleted != null && lastCompleted.RunId != Guid.Empty &&
+                lastCompleted.RunId != _workflowLastCollapsedCompletionRunId)
+            {
+                _workflowLastCollapsedCompletionRunId = lastCompleted.RunId;
+                _workflowInspectorMode = WorkflowInspectorMode.Collapsed;
+            }
             if (_workflowUiLoadedModSnapshotVersion != _workflowModMetadataVersion)
                 _workflowOperationCompletionPendingRefresh = true;
             if (_workflowUiLoadedDataRevision != currentDataRevision)
@@ -1382,7 +1566,14 @@ namespace AutoTranslator_Core
             try
             {
                 AutoTranslatorSettings.AddLog("⚙️ " + displayName);
-                await operation(WorkflowBackendRuntime.GetOrCreate());
+                Stopwatch submitTimer = Stopwatch.StartNew();
+                WorkflowBackend backend = WorkflowBackendRuntime.GetOrCreate();
+                Task workflowTask = operation(backend);
+                submitTimer.Stop();
+                AutoTranslatorSettings.AddLog(
+                    "⏱ " + displayName + WfText("：主线程提交耗时 ", ": UI submission took ") +
+                    submitTimer.ElapsedMilliseconds + " ms");
+                await workflowTask;
                 ATC_Dispatcher.RunOnMainThread(() =>
                 {
                     AutoTranslatorSettings.AddLog("✅ " + displayName);
@@ -1397,7 +1588,7 @@ namespace AutoTranslator_Core
             catch (Exception ex)
             {
                 ATC_Dispatcher.RunOnMainThread(() =>
-                    AutoTranslatorSettings.AddErrorLog(displayName + ": " + ex.GetBaseException().Message));
+                    AutoTranslatorSettings.AddErrorLog(displayName + ": " + ex.Message));
             }
         }
 
@@ -1406,8 +1597,15 @@ namespace AutoTranslator_Core
             try
             {
                 AutoTranslatorSettings.AddLog("⚙️ " + WfText("开始试跑", "Dry run started"));
-                DryRunReport report = await WorkflowBackendRuntime.GetOrCreate().RunDryRunAsync(
-                    selectedModIdentities);
+                Stopwatch submitTimer = Stopwatch.StartNew();
+                WorkflowBackend backend = WorkflowBackendRuntime.GetOrCreate();
+                Task<DryRunReport> dryRunTask = backend.RunDryRunAsync(selectedModIdentities);
+                submitTimer.Stop();
+                AutoTranslatorSettings.AddLog(
+                    "⏱ " + WfText("试跑：主线程提交耗时 ", "Dry run: UI submission took ") +
+                    submitTimer.ElapsedMilliseconds + " ms；Mod=" +
+                    (selectedModIdentities?.Count ?? 0));
+                DryRunReport report = await dryRunTask;
                 ATC_Dispatcher.RunOnMainThread(() =>
                 {
                     AutoTranslatorSettings.AddLog("✅ " + WfText("试跑完成", "Dry run completed"));
@@ -1437,7 +1635,8 @@ namespace AutoTranslator_Core
                 requested = true;
             }
             if (requested)
-                AutoTranslatorSettings.AddLog("⚠️ " + WfText("已请求停止当前后台任务", "Background task cancellation requested"));
+                AutoTranslatorSettings.AddWarningLog(
+                    WfText("已请求停止当前后台任务", "Background task cancellation requested"));
         }
 
         private static void SaveWorkflowConfiguration(Action<WorkflowConfiguration> change)
@@ -1612,14 +1811,19 @@ namespace AutoTranslator_Core
             Text.Anchor = oldAnchor;
         }
 
-        private void DrawLogView(Rect rect, List<string> logs, ref Vector2 scrollPos, bool isErrorBox)
+        private void DrawLogView(
+            Rect rect,
+            List<string> logs,
+            ref Vector2 scrollPos,
+            LogViewCache cache,
+            bool isErrorBox,
+            bool isWarningBox)
         {
             const int runtimeDisplayLimit = 180;
             const int errorDisplayLimit = 80;
             int displayLimit = isErrorBox ? errorDisplayLimit : runtimeDisplayLimit;
             float calcWidth = Mathf.Max(1f, rect.width - 20f);
             float cacheWidth = Mathf.Round(calcWidth);
-            LogViewCache cache = isErrorBox ? _errorLogViewCache : _runtimeLogViewCache;
             List<string> snapshot = null;
             bool sourceCountChanged;
 
@@ -1687,8 +1891,10 @@ namespace AutoTranslator_Core
                     continue;
                 }
 
-                if (isErrorBox || log.Contains("❌") || log.Contains("⚠️") || log.Contains("🛑"))
+                if (isErrorBox || log.Contains("❌") || log.Contains("🛑"))
                     GUI.color = new Color(1f, 0.4f, 0.4f);
+                else if (isWarningBox || log.Contains("⚠️"))
+                    GUI.color = new Color(1f, 0.8f, 0.4f);
                 else if (log.Contains("✅") || log.Contains("✨") || log.Contains("🎉"))
                     GUI.color = new Color(0.4f, 1f, 0.4f);
                 else if (log.Contains("⚙️") || log.Contains("🔌") || log.Contains("🔄") || log.Contains("⏭️"))

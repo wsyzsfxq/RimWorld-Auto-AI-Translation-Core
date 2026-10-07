@@ -3,8 +3,10 @@ using AutoTranslator_Core.Workflow.Analysis;
 using RimWorld;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
 using UnityEngine;
 using Verse;
 
@@ -17,7 +19,8 @@ namespace AutoTranslator_Core
             All,
             NeedsTranslation,
             Undetermined,
-            NoTranslationNeeded
+            NoTranslationNeeded,
+            ManualClassified
         }
 
         private enum WorkflowEditorTranslationFilter
@@ -122,11 +125,24 @@ namespace AutoTranslator_Core
                 return;
             }
 
+            const float headerButtonGap = 5f;
             const float modeButtonWidth = 126f;
+            const float classificationCleanupButtonWidth = 128f;
+            const float hotReloadButtonWidth = 78f;
             Rect modeButton = new Rect(rect.xMax - modeButtonWidth - 7f, rect.y + 3f,
                 modeButtonWidth, 24f);
+            Rect classificationCleanupButton = new Rect(
+                modeButton.x - headerButtonGap - classificationCleanupButtonWidth,
+                modeButton.y,
+                classificationCleanupButtonWidth,
+                modeButton.height);
+            Rect hotReloadButton = new Rect(
+                classificationCleanupButton.x - headerButtonGap - hotReloadButtonWidth,
+                modeButton.y,
+                hotReloadButtonWidth,
+                modeButton.height);
             Rect title = new Rect(rect.x + 7f, rect.y + 5f,
-                modeButton.x - rect.x - 14f, 22f);
+                hotReloadButton.x - rect.x - 14f, 22f);
             Text.Font = GameFont.Tiny;
             Widgets.Label(title, (_workflowEditorSnapshot?.DisplayName ?? _workflowEditorSelectedModDisplayName) +
                                  "　" + (_workflowEditorSnapshot?.PackageId ?? _workflowEditorSelectedModPackageId));
@@ -141,6 +157,29 @@ namespace AutoTranslator_Core
                     !AutoTranslatorSettings.IsRunning,
                     GameFont.Tiny))
                 ToggleWorkflowEditorSelectionMode();
+            bool headerActionsEnabled = !AutoTranslatorSettings.IsRunning;
+            if (WorkflowUiStyle.Button(
+                    classificationCleanupButton,
+                    WfText("清除分类数据", "Clear classifications"),
+                    WorkflowButtonStyle.Stop,
+                    headerActionsEnabled,
+                    GameFont.Tiny))
+                OpenWorkflowEditorClassificationCleanup();
+            TooltipHandler.TipRegion(classificationCleanupButton, WfText(
+                "选择清除当前 Mod 的 AI 复核结果、手动分类，或同时清除两者。",
+                "Choose whether to clear AI review results, manual classifications, or both for the current mod."));
+            if (WorkflowUiStyle.Button(
+                    hotReloadButton,
+                    WfText("热重载", "Hot reload"),
+                    WorkflowButtonStyle.Warning,
+                    headerActionsEnabled,
+                    GameFont.Tiny))
+                StartWorkflowEditorOperation(
+                    backend => backend.RunRuntimeTranslationReloadAsync(),
+                    WfText("热重载 XML／DLL 译文", "Hot reload XML/DLL translations"));
+            TooltipHandler.TipRegion(hotReloadButton, WfText(
+                "重新加载已保存的 XML 和 DLL UI 译文。\n不会重新分析，也不会调用 AI。",
+                "Reload saved XML and DLL UI translations.\nDoes not run analysis or call AI."));
             float filterY = title.yMax + 3f;
             Rect search = new Rect(rect.x + 7f, filterY, rect.width * 0.46f, 27f);
             string nextSearch = Widgets.TextField(search, _workflowEditorCandidateSearch ?? string.Empty);
@@ -184,21 +223,21 @@ namespace AutoTranslator_Core
             Widgets.DrawBoxSolid(header, WorkflowUiStyle.Header);
             float selectionWidth = _workflowEditorMultiSelectMode ? 30f : 0f;
             float availableWidth = rect.width - 18f - selectionWidth;
-            float typeWidth = Mathf.Clamp(availableWidth * 0.10f, 72f, 100f);
-            float sourceTextWidth = availableWidth * 0.31f;
-            float classificationWidth = availableWidth * 0.17f;
-            float translationWidth = availableWidth * 0.17f;
-            float sourceFileWidth = availableWidth - typeWidth - sourceTextWidth -
-                                    classificationWidth - translationWidth;
+            const float columnGap = 9f;
+            float columnContentWidth = availableWidth - columnGap * 3f;
+            float classificationWidth = Mathf.Clamp(columnContentWidth * 0.145f, 112f, 142f);
+            float translationWidth = Mathf.Clamp(columnContentWidth * 0.135f, 104f, 134f);
+            float sourceFileWidth = Mathf.Clamp(columnContentWidth * 0.27f, 210f, 300f);
+            float sourceTextWidth = columnContentWidth - classificationWidth -
+                                    translationWidth - sourceFileWidth;
             float[] widths =
             {
-                typeWidth, sourceTextWidth, classificationWidth,
-                translationWidth, sourceFileWidth
+                sourceTextWidth, classificationWidth, translationWidth, sourceFileWidth
             };
             string[] labels =
             {
-                WfText("类型", "Type"), WfText("原文", "Source text"),
-                WfText("有效分类", "Classification"), WfText("翻译状态", "Translation"),
+                WfText("原文", "Source text"), WfText("有效分类", "Classification"),
+                WfText("翻译状态", "Translation"),
                 WfText("来源文件", "Source file")
             };
             float x = header.x + 5f + selectionWidth;
@@ -206,8 +245,11 @@ namespace AutoTranslator_Core
                 Widgets.Label(new Rect(header.x + 5f, header.y + 3f, selectionWidth, 17f), "✓");
             for (int i = 0; i < labels.Length; i++)
             {
-                Widgets.Label(new Rect(x, header.y + 3f, widths[i], 17f), labels[i]);
-                x += widths[i];
+                Rect headerCell = new Rect(x, header.y + 3f, widths[i], 17f);
+                GUI.BeginGroup(headerCell);
+                Widgets.Label(new Rect(0f, 0f, headerCell.width, headerCell.height), labels[i]);
+                GUI.EndGroup();
+                x += widths[i] + (i + 1 < labels.Length ? columnGap : 0f);
             }
 
             List<WorkflowCandidateEditorItem> items = GetFilteredWorkflowEditorCandidates();
@@ -232,7 +274,6 @@ namespace AutoTranslator_Core
                 Widgets.DrawLineHorizontal(row.x, row.yMax - 1f, row.width);
                 string[] values =
                 {
-                    GetWorkflowEditorEntryTypeLabel(item),
                     item.SourceText ?? string.Empty,
                     GetClassificationLabel(item.EffectiveClassification) + " · " + GetLayerLabel(item.EffectiveLayer),
                     GetTranslationStateLabel(item),
@@ -250,8 +291,11 @@ namespace AutoTranslator_Core
                 Text.WordWrap = false;
                 for (int column = 0; column < values.Length; column++)
                 {
-                    Widgets.Label(new Rect(cellX, row.y + 8f, widths[column], 18f), values[column]);
-                    cellX += widths[column];
+                    Rect cell = new Rect(cellX, row.y + 8f, widths[column], 18f);
+                    GUI.BeginGroup(cell);
+                    Widgets.Label(new Rect(0f, 0f, cell.width, cell.height), values[column]);
+                    GUI.EndGroup();
+                    cellX += widths[column] + (column + 1 < values.Length ? columnGap : 0f);
                 }
                 Text.WordWrap = previousWordWrap;
                 Rect rowClickRect = new Rect(row.x + selectionWidth, row.y,
@@ -264,10 +308,18 @@ namespace AutoTranslator_Core
                         SelectWorkflowEditorCandidate(item);
                 }
                 Rect originalCell = new Rect(
-                    row.x + 5f + selectionWidth + widths[0], row.y + 3f,
-                    widths[1], row.height - 6f);
+                    row.x + 5f + selectionWidth, row.y + 3f,
+                    widths[0], row.height - 6f);
                 if (Mouse.IsOver(originalCell) && !string.IsNullOrWhiteSpace(item.SourceText))
                     TooltipHandler.TipRegion(originalCell, item.SourceText);
+                float sourceFileX = row.x + 5f + selectionWidth + widths[0] + columnGap +
+                                    widths[1] + columnGap + widths[2] + columnGap;
+                Rect sourceFileCell = new Rect(
+                    sourceFileX, row.y + 3f, widths[3], row.height - 6f);
+                if (Mouse.IsOver(sourceFileCell) && !string.IsNullOrWhiteSpace(item.SourceFileRelativePath))
+                    TooltipHandler.TipRegion(sourceFileCell,
+                        item.SourceFileRelativePath +
+                        (item.SourceLineNumber > 0 ? ":" + item.SourceLineNumber : string.Empty));
             }
             if (items.Count == 0)
             {
@@ -300,7 +352,7 @@ namespace AutoTranslator_Core
             WorkflowUiStyle.DrawBorder(rect, new Color(0.28f, 0.31f, 0.33f));
 
             const float gap = 4f;
-            const float counterWidth = 72f;
+            const float counterWidth = 150f;
             const float edgeWidth = 30f;
             const float navWidth = 72f;
             const float pageWidth = 34f;
@@ -318,7 +370,8 @@ namespace AutoTranslator_Core
             Text.Anchor = TextAnchor.MiddleCenter;
             GUI.color = WorkflowUiStyle.MutedText;
             Widgets.Label(new Rect(x, y, counterWidth, height),
-                pageCount == 0 ? "0 / 0" : (currentPage + 1) + " / " + pageCount);
+                WfText("共 ", "Total ") + totalItems + WfText(" 条 · ", " · ") +
+                (pageCount == 0 ? "0 / 0" : (currentPage + 1) + " / " + pageCount));
             GUI.color = Color.white;
             Text.Anchor = TextAnchor.UpperLeft;
             x += counterWidth + gap;
@@ -407,14 +460,17 @@ namespace AutoTranslator_Core
                 WfText("分类层：", "Layers: "));
             float layerX = rect.x + 65f;
             const float layerGap = 5f;
-            float clearAiWidth = Mathf.Min(176f, rect.width * 0.19f);
+            const float clearItemAiWidth = 88f;
             float layerWidth = Mathf.Max(108f,
-                (rect.xMax - layerX - clearAiWidth - layerGap * 3f - 7f) / 3f);
+                (rect.xMax - layerX - clearItemAiWidth - layerGap * 3f - 7f) / 3f);
             Rect localLayerRect = new Rect(layerX, rect.y + 4f, layerWidth, 27f);
             Rect aiLayerRect = new Rect(localLayerRect.xMax + layerGap, localLayerRect.y, layerWidth, 27f);
             Rect manualLayerRect = new Rect(aiLayerRect.xMax + layerGap, localLayerRect.y, layerWidth, 27f);
-            Rect clearAiRect = new Rect(manualLayerRect.xMax + layerGap, localLayerRect.y,
-                rect.xMax - manualLayerRect.xMax - layerGap - 7f, 27f);
+            Rect clearItemAiRect = new Rect(
+                manualLayerRect.xMax + layerGap,
+                localLayerRect.y,
+                clearItemAiWidth,
+                27f);
             DrawWorkflowEditorLayer(localLayerRect,
                 GetWorkflowEditorLocalLayerLabel(item.SourceDomain) + " · " +
                 GetClassificationLabel(localClassification), item.EffectiveLayer == localLayer);
@@ -434,22 +490,56 @@ namespace AutoTranslator_Core
                     !AutoTranslatorSettings.IsRunning,
                     GameFont.Tiny))
                 OpenWorkflowEditorManualClassificationMenu(item);
-            if (WorkflowUiStyle.Button(clearAiRect, WfText("清除 AI 复核结果", "Clear AI review"),
-                    WorkflowButtonStyle.Quiet,
-                    !AutoTranslatorSettings.IsRunning && item.AiClassification != CandidateClassification.NotAnalyzed,
+            if (WorkflowUiStyle.Button(
+                    clearItemAiRect,
+                    WfText("清除本条", "Clear item"),
+                    WorkflowButtonStyle.Stop,
+                    !AutoTranslatorSettings.IsRunning &&
+                    item.AiClassification != CandidateClassification.NotAnalyzed,
                     GameFont.Tiny))
-            {
                 StartWorkflowEditorOperation(
                     backend => backend.ClearAiReviewAsync(new[] { item.CandidateId }),
-                    WfText("清除 AI 复核结果", "Clear AI review result"),
-                    () => ApplyWorkflowEditorAiClassification(item, CandidateClassification.NotAnalyzed),
+                    WfText("清除本条 AI 复核结果", "Clear this AI review result"),
+                    () => ApplyWorkflowEditorAiClassification(
+                        item, CandidateClassification.NotAnalyzed),
                     true);
-            }
+            TooltipHandler.TipRegion(clearItemAiRect, WfText(
+                "只清除当前条目的 AI 复核结果；下次 AI 复核可以重新提交本条。",
+                "Clear only this entry's AI review result so it can be submitted again."));
             float half = (rect.width - 21f) * 0.5f;
             Rect sourceLabel = new Rect(rect.x + 7f, rect.y + 39f, half, 18f);
             Rect translationLabel = new Rect(sourceLabel.xMax + 7f, sourceLabel.y, half, 18f);
             Widgets.Label(sourceLabel, WfText("原文（只读）", "Source (read-only)"));
-            Widgets.Label(translationLabel, WfText("译文", "Translation"));
+            string translationLabelText = item.TranslationState == CandidateTranslationState.Failed &&
+                                          !item.TranslationIsCurrent &&
+                                          !string.IsNullOrWhiteSpace(item.TranslationText)
+                ? WfText("现存译文（本次失败）", "Existing translation (latest attempt failed)")
+                : WfText("译文", "Translation");
+            Widgets.Label(translationLabel, translationLabelText);
+            if (item.EffectiveClassification == CandidateClassification.NeedsTranslation &&
+                item.TranslationState == CandidateTranslationState.Failed &&
+                !item.TranslationIsCurrent &&
+                !string.IsNullOrWhiteSpace(item.TranslationError))
+            {
+                float titleWidth = Text.CalcSize(translationLabelText).x + 8f;
+                Rect failureRect = new Rect(
+                    translationLabel.x + titleWidth,
+                    translationLabel.y,
+                    Mathf.Max(0f, translationLabel.width - titleWidth),
+                    translationLabel.height);
+                string failureText = WfText("失败原因：", "Failure: ") +
+                                     GetTranslationFailureDisplayText(item.TranslationError);
+                Color previousColor = GUI.color;
+                bool previousWordWrap = Text.WordWrap;
+                GUI.color = WorkflowUiStyle.ErrorText;
+                Text.WordWrap = false;
+                GUI.BeginGroup(failureRect);
+                Widgets.Label(new Rect(0f, 0f, failureRect.width, failureRect.height), failureText);
+                GUI.EndGroup();
+                Text.WordWrap = previousWordWrap;
+                GUI.color = previousColor;
+                TooltipHandler.TipRegion(failureRect, failureText);
+            }
             float buttonY = rect.yMax - 38f;
             float textBoxY = sourceLabel.yMax + 2f;
             float textBoxHeight = Mathf.Max(54f, buttonY - textBoxY - 7f);
@@ -527,18 +617,6 @@ namespace AutoTranslator_Core
                 : WfText("本地分析（XML）", "Local analysis (XML)");
         }
 
-        private static string GetWorkflowEditorEntryTypeLabel(WorkflowCandidateEditorItem item)
-        {
-            if (item == null) return string.Empty;
-            if (item.SourceDomain == CandidateSourceDomain.Dll)
-                return WfText("DLL · UI", "DLL · UI");
-            if (string.Equals(item.EntryKind, "DefInjected", StringComparison.OrdinalIgnoreCase))
-                return WfText("XML · Def", "XML · Def");
-            if (string.Equals(item.EntryKind, "Keyed", StringComparison.OrdinalIgnoreCase))
-                return WfText("XML · 键值", "XML · Keyed");
-            return "XML · " + (item.EntryKind ?? string.Empty);
-        }
-
         private static void SelectWorkflowEditorMod(ModMetaData mod, string modIdentity = null)
         {
             if (mod == null) return;
@@ -584,6 +662,33 @@ namespace AutoTranslator_Core
             if (!string.IsNullOrWhiteSpace(_workflowEditorSelectedCandidateId))
                 _workflowEditorSelectedCandidateIds.Add(_workflowEditorSelectedCandidateId);
             _workflowEditorMultiSelectMode = true;
+        }
+
+        private static void OpenWorkflowEditorClassificationCleanup()
+        {
+            string modIdentity = _workflowEditorSelectedModIdentity;
+            if (string.IsNullOrWhiteSpace(modIdentity)) return;
+            Find.WindowStack.Add(new Window_WorkflowResultCleanup(
+                new[] { modIdentity },
+                options => StartWorkflowEditorOperation(
+                    async backend =>
+                    {
+                        WorkflowResultCleanupSummary result = await backend.ClearModResultsAsync(
+                            new[] { modIdentity }, options);
+                        ATC_Dispatcher.RunOnMainThread(() => Messages.Message(
+                            WfText(
+                                "已清除当前 Mod 的分类数据：AI 复核 " +
+                                result.AiReviewCandidateCount.ToString("N0") + " 条，手动分类 " +
+                                result.ManualClassificationCandidateCount.ToString("N0") + " 条。",
+                                "Cleared classification data for the current mod: AI review " +
+                                result.AiReviewCandidateCount.ToString("N0") + ", manual classifications " +
+                                result.ManualClassificationCandidateCount.ToString("N0") + "."),
+                            MessageTypeDefOf.PositiveEvent,
+                            false));
+                    },
+                    WfText("清除当前 Mod 的分类数据", "Clear classifications for current mod")),
+                false,
+                WfText("清除当前 Mod 的分类数据", "Clear current mod classifications")));
         }
 
         private static void SetWorkflowEditorCandidateSelected(string candidateId, bool selected)
@@ -634,6 +739,13 @@ namespace AutoTranslator_Core
                     if (clearSelectionAfterStart)
                         _workflowEditorSelectedCandidateIds.Clear();
                 });
+            Messages.Message(
+                selected.Count == 1
+                    ? WfText("已提交当前条目的 AI 翻译。", "AI translation submitted for the current entry.")
+                    : WfText("已提交 ", "Submitted ") + selected.Count +
+                      WfText(" 个条目的 AI 翻译。", " entries for AI translation."),
+                MessageTypeDefOf.NeutralEvent,
+                false);
         }
 
         private static WorkflowCandidateEditorItem GetSelectedWorkflowEditorCandidate()
@@ -696,7 +808,8 @@ namespace AutoTranslator_Core
             _workflowEditorLoadTask = Task.Run(() => backend.GetEditorSnapshot(
                 selectedModIdentity, selectedPackageId, selectedDisplayName,
                 _workflowEditorCandidateSearch, GetWorkflowEditorClassificationQuery(),
-                (int)_workflowEditorTranslationFilter, _workflowEditorPageIndex, WorkflowEditorPageSize));
+                (int)_workflowEditorTranslationFilter, _workflowEditorPageIndex, WorkflowEditorPageSize,
+                _workflowEditorClassificationFilter == WorkflowEditorClassificationFilter.ManualClassified));
         }
 
         private static CandidateClassification? GetWorkflowEditorClassificationQuery()
@@ -714,7 +827,10 @@ namespace AutoTranslator_Core
         {
             return string.Join("\n", _workflowEditorSelectedModIdentity, _workflowEditorCandidateSearch ?? string.Empty,
                 GetWorkflowEditorClassificationQuery()?.ToString() ?? string.Empty,
-                ((int)_workflowEditorTranslationFilter).ToString(), _workflowEditorPageIndex.ToString());
+                ((int)_workflowEditorTranslationFilter).ToString(), _workflowEditorPageIndex.ToString(),
+                _workflowEditorClassificationFilter == WorkflowEditorClassificationFilter.ManualClassified
+                    ? "manual"
+                    : string.Empty);
         }
 
         private static void RequestWorkflowEditorPage()
@@ -734,7 +850,14 @@ namespace AutoTranslator_Core
             try
             {
                 if (preserveFilterSnapshot) _workflowEditorSuppressNextIdleRefresh = true;
-                await operation(WorkflowBackendRuntime.GetOrCreate());
+                Stopwatch submitTimer = Stopwatch.StartNew();
+                WorkflowBackend backend = WorkflowBackendRuntime.GetOrCreate();
+                Task workflowTask = operation(backend);
+                submitTimer.Stop();
+                AutoTranslatorSettings.AddLog(
+                    "⏱ " + displayName + WfText("：主线程提交耗时 ", ": UI submission took ") +
+                    submitTimer.ElapsedMilliseconds + " ms");
+                await workflowTask;
                 ATC_Dispatcher.RunOnMainThread(() =>
                 {
                     AutoTranslatorSettings.AddLog("✅ " + displayName);
@@ -757,7 +880,9 @@ namespace AutoTranslator_Core
                 ATC_Dispatcher.RunOnMainThread(() =>
                 {
                     if (!_workflowEditorPreviouslyBusy) _workflowEditorSuppressNextIdleRefresh = false;
-                    AutoTranslatorSettings.AddErrorLog(displayName + ": " + ex.GetBaseException().Message);
+                    string message = displayName + ": " + ex.Message;
+                    AutoTranslatorSettings.AddErrorLog(message);
+                    Messages.Message(message, MessageTypeDefOf.RejectInput, false);
                 });
             }
         }
@@ -862,6 +987,7 @@ namespace AutoTranslator_Core
                 case WorkflowEditorClassificationFilter.NeedsTranslation: return WfText("分类：需要翻译", "Class: needs");
                 case WorkflowEditorClassificationFilter.Undetermined: return WfText("分类：待判定", "Class: undetermined");
                 case WorkflowEditorClassificationFilter.NoTranslationNeeded: return WfText("分类：无需翻译", "Class: no translation");
+                case WorkflowEditorClassificationFilter.ManualClassified: return WfText("分类：有手动分类", "Class: manual");
                 default: return WfText("分类：全部", "Class: all");
             }
         }
@@ -877,6 +1003,8 @@ namespace AutoTranslator_Core
                 WorkflowEditorClassificationFilter.Undetermined, WfText("待判定", "Undetermined"));
             AddWorkflowEditorClassificationFilterOption(options,
                 WorkflowEditorClassificationFilter.NoTranslationNeeded, WfText("无需翻译", "No translation"));
+            AddWorkflowEditorClassificationFilterOption(options,
+                WorkflowEditorClassificationFilter.ManualClassified, WfText("有手动分类", "Has manual classification"));
             Find.WindowStack.Add(new FloatMenu(options));
         }
 
@@ -960,11 +1088,67 @@ namespace AutoTranslator_Core
 
         private static string GetTranslationStateLabel(WorkflowCandidateEditorItem item)
         {
-            if (item.TranslationState == CandidateTranslationState.Translated && item.TranslationIsCurrent)
+            if (item.EffectiveClassification != CandidateClassification.NeedsTranslation)
+                return WfText("不适用", "Not applicable");
+            if (item.TranslationIsCurrent && !string.IsNullOrWhiteSpace(item.TranslationText))
                 return WfText("已翻译", "Translated") + " · " + GetTranslationOriginLabel(item.TranslationOrigin);
             if (item.TranslationState == CandidateTranslationState.Failed) return WfText("失败", "Failed");
             if (item.TranslationState == CandidateTranslationState.Translating) return WfText("翻译中", "Translating");
             return WfText("未翻译", "Untranslated");
+        }
+
+        private static string GetTranslationFailureDisplayText(string storedError)
+        {
+            string reason = storedError ?? string.Empty;
+            string rejectedOutput = string.Empty;
+            if (reason.TrimStart().StartsWith("{", StringComparison.Ordinal))
+            {
+                try
+                {
+                    JObject payload = JObject.Parse(reason);
+                    if (string.Equals(payload["format"]?.ToString(),
+                            "atc-translation-failure-v1", StringComparison.Ordinal))
+                    {
+                        reason = payload["reason"]?.ToString() ?? string.Empty;
+                        rejectedOutput = payload["rejectedOutput"]?.ToString() ?? string.Empty;
+                    }
+                }
+                catch { }
+            }
+
+            string localized = LocalizeTranslationFailureReason(reason);
+            if (!string.IsNullOrWhiteSpace(rejectedOutput))
+                localized += WfText("；本次被拒绝的译文：", "; rejected translation: ") + rejectedOutput;
+            return localized;
+        }
+
+        private static string LocalizeTranslationFailureReason(string reason)
+        {
+            switch ((reason ?? string.Empty).Trim())
+            {
+                case "The provider returned an empty or unusable translation.":
+                    return WfText("模型没有返回可用译文。", "The model returned no usable translation.");
+                case "The provider returned the unchanged protected-token source text.":
+                    return WfText("模型原样返回了含占位符的外语原文。", "The model returned the unchanged foreign source containing placeholders.");
+                case "A protected token was changed or lost.":
+                    return WfText("占位符或语法变量被改动、丢失或次数不一致。", "A placeholder or grammar variable was changed, lost, or repeated the wrong number of times.");
+                case "A format argument such as {0} was changed or lost.":
+                    return WfText("{0} 一类格式参数被改动或丢失。", "A format argument such as {0} was changed or lost.");
+                case "A [title:] tag was changed or lost.":
+                    return WfText("[title:] 标签被改动或丢失。", "A [title:] tag was changed or lost.");
+                case "The result uses the wrong Chinese writing variant.":
+                    return WfText("译文使用了错误的简繁体。", "The result uses the wrong Chinese writing variant.");
+                case "The result contains unexpected text from another writing system.":
+                    return WfText("译文中残留了不应出现的其他文字体系。", "The result contains unexpected text from another writing system.");
+                case "The result still appears to contain untranslated English.":
+                    return WfText("译文中仍有疑似未翻译的英文。", "The result still appears to contain untranslated English.");
+                case "The result did not pass language-quality validation.":
+                    return WfText("译文未通过目标语言质量检查。", "The result did not pass language-quality validation.");
+                default:
+                    return string.IsNullOrWhiteSpace(reason)
+                        ? WfText("未记录具体原因。", "No detailed reason was recorded.")
+                        : reason;
+            }
         }
 
         private static string GetTranslationOriginLabel(TranslationOrigin origin)
