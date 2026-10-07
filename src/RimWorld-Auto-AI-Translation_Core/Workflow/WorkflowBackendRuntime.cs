@@ -50,7 +50,10 @@ namespace AutoTranslator_Core.Workflow
                             WorkflowTaskKind.StartupSynchronization,
                             "Startup translation injection",
                             out WorkflowTaskLease lease))
+                    {
+                        await Task.Delay(500);
                         continue;
+                    }
                     using (lease)
                     {
                         try

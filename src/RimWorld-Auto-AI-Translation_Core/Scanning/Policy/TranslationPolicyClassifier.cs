@@ -10,7 +10,7 @@ namespace AutoTranslator_Core.TranslationPolicy
         private static readonly HashSet<string> KnownTextFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             "label", "description", "jobString", "reportString", "text", "labelShort", "customLabel",
-            "descriptionShort", "pawnLabel", "gerund", "verb", "deathMessage", "inspectString",
+            "descriptionShort", "pawnLabel", "gerund", "verb", "deathMessage", "inspectString", "stuffAdjective",
             "baseInspectString", "helpText", "letterLabel", "letterText", "message", "messageSuccess",
             "messageFailed", "rejectInputMessage", "skillLabel", "endMessage", "beginLetterLabel",
             "beginLetter", "recoveryMessage", "destroyedLabel", "pawnSingular", "pawnPlural", "pawnsPlural",
@@ -199,13 +199,13 @@ namespace AutoTranslator_Core.TranslationPolicy
             }
 
             if (candidate.Bucket == TranslationPolicyBucket.DefInjected &&
-                (KnownTextFields.Contains(field) || IsKnownTextListPath(path)) &&
+                (IsKnownTextField(field) || IsKnownTextPath(path)) &&
                 LooksLikeLocalizationKeyReference(text))
             {
                 return Result(candidateId, TranslationPolicyDecision.HardDeny, "localization_key_reference");
             }
 
-            if (KnownTextFields.Contains(field) || IsKnownTextListPath(path))
+            if (IsKnownTextField(field) || IsKnownTextPath(path))
             {
                 return Result(candidateId, TranslationPolicyDecision.HardAllow, "known_text_field");
             }
@@ -215,7 +215,40 @@ namespace AutoTranslator_Core.TranslationPolicy
                 return Result(candidateId, TranslationPolicyDecision.Ambiguous, "identifier_like_unknown");
             }
 
-            return Result(candidateId, TranslationPolicyDecision.Ambiguous, "unknown_field_semantics");
+            return Result(candidateId, TranslationPolicyDecision.Ambiguous,
+                IsUnknownNaturalLanguageCandidate(field, path, text)
+                    ? "unknown_field_natural_language"
+                    : "unknown_field_semantics");
+        }
+
+        internal static bool IsUnknownNaturalLanguageCandidate(string field, string path, string text)
+        {
+            field = (field ?? string.Empty).Trim();
+            text = (text ?? string.Empty).Trim();
+            if (text.Length < 2 || IsKnownTextField(field) || IsKnownTextPath(path)) return false;
+
+            // Skip the Def name. A list item's semantic field is its parent,
+            // rather than "li" or its numerical injection index.
+            string[] fields = (path ?? string.Empty).Split('.').Skip(1).ToArray();
+            string effectiveField = field;
+            if (field.Equals("li", StringComparison.OrdinalIgnoreCase) && fields.Length > 1)
+                effectiveField = fields[fields.Length - 2];
+            if (IsDeniedField(field) || IsDeniedField(effectiveField) ||
+                IsStructuralReferenceField(effectiveField) ||
+                fields.Any(segment => ProtectedPathSegments.Contains(segment))) return false;
+            if (BooleanLiteralRegex.IsMatch(text) || NumericOrPunctuationRegex.IsMatch(text) ||
+                NumericTupleRegex.IsMatch(text) || NumericRangeRegex.IsMatch(text) ||
+                LooksLikeStrongPathOrResource(text) || LooksLikeStrongIdentifier(text) ||
+                LooksLikeLocalizationKeyReference(text) || IsClearlyUntranslatableGrammarFragment(text))
+                return false;
+            // Resource identifiers may contain one slash, which the general
+            // classifier conservatively leaves ambiguous for known text fields.
+            if ((text.Contains("/") || text.Contains("\\")) && !text.Any(char.IsWhiteSpace)) return false;
+            if (StructuredIdentifierRegex.IsMatch(text) && text.Any(char.IsDigit)) return false;
+            if (TryClassifyNonLinguisticFormattedText(text, out _)) return false;
+
+            string visible = ProtectedGrammarTokenRegex.Replace(text, " ");
+            return visible.Count(char.IsLetter) >= 2;
         }
 
         private static TranslationPolicyClassification Result(
@@ -455,13 +488,29 @@ namespace AutoTranslator_Core.TranslationPolicy
                    (rightSide.IndexOf('_') >= 0 || rightSide.IndexOf(':') >= 0 || rightSide.IndexOf('.') >= 0);
         }
 
-        private static bool IsKnownTextListPath(string path)
+        internal static bool IsKnownTextField(string field)
+        {
+            return KnownTextFields.Contains(field ?? string.Empty);
+        }
+
+        internal static bool IsKnownTextPath(string path)
         {
             string lower = (path ?? string.Empty).ToLowerInvariant();
-            return lower.Contains(".rulesstrings.") ||
-                   lower.Contains(".thoughtstagedescriptions.") ||
-                   lower.EndsWith(".rulesstrings", StringComparison.Ordinal) ||
-                   lower.EndsWith(".thoughtstagedescriptions", StringComparison.Ordinal);
+            return IsKnownTextListPath(path) ||
+                   lower.EndsWith(".resource.name", StringComparison.Ordinal) ||
+                   lower.EndsWith(".jobstring", StringComparison.Ordinal) ||
+                   lower.EndsWith(".customsummary", StringComparison.Ordinal) ||
+                   lower.EndsWith(".summary", StringComparison.Ordinal);
+        }
+
+        internal static bool IsKnownTextListPath(string path)
+        {
+            string lower = (path ?? string.Empty).ToLowerInvariant();
+            string[] segments = lower.Split(new[] { '.' }, StringSplitOptions.RemoveEmptyEntries);
+            // Skip the Def name: only field segments describe list semantics.
+            return segments.Skip(1).Any(segment =>
+                segment == "rulesstrings" ||
+                segment.EndsWith("stagedescriptions", StringComparison.Ordinal));
         }
     }
 }

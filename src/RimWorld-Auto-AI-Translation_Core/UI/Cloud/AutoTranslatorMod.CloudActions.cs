@@ -42,12 +42,7 @@ namespace AutoTranslator_Core
             public ModMetaData Mod;
         }
 
-        private sealed class BatchAiRebuildCandidate
-        {
-            public string PackageId;
-            public string DisplayName;
-            public ModMetaData Mod;
-        }
+        
 
         private sealed class CloudLocalModSnapshot
         {
@@ -540,7 +535,7 @@ namespace AutoTranslator_Core
                         AutoTranslatorSettings.AddLog(
                             "▶ " + WfText("云端下载", "Cloud download") +
                             WfText(" · 正在整理已下载译文", " · Finalizing downloaded translations"));
-                        AutoTranslatorLegacyRepairer.RepairPackages(repairedPackages, targetLangStr, requestMemoryDrop: false);
+                        TranslationFileRepairService.RepairPackages(repairedPackages, targetLangStr, requestMemoryDrop: false);
                     }
 
                     WorkflowTaskCoordinator.Instance.MarkTerminal(taskLease.RunId, WorkflowRunState.Completed);
@@ -566,7 +561,7 @@ namespace AutoTranslator_Core
                         AutoTranslatorSettings.AddLog("✓ " + "ATC_Log_BatchDownloadSummary".Translate(successCount, failCount, totalCount));
                         if (failedMods.Count > 0)
                         {
-                            AutoTranslatorSettings.AddLog("? " + "ATC_Log_BatchDownloadFailedList".Translate(string.Join(", ", failedMods.Take(5).ToArray())));
+                            AutoTranslatorSettings.AddWarningLog("ATC_Log_BatchDownloadFailedList".Translate(string.Join(", ", failedMods.Take(5).ToArray())));
                         }
                         Verse.Messages.Message("ATC_Msg_BatchSuccess".Translate(successCount, totalCount), RimWorld.MessageTypeDefOf.PositiveEvent, false);
                         if (successCount > 0)
@@ -846,7 +841,7 @@ namespace AutoTranslator_Core
                 int successCount = 0;
                 int failCount = 0;
                 List<string> failedMods = new List<string>();
-                List<BatchAiRebuildCandidate> aiRebuildCandidates = new List<BatchAiRebuildCandidate>();
+                
 
                 AutoTranslatorSettings.IsRunning = true;
 
@@ -869,7 +864,7 @@ namespace AutoTranslator_Core
                             {
                                 failCount++;
                                 failedMods.Add(displayName);
-                                AutoTranslatorSettings.AddLog("⚠️ " + "ATC_Log_BatchUploadMissingFolder".Translate(displayName));
+                                AutoTranslatorSettings.AddWarningLog("ATC_Log_BatchUploadMissingFolder".Translate(displayName));
                                 continue;
                             }
 
@@ -878,7 +873,7 @@ namespace AutoTranslator_Core
                             {
                                 failCount++;
                                 failedMods.Add(displayName);
-                                AutoTranslatorSettings.AddLog("⚠️ " + "ATC_Log_BatchUploadNoXml".Translate(displayName));
+                                AutoTranslatorSettings.AddWarningLog("ATC_Log_BatchUploadNoXml".Translate(displayName));
                                 continue;
                             }
 
@@ -920,28 +915,16 @@ namespace AutoTranslator_Core
                             {
                                 failCount++;
                                 failedMods.Add(displayName);
-                                AutoTranslatorScanner.TranslationUploadProvenanceSummary provenanceSummary =
-                                    uploadResult != null ? uploadResult.ProvenanceSummary : null;
-                                if (AutoTranslatorScanner.IsAiUploadBlockedByProvenance(provenanceSummary))
-                                {
-                                    AutoTranslatorSettings.AddLog("⚠️ " + AutoTranslatorScanner.FormatAiUploadNoCleanLog(displayName, provenanceSummary));
-                                    if (item.Mod != null && !aiRebuildCandidates.Any(c => string.Equals(c.PackageId, packageId, StringComparison.OrdinalIgnoreCase)))
-                                    {
-                                        aiRebuildCandidates.Add(new BatchAiRebuildCandidate
-                                        {
-                                            PackageId = packageId,
-                                            DisplayName = displayName,
-                                            Mod = item.Mod
-                                        });
-                                    }
-                                }
+                                AutoTranslatorScanner.UploadLabelValidationSummary provenanceSummary =
+                                    uploadResult != null ? uploadResult.ValidationSummary : null;
+                                
                             }
                         }
                         catch (Exception itemEx)
                         {
                             failCount++;
                             failedMods.Add(displayName);
-                            AutoTranslatorSettings.AddErrorLog("⚠️ " + "ATC_Log_BatchUploadItemFailed".Translate(displayName, itemEx.Message));
+                            AutoTranslatorSettings.AddWarningLog("ATC_Log_BatchUploadItemFailed".Translate(displayName, itemEx.Message));
                             Log.Warning($"[AutoTranslationCore] Batch upload skipped {displayName} ({packageId}): {itemEx}");
                         }
                     }
@@ -963,18 +946,14 @@ namespace AutoTranslator_Core
                         Verse.Messages.Message("ATC_Msg_BatchUploadSuccess".Translate(successCount, uploadTypeLabel), RimWorld.MessageTypeDefOf.PositiveEvent, false);
                         if (failCount > 0)
                         {
-                            AutoTranslatorSettings.AddLog("⚠️ " + "ATC_Log_BatchUploadFailedList".Translate(failCount, string.Join(", ", failedMods.Take(8).ToArray())));
+                            AutoTranslatorSettings.AddWarningLog("ATC_Log_BatchUploadFailedList".Translate(failCount, string.Join(", ", failedMods.Take(8).ToArray())));
                         }
 
-                        if (aiRebuildCandidates.Count > 0)
-                        {
-                            AutoTranslatorSettings.AddLog("⚠️ " + "ATC_Log_BatchAiRebuildCandidates".Translate(aiRebuildCandidates.Count));
-                            Find.WindowStack.Add(new Window_BatchAiRebuildPicker(aiRebuildCandidates));
-                        }
+                        
 
                         AutoTranslatorSettings.HasFetchedCloudThisSession = false;
                         ModUpdateDetector.ClearStatusCache();
-                        TranslationWorkbenchTab.RequestRefresh();
+                        AutoTranslator_Core.Workflow.WorkflowTaskCoordinator.Instance.NotifyWorkbenchDataChanged();
                     });
                 }
             });
@@ -1193,7 +1172,7 @@ namespace AutoTranslator_Core
                 int successCount = 0;
                 int failCount = 0;
                 List<string> failedMods = new List<string>();
-                List<BatchAiRebuildCandidate> aiRebuildCandidates = new List<BatchAiRebuildCandidate>();
+                
 
                 AutoTranslatorSettings.IsRunning = true;
 
@@ -1216,7 +1195,7 @@ namespace AutoTranslator_Core
                             {
                                 failCount++;
                                 failedMods.Add(displayName);
-                                AutoTranslatorSettings.AddLog("? " + "ATC_Log_BatchUploadMissingFolder".Translate(displayName));
+                                AutoTranslatorSettings.AddWarningLog("ATC_Log_BatchUploadMissingFolder".Translate(displayName));
                                 continue;
                             }
 
@@ -1225,7 +1204,7 @@ namespace AutoTranslator_Core
                             {
                                 failCount++;
                                 failedMods.Add(displayName);
-                                AutoTranslatorSettings.AddLog("? " + "ATC_Log_BatchUploadNoXml".Translate(displayName));
+                                AutoTranslatorSettings.AddWarningLog("ATC_Log_BatchUploadNoXml".Translate(displayName));
                                 continue;
                             }
 
@@ -1267,21 +1246,9 @@ namespace AutoTranslator_Core
                             {
                                 failCount++;
                                 failedMods.Add(displayName);
-                                AutoTranslatorScanner.TranslationUploadProvenanceSummary provenanceSummary =
-                                    uploadResult != null ? uploadResult.ProvenanceSummary : null;
-                                if (AutoTranslatorScanner.IsAiUploadBlockedByProvenance(provenanceSummary))
-                                {
-                                    AutoTranslatorSettings.AddLog("⚠️ " + AutoTranslatorScanner.FormatAiUploadNoCleanLog(displayName, provenanceSummary));
-                                    if (item.Mod != null && !aiRebuildCandidates.Any(c => string.Equals(c.PackageId, packageId, StringComparison.OrdinalIgnoreCase)))
-                                    {
-                                        aiRebuildCandidates.Add(new BatchAiRebuildCandidate
-                                        {
-                                            PackageId = packageId,
-                                            DisplayName = displayName,
-                                            Mod = item.Mod
-                                        });
-                                    }
-                                }
+                                AutoTranslatorScanner.UploadLabelValidationSummary provenanceSummary =
+                                    uploadResult != null ? uploadResult.ValidationSummary : null;
+                                
                             }
                         }
                         catch (Exception itemEx)
@@ -1295,7 +1262,7 @@ namespace AutoTranslator_Core
                 }
                 catch (Exception ex)
                 {
-                    AutoTranslatorSettings.AddErrorLog("??" + "ATC_Log_BatchUploadWorkerFailed".Translate(ex.Message));
+                    AutoTranslatorSettings.AddErrorLog("ATC_Log_BatchUploadWorkerFailed".Translate(ex.Message));
                     Log.Warning("[AutoTranslationCore] Batch upload worker failed: " + ex);
                 }
                 finally
@@ -1309,18 +1276,14 @@ namespace AutoTranslator_Core
                         Verse.Messages.Message("ATC_Msg_BatchUploadSuccess".Translate(successCount, uploadTypeLabel), RimWorld.MessageTypeDefOf.PositiveEvent, false);
                         if (failCount > 0)
                         {
-                            AutoTranslatorSettings.AddLog("? " + "ATC_Log_BatchUploadFailedList".Translate(failCount, string.Join(", ", failedMods.Take(8).ToArray())));
+                            AutoTranslatorSettings.AddWarningLog("ATC_Log_BatchUploadFailedList".Translate(failCount, string.Join(", ", failedMods.Take(8).ToArray())));
                         }
 
-                        if (aiRebuildCandidates.Count > 0)
-                        {
-                            AutoTranslatorSettings.AddLog("⚠️ " + "ATC_Log_BatchAiRebuildCandidates".Translate(aiRebuildCandidates.Count));
-                            Find.WindowStack.Add(new Window_BatchAiRebuildPicker(aiRebuildCandidates));
-                        }
+                        
 
                         AutoTranslatorSettings.HasFetchedCloudThisSession = false;
                         ModUpdateDetector.ClearStatusCache();
-                        TranslationWorkbenchTab.RequestRefresh();
+                        AutoTranslator_Core.Workflow.WorkflowTaskCoordinator.Instance.NotifyWorkbenchDataChanged();
                     });
                 }
             });
@@ -1466,92 +1429,7 @@ namespace AutoTranslator_Core
             }
         }
 
-        private sealed class Window_BatchAiRebuildPicker : Window
-        {
-            private readonly List<BatchAiRebuildCandidate> candidates;
-            private Vector2 scrollPos = Vector2.zero;
-
-            public override Vector2 InitialSize => new Vector2(640f, 560f);
-
-            public Window_BatchAiRebuildPicker(IEnumerable<BatchAiRebuildCandidate> candidates)
-            {
-                this.candidates = (candidates ?? Enumerable.Empty<BatchAiRebuildCandidate>())
-                    .Where(c => c != null && c.Mod != null)
-                    .GroupBy(c => c.PackageId ?? "", StringComparer.OrdinalIgnoreCase)
-                    .Select(g => g.First())
-                    .OrderBy(c => c.DisplayName ?? c.PackageId, StringComparer.OrdinalIgnoreCase)
-                    .ToList();
-                doCloseButton = false;
-                doCloseX = true;
-                forcePause = true;
-                absorbInputAroundWindow = true;
-            }
-
-            public override void DoWindowContents(Rect inRect)
-            {
-                bool previousBypass = Patch_GUI_Label_GUIContent.BypassInterceptor;
-                Patch_GUI_Label_GUIContent.BypassInterceptor = true;
-                try
-                {
-                    Text.Font = GameFont.Medium;
-                    Widgets.Label(new Rect(0f, 0f, inRect.width, 32f), "ATC_Title_BatchAiRebuildCandidates".Translate(candidates.Count));
-                    Text.Font = GameFont.Small;
-
-                    Rect descRect = new Rect(0f, 38f, inRect.width, 58f);
-                    Widgets.Label(descRect, "ATC_Msg_BatchAiRebuildCandidates".Translate(candidates.Count));
-
-                    Rect listOutRect = new Rect(0f, 104f, inRect.width, inRect.height - 154f);
-                    float rowHeight = 46f;
-                    Rect listViewRect = new Rect(0f, 0f, listOutRect.width - 20f, Math.Max(listOutRect.height, candidates.Count * rowHeight));
-                    Widgets.BeginScrollView(listOutRect, ref scrollPos, listViewRect);
-                    float y = 0f;
-                    foreach (BatchAiRebuildCandidate candidate in candidates)
-                    {
-                        Rect rowRect = new Rect(0f, y, listViewRect.width, rowHeight - 4f);
-                        Widgets.DrawHighlightIfMouseover(rowRect);
-
-                        string displayName = !string.IsNullOrWhiteSpace(candidate.DisplayName) ? candidate.DisplayName : candidate.PackageId;
-                        Widgets.Label(new Rect(rowRect.x + 6f, rowRect.y + 3f, rowRect.width - 176f, 20f), displayName);
-                        GUI.color = Color.gray;
-                        Widgets.Label(new Rect(rowRect.x + 6f, rowRect.y + 22f, rowRect.width - 176f, 18f), candidate.PackageId ?? "");
-                        GUI.color = Color.white;
-
-                        Rect rebuildRect = new Rect(rowRect.xMax - 160f, rowRect.y + 6f, 150f, 30f);
-                        if (WorkflowUiStyle.Button(rebuildRect, "ATC_Btn_PureAiRebuildForUpload".Translate(),
-                                WorkflowButtonStyle.Primary))
-                        {
-                            if (AutoTranslatorSettings.IsRunning)
-                            {
-                                Messages.Message("ATC_Msg_PureAiRebuildBusy".Translate(), MessageTypeDefOf.RejectInput, false);
-                            }
-                            else
-                            {
-                                Close();
-                                AutoTranslatorSettings.ActiveTab = AutoTranslatorSettings.WorkbenchTabIndex;
-                                AutoTranslatorSettings.mainScrollPos = Vector2.zero;
-                                AutoTranslatorScanner.StartPureAiRebuildForUpload(candidate.Mod);
-                            }
-                        }
-
-                        y += rowHeight;
-                    }
-                    Widgets.EndScrollView();
-
-                    if (WorkflowUiStyle.Button(new Rect(inRect.width - 130f, inRect.height - 38f, 130f, 34f),
-                            "ATC_Btn_Cancel".Translate(), WorkflowButtonStyle.Quiet))
-                    {
-                        Close();
-                    }
-                }
-                finally
-                {
-                    GUI.color = Color.white;
-                    Text.Font = GameFont.Small;
-                    Text.Anchor = TextAnchor.UpperLeft;
-                    Patch_GUI_Label_GUIContent.BypassInterceptor = previousBypass;
-                }
-            }
-        }
+        
 
     }
 }

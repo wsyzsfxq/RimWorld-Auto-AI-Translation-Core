@@ -48,9 +48,15 @@ namespace AutoTranslator_Core.Workflow.Analysis
                 .Where(path => !string.IsNullOrWhiteSpace(path) && Directory.Exists(path))
                 .Select(Path.GetFullPath)
                 .Distinct(WorkflowPath.Comparer)
-                .OrderBy(path => path, WorkflowPath.Comparer)
                 .ToList();
-            List<string> sourceFiles = EnumerateRelevantFiles(root, xmlDirectories, cancellationToken);
+            List<string> assemblyFiles = AutoTranslatorScanner.GetAllEffectiveAssemblyPaths(
+                mod.PackageId,
+                root);
+            List<string> sourceFiles = EnumerateRelevantFiles(
+                root,
+                xmlDirectories,
+                assemblyFiles,
+                cancellationToken);
             List<ModFileRecord> sourceFileRecords = sourceFiles
                 .Select(path => CreateFileRecord(
                     modIdentity, root, path, cancellationToken, reportFileProgress))
@@ -138,6 +144,7 @@ namespace AutoTranslator_Core.Workflow.Analysis
         private static List<string> EnumerateRelevantFiles(
             string root,
             IEnumerable<string> xmlDirectories,
+            IEnumerable<string> assemblyFiles,
             CancellationToken cancellationToken)
         {
             HashSet<string> files = new HashSet<string>(WorkflowPath.Comparer);
@@ -147,14 +154,11 @@ namespace AutoTranslator_Core.Workflow.Analysis
                 foreach (string file in Directory.EnumerateFiles(directory, "*.xml", SearchOption.AllDirectories))
                     files.Add(Path.GetFullPath(file));
             }
-            string assemblies = Path.Combine(root, "Assemblies");
-            if (Directory.Exists(assemblies))
+            foreach (string file in assemblyFiles ?? Enumerable.Empty<string>())
             {
-                foreach (string file in Directory.EnumerateFiles(assemblies, "*.dll", SearchOption.AllDirectories))
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!string.IsNullOrWhiteSpace(file) && File.Exists(file))
                     files.Add(Path.GetFullPath(file));
-                }
             }
             string about = Path.Combine(root, "About", "About.xml");
             if (File.Exists(about)) files.Add(Path.GetFullPath(about));
@@ -287,7 +291,7 @@ namespace AutoTranslator_Core.Workflow.Analysis
             return "Other";
         }
 
-        private static string ReadVersionLabel(string root)
+        internal static string ReadVersionLabel(string root)
         {
             try
             {

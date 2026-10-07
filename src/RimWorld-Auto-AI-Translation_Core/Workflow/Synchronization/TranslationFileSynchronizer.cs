@@ -817,11 +817,10 @@ namespace AutoTranslator_Core.Workflow.Synchronization
                 if (string.Equals(kind, AutoTranslatorScanner.ProvenanceKindCloud, StringComparison.OrdinalIgnoreCase))
                     return TranslationOrigin.Cloud;
                 if (string.Equals(kind, AutoTranslatorScanner.ProvenanceKindAI, StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(kind, AutoTranslatorScanner.ProvenanceKindAIFromSecondary, StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(kind, AutoTranslatorScanner.ProvenanceKindLocalPackExisting, StringComparison.OrdinalIgnoreCase))
+                    string.Equals(kind, AutoTranslatorScanner.ProvenanceKindAIFromSecondary, StringComparison.OrdinalIgnoreCase))
                     return TranslationOrigin.AiTranslation;
             }
-            return changedAfterBaseline ? TranslationOrigin.Manual : TranslationOrigin.AiTranslation;
+            return changedAfterBaseline ? TranslationOrigin.Manual : TranslationOrigin.None;
         }
 
         private void RecoverPendingOperations(

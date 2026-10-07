@@ -95,6 +95,7 @@ namespace AutoTranslator_Core
         private static readonly Dictionary<string, int> _singleCorrectionCountCache = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         private static readonly HashSet<string> _singleCorrectionCountFetchInFlight = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private static readonly LogViewCache _runtimeLogViewCache = new LogViewCache();
+        private static readonly LogViewCache _warningLogViewCache = new LogViewCache();
         private static readonly LogViewCache _errorLogViewCache = new LogViewCache();
 
         private sealed class LogViewCache
@@ -383,9 +384,8 @@ namespace AutoTranslator_Core
             ResetCloudFetchStateForLanguageChange();
             UIInterceptor.ReloadForLanguageChange();
             TargetedHardcodedUi.HardcodedUiTargetedPatchManager.RequestReload();
-            ModNameTranslationCache.Clear();
             ModUpdateDetector.ClearStatusCache();
-            TranslationWorkbenchTab.RequestRefresh();
+            AutoTranslator_Core.Workflow.WorkflowTaskCoordinator.Instance.NotifyWorkbenchDataChanged();
             AutoTranslatorScanner.RequestMemoryDrop();
         }
 
@@ -591,6 +591,7 @@ namespace AutoTranslator_Core
         // EN: This method handles do settings window contents.
         public override void DoSettingsWindowContents(Rect inRect)
         {
+            Window_ModCatalogSync.OpenOnce();
             EnsureNetworkDispatchReady();
             AutoTranslatorAPI.MaintainModelFetchState();
 
@@ -599,18 +600,6 @@ namespace AutoTranslator_Core
             Patch_GUI_Label_GUIContent.BypassInterceptor = true;
             try
             {
-                if (AutoTranslatorSettings.ShowFinishPopup)
-                {
-                    AutoTranslatorSettings.ShowFinishPopup = false;
-                    if (TranslationUnresolvedManager.HasPending)
-                    {
-                        Find.WindowStack.Add(new Window_UnresolvedTranslations());
-                    }
-                    else
-                    {
-                        Find.WindowStack.Add(new Window_AtcDialog("ATC_FinishMessage_Text".Translate(), "ATC_FinishMessage_OK".Translate(), null, null, null, "ATC_FinishMessage_Title".Translate()));
-                    }
-                }
 
 
                 string[] tabLabels =

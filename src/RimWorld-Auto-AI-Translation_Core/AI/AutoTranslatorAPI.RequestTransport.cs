@@ -80,6 +80,8 @@ namespace AutoTranslator_Core
                 new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             TranslationRequestActivity.RequestLease activity = TranslationRequestActivity.CreateRequest();
             int requestId = -1;
+            // 0 = queued, 1 = main-thread callback owns dispatch, 2 = cancelled before dispatch.
+            int dispatchState = 0;
             bool networkRequestStarted = false;
             Stopwatch requestTimer = null;
             bool perfRequestStarted = false;
@@ -114,6 +116,11 @@ namespace AutoTranslator_Core
                     "Request acquired concurrency slot. Provider=" + provider + ".");
                 ATC_Dispatcher.RunOnMainThread(() =>
                 {
+                    if (System.Threading.Interlocked.CompareExchange(ref dispatchState, 1, 0) != 0)
+                    {
+                        dispatchStarted.TrySetResult(false);
+                        return;
+                    }
                     if (completion.Task.IsCompleted)
                     {
                         dispatchStarted.TrySetResult(false);
@@ -122,8 +129,8 @@ namespace AutoTranslator_Core
 
                     if (IsRequestCancellationRequested(additionalCancellation))
                     {
-                        dispatchStarted.TrySetResult(false);
                         completion.TrySetResult(CreateRequestTimeoutResponse(provider, 0));
+                        dispatchStarted.TrySetResult(false);
                         return;
                     }
 
@@ -144,24 +151,31 @@ namespace AutoTranslator_Core
                         if (requestId > 0 &&
                             (completion.Task.IsCompleted || IsRequestCancellationRequested(additionalCancellation)))
                         {
-                            dispatchStarted.TrySetResult(false);
                             AbortTranslationRequest(requestId, "Request completed or cancelled during dispatch");
+                            dispatchStarted.TrySetResult(false);
                             return;
                         }
                         dispatchStarted.TrySetResult(requestId > 0);
                     }
                     catch (Exception ex)
                     {
-                        dispatchStarted.TrySetResult(false);
+                        bool wasSent = networkSendStarted.Task.Status == TaskStatus.RanToCompletion &&
+                                       networkSendStarted.Task.Result;
                         completion.TrySetResult(new ATC_WebResponse
                         {
                             IsSuccess = false,
                             HttpCode = 0,
-                            ErrorText = ex.Message,
+                            ErrorText = "Unity request dispatch failed. ExceptionType=" + ex.GetType().Name,
                             ResponseBody = string.Empty,
-                            FailureKind = TranslationRequestFailureKind.LocalDispatch,
-                            FailureStage = "Dispatching"
+                            FailureKind = wasSent ? TranslationRequestFailureKind.Transport : TranslationRequestFailureKind.LocalDispatch,
+                            FailureStage = wasSent ? "Transport" : "Dispatching"
                         });
+                        if (requestId > 0) AbortTranslationRequest(requestId, "Dispatch failed");
+                    }
+                    finally
+                    {
+                        // Also acknowledge a callback whose cleanup itself throws.
+                        dispatchStarted.TrySetResult(false);
                     }
                 });
 
@@ -172,6 +186,10 @@ namespace AutoTranslator_Core
                     activity.MarkCancelled();
                     response = CreateRequestTimeoutResponse(provider, 0);
                     completion.TrySetResult(response);
+                    // Cancel a queued callback atomically. If it already started, wait for its
+                    // cleanup acknowledgement before releasing the slot and usage reservation.
+                    if (System.Threading.Interlocked.CompareExchange(ref dispatchState, 2, 0) == 1)
+                        await dispatchStarted.Task;
                     if (requestId > 0)
                         await AbortTranslationRequestAsync(
                             requestId,
@@ -254,7 +272,7 @@ namespace AutoTranslator_Core
                     await Task.Delay(100);
                 }
 
-                        response = await completion.Task;
+                response = await completion.Task;
                 PopulateRequestDiagnostics(
                     response,
                     requestContext,
@@ -288,6 +306,10 @@ namespace AutoTranslator_Core
             }
             finally
             {
+                // StartCoroutine may send and complete synchronously, before the ordinary
+                // waiting-response branch is reached. Account for that real send as well.
+                networkRequestStarted |= networkSendStarted.Task.Status == TaskStatus.RanToCompletion &&
+                                         networkSendStarted.Task.Result;
                 PopulateRequestDiagnostics(
                     response,
                     requestContext,

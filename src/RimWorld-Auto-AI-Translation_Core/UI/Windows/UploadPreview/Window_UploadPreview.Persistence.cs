@@ -37,6 +37,7 @@ namespace AutoTranslator_Core
         private sealed class UploadPreviewSaveItemSnapshot
         {
             public string Key;
+            public string SourceFile;
             public string TranslatedText;
         }
 
@@ -75,7 +76,7 @@ namespace AutoTranslator_Core
                     if (result.SaveCount > 0)
                     {
                         AutoTranslatorScanner.RequestMemoryDrop();
-                        UIInterceptor.ClearUICache();
+                        UIInterceptor.ResetProbeCaches();
                     }
 
                     ExecuteActualUpload();
@@ -99,6 +100,7 @@ namespace AutoTranslator_Core
                     .Select(i => new UploadPreviewSaveItemSnapshot
                     {
                         Key = i.Key,
+                        SourceFile = i.SourceFile,
                         TranslatedText = i.TranslatedText
                     })
                     .ToList();
@@ -121,20 +123,16 @@ namespace AutoTranslator_Core
 
             try
             {
-                string cleanPackageId = snapshot.PackageId.Replace(".", "_").ToLower();
                 foreach (UploadPreviewSaveCategorySnapshot category in snapshot.Categories)
                 {
                     if (category == null || category.Items == null || category.Items.Count == 0) continue;
-
-                    string fileDir = category.Category == "Keyed"
-                        ? Path.Combine(snapshot.SourceDir, "Keyed")
-                        : Path.Combine(snapshot.SourceDir, "DefInjected", category.Category);
-
-                    Directory.CreateDirectory(fileDir);
-                    string targetFile = Path.Combine(fileDir, $"{cleanPackageId}_AutoTranslated.xml");
+                    foreach (var fileItems in category.Items.GroupBy(item => item.SourceFile, StringComparer.OrdinalIgnoreCase))
+                    {
+                    string targetFile = fileItems.Key;
+                    if (string.IsNullOrWhiteSpace(targetFile)) throw new InvalidOperationException("Upload preview source file is missing.");
                     Dictionary<string, string> existing = AutoTranslatorScanner.LoadXmlFileToDict(targetFile);
 
-                    foreach (UploadPreviewSaveItemSnapshot item in category.Items)
+                    foreach (UploadPreviewSaveItemSnapshot item in fileItems)
                     {
                         if (item == null || string.IsNullOrWhiteSpace(item.Key)) continue;
                         existing[item.Key] = item.TranslatedText;
@@ -147,7 +145,10 @@ namespace AutoTranslator_Core
                         snapshot.PackageId,
                         targetFile,
                         existing,
-                        BuildManualEditProvenance(snapshot, category, targetFile, existing));
+                        BuildManualEditProvenance(snapshot,
+                            new UploadPreviewSaveCategorySnapshot { Category = category.Category, Items = fileItems.ToList() },
+                            targetFile, existing));
+                    }
                 }
             }
             catch (Exception ex)

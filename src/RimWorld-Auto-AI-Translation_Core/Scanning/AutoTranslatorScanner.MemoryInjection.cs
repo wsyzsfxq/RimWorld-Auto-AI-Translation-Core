@@ -95,6 +95,15 @@ namespace AutoTranslator_Core
             public int RejectedDefs;
             public bool NeedsDataInjection;
             public bool PackageClearApplied;
+            public int ApplySlices;
+            public long MaxApplySliceMs;
+            public long FinalizeMs;
+            public bool FinalizationStarted;
+            public int FinalizationPhase;
+            public long BeforeInjectMs;
+            public long AfterInjectMs;
+            public long RestoreCleanupMs;
+            public long NormalizeMs;
             public readonly List<RuntimeDefRestoreRemoval> TemporaryDefRestores = new List<RuntimeDefRestoreRemoval>();
         }
 
@@ -107,10 +116,6 @@ namespace AutoTranslator_Core
                 _validationStats.Reset();
             }
 
-            lock (_loggedEnglishResidualContexts)
-            {
-                _loggedEnglishResidualContexts.Clear();
-            }
         }
 
 
@@ -191,6 +196,20 @@ namespace AutoTranslator_Core
             }
             QueueMemoryDropPreparation(false, true);
             return completion.Task;
+        }
+
+        public static bool IsMemoryDropBusy
+        {
+            get
+            {
+                lock (_pendingInjectLock)
+                {
+                    return Interlocked.CompareExchange(ref _memoryDropPrepareRunning, 0, 0) != 0 ||
+                           _pendingMemoryDrop || _pendingKeyedMemoryDrop ||
+                           _pendingMemoryDropPackageIds.Count > 0 ||
+                           _pendingMemoryDropPayload != null || _activeMemoryDropApply != null;
+                }
+            }
         }
 
         public static void RequestMemoryDropForPackage(string packageId)
@@ -331,9 +350,27 @@ namespace AutoTranslator_Core
 
         private static void PrepareMemoryDropPayloadWorker(bool keyedOnly, List<string> packageIds, Dictionary<string, Dictionary<string, HashSet<string>>> clearKeysByPackage, int generation)
         {
+            System.Diagnostics.Stopwatch prepareTimer = System.Diagnostics.Stopwatch.StartNew();
             try
             {
                 MemoryDropPayload payload = BuildMemoryDropPayload(keyedOnly, packageIds, clearKeysByPackage);
+                prepareTimer.Stop();
+                int keyedCount = payload?.Keyed?.Count ?? 0;
+                int defTypeCount = payload?.DefsByType?.Count ?? 0;
+                int defEntryCount = payload?.DefsByType?.Sum(item => item?.Data?.Count ?? 0) ?? 0;
+                string scope = keyedOnly
+                    ? "keyed"
+                    : packageIds != null && packageIds.Count > 0
+                        ? "package"
+                        : "full";
+                AutoTranslatorSettings.AddLog(
+                    "⏱ Memory Drop 准备完成：耗时 " + prepareTimer.ElapsedMilliseconds +
+                    " ms；范围=" + scope +
+                    "；包=" + (packageIds?.Count ?? 0) +
+                    "；Keyed=" + keyedCount +
+                    "；Def=" + defEntryCount +
+                    "；Def 类型=" + defTypeCount +
+                    (payload == null ? "；无需应用" : string.Empty));
                 lock (_pendingInjectLock)
                 {
                     if (generation != Volatile.Read(ref _memoryDropGeneration)) return;
@@ -405,8 +442,10 @@ namespace AutoTranslator_Core
 
         internal static void PumpMainThreadDispatcher()
         {
-            if (_activeMemoryDropApply != null)
+            int currentFrame = UnityEngine.Time.frameCount;
+            if (_activeMemoryDropApply != null && _lastMemoryDropApplyFrame != currentFrame)
             {
+                _lastMemoryDropApplyFrame = currentFrame;
                 ContinueMemoryDropApply();
             }
 
@@ -425,8 +464,9 @@ namespace AutoTranslator_Core
                 BeginMemoryDropApply(payload);
             }
 
-            if (_activeMemoryDropApply != null)
+            if (_activeMemoryDropApply != null && _lastMemoryDropApplyFrame != currentFrame)
             {
+                _lastMemoryDropApplyFrame = currentFrame;
                 ContinueMemoryDropApply();
             }
 
@@ -733,6 +773,15 @@ namespace AutoTranslator_Core
             if (payload == null) return;
             if (LanguageDatabase.activeLanguage == null || AutoTranslatorMod.Settings == null) return;
 
+            int defEntryCount = payload.DefsByType?.Sum(item => item?.Data?.Count ?? 0) ?? 0;
+            long queuedMs = payload.PreparedAtUtc == default(DateTime)
+                ? 0L
+                : Math.Max(0L, (long)(DateTime.UtcNow - payload.PreparedAtUtc).TotalMilliseconds);
+            AutoTranslatorSettings.AddLog(
+                "⏱ Memory Drop 开始主线程应用：等待 " + queuedMs +
+                " ms；范围=" + (payload.KeyedOnly ? "keyed" : payload.PackageScoped ? "package" : "full") +
+                "；Keyed=" + (payload.Keyed?.Count ?? 0) +
+                "；Def=" + defEntryCount);
             _activeMemoryDropApply = new MemoryDropApplyState
             {
                 Payload = payload,
@@ -748,26 +797,109 @@ namespace AutoTranslator_Core
             MemoryDropApplyState state = _activeMemoryDropApply;
             if (state == null) return;
 
+            System.Diagnostics.Stopwatch sliceTimer = System.Diagnostics.Stopwatch.StartNew();
+            string phase = !state.PackageClearApplied
+                ? "clear"
+                : state.KeyedIndex < state.KeyedEntries.Count
+                    ? "keyed"
+                    : state.DefTypeIndex < (state.Payload.DefsByType?.Count ?? 0) || state.CurrentDefEntries != null
+                        ? "def"
+                        : GetMemoryDropFinalizationPhaseName(state.FinalizationPhase);
+            bool shouldFinish = false;
+            bool finishSucceeded = false;
             try
             {
                 LoadedLanguage activeLang = LanguageDatabase.activeLanguage;
                 if (activeLang == null || AutoTranslatorMod.Settings == null)
                 {
-                    FinishMemoryDropApply(state, false);
+                    shouldFinish = true;
                     return;
                 }
 
                 ApplyPackageClearKeysIfNeeded(state, activeLang);
                 if (ApplyKeyedBatch(state, activeLang)) return;
                 if (!state.Payload.KeyedOnly && ApplyDefBatch(state, activeLang)) return;
+                if (!state.Payload.KeyedOnly && state.NeedsDataInjection && !state.FinalizationStarted)
+                {
+                    state.FinalizationStarted = true;
+                    return;
+                }
+                phase = GetMemoryDropFinalizationPhaseName(state.FinalizationPhase);
+                if (!state.Payload.KeyedOnly && state.NeedsDataInjection &&
+                    ContinueMemoryDropFinalization(state, activeLang)) return;
 
-                FinishMemoryDropApply(state, true);
+                shouldFinish = true;
+                finishSucceeded = true;
             }
             catch (Exception ex)
             {
                 AutoTranslatorSettings.AddErrorLog("❌ " + AutoTranslatorAPI.TranslateText("ATC_LogError_MemoryDropFailed", ex.Message));
                 Log.Error($"[AutoTranslationCore] Memory Drop Failed: {ex.Message}");
-                FinishMemoryDropApply(state, false);
+                shouldFinish = true;
+            }
+            finally
+            {
+                sliceTimer.Stop();
+                state.ApplySlices++;
+                state.MaxApplySliceMs = Math.Max(state.MaxApplySliceMs, sliceTimer.ElapsedMilliseconds);
+                if (sliceTimer.ElapsedMilliseconds >= 50L)
+                {
+                    AutoTranslatorSettings.AddWarningLog(
+                        "Memory Drop 主线程分片较慢：耗时 " + sliceTimer.ElapsedMilliseconds +
+                        " ms；阶段=" + phase +
+                        "；Keyed=" + state.KeyedIndex + "/" + state.KeyedEntries.Count +
+                        "；Def 类型=" + state.DefTypeIndex + "/" + (state.Payload.DefsByType?.Count ?? 0));
+                }
+                if (shouldFinish)
+                    FinishMemoryDropApply(state, finishSucceeded);
+            }
+        }
+
+        private static bool ContinueMemoryDropFinalization(MemoryDropApplyState state, LoadedLanguage activeLang)
+        {
+            if (state == null || activeLang == null || state.FinalizationPhase >= 4) return false;
+
+            System.Diagnostics.Stopwatch stageTimer = System.Diagnostics.Stopwatch.StartNew();
+            int completedPhase = state.FinalizationPhase;
+            switch (completedPhase)
+            {
+                case 0:
+                    activeLang.InjectIntoData_BeforeImpliedDefs();
+                    break;
+                case 1:
+                    activeLang.InjectIntoData_AfterImpliedDefs();
+                    break;
+                case 2:
+                    RemoveTemporaryDefRestores(state.TemporaryDefRestores);
+                    break;
+                case 3:
+                    NormalizeInjectedDefs();
+                    break;
+            }
+            stageTimer.Stop();
+
+            long elapsedMs = stageTimer.ElapsedMilliseconds;
+            state.FinalizeMs += elapsedMs;
+            switch (completedPhase)
+            {
+                case 0: state.BeforeInjectMs = elapsedMs; break;
+                case 1: state.AfterInjectMs = elapsedMs; break;
+                case 2: state.RestoreCleanupMs = elapsedMs; break;
+                case 3: state.NormalizeMs = elapsedMs; break;
+            }
+            state.FinalizationPhase++;
+            return state.FinalizationPhase < 4;
+        }
+
+        private static string GetMemoryDropFinalizationPhaseName(int phase)
+        {
+            switch (phase)
+            {
+                case 0: return "finalize-inject-before";
+                case 1: return "finalize-inject-after";
+                case 2: return "finalize-restore-cleanup";
+                case 3: return "finalize-normalize";
+                default: return "finalize-complete";
             }
         }
 
@@ -1176,17 +1308,26 @@ namespace AutoTranslator_Core
                 if (!success)
                 {
                     lock (_pendingInjectLock) _memoryDropCycleSucceeded = false;
-                }
-                if (success && !state.Payload.KeyedOnly && state.NeedsDataInjection)
-                {
-                    LoadedLanguage activeLang = LanguageDatabase.activeLanguage;
-                    if (activeLang != null)
+                    try
                     {
-                        activeLang.InjectIntoData_BeforeImpliedDefs();
-                        activeLang.InjectIntoData_AfterImpliedDefs();
                         RemoveTemporaryDefRestores(state.TemporaryDefRestores);
-                        NormalizeInjectedDefs();
                     }
+                    catch (Exception cleanupEx)
+                    {
+                        AutoTranslatorSettings.AddWarningLog(
+                            "Memory Drop 失败后的临时恢复项清理失败：" + cleanupEx.Message);
+                    }
+                }
+                if (success && state.FinalizeMs >= 50L)
+                {
+                    AutoTranslatorSettings.AddWarningLog(
+                        "Memory Drop 最终 Def 注入较慢：耗时 " + state.FinalizeMs +
+                        " ms；注入 Def=" + state.InjectedDefs +
+                        "；Def 类型=" + (state.Payload.DefsByType?.Count ?? 0) +
+                        "；分段 ms=注入前 " + state.BeforeInjectMs +
+                        " / 注入后 " + state.AfterInjectMs +
+                        " / 恢复清理 " + state.RestoreCleanupMs +
+                        " / 规范化 " + state.NormalizeMs);
                 }
 
                 if (state.RejectedDefs > 0)
@@ -1233,6 +1374,14 @@ namespace AutoTranslator_Core
                 if (!state.Payload.KeyedOnly)
                 {
                     AutoTranslatorPerf.RecordMemoryDrop(state.Timer != null ? state.Timer.ElapsedMilliseconds : 0, state.InjectedKeyed, state.InjectedDefs);
+                    AutoTranslatorSettings.AddLog(
+                        "⏱ Memory Drop 完成：总耗时 " + (state.Timer?.ElapsedMilliseconds ?? 0L) +
+                        " ms；主线程分片=" + state.ApplySlices +
+                        "；最慢分片=" + state.MaxApplySliceMs +
+                        " ms；最终注入=" + state.FinalizeMs +
+                        " ms；Keyed=" + state.InjectedKeyed +
+                        "；Def=" + state.InjectedDefs +
+                        "；成功=" + (success ? "是" : "否"));
                 }
 
                 if (ReferenceEquals(_activeMemoryDropApply, state))
@@ -1281,6 +1430,9 @@ namespace AutoTranslator_Core
             LoadedLanguage activeLang = LanguageDatabase.activeLanguage;
             while (ApplyKeyedBatch(state, activeLang)) { }
             while (!payload.KeyedOnly && ApplyDefBatch(state, activeLang)) { }
+            state.FinalizationStarted = true;
+            while (!payload.KeyedOnly && state.NeedsDataInjection &&
+                   ContinueMemoryDropFinalization(state, activeLang)) { }
             FinishMemoryDropApply(state, true);
         }
 

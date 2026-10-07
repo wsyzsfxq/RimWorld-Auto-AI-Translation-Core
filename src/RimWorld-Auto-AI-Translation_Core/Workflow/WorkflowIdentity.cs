@@ -9,16 +9,14 @@ namespace AutoTranslator_Core.Workflow
     public static class WorkflowIdentity
     {
         public const string CandidateIdentitySchemaVersion = "atc-candidate-v1";
-        // xml-3 keeps the frozen v3.0 field-selection rules while resolving named
-        // Def inheritance before candidate generation.
-        public const string XmlAnalyzerVersion = "xml-3";
-        public const string DllAnalyzerVersion = "dll-3.03";
-        // Major compatibility version for saved AI review decisions. Minor prompt
-        // wording revisions are tracked separately and do not invalidate a stable
-        // candidate whose source/evidence is unchanged.
+        // Small rule updates use decimal revisions within the released xml-3 series.
+        public const string XmlAnalyzerVersion = "xml-3.01";
+        public const string DllAnalyzerVersion = "dll-3.06";
+        // AI review metadata is retained for diagnostics. A non-empty AI layer is
+        // reusable until the user explicitly clears that mod's AI review results.
         public const string AiReviewVersion = "ai-review-4";
         public const string AiReviewPromptVersion = "ai-review-prompt-4.0";
-        public const string AiTranslationPromptVersion = "ai-translation-prompt-2.0";
+        public const string AiTranslationPromptVersion = "ai-translation-prompt-2.2";
         private const string CandidateIdPrefix = "atc1_";
 
         public static string CreateCandidateId(
@@ -109,9 +107,13 @@ namespace AutoTranslator_Core.Workflow
 
         public static bool IsTranslationCurrent(CandidateRecord candidate)
         {
-            if (candidate == null || candidate.TranslationState != CandidateTranslationState.Translated) return false;
-            return !string.IsNullOrEmpty(candidate.SourceTextHash) &&
-                   string.Equals(candidate.SourceTextHash, candidate.SourceTextHashAtTranslation, StringComparison.Ordinal);
+            if (candidate == null) return false;
+            bool sourceIsCurrent = !string.IsNullOrEmpty(candidate.SourceTextHash) &&
+                                   string.Equals(candidate.SourceTextHash,
+                                       candidate.SourceTextHashAtTranslation, StringComparison.Ordinal);
+            if (!sourceIsCurrent || string.IsNullOrWhiteSpace(candidate.TranslationText)) return false;
+            if (candidate.TranslationState == CandidateTranslationState.Translated) return true;
+            return candidate.TranslationOrigin > TranslationOrigin.AiTranslation;
         }
 
         public static string CreateAiReviewFingerprint(CandidateRecord candidate)
@@ -125,17 +127,10 @@ namespace AutoTranslator_Core.Workflow
 
         public static bool IsAiReviewCurrent(CandidateRecord candidate)
         {
-            if (candidate == null ||
-                ClassificationFlagsCodec.Get(
-                    candidate.ClassificationFlags, ClassificationLayer.AiReview) ==
-                CandidateClassification.NotAnalyzed)
-                return false;
-            return string.Equals(
-                       candidate.AiReviewVersion, AiReviewVersion, StringComparison.Ordinal) &&
-                   string.Equals(
-                       candidate.AiReviewFingerprint,
-                       CreateAiReviewFingerprint(candidate),
-                       StringComparison.Ordinal);
+            return candidate != null &&
+                   ClassificationFlagsCodec.Get(
+                       candidate.ClassificationFlags, ClassificationLayer.AiReview) !=
+                   CandidateClassification.NotAnalyzed;
         }
 
         private static string NormalizeLocator(string value)

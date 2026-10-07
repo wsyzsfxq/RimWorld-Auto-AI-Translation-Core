@@ -14,7 +14,7 @@ namespace AutoTranslator_Core.Workflow.Output
             _output = output;
         }
 
-        public void Save(string candidateId, string translatedText)
+        public CandidateSourceDomain Save(string candidateId, string translatedText)
         {
             string targetLanguage = WorkflowRuntimeSettings.GetTargetLanguageFolder();
             AutoTranslatorSettings.AddDebugLog(
@@ -44,9 +44,10 @@ namespace AutoTranslator_Core.Workflow.Output
                 _repository.FailPendingFileOperation(operationId, ex);
                 throw;
             }
+            return candidate.SourceDomain;
         }
 
-        public void Delete(string candidateId)
+        public CandidateSourceDomain Delete(string candidateId)
         {
             string targetLanguage = WorkflowRuntimeSettings.GetTargetLanguageFolder();
             AutoTranslatorSettings.AddDebugLog(
@@ -74,11 +75,12 @@ namespace AutoTranslator_Core.Workflow.Output
                     _repository.FailPendingFileOperation(operationId, ex);
                     throw;
                 }
-                return;
+                return candidate.SourceDomain;
             }
             _repository.ClearTranslation(candidateId, targetLanguage);
             AutoTranslatorSettings.AddDebugLog(
                 "workflow.manual-translation delete complete candidate=" + candidateId + " managedOutput=false");
+            return candidate.SourceDomain;
         }
 
         private CandidateRecord RequireCandidate(string candidateId, string targetLanguage)

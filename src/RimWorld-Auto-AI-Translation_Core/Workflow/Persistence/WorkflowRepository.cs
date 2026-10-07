@@ -11,7 +11,7 @@ using Newtonsoft.Json;
 
 namespace AutoTranslator_Core.Workflow.Persistence
 {
-    internal sealed class WorkflowRepository
+    internal sealed partial class WorkflowRepository
     {
         private const string SelectedWorkflowModsTable = "SelectedWorkflowMods";
         private const string SelectedWorkflowAnalysisModsTable = "SelectedWorkflowAnalysisMods";
@@ -117,6 +117,7 @@ namespace AutoTranslator_Core.Workflow.Persistence
                 using (DbConnection connection = _connections.OpenConnection())
                 {
                     WorkflowDatabaseSchema.EnsureCurrent(connection);
+                    InitializeReferenceDictionary(connection);
                     InvalidateObsoleteAnalyzerCandidates(connection);
                 }
                 AutoTranslatorSettings.AddDebugLog("workflow.database ready schema=" + WorkflowDatabaseSchema.CurrentVersion);
@@ -129,7 +130,10 @@ namespace AutoTranslator_Core.Workflow.Persistence
                 _connections.DeleteDatabaseFilesAfterConfirmedCorruption();
                 Verse.Log.Error("[AutoTranslationCore] Workflow database was corrupt and has been rebuilt: " + ex.Message);
                 using (DbConnection connection = _connections.OpenConnection())
+                {
                     WorkflowDatabaseSchema.EnsureCurrent(connection);
+                    InitializeReferenceDictionary(connection);
+                }
             }
         }
 
@@ -899,7 +903,8 @@ namespace AutoTranslator_Core.Workflow.Persistence
             CandidateClassification? classification,
             int translationFilter,
             int offset,
-            int limit)
+            int limit,
+            bool requireManualClassification = false)
         {
             CandidatePage page = new CandidatePage();
             offset = Math.Max(0, offset);
@@ -908,8 +913,6 @@ namespace AutoTranslator_Core.Workflow.Persistence
                 WHEN ((Candidates.classification_flags >> 6) & 3) <> 0
                     THEN ((Candidates.classification_flags >> 6) & 3)
                 WHEN ((Candidates.classification_flags >> 4) & 3) <> 0
-                     AND Candidates.ai_review_version=@ai_version
-                     AND Candidates.ai_review_fingerprint<>''
                     THEN ((Candidates.classification_flags >> 4) & 3)
                 WHEN Candidates.source_domain=1 AND Candidates.dll_analyzer_version=@dll_version
                     THEN ((Candidates.classification_flags >> 2) & 3)
@@ -927,14 +930,18 @@ namespace AutoTranslator_Core.Workflow.Persistence
                     OR Candidates.source_file_relative_path LIKE @search
                     OR COALESCE(TranslationResults.translation_text,'') LIKE @search)";
             if (classification.HasValue) where += " AND (" + effective + ")=@classification";
+            if (requireManualClassification)
+                where += " AND ((Candidates.classification_flags >> 6) & 3)<>0";
             if (translationFilter == 1)
-                where += @" AND (COALESCE(TranslationResults.translation_state,0)=0
-                    OR COALESCE(TranslationResults.source_text_hash_at_translation,'')<>Candidates.source_text_hash)";
+                where += " AND (" + effective + @")=2
+                    AND COALESCE(TranslationResults.translation_state,0) NOT IN (1,3)
+                    AND NOT " + GetTranslationCurrentSql();
             else if (translationFilter == 2)
-                where += @" AND COALESCE(TranslationResults.translation_state,0)=2
-                    AND COALESCE(TranslationResults.source_text_hash_at_translation,'')=Candidates.source_text_hash";
+                where += " AND (" + effective + ")=2 AND " + GetTranslationCurrentSql();
             else if (translationFilter == 3)
-                where += " AND COALESCE(TranslationResults.translation_state,0)=3";
+                where += " AND (" + effective + ")=2" +
+                         " AND COALESCE(TranslationResults.translation_state,0)=3" +
+                         " AND NOT " + GetTranslationCurrentSql();
 
             using (DbConnection connection = _connections.OpenConnection())
             {
@@ -958,6 +965,7 @@ namespace AutoTranslator_Core.Workflow.Persistence
                         "COALESCE(TranslationResults.managed_output_file,'') AS translation_file_relative_path, " +
                         "COALESCE(NULLIF(TranslationResults.managed_output_key,''),Candidates.output_entry_key,'') AS translation_entry_key, " +
                         "COALESCE(TranslationResults.validation_status,'') AS validation_status, " +
+                        "COALESCE(TranslationResults.error_text,'') AS translation_error, " +
                         "COALESCE(TranslationResults.last_sync_status,'') AS last_sync_status, " +
                         "COALESCE(TranslationResults.last_sync_error,'') AS last_sync_error, " +
                         "COALESCE(TranslationResults.last_synced_utc,'') AS last_synced_utc" + where +
@@ -984,7 +992,6 @@ namespace AutoTranslator_Core.Workflow.Persistence
             Add(command, "@classification", classification.HasValue ? (int)classification.Value : 0);
             Add(command, "@xml_version", WorkflowIdentity.XmlAnalyzerVersion);
             Add(command, "@dll_version", WorkflowIdentity.DllAnalyzerVersion);
-            Add(command, "@ai_version", WorkflowIdentity.AiReviewVersion);
         }
 
         public HashSet<string> GetProtectedTranslationTargetIdentities(ICollection<string> modIdentities)
@@ -1011,7 +1018,9 @@ namespace AutoTranslator_Core.Workflow.Persistence
             string targetLanguage,
             ICollection<CandidateClassification> classifications,
             bool requireTranslationNotCurrent,
-            ICollection<string> candidateIds = null)
+            ICollection<string> candidateIds = null,
+            bool requireTranslationReady = false,
+            bool requireAiReviewMissing = false)
         {
             List<CandidateClassification> selected = (classifications ?? Array.Empty<CandidateClassification>())
                 .Distinct().ToList();
@@ -1039,7 +1048,15 @@ namespace AutoTranslator_Core.Workflow.Persistence
                     "WHERE Candidates.is_present=1 AND Candidates.mod_identity=@mod " +
                     "AND " + GetCurrentAnalyzerCandidateSql() + " " +
                     "AND (" + effective + ") IN (" + AddClassificationParameters(command, selected) + ")" +
-                    (requireTranslationNotCurrent ? " AND NOT " + GetTranslationCurrentSql() : string.Empty) + ";";
+                    (requireAiReviewMissing
+                        ? " AND ((Candidates.classification_flags >> 4) & 3)=0"
+                        : string.Empty) +
+                    (requireTranslationReady || requireTranslationNotCurrent
+                        ? " AND " + GetTranslationReadySql()
+                        : string.Empty) +
+                    (requireTranslationNotCurrent
+                        ? " AND NOT " + GetTranslationCurrentSql()
+                        : string.Empty) + ";";
                 AddAiPageCommonParameters(command, modIdentity, targetLanguage);
                 return Convert.ToInt64(command.ExecuteScalar());
             }
@@ -1052,7 +1069,8 @@ namespace AutoTranslator_Core.Workflow.Persistence
             bool requireTranslationNotCurrent,
             AiCandidateCursor cursor,
             int pageSize,
-            ICollection<string> candidateIds = null)
+            ICollection<string> candidateIds = null,
+            bool requireAiReviewMissing = false)
         {
             AiCandidatePage page = new AiCandidatePage();
             List<CandidateClassification> selected = (classifications ?? Array.Empty<CandidateClassification>())
@@ -1077,12 +1095,19 @@ namespace AutoTranslator_Core.Workflow.Persistence
                     (Candidates.source_file_relative_path=@cursor_file AND Candidates.source_line_number=@cursor_line
                         AND Candidates.candidate_id>@cursor_id))";
                 command.CommandText = "SELECT Candidates.*, Mods.package_id AS package_id, " +
-                    "0 AS translation_state, 0 AS translation_origin, '' AS translation_text, " +
-                    "'' AS translation_hash, '' AS source_text_hash_at_translation, " +
-                    "'' AS translation_source_package_id, '' AS translation_source_file_relative_path, " +
-                    "'' AS translation_source_entry_key, '' AS translation_file_relative_path, " +
+                    "COALESCE(TranslationResults.translation_state,0) AS translation_state, " +
+                    "COALESCE(TranslationResults.translation_origin,0) AS translation_origin, " +
+                    "COALESCE(TranslationResults.translation_text,'') AS translation_text, " +
+                    "COALESCE(TranslationResults.translation_hash,'') AS translation_hash, " +
+                    "COALESCE(TranslationResults.source_text_hash_at_translation,'') AS source_text_hash_at_translation, " +
+                    "COALESCE(TranslationResults.source_package_id,'') AS translation_source_package_id, " +
+                    "COALESCE(TranslationResults.source_file_relative_path,'') AS translation_source_file_relative_path, " +
+                    "COALESCE(TranslationResults.source_entry_key,'') AS translation_source_entry_key, " +
+                    "COALESCE(TranslationResults.managed_output_file,'') AS translation_file_relative_path, " +
                     "COALESCE(NULLIF(TranslationResults.managed_output_key,''),Candidates.output_entry_key,'') " +
-                    "AS translation_entry_key, '' AS validation_status, " +
+                    "AS translation_entry_key, " +
+                    "COALESCE(TranslationResults.validation_status,'') AS validation_status, " +
+                    "COALESCE(TranslationResults.error_text,'') AS translation_error, " +
                     "'' AS last_sync_status, '' AS last_sync_error, '' AS last_synced_utc " +
                     "FROM Candidates INNER JOIN Mods ON Mods.mod_identity=Candidates.mod_identity " +
                     (restrictCandidates
@@ -1094,7 +1119,12 @@ namespace AutoTranslator_Core.Workflow.Persistence
                     "WHERE Candidates.is_present=1 AND Candidates.mod_identity=@mod " +
                     "AND " + GetCurrentAnalyzerCandidateSql() + " " +
                     "AND (" + effective + ") IN (" + AddClassificationParameters(command, selected) + ")" +
-                    (requireTranslationNotCurrent ? " AND NOT " + GetTranslationCurrentSql() : string.Empty) +
+                    (requireAiReviewMissing
+                        ? " AND ((Candidates.classification_flags >> 4) & 3)=0"
+                        : string.Empty) +
+                    (requireTranslationNotCurrent
+                        ? " AND " + GetTranslationReadySql() + " AND NOT " + GetTranslationCurrentSql()
+                        : string.Empty) +
                     cursorWhere + @" ORDER BY Candidates.source_file_relative_path,
                         Candidates.source_line_number, Candidates.candidate_id LIMIT @limit;";
                 AddAiPageCommonParameters(command, modIdentity, targetLanguage);
@@ -1123,7 +1153,6 @@ namespace AutoTranslator_Core.Workflow.Persistence
             return @"CASE
                     WHEN ((Candidates.classification_flags >> 6) & 3)<>0 THEN ((Candidates.classification_flags >> 6) & 3)
                     WHEN ((Candidates.classification_flags >> 4) & 3)<>0
-                         AND Candidates.ai_review_version=@ai_version AND Candidates.ai_review_fingerprint<>''
                         THEN ((Candidates.classification_flags >> 4) & 3)
                     WHEN ((Candidates.classification_flags >> 2) & 3)<>0
                          AND Candidates.source_domain=1 AND Candidates.dll_analyzer_version=@dll_version
@@ -1143,9 +1172,21 @@ namespace AutoTranslator_Core.Workflow.Persistence
 
         private static string GetTranslationCurrentSql()
         {
-            return @"(COALESCE(TranslationResults.translation_state,0)=2 AND
-                Candidates.source_text_hash<>'' AND
-                COALESCE(TranslationResults.source_text_hash_at_translation,'')=Candidates.source_text_hash)";
+            return @"(Candidates.source_text_hash<>'' AND
+                COALESCE(TranslationResults.source_text_hash_at_translation,'')=Candidates.source_text_hash AND
+                COALESCE(TranslationResults.translation_text,'')<>'' AND
+                (COALESCE(TranslationResults.translation_state,0)=2 OR
+                 COALESCE(TranslationResults.translation_origin,0)>1))";
+        }
+
+        private static string GetTranslationReadySql()
+        {
+            return @"(COALESCE(TranslationResults.last_sync_status,'') NOT IN ('ReadError','SourceChanged')
+                AND NOT EXISTS (
+                    SELECT 1 FROM PendingFileOperations pending
+                    WHERE pending.candidate_id=Candidates.candidate_id
+                      AND pending.target_language=@target_language
+                      AND pending.state IN (0,2)))";
         }
 
         private static string AddClassificationParameters(
@@ -1168,7 +1209,6 @@ namespace AutoTranslator_Core.Workflow.Persistence
             Add(command, "@target_language", targetLanguage ?? string.Empty);
             Add(command, "@xml_version", WorkflowIdentity.XmlAnalyzerVersion);
             Add(command, "@dll_version", WorkflowIdentity.DllAnalyzerVersion);
-            Add(command, "@ai_version", WorkflowIdentity.AiReviewVersion);
         }
 
         public List<WorkbenchModAggregate> GetWorkbenchModAggregates(
@@ -1198,9 +1238,7 @@ namespace AutoTranslator_Core.Workflow.Persistence
                                CASE
                                    WHEN ((Candidates.classification_flags >> 6) & 3) <> 0
                                        THEN ((Candidates.classification_flags >> 6) & 3)
-                                   WHEN ((Candidates.classification_flags >> 4) & 3) <> 0
-                                        AND Candidates.ai_review_version=@ai_version
-                                        AND Candidates.ai_review_fingerprint<>''
+                                    WHEN ((Candidates.classification_flags >> 4) & 3) <> 0
                                        THEN ((Candidates.classification_flags >> 4) & 3)
                                    WHEN ((Candidates.classification_flags >> 2) & 3) <> 0
                                         AND Candidates.dll_analyzer_version=@dll_version
@@ -1211,6 +1249,8 @@ namespace AutoTranslator_Core.Workflow.Persistence
                                    ELSE 1
                                END AS effective_classification,
                                COALESCE(TranslationResults.translation_state, 0) AS translation_state,
+                               COALESCE(TranslationResults.translation_origin, 0) AS translation_origin,
+                               COALESCE(TranslationResults.translation_text, '') AS translation_text,
                                COALESCE(TranslationResults.source_text_hash_at_translation, '')
                                    AS translated_source_hash
                         FROM Candidates
@@ -1237,19 +1277,33 @@ namespace AutoTranslator_Core.Workflow.Persistence
                            SUM(CASE WHEN effective_classification=1 THEN 1 ELSE 0 END) AS effective_undetermined,
                            SUM(CASE WHEN effective_classification=3 THEN 1 ELSE 0 END) AS effective_no_need,
                            SUM(CASE WHEN effective_classification=2
-                                         AND translation_state=1 THEN 1 ELSE 0 END) AS translating,
+                                         AND translation_state=1
+                                         AND NOT (source_text_hash<>''
+                                                  AND source_text_hash=translated_source_hash
+                                                  AND translation_origin>1
+                                                  AND translation_text<>'')
+                                    THEN 1 ELSE 0 END) AS translating,
                            SUM(CASE WHEN effective_classification=2
-                                         AND translation_state=2
                                          AND source_text_hash<>''
                                          AND source_text_hash=translated_source_hash
+                                         AND translation_text<>''
+                                         AND (translation_state=2 OR
+                                              translation_origin>1)
                                     THEN 1 ELSE 0 END) AS translated,
                            SUM(CASE WHEN effective_classification=2
-                                         AND translation_state=3 THEN 1 ELSE 0 END) AS failed,
+                                         AND translation_state=3
+                                         AND NOT (source_text_hash<>''
+                                                  AND source_text_hash=translated_source_hash
+                                                  AND translation_origin>1
+                                                  AND translation_text<>'')
+                                    THEN 1 ELSE 0 END) AS failed,
                            SUM(CASE WHEN effective_classification=2
-                                         AND (translation_state=0
-                                         OR (translation_state=2 AND
-                                             (source_text_hash='' OR source_text_hash<>translated_source_hash))
-                                         )
+                                         AND translation_state<>1
+                                         AND NOT (source_text_hash<>''
+                                                  AND source_text_hash=translated_source_hash
+                                                  AND translation_text<>''
+                                                  AND (translation_state=2 OR translation_origin>1))
+                                         AND translation_state<>3
                                     THEN 1 ELSE 0 END) AS untranslated
                     FROM CurrentCandidates
                     GROUP BY mod_identity, source_domain
@@ -1257,7 +1311,6 @@ namespace AutoTranslator_Core.Workflow.Persistence
                 Add(command, "@target", targetLanguage ?? string.Empty);
                 Add(command, "@xml_version", WorkflowIdentity.XmlAnalyzerVersion);
                 Add(command, "@dll_version", WorkflowIdentity.DllAnalyzerVersion);
-                Add(command, "@ai_version", WorkflowIdentity.AiReviewVersion);
                 using (DbDataReader reader = command.ExecuteReader())
                 {
                     while (reader.Read())
@@ -1342,6 +1395,93 @@ namespace AutoTranslator_Core.Workflow.Persistence
                     LIMIT @page_size;";
                 AddTranslationSynchronizationScopeParameters(command, targetLanguage);
                 Add(command, "@after_candidate_id", afterCandidateId ?? string.Empty);
+                Add(command, "@page_size", pageSize);
+                using (DbDataReader reader = command.ExecuteReader())
+                    while (reader.Read()) result.Add(ReadCandidate(reader));
+            }
+            return result;
+        }
+
+        public int CountCurrentManagedTranslations(string targetLanguage)
+        {
+            using (DbConnection connection = _connections.OpenConnection())
+            using (DbCommand command = connection.CreateCommand())
+            {
+                command.CommandText = @"SELECT COUNT(*)
+                    FROM Candidates
+                    INNER JOIN Mods ON Mods.mod_identity=Candidates.mod_identity
+                    INNER JOIN TranslationResults
+                        ON TranslationResults.candidate_id=Candidates.candidate_id
+                       AND TranslationResults.target_language=@target_language
+                    WHERE Candidates.is_present=1
+                      AND Candidates.mod_version_fingerprint=Mods.version_fingerprint
+                      AND TranslationResults.translation_state=@translated
+                      AND TranslationResults.translation_text<>''
+                      AND TranslationResults.source_text_hash_at_translation=Candidates.source_text_hash
+                      AND TranslationResults.managed_output_file<>''
+                      AND TranslationResults.managed_output_key<>''
+                      AND ((Candidates.source_domain=0
+                            AND Candidates.xml_analyzer_version=@xml_version)
+                           OR (Candidates.source_domain=1
+                               AND Candidates.dll_analyzer_version=@dll_version));";
+                Add(command, "@target_language", targetLanguage ?? string.Empty);
+                Add(command, "@translated", (int)CandidateTranslationState.Translated);
+                Add(command, "@xml_version", WorkflowIdentity.XmlAnalyzerVersion);
+                Add(command, "@dll_version", WorkflowIdentity.DllAnalyzerVersion);
+                return Convert.ToInt32(command.ExecuteScalar());
+            }
+        }
+
+        public List<CandidateRecord> GetCurrentManagedTranslationsPage(
+            string targetLanguage,
+            string afterCandidateId,
+            int pageSize)
+        {
+            List<CandidateRecord> result = new List<CandidateRecord>();
+            if (pageSize <= 0) return result;
+            using (DbConnection connection = _connections.OpenConnection())
+            using (DbCommand command = connection.CreateCommand())
+            {
+                command.CommandText = @"SELECT Candidates.*, Mods.package_id AS package_id,
+                    TranslationResults.translation_state AS translation_state,
+                    TranslationResults.translation_origin AS translation_origin,
+                    TranslationResults.translation_text AS translation_text,
+                    TranslationResults.translation_hash AS translation_hash,
+                    TranslationResults.source_text_hash_at_translation AS source_text_hash_at_translation,
+                    TranslationResults.source_package_id AS translation_source_package_id,
+                    TranslationResults.source_file_relative_path AS translation_source_file_relative_path,
+                    TranslationResults.source_entry_key AS translation_source_entry_key,
+                    TranslationResults.managed_output_file AS translation_file_relative_path,
+                    TranslationResults.managed_output_key AS translation_entry_key,
+                    TranslationResults.validation_status AS validation_status,
+                    TranslationResults.error_text AS translation_error,
+                    TranslationResults.last_sync_status AS last_sync_status,
+                    TranslationResults.last_sync_error AS last_sync_error,
+                    TranslationResults.last_synced_utc AS last_synced_utc
+                    FROM Candidates
+                    INNER JOIN Mods ON Mods.mod_identity=Candidates.mod_identity
+                    INNER JOIN TranslationResults
+                        ON TranslationResults.candidate_id=Candidates.candidate_id
+                       AND TranslationResults.target_language=@target_language
+                    WHERE Candidates.candidate_id>@after_candidate_id COLLATE BINARY
+                      AND Candidates.is_present=1
+                      AND Candidates.mod_version_fingerprint=Mods.version_fingerprint
+                      AND TranslationResults.translation_state=@translated
+                      AND TranslationResults.translation_text<>''
+                      AND TranslationResults.source_text_hash_at_translation=Candidates.source_text_hash
+                      AND TranslationResults.managed_output_file<>''
+                      AND TranslationResults.managed_output_key<>''
+                      AND ((Candidates.source_domain=0
+                            AND Candidates.xml_analyzer_version=@xml_version)
+                           OR (Candidates.source_domain=1
+                               AND Candidates.dll_analyzer_version=@dll_version))
+                    ORDER BY Candidates.candidate_id COLLATE BINARY
+                    LIMIT @page_size;";
+                Add(command, "@target_language", targetLanguage ?? string.Empty);
+                Add(command, "@after_candidate_id", afterCandidateId ?? string.Empty);
+                Add(command, "@translated", (int)CandidateTranslationState.Translated);
+                Add(command, "@xml_version", WorkflowIdentity.XmlAnalyzerVersion);
+                Add(command, "@dll_version", WorkflowIdentity.DllAnalyzerVersion);
                 Add(command, "@page_size", pageSize);
                 using (DbDataReader reader = command.ExecuteReader())
                     while (reader.Read()) result.Add(ReadCandidate(reader));
@@ -1676,24 +1816,48 @@ namespace AutoTranslator_Core.Workflow.Persistence
         public void SetTranslationValidationFailure(
             string candidateId,
             string targetLanguage,
-            string errorText)
+            string errorText,
+            string rejectedOutput = "",
+            string aiProvider = "",
+            string aiModel = "",
+            string aiPromptVersion = "",
+            string aiRunId = "",
+            int aiBatchIndex = 0)
         {
+            string storedError = JsonConvert.SerializeObject(new
+            {
+                format = "atc-translation-failure-v1",
+                reason = LimitText(errorText ?? string.Empty, 220),
+                rejectedOutput = LimitText(rejectedOutput ?? string.Empty, 350)
+            });
             using (DbConnection connection = _connections.OpenConnection())
             using (DbCommand command = connection.CreateCommand())
             {
                 command.CommandText = @"INSERT INTO TranslationResults
                     (candidate_id, target_language, translation_state, error_text,
-                     validation_status, updated_utc)
-                    VALUES (@id, @target, @failed, @error, 'Invalid', @updated)
+                     validation_status, ai_provider, ai_model, ai_prompt_version,
+                     ai_run_id, ai_batch_index, updated_utc)
+                    VALUES (@id, @target, @failed, @error, 'Invalid', @provider, @model,
+                            @prompt_version, @run_id, @batch_index, @updated)
                     ON CONFLICT(candidate_id, target_language) DO UPDATE SET
                     translation_state=excluded.translation_state,
                     error_text=excluded.error_text,
                     validation_status='Invalid',
+                    ai_provider=excluded.ai_provider,
+                    ai_model=excluded.ai_model,
+                    ai_prompt_version=excluded.ai_prompt_version,
+                    ai_run_id=excluded.ai_run_id,
+                    ai_batch_index=excluded.ai_batch_index,
                     updated_utc=excluded.updated_utc;";
                 Add(command, "@id", candidateId);
                 Add(command, "@target", targetLanguage);
                 Add(command, "@failed", (int)CandidateTranslationState.Failed);
-                Add(command, "@error", LimitText(errorText, 1000));
+                Add(command, "@error", storedError);
+                Add(command, "@provider", aiProvider ?? string.Empty);
+                Add(command, "@model", aiModel ?? string.Empty);
+                Add(command, "@prompt_version", aiPromptVersion ?? string.Empty);
+                Add(command, "@run_id", aiRunId ?? string.Empty);
+                Add(command, "@batch_index", Math.Max(0, aiBatchIndex));
                 Add(command, "@updated", ToDbTime(DateTime.UtcNow));
                 command.ExecuteNonQuery();
             }
@@ -2691,7 +2855,7 @@ namespace AutoTranslator_Core.Workflow.Persistence
                         ((@is_xml=1 AND Candidates.xml_analysis_fingerprint=excluded.xml_analysis_fingerprint) OR
                          (@is_xml=0 AND Candidates.dll_analysis_fingerprint=excluded.dll_analysis_fingerprint))
                         THEN ((Candidates.classification_flags & @keep_layer_mask) | (excluded.classification_flags & @layer_mask))
-                        ELSE ((Candidates.classification_flags & 192) | (excluded.classification_flags & @layer_mask)) END,
+                        ELSE ((Candidates.classification_flags & 240) | (excluded.classification_flags & @layer_mask)) END,
                     xml_analyzer_version=CASE WHEN @is_xml=1 THEN excluded.xml_analyzer_version ELSE Candidates.xml_analyzer_version END,
                     xml_analysis_fingerprint=CASE WHEN @is_xml=1 THEN excluded.xml_analysis_fingerprint ELSE Candidates.xml_analysis_fingerprint END,
                     dll_analyzer_version=CASE WHEN @is_xml=0 THEN excluded.dll_analyzer_version ELSE Candidates.dll_analyzer_version END,
@@ -2789,11 +2953,20 @@ namespace AutoTranslator_Core.Workflow.Persistence
                 TranslationSourceFileRelativePath = Convert.ToString(reader["translation_source_file_relative_path"]),
                 TranslationSourceEntryKey = Convert.ToString(reader["translation_source_entry_key"]),
                 ValidationStatus = Convert.ToString(reader["validation_status"]),
+                TranslationError = ReadOptionalString(reader, "translation_error"),
                 LastSyncStatus = Convert.ToString(reader["last_sync_status"]),
                 LastSyncError = Convert.ToString(reader["last_sync_error"]),
                 LastSyncedUtc = ParseNullableDbTime(reader["last_synced_utc"]),
                 UpdatedUtc = DateTime.Parse(Convert.ToString(reader["updated_utc"])).ToUniversalTime()
             };
+        }
+
+        private static string ReadOptionalString(DbDataReader reader, string columnName)
+        {
+            for (int index = 0; index < reader.FieldCount; index++)
+                if (string.Equals(reader.GetName(index), columnName, StringComparison.OrdinalIgnoreCase))
+                    return Convert.ToString(reader.GetValue(index));
+            return string.Empty;
         }
 
         private static void CreateAndFillTemporarySelection(

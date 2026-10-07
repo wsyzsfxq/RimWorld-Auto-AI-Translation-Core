@@ -496,8 +496,8 @@ namespace AutoTranslator_Core
                     }
 
                     ModUpdateDetector.ClearStatusCache();
-                    TranslationWorkbenchTab.RequestRefresh();
-                    UIInterceptor.RefreshRuntimeUICache();
+                    AutoTranslator_Core.Workflow.WorkflowTaskCoordinator.Instance.NotifyWorkbenchDataChanged();
+                    UIInterceptor.ResetProbeCaches();
                 }
                 catch (Exception ex)
                 {

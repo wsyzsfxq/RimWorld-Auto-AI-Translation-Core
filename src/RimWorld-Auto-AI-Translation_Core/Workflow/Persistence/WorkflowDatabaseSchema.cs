@@ -6,7 +6,7 @@ namespace AutoTranslator_Core.Workflow.Persistence
 {
     internal static class WorkflowDatabaseSchema
     {
-        public const int CurrentVersion = 16;
+        public const int CurrentVersion = 18;
 
         private static readonly IReadOnlyDictionary<int, string[]> Migrations =
             new Dictionary<int, string[]>
@@ -273,6 +273,52 @@ namespace AutoTranslator_Core.Workflow.Persistence
                 {
                     @"CREATE INDEX IF NOT EXISTS IX_PendingFileOperations_Readiness
                         ON PendingFileOperations(candidate_id, target_language, state);"
+                },
+                [17] = new[]
+                {
+                    @"ALTER TABLE Mods ADD COLUMN is_installed INTEGER NOT NULL DEFAULT 1;",
+                    @"CREATE TABLE IF NOT EXISTS NativeTranslationScans (
+                        mod_identity TEXT NOT NULL,
+                        target_language TEXT NOT NULL,
+                        fingerprint TEXT NOT NULL,
+                        state TEXT NOT NULL,
+                        entry_count INTEGER NOT NULL DEFAULT 0,
+                        error_text TEXT NOT NULL DEFAULT '',
+                        scanned_utc TEXT NOT NULL,
+                        PRIMARY KEY(mod_identity,target_language),
+                        FOREIGN KEY(mod_identity) REFERENCES Mods(mod_identity) ON DELETE CASCADE);",
+                    @"CREATE TABLE IF NOT EXISTS NativeTranslationEntries (
+                        mod_identity TEXT NOT NULL,
+                        target_language TEXT NOT NULL,
+                        source_file TEXT NOT NULL,
+                        bucket TEXT NOT NULL,
+                        def_type TEXT NOT NULL,
+                        entry_key TEXT NOT NULL,
+                        translation_text TEXT NOT NULL,
+                        PRIMARY KEY(mod_identity,target_language,source_file,bucket,def_type,entry_key),
+                        FOREIGN KEY(mod_identity,target_language)
+                            REFERENCES NativeTranslationScans(mod_identity,target_language) ON DELETE CASCADE);",
+                    @"CREATE INDEX IF NOT EXISTS IX_NativeTranslationEntries_Lookup
+                        ON NativeTranslationEntries(target_language,bucket,def_type,entry_key);"
+                },
+                [18] = new[]
+                {
+                    @"CREATE TABLE IF NOT EXISTS ReferenceDictionaryEntries (
+                        entry_id TEXT PRIMARY KEY,
+                        target_language TEXT NOT NULL,
+                        scope_mod_identity TEXT NULL,
+                        source_form TEXT NOT NULL,
+                        target_form TEXT NOT NULL,
+                        part_of_speech TEXT NOT NULL DEFAULT '',
+                        context_hint TEXT NOT NULL DEFAULT '',
+                        example_text TEXT NOT NULL DEFAULT '',
+                        source_reference TEXT NOT NULL DEFAULT '',
+                        is_builtin INTEGER NOT NULL DEFAULT 0,
+                        enabled INTEGER NOT NULL DEFAULT 1,
+                        updated_utc TEXT NOT NULL,
+                        FOREIGN KEY(scope_mod_identity) REFERENCES Mods(mod_identity));",
+                    @"CREATE INDEX IF NOT EXISTS IX_ReferenceDictionaryEntries_LanguageScope
+                        ON ReferenceDictionaryEntries(target_language,scope_mod_identity,enabled);"
                 }
             };
 

@@ -122,6 +122,7 @@ namespace AutoTranslator_Core.Workflow
         public bool TranslationIsCurrent { get; set; }
         public string LastSyncStatus { get; set; } = string.Empty;
         public string LastSyncError { get; set; } = string.Empty;
+        public string TranslationError { get; set; } = string.Empty;
     }
 
     public sealed partial class WorkflowBackend
@@ -277,7 +278,8 @@ namespace AutoTranslator_Core.Workflow
             CandidateClassification? classification = null,
             int translationFilter = 0,
             int pageIndex = 0,
-            int pageSize = 100)
+            int pageSize = 100,
+            bool requireManualClassification = false)
         {
             if (string.IsNullOrWhiteSpace(modIdentity))
                 throw new ArgumentException("Mod identity is required.", nameof(modIdentity));
@@ -290,11 +292,13 @@ namespace AutoTranslator_Core.Workflow
                 DisplayName = displayName ?? packageId ?? string.Empty
             };
             snapshot.QueryKey = string.Join("\n", modIdentity, search ?? string.Empty,
-                classification?.ToString() ?? string.Empty, translationFilter.ToString(), pageIndex.ToString());
+                classification?.ToString() ?? string.Empty, translationFilter.ToString(), pageIndex.ToString(),
+                requireManualClassification ? "manual" : string.Empty);
             CandidatePage page = _repository.GetEditorCandidatePage(
                 modIdentity, targetLanguage, search, classification, translationFilter,
                 checked(Math.Max(0, pageIndex) * Math.Max(1, Math.Min(500, pageSize))),
-                Math.Max(1, Math.Min(500, pageSize)) * 2);
+                Math.Max(1, Math.Min(500, pageSize)) * 2,
+                requireManualClassification);
             snapshot.TotalCount = page.TotalCount;
             snapshot.PageIndex = Math.Max(0, pageIndex);
             snapshot.PageSize = Math.Max(1, Math.Min(500, pageSize));
@@ -325,7 +329,8 @@ namespace AutoTranslator_Core.Workflow
                     TranslationOrigin = candidate.TranslationOrigin,
                     TranslationIsCurrent = WorkflowIdentity.IsTranslationCurrent(candidate),
                     LastSyncStatus = candidate.LastSyncStatus,
-                    LastSyncError = candidate.LastSyncError
+                    LastSyncError = candidate.LastSyncError,
+                    TranslationError = candidate.TranslationError
                 })
                 .ToList();
             return snapshot;

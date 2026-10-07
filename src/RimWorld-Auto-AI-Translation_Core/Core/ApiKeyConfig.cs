@@ -14,6 +14,13 @@ using static AutoTranslator_Core.DeleteTranslationWindow;
 
 namespace AutoTranslator_Core
 {
+    public enum OutputTokenDisplayUnit
+    {
+        Tokens,
+        Thousands,
+        Millions
+    }
+
     // 這個類別負責 ApiKey設定 的主要流程與狀態。
     // EN: This class manages the main workflow and state for ApiKeyConfig.
     public class ApiKeyConfig : IExposable
@@ -38,6 +45,7 @@ namespace AutoTranslator_Core
         // EN: This field stores selected model runtime state or cached data.
         public string SelectedModel = "";
         public int AtcMaxOutputTokens = DefaultAtcMaxOutputTokens;
+        public OutputTokenDisplayUnit AtcMaxOutputTokenUnit = OutputTokenDisplayUnit.Thousands;
         public StructuredOutputPreference StructuredOutput = StructuredOutputPreference.Auto;
         public TranslationTaskTier TaskTier = TranslationTaskTier.Bulk;
 
@@ -46,7 +54,7 @@ namespace AutoTranslator_Core
             new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
         public Dictionary<string, int> FetchedModelOutputTokenLimits =
             new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        [NonSerialized] public string AtcMaxOutputTokensBuffer = DefaultAtcMaxOutputTokens.ToString();
+        [NonSerialized] public string AtcMaxOutputTokensBuffer = "10";
 
         // 這個欄位保存 IsFetching 的執行狀態或快取資料。
         // EN: This method handles expose data.
@@ -94,6 +102,10 @@ namespace AutoTranslator_Core
                 ref AtcMaxOutputTokens,
                 "AtcMaxOutputTokens",
                 DefaultAtcMaxOutputTokens);
+            Scribe_Values.Look(
+                ref AtcMaxOutputTokenUnit,
+                "AtcMaxOutputTokenUnit",
+                OutputTokenDisplayUnit.Thousands);
             Scribe_Values.Look(ref StructuredOutput, "StructuredOutput", StructuredOutputPreference.Auto);
             Scribe_Values.Look(ref TaskTier, "TaskTier", TranslationTaskTier.Bulk);
             Scribe_Collections.Look(ref FetchedModels, "FetchedModels", LookMode.Value);
@@ -105,7 +117,13 @@ namespace AutoTranslator_Core
 
             if (FetchedModels == null) FetchedModels = new List<string>();
             AtcMaxOutputTokens = Math.Max(1, AtcMaxOutputTokens);
-            AtcMaxOutputTokensBuffer = AtcMaxOutputTokens.ToString();
+            double displayValue = AtcMaxOutputTokenUnit == OutputTokenDisplayUnit.Millions
+                ? AtcMaxOutputTokens / 1000000d
+                : AtcMaxOutputTokenUnit == OutputTokenDisplayUnit.Thousands
+                    ? AtcMaxOutputTokens / 1000d
+                    : AtcMaxOutputTokens;
+            AtcMaxOutputTokensBuffer = displayValue.ToString(
+                displayValue >= 100d ? "0" : displayValue >= 10d ? "0.#" : "0.###");
             if (FetchedModelSupportedParameters == null)
                 FetchedModelSupportedParameters = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
             if (FetchedModelOutputTokenLimits == null)

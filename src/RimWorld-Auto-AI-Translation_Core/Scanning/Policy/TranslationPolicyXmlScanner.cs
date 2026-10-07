@@ -13,23 +13,8 @@ namespace AutoTranslator_Core.TranslationPolicy
 {
     public static class TranslationPolicyXmlScanner
     {
-        // Frozen from v3.0 (622d6af). Do not substitute the later V4 field rules here:
-        // the workflow analyzer must reproduce the V3 candidate corpus exactly.
-        private static readonly HashSet<string> V3ExactTextTags =
-            new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-            {
-                "label", "description", "jobString", "reportString", "text", "labelShort", "customLabel",
-                "descriptionShort", "pawnLabel", "gerund", "verb", "deathMessage", "inspectString",
-                "baseInspectString", "helpText", "letterLabel", "letterText", "message", "messageSuccess",
-                "messageFailed", "rejectInputMessage", "skillLabel", "endMessage", "beginLetterLabel",
-                "beginLetter", "recoveryMessage", "destroyedLabel", "pawnSingular", "pawnPlural",
-                "leaderTitle", "adjective", "royalFavorLabel", "arrivalText", "arrivalTextEnemy",
-                "logRulesInitiator", "logRulesRecipient", "useLabel", "ingestCommandString",
-                "ingestReportString", "meatLabel", "corpseLabel", "discoverLetterTitle",
-                "discoverLetterText", "letterLabelEnemy", "letterTextEnemy", "commandLabel",
-                "commandDescription", "formatString", "outfitName", "labelNoun", "labelNounPretty",
-                "customSummary", "summary", "rulesStrings"
-            };
+        // V3 traversal and structural filters are retained. Explicit text semantics
+        // are shared with the classifier so later legacy fields are not lost before classification.
 
         private static readonly HashSet<string> V3BlacklistedFields =
             new HashSet<string>(StringComparer.OrdinalIgnoreCase)
@@ -426,7 +411,7 @@ namespace AutoTranslator_Core.TranslationPolicy
                 string fullParentPath = string.IsNullOrEmpty(leaf.ParentRelativePath)
                     ? defName
                     : AppendPath(defName, leaf.ParentRelativePath);
-                if (!IsV3DefLeafCandidate(
+                if (!IsDefLeafCandidate(
                         fullPath, leaf.FieldName, leaf.ParentName, fullParentPath,
                         leaf.Text, leaf.IsListItem)) continue;
                 AddCandidate(candidates, context, TranslationPolicyBucket.DefInjected,
@@ -453,7 +438,7 @@ namespace AutoTranslator_Core.TranslationPolicy
             string provisionalParent = string.IsNullOrEmpty(frame.ParentRelativePath)
                 ? "_"
                 : AppendPath("_", frame.ParentRelativePath);
-            if (!IsV3DefLeafCandidate(
+            if (!IsDefLeafCandidate(
                     provisionalPath, frame.Name, frame.ParentName, provisionalParent,
                     text, frame.IsListItem)) return;
             deferred.Add(new DeferredDefLeaf
@@ -468,6 +453,17 @@ namespace AutoTranslator_Core.TranslationPolicy
             });
         }
 
+        // All three Def readers share the same admission rule. Unknown text is
+        // recalled for review; admission does not mean it should be translated.
+        private static bool IsDefLeafCandidate(
+            string path, string fieldName, string parentName, string parentPath,
+            string text, bool isListItem)
+        {
+            return IsV3DefLeafCandidate(path, fieldName, parentName, parentPath, text, isListItem) ||
+                   (!V3IsProtectedDefPath(path) &&
+                    TranslationPolicyClassifier.IsUnknownNaturalLanguageCandidate(fieldName, path, text));
+        }
+
         private static bool IsV3DefLeafCandidate(
             string path,
             string fieldName,
@@ -480,8 +476,9 @@ namespace AutoTranslator_Core.TranslationPolicy
             if (isGarbage || string.IsNullOrWhiteSpace(text) || text.Contains(".xml") ||
                 text.StartsWith("Tex/") || text.StartsWith("UI/")) return false;
             bool knownPath = V3IsKnownTranslatablePath(path);
+            bool explicitTextField = TranslationPolicyClassifier.IsKnownTextField(fieldName);
             bool shouldTranslate = !V3IsProtectedDefPath(path) &&
-                                   (knownPath || !V3LooksLikeDefReferenceValue(text)) &&
+                                   (knownPath || explicitTextField || !V3LooksLikeDefReferenceValue(text)) &&
                                    (knownPath || V3IsTranslationTarget(fieldName, text));
             if (isListItem && V3ShouldForceTranslateListItem(parentName, parentPath, text))
                 shouldTranslate = true;
@@ -582,17 +579,8 @@ namespace AutoTranslator_Core.TranslationPolicy
                 if (IsV3PureText(child))
                 {
                     string text = child.Value.Trim();
-                    bool isGarbage = text.Length < 2 || Regex.IsMatch(text, @"^[\d\s\-\+\.\%]+$");
-                    if (isGarbage || string.IsNullOrWhiteSpace(text) || text.Contains(".xml") ||
-                        text.StartsWith("Tex/") || text.StartsWith("UI/")) continue;
-
-                    bool knownPath = V3IsKnownTranslatablePath(childPath);
-                    bool shouldTranslate = !V3IsProtectedDefPath(childPath) &&
-                                           (knownPath || !V3LooksLikeDefReferenceValue(text)) &&
-                                           (knownPath || V3IsTranslationTarget(childName, text));
-                    if (isListItem && V3ShouldForceTranslateListItem(node, currentPath, text))
-                        shouldTranslate = true;
-                    if (shouldTranslate)
+                    if (IsDefLeafCandidate(childPath, childName, GetQualifiedName(node),
+                            currentPath, text, isListItem))
                         AddCandidate(candidates, context, TranslationPolicyBucket.DefInjected,
                             defType, childPath, childName, child);
                 }
@@ -627,17 +615,8 @@ namespace AutoTranslator_Core.TranslationPolicy
                 if (IsV3PureText(child))
                 {
                     string text = (child.InnerText ?? string.Empty).Trim();
-                    bool isGarbage = text.Length < 2 || Regex.IsMatch(text, @"^[\d\s\-\+\.\%]+$");
-                    if (isGarbage || string.IsNullOrWhiteSpace(text) || text.Contains(".xml") ||
-                        text.StartsWith("Tex/") || text.StartsWith("UI/")) continue;
-
-                    bool knownPath = V3IsKnownTranslatablePath(childPath);
-                    bool shouldTranslate = !V3IsProtectedDefPath(childPath) &&
-                                           (knownPath || !V3LooksLikeDefReferenceValue(text)) &&
-                                           (knownPath || V3IsTranslationTarget(childName, text));
-                    if (isListItem && V3ShouldForceTranslateListItem(node.Name, currentPath, text))
-                        shouldTranslate = true;
-                    if (shouldTranslate)
+                    if (IsDefLeafCandidate(childPath, childName, node.Name,
+                            currentPath, text, isListItem))
                     {
                         AddCandidate(
                             candidates, context, TranslationPolicyBucket.DefInjected,
@@ -672,7 +651,7 @@ namespace AutoTranslator_Core.TranslationPolicy
             if ((value.Contains("/") || value.Contains("\\")) && !value.Contains(" ")) return false;
             if (value.Contains("_") && !value.Contains(" ")) return false;
             if (V3FilePathRegex.IsMatch(value)) return false;
-            if (V3ExactTextTags.Contains(tagName)) return true;
+            if (TranslationPolicyClassifier.IsKnownTextField(tagName)) return true;
             return lower.EndsWith("label") || lower.EndsWith("description") ||
                    lower.EndsWith("string") || lower.EndsWith("text") ||
                    lower.EndsWith("message") || lower.EndsWith("name") || lower.EndsWith("desc");
@@ -701,29 +680,20 @@ namespace AutoTranslator_Core.TranslationPolicy
             return Regex.IsMatch(trimmed, @"^[A-Za-z0-9_\.\-:]+$") && !trimmed.Contains(" ");
         }
 
-        private static bool V3ShouldForceTranslateListItem(XElement parent, string currentPath, string text)
-        {
-            if (parent == null) return false;
-            return V3ShouldForceTranslateListItem(GetQualifiedName(parent), currentPath, text);
-        }
-
         private static bool V3ShouldForceTranslateListItem(
             string parentName, string currentPath, string text)
         {
             parentName = parentName ?? string.Empty;
             string parentLower = parentName.ToLowerInvariant();
             if (V3IsProtectedDefPath(currentPath) || V3BlacklistedFields.Contains(parentName)) return false;
-            if (V3LooksLikeDefReferenceValue(text)) return false;
-            return V3IsTranslationTarget(parentName, text) || parentLower.Contains("rule");
+            bool knownTextList = TranslationPolicyClassifier.IsKnownTextListPath(currentPath);
+            if (!knownTextList && V3LooksLikeDefReferenceValue(text)) return false;
+            return knownTextList || V3IsTranslationTarget(parentName, text) || parentLower.Contains("rule");
         }
 
         private static bool V3IsKnownTranslatablePath(string path)
         {
-            if (string.IsNullOrWhiteSpace(path)) return false;
-            string lower = path.ToLowerInvariant();
-            return lower.EndsWith(".jobstring") || lower.EndsWith(".customsummary") ||
-                   lower.EndsWith(".summary") || lower.EndsWith(".filter.customsummary") ||
-                   lower.Contains(".ingredients.") && lower.EndsWith(".filter.customsummary");
+            return TranslationPolicyClassifier.IsKnownTextPath(path);
         }
 
         private static bool IsV3PureText(XElement element)

@@ -14,9 +14,11 @@ namespace AutoTranslator_Core
         private readonly Action _buttonBAction;
         private readonly string _title;
         private readonly bool _buttonADestructive;
+        private readonly bool _buttonBDestructive;
+        private readonly Vector2 _initialSize;
         private Vector2 _scrollPosition;
 
-        public override Vector2 InitialSize => new Vector2(760f, 560f);
+        public override Vector2 InitialSize => _initialSize;
 
         internal Window_AtcDialog(
             string text,
@@ -25,7 +27,9 @@ namespace AutoTranslator_Core
             string buttonBText = null,
             Action buttonBAction = null,
             string title = null,
-            bool buttonADestructive = false)
+            bool buttonADestructive = false,
+            bool buttonBDestructive = false,
+            Vector2? initialSize = null)
         {
             _message = text ?? string.Empty;
             _buttonAText = buttonAText;
@@ -36,6 +40,8 @@ namespace AutoTranslator_Core
                 ? AutoTranslatorMod.WfText("提示", "Message")
                 : title;
             _buttonADestructive = buttonADestructive;
+            _buttonBDestructive = buttonBDestructive;
+            _initialSize = initialSize ?? new Vector2(760f, 560f);
 
             doCloseButton = false;
             doCloseX = true;
@@ -99,7 +105,10 @@ namespace AutoTranslator_Core
             if (hasB)
             {
                 Rect buttonBRect = new Rect(0f, y, buttonWidth, buttonHeight);
-                if (WorkflowUiStyle.Button(buttonBRect, _buttonBText, WorkflowButtonStyle.Quiet))
+                WorkflowButtonStyle style = _buttonBDestructive
+                    ? WorkflowButtonStyle.Stop
+                    : WorkflowButtonStyle.Quiet;
+                if (WorkflowUiStyle.Button(buttonBRect, _buttonBText, style))
                 {
                     Close();
                     _buttonBAction?.Invoke();

@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -215,6 +216,8 @@ namespace AutoTranslator_Core.Workflow.AI
     {
         public int SavedCount { get; set; }
         public int ValidationRejectedCount { get; set; }
+        public RuntimeTranslationRefreshScope RefreshScope { get; set; }
+        public List<CandidateRecord> RejectedCandidates { get; } = new List<CandidateRecord>();
     }
 
     internal sealed class AiReviewOutput
@@ -324,6 +327,7 @@ namespace AutoTranslator_Core.Workflow.AI
 
                     while (completed.TryGetValue(batches[nextCommit].BatchIndex, out AiNetworkBatchOutcome ready))
                     {
+                        cancellationToken.ThrowIfCancellationRequested();
                         completed.Remove(batches[nextCommit].BatchIndex);
                         commitInOrder(ready);
                         nextCommit++;
@@ -454,7 +458,8 @@ namespace AutoTranslator_Core.Workflow.AI
             Dictionary<string, long> candidateCounts = eligibility.EligibleModIdentities.ToDictionary(
                 modIdentity => modIdentity,
                 modIdentity => _repository.CountAiCandidates(
-                    modIdentity, targetLanguage, classifications, false),
+                    modIdentity, targetLanguage, classifications, false,
+                    requireAiReviewMissing: true),
                 StringComparer.Ordinal);
             long totalCandidates = candidateCounts.Values.Sum();
             reporter.Complete(
@@ -464,6 +469,7 @@ namespace AutoTranslator_Core.Workflow.AI
                              " candidates=" + totalCandidates);
             List<Exception> failures = new List<Exception>();
             int failedBatchCount = 0;
+            int processedModCount = 0;
 
             for (int modIndex = 0; modIndex < eligibility.EligibleModIdentities.Count; modIndex++)
             {
@@ -500,6 +506,7 @@ namespace AutoTranslator_Core.Workflow.AI
                         "candidates=0 pages=0 batches=0 reason=no_current_candidates");
                     continue;
                 }
+                processedModCount++;
                 AiCandidateCursor cursor = null;
                 bool hasMore;
                 int pageIndex = 0;
@@ -514,7 +521,8 @@ namespace AutoTranslator_Core.Workflow.AI
                         "page=" + pageIndex + " page_size=" + pageSize +
                         " cursor_id=" + (cursor?.CandidateId ?? string.Empty));
                     AiCandidatePage page = _repository.GetAiCandidatePage(
-                        modIdentity, targetLanguage, classifications, false, cursor, pageSize);
+                        modIdentity, targetLanguage, classifications, false, cursor, pageSize,
+                        requireAiReviewMissing: true);
                     reporter.Complete(
                         pageIndex == 1 ? "first_page_read" : "next_page_read",
                         pageIndex == 1 ? "读取当前 Mod 第一页" : "读取当前 Mod 后续页",
@@ -728,11 +736,21 @@ namespace AutoTranslator_Core.Workflow.AI
                     runtimeFields: "未调用真实模型，未写入业务结果",
                     debugFields: "model_transport_called=false business_writes=false");
             }
+            string completionLabel = estimate.FailedCount > 0
+                ? "处理结束（部分失败）"
+                : "处理完成";
             reporter.Complete(
-                "all_complete", "全部完成", overallTimer,
-                runtimeFields: "候选 " + estimate.CandidateCount + " 条，失败 " + estimate.FailedCount + " 条",
+                "all_complete", completionLabel, overallTimer,
+                runtimeFields: "本次所选 Mod " + selectedMods.Count +
+                               " 个，实际处理 " + processedModCount +
+                               " 个，跳过 " + estimate.SkippedMods.Count +
+                               " 个；候选 " + estimate.CandidateCount +
+                               " 条，成功 " + estimate.CompletedCount +
+                               " 条，失败 " + estimate.FailedCount +
+                               " 条",
                 debugFields: "candidates=" + estimate.CandidateCount + " failed=" + estimate.FailedCount +
-                             " eligible_mods=" + eligibility.EligibleModIdentities.Count);
+                             " eligible_mods=" + eligibility.EligibleModIdentities.Count +
+                             " processed_mods=" + processedModCount);
             return estimate;
             }
             catch (OperationCanceledException)
@@ -1302,7 +1320,7 @@ namespace AutoTranslator_Core.Workflow.AI
                 StringComparer.Ordinal);
             reporter.Complete(
                 "translation_state_ready_check", "译文状态就绪检查", readyTimer,
-                runtimeFields: "未就绪 " + unready.Count + " 个",
+                runtimeFields: "含未就绪条目的 Mod " + unready.Count + " 个，仅跳过相关条目",
                 debugFields: "selected_mods=" + selected.Count + " unready_mods=" + unready.Count);
             foreach (string modIdentity in selected)
             {
@@ -1317,14 +1335,12 @@ namespace AutoTranslator_Core.Workflow.AI
                     result.MissingLocalAnalysisMods.Add(modIdentity);
                     result.SkippedMods[modIdentity] = "未完成本地分析，无可用条目";
                 }
-                else if (unready.Contains(modIdentity))
-                {
-                    result.UnreadyTranslationStateMods.Add(modIdentity);
-                    result.SkippedMods[modIdentity] =
-                        "翻译文件读取失败、外部来源已变化或存在未恢复的文件操作，请先刷新同步状态";
-                }
                 else
+                {
+                    if (unready.Contains(modIdentity))
+                        result.UnreadyTranslationStateMods.Add(modIdentity);
                     result.EligibleModIdentities.Add(modIdentity);
+                }
             }
             return result;
         }
@@ -1350,12 +1366,18 @@ namespace AutoTranslator_Core.Workflow.AI
 
     internal sealed class AiTranslationService
     {
+        private static readonly Regex TranslationPromptTokenRegex = new Regex(
+            @"(\{[^{}\r\n]+\}|\[(?!title:)[^\[\]\r\n]+\])",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        private static readonly Regex TranslationPromptMarkerRegex = new Regex(
+            @"\[(\d+)\]", RegexOptions.CultureInvariant | RegexOptions.Compiled);
         private const int DefaultMaxPromptTokens = 6000;
         private const int DefaultMaxBatchItems = 50;
         private readonly WorkflowRepository _repository;
         private readonly LanguageModelGateway _gateway;
         private readonly ITranslationOutputStore _outputStore;
         private readonly WorkflowConfigurationStore _configuration;
+        private List<ReferenceDictionaryEntry> _referenceDictionary = new List<ReferenceDictionaryEntry>();
 
         public AiTranslationService(
             WorkflowRepository repository,
@@ -1421,6 +1443,7 @@ namespace AutoTranslator_Core.Workflow.AI
                 : options.CandidateIds
                     .Where(value => !string.IsNullOrWhiteSpace(value))
                     .Distinct(StringComparer.Ordinal).ToList();
+            bool targetedCandidateMode = selectedCandidateIds != null;
             reporter.Complete(
                 "input_normalize", "规范化输入", normalizeTimer,
                 runtimeFields: "有效 Mod 身份 " + selectedMods.Count + " 个",
@@ -1428,6 +1451,7 @@ namespace AutoTranslator_Core.Workflow.AI
             Stopwatch languageTimer = reporter.Start("target_language_resolve", "目标语言解析");
             string targetLanguage = WorkflowRuntimeSettings.GetTargetLanguageFolder();
             string aiRunId = Guid.NewGuid().ToString("N");
+            _referenceDictionary = _repository.GetReferenceDictionaryEntries(targetLanguage);
             reporter.Complete(
                 "target_language_resolve", "目标语言解析", languageTimer,
                 runtimeFields: "目标语言目录已确定",
@@ -1442,8 +1466,10 @@ namespace AutoTranslator_Core.Workflow.AI
             double undeterminedRatio = isSimulation
                 ? Math.Max(0d, Math.Min(1d, _configuration.ResolveDryRunUndeterminedRatio(options)))
                 : 0d;
-            WorkflowModEligibility eligibility = AiReviewService.GetTranslationEligibleMods(
-                _repository, selectedMods, targetLanguage, reporter);
+            WorkflowModEligibility eligibility = targetedCandidateMode
+                ? AiReviewService.GetReviewEligibleMods(_repository, selectedMods, reporter)
+                : AiReviewService.GetTranslationEligibleMods(
+                    _repository, selectedMods, targetLanguage, reporter);
             AiStepEstimate estimate = new AiStepEstimate();
             AiReviewService.AddSkippedReasons(estimate, eligibility.SkippedMods);
             Stopwatch countTimer = reporter.Start(
@@ -1474,7 +1500,17 @@ namespace AutoTranslator_Core.Workflow.AI
                     ? (long)Math.Ceiling(rawUndeterminedCounts[identity] * undeterminedRatio)
                     : 0L,
                 StringComparer.Ordinal);
+            List<string> processingMods = eligibility.EligibleModIdentities
+                .Where(identity => needsCounts[identity] + undeterminedCounts[identity] > 0)
+                .ToList();
+            foreach (string emptyMod in eligibility.EligibleModIdentities.Except(
+                         processingMods, StringComparer.Ordinal))
+                estimate.SkippedMods[emptyMod] =
+                    "本次没有需要翻译且译文状态就绪的条目";
             long totalCandidates = needsCounts.Values.Sum() + undeterminedCounts.Values.Sum();
+            if (targetedCandidateMode && totalCandidates == 0)
+                throw new InvalidOperationException(
+                    "所选条目当前没有可提交的翻译候选；请刷新条目状态后重试。");
             reporter.Complete(
                 "translation_current_filter", "译文当前性筛选", currentTimer,
                 runtimeFields: "待处理 " + totalCandidates + " 条",
@@ -1485,7 +1521,7 @@ namespace AutoTranslator_Core.Workflow.AI
                 debugFields: "eligible_mods=" + eligibility.EligibleModIdentities.Count +
                              " candidates=" + totalCandidates);
             List<Exception> failures = new List<Exception>();
-            bool wroteTranslations = false;
+            RuntimeTranslationRefreshScope refreshScope = RuntimeTranslationRefreshScope.None;
 
             if (isSimulation)
             {
@@ -1506,51 +1542,56 @@ namespace AutoTranslator_Core.Workflow.AI
                         {
                             CandidateClassification.NeedsTranslation,
                             CandidateClassification.Undetermined
-                        }, false, selectedCandidateIds);
+                        }, false, selectedCandidateIds, true);
                     estimate.CoveredByCurrentTranslationByMod[modIdentity] =
                         Math.Max(0L, allRelevant - needsCounts[modIdentity] - rawUndeterminedCounts[modIdentity]);
                 }
                 reporter.Complete(
                     "current_translation_coverage", "当前译文覆盖统计", coverageTimer,
                     runtimeFields: "Mod " + eligibility.EligibleModIdentities.Count + " 个",
-                    debugFields: "eligible_mods=" + eligibility.EligibleModIdentities.Count);
+                    debugFields: "eligible_mods=" + eligibility.EligibleModIdentities.Count +
+                                 " processing_mods=" + processingMods.Count);
             }
 
             try
             {
-                for (int modIndex = 0; modIndex < eligibility.EligibleModIdentities.Count; modIndex++)
+                for (int modIndex = 0; modIndex < processingMods.Count; modIndex++)
                 {
-                    string modIdentity = eligibility.EligibleModIdentities[modIndex];
+                    string modIdentity = processingMods[modIndex];
                     List<CandidateClassification> classifications = new List<CandidateClassification>
                     {
                         CandidateClassification.NeedsTranslation
                     };
                     if (undeterminedCounts[modIdentity] > 0)
                         classifications.Add(CandidateClassification.Undetermined);
-                    wroteTranslations |= await ProcessTranslationPagesAsync(
+                    refreshScope |= await ProcessTranslationPagesAsync(
                         modIdentity, classifications, undeterminedCounts[modIdentity],
                         needsCounts[modIdentity] + undeterminedCounts[modIdentity],
                         pageSize, targetLanguage, totalCandidates, isSimulation,
-                        estimate, failures, modIndex, eligibility.EligibleModIdentities.Count,
-                        aiRunId, reporter, selectedCandidateIds, cancellationToken);
+                        estimate, failures, modIndex, processingMods.Count,
+                        aiRunId, reporter, selectedCandidateIds,
+                        scope => refreshScope |= scope,
+                        cancellationToken);
                 }
             }
             catch (OperationCanceledException)
             {
-                if (!isSimulation && wroteTranslations)
-                    await RequestMemoryDropWithReportingAsync(reporter);
+                // A completed batch reports its refresh scope immediately, so a later
+                // cancellation cannot strand already-written XML or DLL translations.
+                if (!isSimulation && refreshScope != RuntimeTranslationRefreshScope.None)
+                    QueueRuntimeRefreshAfterCancellation(refreshScope);
                 throw;
             }
 
-            if (!isSimulation && wroteTranslations &&
-                !await RequestMemoryDropWithReportingAsync(reporter))
+            if (!isSimulation && refreshScope != RuntimeTranslationRefreshScope.None &&
+                !await RequestRuntimeRefreshWithReportingAsync(reporter, refreshScope))
             {
                 InvalidOperationException refreshError = new InvalidOperationException(
                     "Translation files were saved, but the runtime translation refresh failed.");
                 AiReviewService.AddStepError(estimate, string.Empty, refreshError.Message);
                 failures.Add(refreshError);
             }
-            else if (!isSimulation && !wroteTranslations)
+            else if (!isSimulation && refreshScope == RuntimeTranslationRefreshScope.None)
             {
                 Stopwatch refreshTimer = reporter.Start("memory_drop", "Memory Drop 刷新");
                 reporter.Complete(
@@ -1560,9 +1601,12 @@ namespace AutoTranslator_Core.Workflow.AI
             }
             if (failures.Count > 0)
                 throw new WorkflowPartialFailureException(
-                    "AI翻译完成：成功 " + estimate.CompletedCount + "，失败 " +
-                    estimate.FailedCount + "，失败批次 " + failures.Count +
-                    "。请查看错误日志。", failures, estimate);
+                    "本次所选 Mod " + selectedMods.Count + " 个，实际处理 " +
+                    processingMods.Count + " 个，跳过 " + estimate.SkippedMods.Count +
+                    " 个；候选 " + estimate.CandidateCount + " 条，成功 " +
+                    estimate.CompletedCount + " 条，失败 " + estimate.FailedCount +
+                    " 条；另有 " + failures.Count + " 个处理异常，请查看错误日志。",
+                    failures, estimate);
             if (isSimulation)
             {
                 Stopwatch simulationTimer = reporter.Start(
@@ -1572,11 +1616,20 @@ namespace AutoTranslator_Core.Workflow.AI
                     runtimeFields: "未调用真实模型，未写入业务结果",
                     debugFields: "model_transport_called=false business_writes=false");
             }
+            string completionLabel = estimate.FailedCount > 0
+                ? "处理结束（部分失败）"
+                : "处理完成";
             reporter.Complete(
-                "all_complete", "全部完成", overallTimer,
-                runtimeFields: "候选 " + estimate.CandidateCount + " 条，失败 " + estimate.FailedCount + " 条",
+                "all_complete", completionLabel, overallTimer,
+                runtimeFields: "本次所选 Mod " + selectedMods.Count +
+                               " 个，实际处理 " + processingMods.Count +
+                               " 个，跳过 " + estimate.SkippedMods.Count +
+                               " 个；候选 " + estimate.CandidateCount +
+                               " 条，成功 " + estimate.CompletedCount +
+                               " 条，失败 " + estimate.FailedCount +
+                               " 条",
                 debugFields: "candidates=" + estimate.CandidateCount + " failed=" + estimate.FailedCount +
-                             " eligible_mods=" + eligibility.EligibleModIdentities.Count);
+                             " processing_mods=" + processingMods.Count);
             return estimate;
             }
             catch (OperationCanceledException)
@@ -1591,7 +1644,7 @@ namespace AutoTranslator_Core.Workflow.AI
             }
         }
 
-        private async Task<bool> ProcessTranslationPagesAsync(
+        private async Task<RuntimeTranslationRefreshScope> ProcessTranslationPagesAsync(
             string modIdentity,
             ICollection<CandidateClassification> classifications,
             long undeterminedLimit,
@@ -1607,6 +1660,7 @@ namespace AutoTranslator_Core.Workflow.AI
             string aiRunId,
             AiWorkflowStageReporter reporter,
             ICollection<string> selectedCandidateIds,
+            Action<RuntimeTranslationRefreshScope> refreshScopeRecorded,
             CancellationToken cancellationToken)
         {
             Stopwatch modTimer = reporter.Start(
@@ -1631,9 +1685,9 @@ namespace AutoTranslator_Core.Workflow.AI
                     "mod_complete", "当前 Mod 完成", modTimer, modIdentity,
                     "候选 0 条，页面 0 个，批次 0 个",
                     "candidates=0 pages=0 batches=0");
-                return false;
+                return RuntimeTranslationRefreshScope.None;
             }
-            bool wroteTranslations = false;
+            RuntimeTranslationRefreshScope refreshScope = RuntimeTranslationRefreshScope.None;
             long remainingUndetermined = undeterminedLimit;
             long modProcessedCandidates = 0;
             int batchIndex = 0;
@@ -1765,6 +1819,8 @@ namespace AutoTranslator_Core.Workflow.AI
                             "page=" + pageIndex + " batches=" + networkBatches.Count + " end_of_page=true");
                         int concurrencyLimit = Math.Max(
                             1, AutoTranslatorMod.Settings?.MaxThreads ?? 1);
+                        List<CandidateRecord> retryCandidates = new List<CandidateRecord>();
+                        HashSet<string> retryCandidateIds = new HashSet<string>(StringComparer.Ordinal);
                         await AiBoundedBatchDispatcher.DispatchAsync(
                             networkBatches,
                             _gateway,
@@ -1798,29 +1854,36 @@ namespace AutoTranslator_Core.Workflow.AI
                                         }
                                         : ApplyTranslationOutput(
                                             batch, result, targetLanguage, estimate,
-                                            aiRunId, reporter, current.BatchIndex);
-                                    if (!isSimulation && applied.SavedCount > 0) wroteTranslations = true;
+                                            aiRunId, reporter, current.BatchIndex,
+                                            persistValidationFailures: false);
+                                    if (!isSimulation && applied.SavedCount > 0)
+                                    {
+                                        refreshScope |= applied.RefreshScope;
+                                        refreshScopeRecorded?.Invoke(applied.RefreshScope);
+                                    }
                                     estimate.CompletedCount += applied.SavedCount;
-                                    estimate.FailedCount += applied.ValidationRejectedCount;
                                     AiReviewService.AddCount(
                                         estimate.CompletedByMod, modIdentity, applied.SavedCount);
-                                    AiReviewService.AddCount(
-                                        estimate.FailedByMod, modIdentity, applied.ValidationRejectedCount);
+                                    foreach (CandidateRecord rejected in applied.RejectedCandidates)
+                                    {
+                                        if (retryCandidateIds.Add(rejected.CandidateId))
+                                            retryCandidates.Add(rejected);
+                                    }
                                     reporter.Status(
                                         "translation_batch_result", "翻译批次提交完成", modIdentity,
                                         "请求成功 " + batch.Count + "/" + batch.Count +
                                         "，成功保存 " + applied.SavedCount +
-                                        "，本地译文校验器拒绝 " + applied.ValidationRejectedCount,
+                                        "，待单条重试 " + applied.ValidationRejectedCount,
                                         "batch=" + current.BatchIndex + " request_items=" + batch.Count +
                                         " saved=" + applied.SavedCount +
                                         " validation_rejected=" + applied.ValidationRejectedCount);
                                     if (applied.ValidationRejectedCount > 0)
-                                        AutoTranslatorSettings.AddLog(
-                                            "⚠️ AI翻译：本地译文校验器拒绝 " +
+                                        AutoTranslatorSettings.AddWarningLog(
+                                            "AI翻译：本地译文校验器拒绝 " +
                                             applied.ValidationRejectedCount + " 条；Mod=" + modIdentity +
                                             "；源文件=" + current.Sources +
                                             "；批次=" + current.BatchIndex +
-                                            "；模型请求已完整成功，其他有效译文已保存。");
+                                            "；已排入逐条重试，其他有效译文已保存。");
                                 }
                                 catch (OperationCanceledException) { throw; }
                                 catch (Exception ex)
@@ -1870,9 +1933,104 @@ namespace AutoTranslator_Core.Workflow.AI
                                     estimate.CompletedCount,
                                     estimate.FailedCount);
                                 foreach (CandidateRecord candidate in batch)
-                                    terminalIds.Add(candidate.CandidateId);
+                                    if (!retryCandidateIds.Contains(candidate.CandidateId))
+                                        terminalIds.Add(candidate.CandidateId);
                             },
                             cancellationToken);
+
+                        int retryTotal = retryCandidates.Count;
+                        int retrySucceeded = 0;
+                        int retryFailed = 0;
+                        if (retryTotal > 0)
+                            reporter.Status(
+                                "translation_retry_plan", "失败条目补试计划", modIdentity,
+                                "首轮校验未通过 " + retryTotal + " 条，每条只补试 1 次",
+                                "page=" + pageIndex + " retry_total=" + retryTotal +
+                                " max_attempts_per_candidate=1");
+                        for (int retryIndex = 0; retryIndex < retryTotal; retryIndex++)
+                        {
+                            CandidateRecord retryCandidate = retryCandidates[retryIndex];
+                            cancellationToken.ThrowIfCancellationRequested();
+                            batchIndex++;
+                            int retryNumber = retryIndex + 1;
+                            string retryStageName = "失败条目补试 " + retryNumber + "/" + retryTotal;
+                            Stopwatch retryTimer = Stopwatch.StartNew();
+                            ReportTranslationRetryProgress(
+                                estimate, totalCandidates, modIdentity, modIndex, totalMods,
+                                retryNumber, retryNumber - 1, retryTotal,
+                                retrySucceeded, retryFailed,
+                                retryCandidate.SourceFileRelativePath);
+                            try
+                            {
+                                string retryPrompt = BuildTranslationPrompt(
+                                    new[] { retryCandidate }, targetLanguage);
+                                ModelInvocationResult retryResult = await _gateway.InvokeAsync(
+                                    new ModelInvocationRequest
+                                    {
+                                        Prompt = retryPrompt,
+                                        EstimatedOutputTokens = ApproximateTokenEstimator.Estimate(
+                                            retryCandidate.SourceText) + 24L,
+                                        IsSimulation = false,
+                                        PackageId = modIdentity,
+                                        RequestPurpose = "ai_translation_retry",
+                                        RequestScope = modIdentity + ":" + pageIndex + ":" + batchIndex,
+                                        SourceCharacters = (retryCandidate.SourceText ?? string.Empty).Length,
+                                        ItemCount = 1
+                                    }, cancellationToken);
+                                estimate.InputTokens += retryResult.Usage.InputTokens;
+                                estimate.OutputTokens += retryResult.Usage.OutputTokens;
+                                AiReviewService.AddCount(
+                                    estimate.InputTokensByMod, modIdentity, retryResult.Usage.InputTokens);
+                                AiReviewService.AddCount(
+                                    estimate.OutputTokensByMod, modIdentity, retryResult.Usage.OutputTokens);
+                                AiReviewService.ValidateFinishReason(
+                                    retryResult, 1, modIdentity, pageIndex, batchIndex,
+                                    reporter, "ai_translation_retry");
+                                AiTranslationApplicationSummary retried = ApplyTranslationOutput(
+                                    new[] { retryCandidate }, retryResult, targetLanguage, estimate,
+                                    aiRunId, reporter, batchIndex, persistValidationFailures: true);
+                                if (retried.SavedCount > 0)
+                                {
+                                    refreshScope |= retried.RefreshScope;
+                                    refreshScopeRecorded?.Invoke(retried.RefreshScope);
+                                }
+                                estimate.CompletedCount += retried.SavedCount;
+                                estimate.FailedCount += retried.ValidationRejectedCount;
+                                AiReviewService.AddCount(
+                                    estimate.CompletedByMod, modIdentity, retried.SavedCount);
+                                AiReviewService.AddCount(
+                                    estimate.FailedByMod, modIdentity, retried.ValidationRejectedCount);
+                                retrySucceeded += retried.SavedCount;
+                                retryFailed += retried.ValidationRejectedCount;
+                                reporter.Complete(
+                                    "translation_retry", retryStageName, retryTimer, modIdentity,
+                                    "补试成功 " + retrySucceeded + "，仍失败 " + retryFailed,
+                                    "page=" + pageIndex + " retry_index=" + retryNumber +
+                                    " retry_total=" + retryTotal + " batch=" + batchIndex +
+                                    " saved=" + retried.SavedCount +
+                                    " validation_rejected=" + retried.ValidationRejectedCount);
+                            }
+                            catch (OperationCanceledException) { throw; }
+                            catch (Exception ex)
+                            {
+                                estimate.FailedCount++;
+                                retryFailed++;
+                                AiReviewService.AddCount(estimate.FailedByMod, modIdentity, 1);
+                                AiReviewService.AddStepError(estimate, modIdentity, ex.Message);
+                                _repository.SetTranslationState(
+                                    new[] { retryCandidate.CandidateId }, targetLanguage,
+                                    CandidateTranslationState.Failed, ex.Message);
+                                reporter.Failed(
+                                    "translation_retry", retryStageName, retryTimer,
+                                    modIdentity, ex, false);
+                            }
+                            terminalIds.Add(retryCandidate.CandidateId);
+                            ReportTranslationRetryProgress(
+                                estimate, totalCandidates, modIdentity, modIndex, totalMods,
+                                retryNumber, retryNumber, retryTotal,
+                                retrySucceeded, retryFailed,
+                                retryCandidate.SourceFileRelativePath);
+                        }
                     }
                     if (!groupingReported)
                         reporter.Complete(
@@ -1883,10 +2041,15 @@ namespace AutoTranslator_Core.Workflow.AI
                 catch (OperationCanceledException)
                 {
                     if (!isSimulation)
-                        _repository.SetTranslationState(
-                            page.Candidates.Where(candidate => !terminalIds.Contains(candidate.CandidateId))
-                                .Select(candidate => candidate.CandidateId).ToList(),
-                            targetLanguage, CandidateTranslationState.Untranslated);
+                    {
+                        foreach (CandidateRecord candidate in page.Candidates.Where(
+                                     candidate => !terminalIds.Contains(candidate.CandidateId)))
+                            _repository.SetTranslationState(
+                                new[] { candidate.CandidateId },
+                                targetLanguage,
+                                candidate.TranslationState,
+                                candidate.TranslationError);
+                    }
                     throw;
                 }
                 page.Candidates.Clear();
@@ -1896,19 +2059,103 @@ namespace AutoTranslator_Core.Workflow.AI
                 "候选 " + modProcessedCandidates + " 条，页面 " + pageIndex + " 个，批次 " + batchIndex + " 个",
                 "candidates=" + modProcessedCandidates + " pages=" + pageIndex +
                 " batches=" + batchIndex);
-            return wroteTranslations;
+            return refreshScope;
         }
 
-        private static async Task<bool> RequestMemoryDropWithReportingAsync(
-            AiWorkflowStageReporter reporter)
+        private static void ReportTranslationRetryProgress(
+            AiStepEstimate estimate,
+            long totalCandidates,
+            string modIdentity,
+            int modIndex,
+            int totalMods,
+            int retryPosition,
+            int retryCompleted,
+            int retryTotal,
+            int retrySucceeded,
+            int retryFailed,
+            string sourceFile)
         {
-            Stopwatch refreshTimer = reporter.Start("memory_drop", "Memory Drop 刷新");
-            bool refreshed = await AutoTranslatorScanner.RequestMemoryDropAsync();
+            string detail = AutoTranslatorMod.WfText("AI翻译 · 首轮校验未通过 ",
+                                "AI translation · initial validation failures ") + retryTotal +
+                            AutoTranslatorMod.WfText(" 条 · 当前补试 ", " · current retry ") +
+                            retryPosition + "/" + retryTotal +
+                            AutoTranslatorMod.WfText(" · 已完成 ", " · completed ") + retryCompleted +
+                            AutoTranslatorMod.WfText(" · 补试成功 ", " · retry succeeded ") +
+                            retrySucceeded +
+                            AutoTranslatorMod.WfText(" · 仍失败 ", " · still failed ") + retryFailed;
+            if (!string.IsNullOrWhiteSpace(sourceFile)) detail += " · " + sourceFile;
+            WorkflowTaskCoordinator.Instance.ReportProgress(
+                estimate.CompletedCount + estimate.FailedCount,
+                totalCandidates,
+                modIdentity,
+                detail,
+                modIndex + 1,
+                totalMods,
+                retryCompleted,
+                retryTotal,
+                false);
+        }
+
+        private static async Task<bool> RequestRuntimeRefreshWithReportingAsync(
+            AiWorkflowStageReporter reporter,
+            RuntimeTranslationRefreshScope scope)
+        {
+            Stopwatch refreshTimer = reporter.Start("runtime_refresh", "运行时译文刷新");
+            bool xmlRefreshed = true;
+            bool dllReloadRequested = true;
+            if ((scope & RuntimeTranslationRefreshScope.Xml) != 0)
+                xmlRefreshed = await AutoTranslatorScanner.RequestMemoryDropAsync();
+            if ((scope & RuntimeTranslationRefreshScope.Dll) != 0)
+                dllReloadRequested = await RuntimeTranslationRefresher.EnableAndRequestDllReloadAsync();
+
+            bool refreshed = xmlRefreshed && dllReloadRequested;
+            string runtimeDetail = string.Join("；", new[]
+            {
+                (scope & RuntimeTranslationRefreshScope.Xml) != 0
+                    ? (xmlRefreshed ? "XML 已刷新" : "XML 刷新失败")
+                    : null,
+                (scope & RuntimeTranslationRefreshScope.Dll) != 0
+                    ? (dllReloadRequested ? "DLL 补丁清单已请求重载" : "DLL 补丁清单重载请求失败")
+                    : null
+            }.Where(value => !string.IsNullOrWhiteSpace(value)).ToArray());
             reporter.Complete(
-                "memory_drop", "Memory Drop 刷新", refreshTimer,
-                runtimeFields: refreshed ? "刷新成功" : "刷新失败",
-                debugFields: "success=" + (refreshed ? "true" : "false"));
+                "runtime_refresh", "运行时译文刷新", refreshTimer,
+                runtimeFields: runtimeDetail,
+                debugFields: "scope=" + scope +
+                             " xml_success=" + (xmlRefreshed ? "true" : "false") +
+                             " dll_reload_requested=" + (dllReloadRequested ? "true" : "false"));
             return refreshed;
+        }
+
+        private static void QueueRuntimeRefreshAfterCancellation(
+            RuntimeTranslationRefreshScope scope)
+        {
+            AutoTranslatorSettings.AddWarningLog(
+                "AI 翻译已停止；已保存的译文将在后台刷新，不再阻塞停止操作。");
+            Task.Run(async () =>
+            {
+                bool success = true;
+                try
+                {
+                    if ((scope & RuntimeTranslationRefreshScope.Xml) != 0)
+                        success &= await AutoTranslatorScanner.RequestMemoryDropAsync();
+                    if ((scope & RuntimeTranslationRefreshScope.Dll) != 0)
+                        success &= await RuntimeTranslationRefresher.EnableAndRequestDllReloadAsync();
+                }
+                catch (Exception ex)
+                {
+                    AutoTranslatorSettings.AddErrorLog(
+                        "停止后的后台运行时译文刷新失败：" + ex.Message);
+                    return;
+                }
+
+                if (!success)
+                    AutoTranslatorSettings.AddErrorLog("停止后的后台运行时译文刷新失败。");
+                else
+                {
+                    AutoTranslatorSettings.AddLog("停止后的后台运行时译文刷新完成。");
+                }
+            });
         }
 
         private AiTranslationApplicationSummary ApplyTranslationOutput(
@@ -1918,7 +2165,8 @@ namespace AutoTranslator_Core.Workflow.AI
             AiStepEstimate estimate,
             string aiRunId,
             AiWorkflowStageReporter reporter,
-            int batchIndex)
+            int batchIndex,
+            bool persistValidationFailures)
         {
             string modIdentity = input.FirstOrDefault()?.ModIdentity ?? string.Empty;
             Stopwatch parseTimer = reporter.Start(
@@ -1941,16 +2189,30 @@ namespace AutoTranslator_Core.Workflow.AI
             for (int index = 0; index < input.Count; index++)
             {
                 JArray item = returnedByIndex[index];
-                string translation = item[1]?.ToString() ?? string.Empty;
+                string modelTranslation = item[1]?.ToString() ?? string.Empty;
                 CandidateRecord candidate = input[index];
+                string translation = RestoreTranslationPromptTokens(
+                    modelTranslation, candidate.SourceText);
                 if (!AutoTranslatorScanner.TryAcceptTranslatedValue(
                         translation, candidate.SourceText,
                         out string sanitized, out string failureReason, out string failureDetail))
                 {
-                    _repository.SetTranslationValidationFailure(
-                        candidate.CandidateId,
-                        targetLanguage,
-                        string.IsNullOrWhiteSpace(failureDetail) ? failureReason : failureDetail);
+                    if (persistValidationFailures)
+                    {
+                        _repository.SetTranslationValidationFailure(
+                            candidate.CandidateId,
+                            targetLanguage,
+                            string.IsNullOrWhiteSpace(failureDetail) ? failureReason : failureDetail,
+                            modelTranslation,
+                            modelResult?.ProviderName,
+                            modelResult?.ModelName,
+                            WorkflowIdentity.AiTranslationPromptVersion,
+                            aiRunId,
+                            batchIndex);
+                        AiReviewService.AddStepError(
+                            estimate, candidate.ModIdentity,
+                            string.IsNullOrWhiteSpace(failureDetail) ? failureReason : failureDetail);
+                    }
                     AutoTranslatorSettings.AddDebugLog(
                         "workflow.ai_translation validation_rejected detail=" +
                         JsonConvert.SerializeObject(new
@@ -1961,15 +2223,14 @@ namespace AutoTranslator_Core.Workflow.AI
                             sourceFile = candidate.SourceFileRelativePath,
                             locator = candidate.LogicalLocator,
                             sourceText = candidate.SourceText,
-                            modelTranslation = translation,
+                            modelTranslation,
+                            restoredTranslation = translation,
                             validationRule = failureReason,
                             rejectionReason = string.IsNullOrWhiteSpace(failureDetail)
                                 ? failureReason
                                 : failureDetail
                         }));
-                    AiReviewService.AddStepError(
-                        estimate, candidate.ModIdentity,
-                        string.IsNullOrWhiteSpace(failureDetail) ? failureReason : failureDetail);
+                    summary.RejectedCandidates.Add(candidate);
                     summary.ValidationRejectedCount++;
                     continue;
                 }
@@ -2038,6 +2299,10 @@ namespace AutoTranslator_Core.Workflow.AI
                 throw;
             }
             summary.SavedCount = writes.Count;
+            if (writes.Any(write => write.Candidate.SourceDomain == CandidateSourceDomain.Xml))
+                summary.RefreshScope |= RuntimeTranslationRefreshScope.Xml;
+            if (writes.Any(write => write.Candidate.SourceDomain == CandidateSourceDomain.Dll))
+                summary.RefreshScope |= RuntimeTranslationRefreshScope.Dll;
             return summary;
         }
 
@@ -2055,7 +2320,7 @@ namespace AutoTranslator_Core.Workflow.AI
             }
         }
 
-        private static IEnumerable<List<CandidateRecord>> SplitTranslationBatches(
+        private IEnumerable<List<CandidateRecord>> SplitTranslationBatches(
             IEnumerable<CandidateRecord> candidates,
             string targetLanguage,
             int maxPromptTokens)
@@ -2073,7 +2338,7 @@ namespace AutoTranslator_Core.Workflow.AI
             if (current.Count > 0) yield return current;
         }
 
-        private static string BuildTranslationPrompt(IList<CandidateRecord> candidates, string targetLanguage)
+        private string BuildTranslationPrompt(IList<CandidateRecord> candidates, string targetLanguage)
         {
             StringBuilder prompt = new StringBuilder();
             prompt.AppendLine(AutoTranslatorAPI.GetWorkflowTranslationRules(
@@ -2082,6 +2347,7 @@ namespace AutoTranslator_Core.Workflow.AI
             prompt.AppendLine("Input item: [itemIndex,locator,context,source].");
             prompt.AppendLine("Output schema: {\"items\":[[itemIndex,\"translation\"]]}");
             prompt.AppendLine("Return every itemIndex exactly once.");
+            prompt.Append(ReferenceDictionaryPrompt.Build(_referenceDictionary, candidates));
             prompt.AppendLine("Input JSON:");
             prompt.Append(JsonConvert.SerializeObject(new
             {
@@ -2090,10 +2356,42 @@ namespace AutoTranslator_Core.Workflow.AI
                     index,
                     candidate.LogicalLocator,
                     AiReviewService.ParseCompactContext(candidate.ContextJson),
-                    candidate.SourceText
+                    MaskTranslationPromptTokens(candidate.SourceText)
                 })
             }));
             return prompt.ToString();
+        }
+
+        private static string MaskTranslationPromptTokens(string source)
+        {
+            Dictionary<string, string> markers = BuildTranslationPromptTokenMap(source);
+            return TranslationPromptTokenRegex.Replace(
+                source ?? string.Empty,
+                match => markers.TryGetValue(match.Value, out string marker)
+                    ? marker
+                    : match.Value);
+        }
+
+        private static string RestoreTranslationPromptTokens(string translation, string source)
+        {
+            Dictionary<string, string> markers = BuildTranslationPromptTokenMap(source)
+                .ToDictionary(pair => pair.Value, pair => pair.Key, StringComparer.Ordinal);
+            return TranslationPromptMarkerRegex.Replace(
+                translation ?? string.Empty,
+                match => markers.TryGetValue(match.Value, out string original)
+                    ? original
+                    : match.Value);
+        }
+
+        private static Dictionary<string, string> BuildTranslationPromptTokenMap(string source)
+        {
+            Dictionary<string, string> result = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (Match match in TranslationPromptTokenRegex.Matches(source ?? string.Empty))
+            {
+                if (!result.ContainsKey(match.Value))
+                    result[match.Value] = "[" + result.Count + "]";
+            }
+            return result;
         }
 
         private static Dictionary<int, JArray> ParseIndexedOutputItems(

@@ -107,8 +107,75 @@ namespace AutoTranslator_Core
                     RequestBodyBytes = Encoding.UTF8.GetByteCount(jsonBody ?? string.Empty),
                     UnityResult = "Created"
                 };
-                active.Coroutine = StartCoroutine(ExecuteRequestCoroutine(active, url, jsonBody, apiKey, provider, timeoutSeconds));
+                try
+                {
+                    active.Coroutine = StartCoroutine(ExecuteGuardedRequestCoroutine(
+                        active, url, jsonBody, apiKey, provider, timeoutSeconds));
+                    if (active.Coroutine == null && !active.IsCompleted)
+                        FailRequestExecution(active);
+                }
+                catch (Exception error)
+                {
+                    FailRequestExecution(active, error);
+                }
                 return requestId;
+            }
+
+            // Unity does not propagate iterator exceptions to the caller of StartCoroutine.
+            // Drive the iterator here so every failure completes both request signals.
+            private IEnumerator ExecuteGuardedRequestCoroutine(
+                ActiveTranslationRequest active, string url, string jsonBody,
+                string apiKey, TranslatorProvider provider, int timeoutSeconds)
+            {
+                IEnumerator execution = ExecuteRequestCoroutine(
+                    active, url, jsonBody, apiKey, provider, timeoutSeconds);
+                try
+                {
+                    while (!active.IsCompleted)
+                    {
+                        bool moved = false;
+                        object yielded = null;
+                        Exception failure = null;
+                        try
+                        {
+                            moved = execution.MoveNext();
+                            if (moved) yielded = execution.Current;
+                        }
+                        catch (Exception error)
+                        {
+                            failure = error;
+                        }
+                        if (failure != null || (!moved && !active.IsCompleted))
+                            FailRequestExecution(active, failure);
+                        if (failure != null || !moved || active.IsCompleted) yield break;
+                        yield return yielded;
+                    }
+                }
+                finally
+                {
+                    try { (execution as IDisposable)?.Dispose(); } catch { }
+                    if (!active.IsCompleted) FailRequestExecution(active);
+                }
+            }
+
+            private void FailRequestExecution(ActiveTranslationRequest active, Exception error = null)
+            {
+                if (active == null || active.IsCompleted) return;
+                // Native exception messages may contain the credential-bearing request URL.
+                FinishRequest(active, new ATC_WebResponse
+                {
+                    IsSuccess = false,
+                    HttpCode = 0,
+                    ErrorText = (active.NetworkStarted
+                        ? "Unity transport failed while processing the response."
+                        : "Unity transport failed before the network request started.") +
+                        " ExceptionType=" + (error?.GetType().Name ?? "UnexpectedCoroutineTermination"),
+                    ResponseBody = string.Empty,
+                    FailureKind = active.NetworkStarted
+                        ? TranslationRequestFailureKind.Transport
+                        : TranslationRequestFailureKind.LocalDispatch,
+                    FailureStage = active.NetworkStarted ? "Transport" : "Dispatching"
+                }, true, false);
             }
 
             internal bool TryGetRequestDiagnostics(int requestId, out UnityRequestTransferSnapshot snapshot)
@@ -143,107 +210,74 @@ namespace AutoTranslator_Core
             // EN: This method executes request coroutine.
             private IEnumerator ExecuteRequestCoroutine(ActiveTranslationRequest active, string url, string jsonBody, string apiKey, TranslatorProvider provider, int timeoutSeconds)
             {
-                using (UnityWebRequest webRequest = new UnityWebRequest(url, "POST"))
+                // FinishRequest owns disposal on every terminal path, including an external stop.
+                UnityWebRequest webRequest = new UnityWebRequest(url, "POST");
+                active.WebRequest = webRequest;
+
+                byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonBody);
+                webRequest.uploadHandler = new UploadHandlerRaw(bodyRaw);
+                webRequest.downloadHandler = new DownloadHandlerBuffer();
+                webRequest.useHttpContinue = false;
+                webRequest.SetRequestHeader("Content-Type", "application/json");
+
+                string trimmedApiKey = apiKey != null ? apiKey.Trim() : string.Empty;
+                if (!string.IsNullOrEmpty(trimmedApiKey))
                 {
-                    active.WebRequest = webRequest;
-
-                    byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonBody);
-                    webRequest.uploadHandler = new UploadHandlerRaw(bodyRaw);
-                    webRequest.downloadHandler = new DownloadHandlerBuffer();
-                    webRequest.useHttpContinue = false;
-                    webRequest.SetRequestHeader("Content-Type", "application/json");
-
-                    string trimmedApiKey = apiKey != null ? apiKey.Trim() : string.Empty;
-                    if (!string.IsNullOrEmpty(trimmedApiKey))
+                    if (provider == TranslatorProvider.DeepL)
                     {
-                        if (provider == TranslatorProvider.DeepL)
-                        {
-                            webRequest.SetRequestHeader("Authorization", "DeepL-Auth-Key " + trimmedApiKey);
-                        }
-                        else if (provider != TranslatorProvider.Google)
-                        {
-                            webRequest.SetRequestHeader("Authorization", "Bearer " + trimmedApiKey);
-                        }
+                        webRequest.SetRequestHeader("Authorization", "DeepL-Auth-Key " + trimmedApiKey);
                     }
-
-                    webRequest.timeout = timeoutSeconds > 0 ? timeoutSeconds : 60;
-
-                    UnityWebRequestAsyncOperation operation;
-                    try
+                    else if (provider != TranslatorProvider.Google)
                     {
-                        operation = webRequest.SendWebRequest();
-                        CaptureRequestDiagnostics(active, webRequest, "InProgress");
-                        active.SendStarted?.TrySetResult(true);
+                        webRequest.SetRequestHeader("Authorization", "Bearer " + trimmedApiKey);
                     }
-                    catch (System.Exception ex)
-                    {
-                        active.SendStarted?.TrySetResult(false);
-                        FinishRequest(active, new ATC_WebResponse
-                        {
-                            IsSuccess = false,
-                            HttpCode = 0,
-                            ErrorText = "UnityWebRequest failed to start: " + ex.Message,
-                            ResponseBody = string.Empty,
-                            FailureKind = TranslationRequestFailureKind.LocalDispatch,
-                            FailureStage = "Dispatching"
-                        }, false);
-                        yield break;
-                    }
-                    while (!operation.isDone)
-                    {
-                        CaptureRequestDiagnostics(active, webRequest, "InProgress");
-                        if (active.IsCompleted)
-                        {
-                            yield break;
-                        }
-
-                        if (AutoTranslatorSettings.IsCancellationRequested)
-                        {
-                            FinishRequest(active, CreateCancelledResponse("Pipeline cancellation requested"), true);
-                            yield break;
-                        }
-
-                        yield return null;
-                    }
-
-                    CaptureRequestDiagnostics(active, webRequest, webRequest.result.ToString());
-
-                    if (active.IsCompleted)
-                    {
-                        yield break;
-                    }
-
-                    string safeText = string.Empty;
-                    if (webRequest.downloadHandler != null)
-                    {
-                        byte[] rawData = webRequest.downloadHandler.data;
-                        if (rawData != null && rawData.Length > 0)
-                        {
-                            try
-                            {
-                                Encoding tolerantUtf8 = new UTF8Encoding(false, false);
-                                safeText = tolerantUtf8.GetString(rawData);
-                            }
-                            catch
-                            {
-                                safeText = webRequest.downloadHandler.text ?? string.Empty;
-                            }
-                        }
-                    }
-
-                    ATC_WebResponse response = new ATC_WebResponse
-                    {
-                        HttpCode = webRequest.responseCode,
-                        ErrorText = webRequest.error ?? string.Empty,
-                        ResponseBody = safeText
-                    };
-                    response.IsSuccess = UnityWebRequestCompat.IsSuccess(webRequest);
-                    UnityRequestTransferSnapshot completedSnapshot;
-                    if (requestDiagnostics.TryGetValue(active.Id, out completedSnapshot))
-                        ApplyUnityTransferSnapshot(response, completedSnapshot);
-
-                    FinishRequest(active, response, false);
                 }
+
+                webRequest.timeout = timeoutSeconds > 0 ? timeoutSeconds : 60;
+                UnityWebRequestAsyncOperation operation = webRequest.SendWebRequest();
+                active.NetworkStarted = true;
+                active.SendStarted?.TrySetResult(true);
+                CaptureRequestDiagnostics(active, webRequest, "InProgress");
+                while (!operation.isDone)
+                {
+                    if (active.IsCompleted) yield break;
+                    CaptureRequestDiagnostics(active, webRequest, "InProgress");
+                    if (AutoTranslatorSettings.IsCancellationRequested)
+                    {
+                        FinishRequest(active, CreateCancelledResponse("Pipeline cancellation requested"), true, false);
+                        yield break;
+                    }
+                    yield return null;
+                }
+
+                if (active.IsCompleted) yield break;
+                CaptureRequestDiagnostics(active, webRequest, webRequest.result.ToString());
+                string safeText = string.Empty;
+                if (webRequest.downloadHandler != null)
+                {
+                    byte[] rawData = webRequest.downloadHandler.data;
+                    if (rawData != null && rawData.Length > 0)
+                    {
+                        try
+                        {
+                            Encoding tolerantUtf8 = new UTF8Encoding(false, false);
+                            safeText = tolerantUtf8.GetString(rawData);
+                        }
+                        catch
+                        {
+                            safeText = webRequest.downloadHandler.text ?? string.Empty;
+                        }
+                    }
+                }
+
+                ATC_WebResponse response = new ATC_WebResponse
+                {
+                    HttpCode = webRequest.responseCode,
+                    ErrorText = webRequest.error ?? string.Empty,
+                    ResponseBody = safeText,
+                    IsSuccess = UnityWebRequestCompat.IsSuccess(webRequest)
+                };
+                FinishRequest(active, response, false, false);
             }
 
             private void CaptureRequestDiagnostics(
@@ -268,32 +302,36 @@ namespace AutoTranslator_Core
 
             // 這個方法負責處理 FinishRequest 相關流程。
             // EN: This method handles finish request.
-            private void FinishRequest(ActiveTranslationRequest active, ATC_WebResponse response, bool abortWebRequest)
+            private void FinishRequest(ActiveTranslationRequest active, ATC_WebResponse response,
+                bool abortWebRequest, bool stopCoroutine = true)
             {
                 if (active == null || active.IsCompleted) return;
                 UnityRequestTransferSnapshot finalSnapshot;
                 if (requestDiagnostics.TryGetValue(active.Id, out finalSnapshot))
                     ApplyUnityTransferSnapshot(response, finalSnapshot);
                 active.IsCompleted = true;
-                active.SendStarted?.TrySetResult(false);
 
                 if (activeRequests.ContainsKey(active.Id))
                 {
                     activeRequests.Remove(active.Id);
                 }
 
-                if (abortWebRequest && active.WebRequest != null)
+                UnityWebRequest webRequest = active.WebRequest;
+                active.WebRequest = null;
+                if (abortWebRequest && webRequest != null)
                 {
-                    try { active.WebRequest.Abort(); } catch { }
+                    try { webRequest.Abort(); } catch { }
                 }
 
-                if (abortWebRequest && active.Coroutine != null)
+                if (stopCoroutine && active.Coroutine != null)
                 {
                     try { StopCoroutine(active.Coroutine); } catch { }
                 }
-
-                active.Completion.TrySetResult(response);
+                try { webRequest?.Dispose(); } catch { }
                 requestDiagnostics.TryRemove(active.Id, out finalSnapshot);
+                // A false send signal must never wake the caller before the real failure exists.
+                active.Completion.TrySetResult(response);
+                active.SendStarted?.TrySetResult(active.NetworkStarted);
             }
 
             // 這個方法負責建立 Cancelled回應 物件或檔案。
@@ -331,6 +369,7 @@ namespace AutoTranslator_Core
                 // 這個欄位保存 IsCompleted 的執行狀態或快取資料。
                 // EN: This field stores is completed runtime state or cached data.
                 public bool IsCompleted;
+                public bool NetworkStarted;
             }
         }
 

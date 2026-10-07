@@ -100,16 +100,6 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
                 return;
             }
 
-            if (AutoTranslatorMod.Settings.EnableUIInterceptor)
-            {
-                ATC_Dispatcher.RunOnMainThread(() =>
-                {
-                    ClearAppliedState();
-                    SetStatus("conflict", "global UI interceptor is enabled");
-                });
-                return;
-            }
-
             if (Interlocked.Exchange(ref _loading, 1) == 1) return;
             SetStatus("loading", string.Empty);
 
@@ -143,16 +133,9 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
                             return;
                         }
 
-                        // The global interceptor and this prototype are mutually exclusive.
-                        // Re-check after the background read so a mid-load toggle cannot
-                        // activate both patch paths in the same session.
-                        if (AutoTranslatorMod.Settings.EnableUIInterceptor)
-                        {
-                            ClearAppliedState();
-                            SetStatus("conflict", "global UI interceptor is enabled");
-                            return;
-                        }
-
+                        // Runtime observation and targeted translation injection are independent:
+                        // the interceptor only records evidence while the targeted transpiler
+                        // applies already-approved translations.
                         ApplyManifest(manifest, error);
                     }
                     catch (Exception ex)
@@ -587,6 +570,14 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
                     }
                     catch { return false; }
                 });
+            if (loaded == null && Guid.TryParse(entry.AssemblyMvid, out Guid expectedMvid))
+            {
+                loaded = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(assembly =>
+                {
+                    try { return assembly.ManifestModule.ModuleVersionId == expectedMvid; }
+                    catch { return false; }
+                });
+            }
             if (loaded == null)
             {
                 reason = "assembly is not loaded; runtime will not load third-party code";
@@ -604,7 +595,12 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
                 reason = "declaring type not found";
                 return false;
             }
-            method = declaringType.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly)
+            const BindingFlags declared = BindingFlags.Public | BindingFlags.NonPublic |
+                                          BindingFlags.Instance | BindingFlags.Static |
+                                          BindingFlags.DeclaredOnly;
+            method = declaringType.GetMethods(declared)
+                .Cast<MethodBase>()
+                .Concat(declaringType.GetConstructors(declared).Cast<MethodBase>())
                 .FirstOrDefault(candidate =>
                     string.Equals(HardcodedUiMethodIdentity.GetMethodSignature(candidate), entry.MethodSignature, StringComparison.Ordinal) &&
                     (entry.MethodMetadataToken <= 0 || candidate.MetadataToken == entry.MethodMetadataToken));

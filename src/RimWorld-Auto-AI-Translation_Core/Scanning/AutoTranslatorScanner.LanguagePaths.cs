@@ -794,6 +794,42 @@ namespace AutoTranslator_Core
             return GetModPathIndex(packageId, rootDir).EffectiveLangPaths;
         }
 
+        public static List<string> GetAllEffectiveAssemblyPaths(ModMetaData mod)
+        {
+            return mod == null || mod.RootDir == null
+                ? new List<string>()
+                : GetAllEffectiveAssemblyPaths(mod.PackageId, mod.RootDir.FullName);
+        }
+
+        public static List<string> GetAllEffectiveAssemblyPaths(string packageId, string rootDir)
+        {
+            bool usedRunningModRoots;
+            List<string> contentRoots = ResolveContentRootsForScanning(
+                packageId,
+                rootDir,
+                out usedRunningModRoots);
+            var result = new List<string>();
+            foreach (string contentRoot in contentRoots)
+            {
+                if (string.IsNullOrWhiteSpace(contentRoot)) continue;
+                string assembliesRoot = Path.Combine(contentRoot, "Assemblies");
+                if (!Directory.Exists(assembliesRoot)) continue;
+                try
+                {
+                    result.AddRange(Directory.EnumerateFiles(
+                        assembliesRoot,
+                        "*.dll",
+                        SearchOption.AllDirectories));
+                }
+                catch { }
+            }
+            return result
+                .Select(Path.GetFullPath)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
         public static List<string> GetAllTranslationPatchLangPaths(ModMetaData mod)
         {
             return GetModPathIndex(mod).TranslationPatchLangPaths;

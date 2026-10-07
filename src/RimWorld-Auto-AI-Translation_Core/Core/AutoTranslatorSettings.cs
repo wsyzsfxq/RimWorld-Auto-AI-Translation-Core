@@ -71,6 +71,12 @@ namespace AutoTranslator_Core
         public long TranslationBudgetSourceCharactersPerRun = 900000L;
         public long TranslationBudgetEstimatedTokensPerRun = 500000L;
         public List<ApiKeyConfig> ApiConfigs = new List<ApiKeyConfig>();
+        // Settings chapters are collapsed by default and remember the user's choices.
+        public bool SettingsGeneralExpanded = false;
+        public bool SettingsAiExpanded = false;
+        public bool SettingsPerformanceExpanded = false;
+        public bool SettingsCompatibilityExpanded = false;
+        public bool SettingsMaintenanceExpanded = false;
 
         // 這個欄位保存 CurrentProgress 的執行狀態或快取資料。
         // EN: This field stores current progress runtime state or cached data.
@@ -96,7 +102,6 @@ namespace AutoTranslator_Core
         public static float lastSettingsViewHeight = 1000f;
         // 這個欄位保存 ShowFinishPopup 的執行狀態或快取資料。
         // EN: This field stores show finish popup runtime state or cached data.
-        public static bool ShowFinishPopup = false;
         // 這個欄位保存 mainScrollPos 的執行狀態或快取資料。
         // EN: This field stores main scroll pos runtime state or cached data.
         public static Vector2 mainScrollPos = Vector2.zero;
@@ -105,6 +110,8 @@ namespace AutoTranslator_Core
         // EN: This field stores log scroll pos runtime state or cached data.
         public static Vector2 logScrollPos = Vector2.zero;
         public static List<string> RuntimeLogs = new List<string>();
+        public static Vector2 warningScrollPos = Vector2.zero;
+        public static List<string> WarningLogs = new List<string>();
         public static string AgentBatchProgressText = string.Empty;
         public static float AgentBatchProgress = 0f;
 
@@ -161,9 +168,7 @@ namespace AutoTranslator_Core
             get
             {
                 return IsCancellationRequested &&
-                    (IsRunning ||
-                     AutoTranslatorAPI.HasOutstandingTranslationWork ||
-                     UIInterceptor.HasOutstandingTranslationWork);
+                    (IsRunning || AutoTranslatorAPI.HasOutstandingTranslationWork);
             }
         }
 
@@ -182,7 +187,6 @@ namespace AutoTranslator_Core
                 IsSkipCurrentRequested = false;
             }
             WorkflowTaskCoordinator.Instance.RequestCancellation();
-            UIInterceptor.CancelPendingTranslationWork();
             AutoTranslatorAPI.AbortActiveTranslationRequests("Pipeline cancellation requested");
             if (needsStandaloneCompletionMonitor)
                 _ = MonitorStandaloneCancellationCompletionAsync(cancellationGeneration);
@@ -204,7 +208,6 @@ namespace AutoTranslator_Core
             int cancellationGeneration)
         {
             await AutoTranslatorAPI.WaitForTranslationRequestDrainAsync();
-            await UIInterceptor.WaitForPendingTranslationWorkDrainAsync();
             lock (PipelineStateLock)
             {
                 if (_pipelineCancellationGeneration != cancellationGeneration ||
@@ -222,15 +225,12 @@ namespace AutoTranslator_Core
             while (true)
             {
                 await AutoTranslatorAPI.WaitForTranslationRequestDrainAsync();
-                if (IsCancellationRequested)
-                    await UIInterceptor.WaitForPendingTranslationWorkDrainAsync();
 
                 bool mustDrainAgain;
                 lock (PipelineStateLock)
                 {
                     stoppedByUser = IsCancellationRequested;
-                    mustDrainAgain = AutoTranslatorAPI.HasOutstandingTranslationWork ||
-                                     (stoppedByUser && UIInterceptor.HasOutstandingTranslationWork);
+                    mustDrainAgain = AutoTranslatorAPI.HasOutstandingTranslationWork;
                     if (!mustDrainAgain)
                     {
                         IsRunning = false;
@@ -246,6 +246,8 @@ namespace AutoTranslator_Core
         // 這個欄位保存 EnableUIInterceptor 的執行狀態或快取資料。
         // EN: This field stores enable UI interceptor runtime state or cached data.
         public bool EnableUIInterceptor = false;
+        // UI interception is a temporary discovery probe. 0 means no automatic shutdown.
+        public int UIInterceptorAutoDisableMinutes = 5;
         // 這個欄位保存 EnableUINew翻譯 的執行狀態或快取資料。
         // EN: This field stores enable UI new translation runtime state or cached data.
         public bool EnableUINewTranslation = true;
@@ -414,37 +416,9 @@ namespace AutoTranslator_Core
             return ContainsPackageId(PolicyCloudDisabledPackageIds, packageId);
         }
 
-        public bool IsTerminologyEnabledForPackage(string packageId)
-        {
-            return Terminology.TerminologyPackageSelection.IsSelected(
-                EnableTerminologyConsistency,
-                TerminologyEnabledPackageIds,
-                packageId);
-        }
 
-        public void SetTerminologyEnabledForPackage(string packageId, bool enabled)
-        {
-            SetPackageIdBlocked(TerminologyEnabledPackageIds, packageId, enabled);
-            if (!enabled && !string.IsNullOrWhiteSpace(packageId))
-                TerminologyGroupByPackageId.Remove(packageId.Trim().ToLowerInvariant());
-        }
 
-        public string GetTerminologyGroup(string packageId)
-        {
-            if (string.IsNullOrWhiteSpace(packageId) || TerminologyGroupByPackageId == null) return string.Empty;
-            return TerminologyGroupByPackageId.TryGetValue(packageId.Trim().ToLowerInvariant(), out string group)
-                ? (group ?? string.Empty).Trim()
-                : string.Empty;
-        }
 
-        public void SetTerminologyGroup(string packageId, string group)
-        {
-            if (string.IsNullOrWhiteSpace(packageId)) return;
-            string key = packageId.Trim().ToLowerInvariant();
-            string value = (group ?? string.Empty).Trim();
-            if (value.Length == 0) TerminologyGroupByPackageId.Remove(key);
-            else TerminologyGroupByPackageId[key] = value.Length > 80 ? value.Substring(0, 80) : value;
-        }
 
         public void SetTranslationBlacklisted(string packageId, bool blocked)
         {
@@ -500,7 +474,7 @@ namespace AutoTranslator_Core
         public void SetUiTranslationModBlacklisted(string packageId, bool blocked)
         {
             SetPackageIdBlocked(UITranslationModBlacklist, packageId, blocked);
-            UIInterceptor.RefreshRuntimeUICache();
+            UIInterceptor.ResetProbeCaches();
         }
 
         private static bool ContainsPackageId(List<string> packageIds, string packageId)
@@ -585,6 +559,22 @@ namespace AutoTranslator_Core
                 {
                     TryShowRejectMessage(msg);
                 });
+        }
+
+        public static void AddWarningLog(string msg)
+        {
+            if (AutoTranslatorMod.Settings != null &&
+                AutoTranslatorMod.Settings.LogLevel < AtcLogLevel.Info)
+                return;
+            string line = $"[{DateTime.Now:HH:mm:ss}] {msg}";
+            Verse.Log.Message("[AutoTranslationCore] [WARNING] " + (msg ?? string.Empty));
+            lock (logLock)
+            {
+                WarningLogs.Add(line);
+                if (WarningLogs.Count > 200) WarningLogs.RemoveAt(0);
+                warningScrollPos.y = 99999f;
+                WriteLogToFile("[WARNING] " + line);
+            }
         }
 
         /// <summary>
@@ -789,12 +779,14 @@ namespace AutoTranslator_Core
             lock (logLock)
             {
                 RuntimeLogs.Clear();
+                WarningLogs.Clear();
                 ErrorLogs.Clear();
                 RuntimeStatusLogs.Clear();
                 AgentBatchProgressText = string.Empty;
                 AgentBatchProgress = 0f;
                 AggregatedErrorDisplayLines.Clear();
                 logScrollPos = Vector2.zero;
+                warningScrollPos = Vector2.zero;
                 errorScrollPos = Vector2.zero;
             }
             ErrorAggregationTracker.Reset();
@@ -807,7 +799,7 @@ namespace AutoTranslator_Core
             catch { }
         }
 
-        public static void ClearCurrentDisplayedLog(bool errorLog)
+        public static void ClearCurrentDisplayedLog(bool errorLog, bool warningLog = false)
         {
             lock (logLock)
             {
@@ -816,6 +808,11 @@ namespace AutoTranslator_Core
                     ErrorLogs.Clear();
                     AggregatedErrorDisplayLines.Clear();
                     errorScrollPos = Vector2.zero;
+                }
+                else if (warningLog)
+                {
+                    WarningLogs.Clear();
+                    warningScrollPos = Vector2.zero;
                 }
                 else
                 {
@@ -838,8 +835,17 @@ namespace AutoTranslator_Core
                 EnableDevelopmentDebugLogging = LogLevel == AtcLogLevel.Debug;
             Scribe_Values.Look(ref TargetLang, "TargetLang", TargetLanguage.Traditional);
             Scribe_Values.Look(ref HasManualTargetLanguage, "HasManualTargetLanguage", false);
+            Scribe_Values.Look(ref SettingsGeneralExpanded, "SettingsGeneralExpanded", false);
+            Scribe_Values.Look(ref SettingsAiExpanded, "SettingsAiExpanded", false);
+            Scribe_Values.Look(ref SettingsPerformanceExpanded, "SettingsPerformanceExpanded", false);
+            Scribe_Values.Look(ref SettingsCompatibilityExpanded, "SettingsCompatibilityExpanded", false);
+            Scribe_Values.Look(ref SettingsMaintenanceExpanded, "SettingsMaintenanceExpanded", false);
             Scribe_Values.Look(ref OnlyScanActiveMods, "OnlyScanActiveMods", true);
             Scribe_Values.Look(ref EnableUIInterceptor, "EnableUIInterceptor", false);
+            Scribe_Values.Look(ref UIInterceptorAutoDisableMinutes, "UIInterceptorAutoDisableMinutes", 5);
+            if (UIInterceptorAutoDisableMinutes < 0) UIInterceptorAutoDisableMinutes = 5;
+            else if (UIInterceptorAutoDisableMinutes == 1) UIInterceptorAutoDisableMinutes = 2;
+            else if (UIInterceptorAutoDisableMinutes > 30) UIInterceptorAutoDisableMinutes = 30;
             Scribe_Values.Look(ref EnableUINewTranslation, "EnableUINewTranslation", true);
             Scribe_Values.Look(ref EnableHardcodedUiPrototype, "EnableHardcodedUiPrototype", false);
             Scribe_Values.Look(ref EnableUIErrorLogInterception, "EnableUIErrorLogInterception", false);
@@ -958,11 +964,6 @@ namespace AutoTranslator_Core
 
             if (Scribe.mode == LoadSaveMode.LoadingVars)
             {
-                // Global interception and targeted manifest patches are alternative
-                // runtime strategies. Preserve the established global mode when
-                // migrating an older configuration that accidentally enabled both.
-                if (EnableUIInterceptor && EnableHardcodedUiPrototype)
-                    EnableHardcodedUiPrototype = false;
                 if (ApiConfigs == null || ApiConfigs.Count == 0)
                 {
                     ApiConfigs = new List<ApiKeyConfig> { new ApiKeyConfig() };
