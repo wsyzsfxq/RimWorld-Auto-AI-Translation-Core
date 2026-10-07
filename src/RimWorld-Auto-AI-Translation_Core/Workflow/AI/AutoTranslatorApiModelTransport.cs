@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -19,12 +19,16 @@ namespace AutoTranslator_Core.Workflow.AI
                 exempt: request.IsSimulation,
                 itemCount: request.ItemCount))
             {
-                response = await AutoTranslatorAPI.InvokeWorkflowJsonAsync(
-                    request.Prompt, cancellationToken);
+                response = request.ToolConversation == null
+                    ? await AutoTranslatorAPI.InvokeWorkflowJsonAsync(request.Prompt, cancellationToken)
+                    : await AutoTranslatorAPI.InvokeWorkflowToolAsync(request.Prompt, cancellationToken, request.ToolConversation);
             }
             return new ModelInvocationResult
             {
                 Content = response.Content,
+                ToolCalls = response.ToolCalls,
+                ToolConversation = request.ToolConversation,
+                ToolItemIndexes = request.ToolItemIndexes,
                 FinishReason = response.FinishReason,
                 ProviderName = response.ProviderName,
                 ModelName = response.ModelName,
@@ -33,9 +37,11 @@ namespace AutoTranslator_Core.Workflow.AI
                 KnownModelOutputTokenLimit = response.KnownModelOutputTokenLimit,
                 Usage = new ModelTokenUsage
                 {
-                    InputTokens = response.InputTokens ?? ApproximateTokenEstimator.Estimate(request.Prompt),
-                    OutputTokens = response.OutputTokens ?? ApproximateTokenEstimator.Estimate(response.Content),
-                    IsEstimated = !response.InputTokens.HasValue || !response.OutputTokens.HasValue
+                    InputTokens = response.InputTokens ?? response.EstimatedInputTokens,
+                    OutputTokens = response.OutputTokens ?? ApproximateTokenEstimator.Estimate(
+                        response.Content + response.Reasoning + string.Concat(
+                            response.ToolCalls.ConvertAll(call => call.Arguments))),
+                    IsEstimated = response.UsageIsEstimated || !response.InputTokens.HasValue || !response.OutputTokens.HasValue
                 }
             };
         }

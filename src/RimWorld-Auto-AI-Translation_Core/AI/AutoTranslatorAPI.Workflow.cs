@@ -1,4 +1,4 @@
-using Newtonsoft.Json.Linq;
+﻿using Newtonsoft.Json.Linq;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -11,6 +11,9 @@ namespace AutoTranslator_Core
     internal sealed class WorkflowRawModelResponse
     {
         public string Content = string.Empty;
+        public string Reasoning = string.Empty;
+        public JObject NativeAssistant;
+        public List<WorkflowToolCall> ToolCalls = new List<WorkflowToolCall>();
         public long? InputTokens;
         public long? OutputTokens;
         public string FinishReason = string.Empty;
@@ -19,22 +22,76 @@ namespace AutoTranslator_Core
         public int ConfiguredOutputTokenLimit;
         public int? KnownModelOutputTokenLimit;
         public int ActualOutputTokenLimit;
+        public long EstimatedInputTokens;
+        public bool UsageIsEstimated;
     }
 
     public static partial class AutoTranslatorAPI
     {
-        private static long? ReadNullableTokenCount(JToken token)
+        internal static Task<WorkflowRawModelResponse> InvokeWorkflowJsonAsync(
+            string prompt, CancellationToken cancellationToken, ApiKeyConfig selectedConfiguration = null)
         {
-            if (token == null) return null;
-            long value;
-            return long.TryParse(token.ToString(), out value) && value >= 0L ? (long?)value : null;
+            return InvokeWorkflowRequestAsync(prompt, cancellationToken, selectedConfiguration, null);
         }
-        internal static async Task<WorkflowRawModelResponse> InvokeWorkflowJsonAsync(
+
+        internal static async Task<WorkflowRawModelResponse> InvokeWorkflowToolAsync(
+            string prompt, CancellationToken cancellationToken, WorkflowToolConversation conversation)
+        {
+            if (conversation == null) throw new ArgumentNullException(nameof(conversation));
+            ApiKeyConfig initial = conversation.Configuration ?? GetNextWorkflowConfig();
+            if (initial == null) throw new InvalidOperationException("No enabled API configuration is available.");
+            List<ApiKeyConfig> routes = new List<ApiKeyConfig> { initial };
+            routes.AddRange(GetEligibleWorkflowConfigs().Where(config => !ReferenceEquals(config, initial)));
+            List<string> failures = new List<string>();
+            long priorInput = 0;
+            long priorOutput = 0;
+            bool priorEstimated = false;
+            foreach (ApiKeyConfig route in routes)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (AutoTranslatorSettings.IsCancellationRequested) throw new OperationCanceledException();
+                if (conversation.Configuration != null && !ReferenceEquals(conversation.Configuration, route))
+                    conversation.SwitchRoute(route);
+                try
+                {
+                    WorkflowRawModelResponse result = await InvokeWorkflowRequestAsync(prompt, cancellationToken, route, conversation);
+                    if (priorInput != 0 || priorOutput != 0)
+                    {
+                        result.UsageIsEstimated = priorEstimated || !result.InputTokens.HasValue || !result.OutputTokens.HasValue;
+                        result.InputTokens = priorInput + (result.InputTokens ?? result.EstimatedInputTokens);
+                        result.OutputTokens = priorOutput + (result.OutputTokens ?? EstimateWorkflowOutput(result));
+                    }
+                    return result;
+                }
+                catch (WorkflowModelRequestException ex)
+                {
+                    failures.Add(route.Provider + " / " + route.SelectedModel + ": " + ex.Message);
+                    if (ex.Response != null)
+                    {
+                        priorInput += ex.Response.InputTokens ?? ex.Response.EstimatedInputTokens;
+                        priorOutput += ex.Response.OutputTokens ?? EstimateWorkflowOutput(ex.Response);
+                        priorEstimated |= !ex.Response.InputTokens.HasValue || !ex.Response.OutputTokens.HasValue;
+                    }
+                    if (!ex.CanTryConfiguredFallback) throw;
+                    AutoTranslatorSettings.AddWarningLog("工具模型请求失败：" + failures[failures.Count - 1]);
+                }
+            }
+            throw new InvalidOperationException("已配置的同档位模型均未能完成工具请求：" +
+                string.Join("；", failures) + "。请检查 API 配置及模型工具调用支持。");
+        }
+
+        private static long EstimateWorkflowOutput(WorkflowRawModelResponse response) =>
+            Workflow.AI.ApproximateTokenEstimator.Estimate(response.Content + response.Reasoning +
+                string.Concat(response.ToolCalls.Select(call => call.Arguments)));
+
+        private static async Task<WorkflowRawModelResponse> InvokeWorkflowRequestAsync(
             string prompt,
             CancellationToken cancellationToken,
-            ApiKeyConfig selectedConfiguration = null)
+            ApiKeyConfig selectedConfiguration = null,
+            WorkflowToolConversation toolConversation = null)
         {
-            ApiKeyConfig config = selectedConfiguration ?? GetNextWorkflowConfig();
+            ApiKeyConfig config = toolConversation?.Configuration ?? selectedConfiguration ?? GetNextWorkflowConfig();
+            if (toolConversation != null) toolConversation.Configuration = config;
             if (config == null) throw new InvalidOperationException("No enabled API configuration is available.");
             if (!IsConfigReady(config))
                 throw new InvalidOperationException("The selected API configuration is incomplete or disabled.");
@@ -58,54 +115,12 @@ namespace AutoTranslator_Core
                 " known_model_limit=" + (knownModelOutputTokenLimit?.ToString() ?? "unknown") +
                 " actual_limit=" + maximumOutputTokens);
             string baseUrl = GetBaseUrl(config).TrimEnd('/');
-            string url;
-            JObject payload;
-            if (config.Provider == TranslatorProvider.Google)
-            {
-                url = baseUrl + "/models/" + model + ":generateContent?key=" + apiKey;
-                payload = new JObject
-                {
-                    ["contents"] = new JArray
-                    {
-                        new JObject
-                        {
-                            ["parts"] = new JArray { new JObject { ["text"] = prompt ?? string.Empty } }
-                        }
-                    },
-                    ["generationConfig"] = new JObject
-                    {
-                        ["maxOutputTokens"] = Math.Max(1, maximumOutputTokens),
-                        ["responseMimeType"] = "application/json"
-                    }
-                };
-            }
-            else
-            {
-                url = baseUrl + "/chat/completions";
-                payload = new JObject
-                {
-                    ["model"] = model,
-                    ["messages"] = new JArray
-                    {
-                        new JObject { ["role"] = "system", ["content"] = "Return valid JSON only and follow the supplied schema exactly." },
-                        new JObject { ["role"] = "user", ["content"] = prompt ?? string.Empty }
-                    },
-                    ["max_tokens"] = Math.Max(1, maximumOutputTokens)
-                };
-                StructuredTranslationMode structuredMode = StructuredTranslationProviderAdapter.ResolveMode(config);
-                if (structuredMode != StructuredTranslationMode.PromptOnly)
-                    payload["response_format"] = new JObject { ["type"] = "json_object" };
-                if (config.Provider == TranslatorProvider.DeepSeek)
-                {
-                    // Workflow steps need the final JSON, not chain-of-thought. DeepSeek V4 enables
-                    // thinking by default; a small structured-output budget can otherwise be spent
-                    // entirely on reasoning and leave message.content empty.
-                    payload["thinking"] = new JObject { ["type"] = "disabled" };
-                    payload["max_tokens"] = Math.Max(1, maximumOutputTokens);
-                }
-                if (config.Provider == TranslatorProvider.OpenRouter)
-                    payload["provider"] = new JObject { ["require_parameters"] = false };
-            }
+            toolConversation?.BindRoute(config, model, baseUrl, apiKey);
+            IWorkflowProtocol protocol = WorkflowProtocolRegistry.Resolve(config.Provider);
+            string url = protocol.BuildUrl(baseUrl, model, apiKey);
+            JObject payload = toolConversation == null
+                ? protocol.BuildJsonRequest(config, model, prompt, maximumOutputTokens)
+                : protocol.BuildToolRequest(config, model, prompt, maximumOutputTokens, toolConversation);
 
             int timeoutSeconds = WorkflowRequestTimeout.Resolve(
                 AutoTranslatorMod.Settings != null ? AutoTranslatorMod.Settings.TimeoutSeconds : 120);
@@ -114,7 +129,7 @@ namespace AutoTranslator_Core
             Func<bool> cancelled = () => cancellationToken.IsCancellationRequested ||
                                          AutoTranslatorSettings.IsCancellationRequested;
             string lastFinishReason = string.Empty;
-            const int maximumStructuredAttempts = 3;
+            int maximumStructuredAttempts = toolConversation == null ? 3 : 2;
             for (int structuredAttempt = 0; structuredAttempt < maximumStructuredAttempts; structuredAttempt++)
             {
                 System.Diagnostics.Stopwatch requestTimer = System.Diagnostics.Stopwatch.StartNew();
@@ -128,6 +143,16 @@ namespace AutoTranslator_Core
                 cancellationToken.ThrowIfCancellationRequested();
                 if (response == null || !response.IsSuccess)
                 {
+                    if (toolConversation != null)
+                    {
+                        if (cancelled()) throw new OperationCanceledException();
+                        if (structuredAttempt == 0 && WorkflowModelRecovery.TryPrepareCompatibilityRetry(response, payload))
+                        {
+                            AutoTranslatorSettings.AddLog("工具协议兼容参数已调整，本模型重试一次。");
+                            continue;
+                        }
+                        throw WorkflowModelRecovery.Failure(response);
+                    }
                     if (response != null && response.FailureKind == TranslationRequestFailureKind.ResponseTimeout)
                     {
                         int effectiveTimeoutSeconds = response.TimeoutSeconds > 0
@@ -149,15 +174,35 @@ namespace AutoTranslator_Core
                     throw new InvalidOperationException(response?.ErrorText ?? "No model response was returned.");
                 }
 
-                JObject envelope = JObject.Parse(response.ResponseBody ?? string.Empty);
-                WorkflowRawModelResponse result = ExtractWorkflowResponse(envelope, config.Provider);
-                lastFinishReason = ReadWorkflowFinishReason(envelope, config.Provider);
+                WorkflowRawModelResponse result;
+                try
+                {
+                    JObject envelope = JObject.Parse(response.ResponseBody ?? string.Empty);
+                    result = protocol.ParseResponse(envelope);
+                }
+                catch (Exception ex) when (toolConversation != null &&
+                    (ex is Newtonsoft.Json.JsonException || ex is InvalidOperationException || ex is ArgumentException))
+                {
+                    throw new WorkflowModelRequestException("服务商响应不符合所选工具协议。", true);
+                }
+                result.EstimatedInputTokens = Workflow.AI.ApproximateTokenEstimator.Estimate(
+                    payload.ToString(Newtonsoft.Json.Formatting.None));
+                lastFinishReason = result.FinishReason;
                 result.FinishReason = lastFinishReason;
                 result.ProviderName = config.Provider.ToString();
                 result.ModelName = model;
                 result.ConfiguredOutputTokenLimit = configuredOutputTokenLimit;
                 result.KnownModelOutputTokenLimit = knownModelOutputTokenLimit;
                 result.ActualOutputTokenLimit = maximumOutputTokens;
+                if (toolConversation != null)
+                {
+                    if (!IsWorkflowLengthTermination(result.FinishReason) && result.ToolCalls.Count == 0 &&
+                        string.Equals(result.FinishReason, "stop", StringComparison.OrdinalIgnoreCase))
+                        throw new WorkflowModelRequestException("模型未返回要求的工具调用，可能不支持该工具协议。", true, result);
+                    toolConversation.PendingAssistant = result.NativeAssistant;
+                    toolConversation.PendingCalls = new List<WorkflowToolCall>(result.ToolCalls);
+                    return result;
+                }
                 if (IsWorkflowLengthTermination(lastFinishReason)) return result;
                 if (!string.IsNullOrWhiteSpace(result.Content)) return result;
 
@@ -166,9 +211,9 @@ namespace AutoTranslator_Core
                     " model=" + model + " finishReason=" + lastFinishReason +
                     " attempt=" + (structuredAttempt + 1));
                 if (structuredAttempt < maximumStructuredAttempts - 1)
-                    PrepareEmptyStructuredResponseRetry(
+                    protocol.PrepareEmptyJsonRetry(
                         payload,
-                        config.Provider,
+                        config,
                         removeResponseFormat: structuredAttempt == 1);
             }
 
@@ -177,73 +222,6 @@ namespace AutoTranslator_Core
                 (string.IsNullOrWhiteSpace(lastFinishReason)
                     ? "."
                     : " (finish reason: " + lastFinishReason + ")."));
-        }
-
-        private static WorkflowRawModelResponse ExtractWorkflowResponse(
-            JObject envelope,
-            TranslatorProvider provider)
-        {
-            WorkflowRawModelResponse result = new WorkflowRawModelResponse();
-            if (provider == TranslatorProvider.Google)
-            {
-                JArray parts = envelope["candidates"]?[0]?["content"]?["parts"] as JArray;
-                result.Content = string.Concat(parts?
-                    .OfType<JObject>()
-                    .Where(part => part["thought"]?.Type != JTokenType.Boolean || !part["thought"].Value<bool>())
-                    .Select(part => ReadWorkflowTextFragment(part["text"]))
-                    .Where(text => text != null) ?? Enumerable.Empty<string>());
-                result.InputTokens = ReadNullableTokenCount(envelope["usageMetadata"]?["promptTokenCount"]);
-                result.OutputTokens = ReadNullableTokenCount(envelope["usageMetadata"]?["candidatesTokenCount"]);
-            }
-            else
-            {
-                result.Content = ExtractOpenAiCompatibleContent(envelope["choices"]?[0]?["message"]?["content"]);
-                result.InputTokens = ReadNullableTokenCount(envelope["usage"]?["prompt_tokens"]);
-                result.OutputTokens = ReadNullableTokenCount(envelope["usage"]?["completion_tokens"]);
-            }
-            return result;
-        }
-
-        private static string ExtractOpenAiCompatibleContent(JToken content)
-        {
-            if (content == null || content.Type == JTokenType.Null) return string.Empty;
-            if (content.Type == JTokenType.String) return content.ToString();
-            if (content is JArray blocks)
-            {
-                return string.Concat(blocks.OfType<JObject>()
-                    .Select(ReadOpenAiTextBlock)
-                    .Where(text => text != null));
-            }
-            return content.ToString();
-        }
-
-        private static string ReadOpenAiTextBlock(JObject block)
-        {
-            string type = block["type"]?.ToString() ?? string.Empty;
-            if ((block["thought"]?.Type == JTokenType.Boolean && block["thought"].Value<bool>()) ||
-                type.Equals("thinking", StringComparison.OrdinalIgnoreCase) ||
-                type.Equals("reasoning", StringComparison.OrdinalIgnoreCase))
-                return null;
-            if (type.Length > 0 &&
-                !type.Equals("text", StringComparison.OrdinalIgnoreCase) &&
-                !type.Equals("output_text", StringComparison.OrdinalIgnoreCase))
-                throw new InvalidOperationException("模型返回了非文本响应片段，无法作为翻译 JSON 处理。");
-            return ReadWorkflowTextFragment(block["text"] ?? block["content"]);
-        }
-
-        private static string ReadWorkflowTextFragment(JToken text)
-        {
-            if (text == null || text.Type == JTokenType.Null) return null;
-            if (text.Type != JTokenType.String)
-                throw new InvalidOperationException("模型响应的文本片段不是字符串，无法作为翻译 JSON 处理。");
-            return text.Value<string>();
-        }
-
-        private static string ReadWorkflowFinishReason(JObject envelope, TranslatorProvider provider)
-        {
-            return provider == TranslatorProvider.Google
-                ? envelope["candidates"]?[0]?["finishReason"]?.ToString() ?? string.Empty
-                : envelope["choices"]?[0]?["finish_reason"]?.ToString() ?? string.Empty;
         }
 
         private static bool IsWorkflowLengthTermination(string finishReason)
@@ -256,39 +234,20 @@ namespace AutoTranslator_Core
                     (value.Contains("MAX") || value.Contains("LIMIT")));
         }
 
-        private static void PrepareEmptyStructuredResponseRetry(
-            JObject payload,
-            TranslatorProvider provider,
-            bool removeResponseFormat)
+        private static List<ApiKeyConfig> GetEligibleWorkflowConfigs()
         {
-            if (provider == TranslatorProvider.Google)
-            {
-                return;
-            }
-
-            if (provider == TranslatorProvider.DeepSeek && removeResponseFormat)
-            {
-                // DeepSeek documents an occasional empty response in JSON Output mode.
-                // Keep response_format for the first retry. Only the final attempt falls
-                // back to the prompt-level JSON contract.
-                payload.Remove("response_format");
-            }
-            JArray messages = payload["messages"] as JArray;
-            JObject system = messages?.OfType<JObject>()
-                .FirstOrDefault(message => string.Equals(message["role"]?.ToString(), "system", StringComparison.Ordinal));
-            if (system != null)
-                system["content"] = (system["content"]?.ToString() ?? string.Empty) +
-                                    " Never return an empty response; emit the complete JSON object now.";
-        }
-
-        private static ApiKeyConfig GetNextWorkflowConfig()
-        {
-            if (AutoTranslatorMod.Settings?.ApiConfigs == null) return null;
+            if (AutoTranslatorMod.Settings?.ApiConfigs == null) return new List<ApiKeyConfig>();
             var ready = AutoTranslatorMod.Settings.ApiConfigs
                 .Where(config => IsConfigReady(config) && config.Provider != TranslatorProvider.DeepL)
                 .ToList();
             var eligible = TranslationTaskTierRouter.SelectEligible(ready, TranslationTaskTier.Precision);
             if (eligible.Count == 0) eligible = ready;
+            return eligible;
+        }
+
+        private static ApiKeyConfig GetNextWorkflowConfig()
+        {
+            List<ApiKeyConfig> eligible = GetEligibleWorkflowConfigs();
             if (eligible.Count == 0) return null;
             if (eligible.Count == 1) return eligible[0];
             int index = System.Threading.Interlocked.Increment(ref currentKeyIndex);

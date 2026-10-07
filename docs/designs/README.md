@@ -26,6 +26,7 @@
 
 辅助工程资料：
 
+- [Hermes 协议分层移植阶段记录](../reports/hermes-tool-protocol-migration-2026-10-08.md)：默认翻译工具、一次合批纠错与配置内备用恢复；设置协议独立配置尚未完成，未经运行验证。
 
 - [旧实现调用链清理](../reports/legacy-call-chain-cleanup-2026-10-07.md)：全量静态清单、旧入口删除、新版接线及上传标记改造；未经编译或运行验证。
 - [批量模型请求静态修复](../reports/batch-request-static-fixes-2026-10-07.md)：协程异常收尾、多段响应拼接和逐批提交取消检查；尚不能确认群反馈根因。

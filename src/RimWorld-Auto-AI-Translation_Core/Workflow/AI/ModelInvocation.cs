@@ -17,6 +17,8 @@ namespace AutoTranslator_Core.Workflow.AI
 
     public sealed class ModelInvocationRequest
     {
+        internal WorkflowToolConversation ToolConversation { get; set; }
+        internal IList<int> ToolItemIndexes { get; set; }
         public string Prompt { get; set; } = string.Empty;
         // Estimation is report-only. It must never determine a real provider request limit.
         public long EstimatedOutputTokens { get; set; }
@@ -33,6 +35,9 @@ namespace AutoTranslator_Core.Workflow.AI
 
     public sealed class ModelInvocationResult
     {
+        internal WorkflowToolConversation ToolConversation { get; set; }
+        internal IList<WorkflowToolCall> ToolCalls { get; set; } = new List<WorkflowToolCall>();
+        internal IList<int> ToolItemIndexes { get; set; }
         public string Content { get; set; } = string.Empty;
         public ModelTokenUsage Usage { get; set; } = new ModelTokenUsage();
         public string FinishReason { get; set; } = string.Empty;
@@ -66,6 +71,8 @@ namespace AutoTranslator_Core.Workflow.AI
             get
             {
                 string value = (FinishReason ?? string.Empty).Trim();
+                if (ToolConversation != null && ToolCalls.Count > 0 &&
+                    value.Equals("tool_calls", StringComparison.OrdinalIgnoreCase)) return true;
                 return value.Equals("stop", StringComparison.OrdinalIgnoreCase) ||
                        value.Equals("end_turn", StringComparison.OrdinalIgnoreCase) ||
                        value.Equals("completed", StringComparison.OrdinalIgnoreCase) ||
@@ -113,7 +120,10 @@ namespace AutoTranslator_Core.Workflow.AI
                 ActualOutputTokenLimit = 0,
                 Usage = new ModelTokenUsage
                 {
-                    InputTokens = ApproximateTokenEstimator.Estimate(request.Prompt),
+                    InputTokens = ApproximateTokenEstimator.Estimate(request.Prompt) +
+                        (request.ToolConversation == null ? 0 : ApproximateTokenEstimator.Estimate(
+                            request.ToolConversation.Tool.Parameters.ToString() +
+                            request.ToolConversation.Tool.Name + request.ToolConversation.Tool.Description)),
                     OutputTokens = Math.Max(0, request.EstimatedOutputTokens),
                     IsEstimated = true
                 }

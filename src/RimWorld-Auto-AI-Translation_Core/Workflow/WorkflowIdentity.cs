@@ -16,7 +16,7 @@ namespace AutoTranslator_Core.Workflow
         // reusable until the user explicitly clears that mod's AI review results.
         public const string AiReviewVersion = "ai-review-4";
         public const string AiReviewPromptVersion = "ai-review-prompt-4.0";
-        public const string AiTranslationPromptVersion = "ai-translation-prompt-2.2";
+        public const string AiTranslationPromptVersion = "ai-translation-tool-3.0";
         private const string CandidateIdPrefix = "atc1_";
 
         public static string CreateCandidateId(
