@@ -140,9 +140,11 @@ namespace AutoTranslator_Core
             string model,
             long sourceCharacters,
             long estimatedTokens,
-            out string denialReason)
+            out string denialReason,
+            out bool recoveredPreviousRequest)
         {
             denialReason = string.Empty;
+            recoveredPreviousRequest = false;
             if (string.IsNullOrWhiteSpace(requestId))
                 throw new ArgumentException("A stable request id is required.", nameof(requestId));
 
@@ -160,10 +162,14 @@ namespace AutoTranslator_Core
 
                 if (_state.Requests.TryGetValue(requestId, out TranslationUsageReservation existing))
                 {
-                    denialReason = existing.Status == TranslationUsageReservationStatus.Committed
-                        ? "already_committed"
-                        : "ambiguous_or_in_flight";
-                    return false;
+                    if (existing.Status == TranslationUsageReservationStatus.InFlight)
+                    {
+                        denialReason = "request_in_flight";
+                        return false;
+                    }
+
+                    ArchivePreviousReservationLocked(requestId, existing);
+                    recoveredPreviousRequest = true;
                 }
 
                 TranslationUsageSnapshot snapshot = CreateSnapshotLocked();
@@ -202,6 +208,28 @@ namespace AutoTranslator_Core
                 SaveLocked();
                 return true;
             }
+        }
+
+        private void ArchivePreviousReservationLocked(
+            string requestId,
+            TranslationUsageReservation reservation)
+        {
+            int attempt = 1;
+            string archivedRequestId;
+            string statusLabel = reservation.Status == TranslationUsageReservationStatus.Committed
+                ? "committed"
+                : "ambiguous";
+            do
+            {
+                archivedRequestId = requestId + ":" + statusLabel + ":" + attempt;
+                attempt++;
+            }
+            while (_state.Requests.ContainsKey(archivedRequestId));
+
+            _state.Requests.Remove(requestId);
+            reservation.RequestId = archivedRequestId;
+            reservation.UpdatedUtc = DateTime.UtcNow.ToString("o");
+            _state.Requests.Add(archivedRequestId, reservation);
         }
 
         internal void Commit(

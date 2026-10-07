@@ -35,7 +35,14 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
 
             ParameterInfo[] parameters = method.GetParameters();
             return parameters.Length > 0 &&
-                   parameters[parameters.Length - 1].ParameterType == typeof(string);
+                   IsStringLike(parameters[parameters.Length - 1].ParameterType);
+        }
+
+        private static bool IsStringLike(Type type)
+        {
+            string name = type?.FullName ?? string.Empty;
+            return type == typeof(string) || name == "Verse.TaggedString" ||
+                   name == "UnityEngine.GUIContent";
         }
 
         internal static bool Matches(MethodBase method, HardcodedUiPatchEntry entry)

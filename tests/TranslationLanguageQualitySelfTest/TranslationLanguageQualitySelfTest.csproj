@@ -25,6 +25,8 @@
              Link="HardcodedUiBuiltInDictionary.cs" />
     <Compile Include="..\..\src\RimWorld-Auto-AI-Translation_Core\Scanning\TranslationGeneratedOutputCleanup.cs"
              Link="TranslationGeneratedOutputCleanup.cs" />
+    <Compile Include="..\..\src\RimWorld-Auto-AI-Translation_Core\Scanning\DefXmlInheritanceResolver.cs"
+             Link="DefXmlInheritanceResolver.cs" />
     <Compile Include="..\..\src\RimWorld-Auto-AI-Translation_Core\UI\Workbench\TranslationGeneratedOutputOwnership.cs"
              Link="TranslationGeneratedOutputOwnership.cs" />
     <Compile Include="..\..\src\RimWorld-Auto-AI-Translation_Core\Scanning\Policy\*.cs"

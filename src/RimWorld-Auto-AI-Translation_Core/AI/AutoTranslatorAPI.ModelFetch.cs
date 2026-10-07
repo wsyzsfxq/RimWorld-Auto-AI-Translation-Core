@@ -322,6 +322,8 @@ namespace AutoTranslator_Core
             if (clearModels) config.FetchedModels.Clear();
             if (clearModels && config.FetchedModelSupportedParameters != null)
                 config.FetchedModelSupportedParameters.Clear();
+            if (clearModels && config.FetchedModelOutputTokenLimits != null)
+                config.FetchedModelOutputTokenLimits.Clear();
         }
 
         // 這個方法負責建立 Models網址 所需資料。
@@ -409,11 +411,27 @@ namespace AutoTranslator_Core
             if (config == null) return;
             config.FetchedModelSupportedParameters =
                 new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
-            if (isGoogleRaw || config.Provider != TranslatorProvider.OpenRouter) return;
+            config.FetchedModelOutputTokenLimits =
+                new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
             try
             {
-                JArray data = JObject.Parse(rawResponse ?? string.Empty)["data"] as JArray;
+                JObject root = JObject.Parse(rawResponse ?? string.Empty);
+                if (isGoogleRaw)
+                {
+                    JArray models = root["models"] as JArray;
+                    if (models == null) return;
+                    foreach (JToken item in models)
+                    {
+                        string id = item?["name"]?.ToString()?.Replace("models/", string.Empty);
+                        if (string.IsNullOrWhiteSpace(id)) continue;
+                        int? limit = ReadPositiveModelTokenLimit(item?["outputTokenLimit"]);
+                        if (limit.HasValue) config.FetchedModelOutputTokenLimits[id] = limit.Value;
+                    }
+                    return;
+                }
+                if (config.Provider != TranslatorProvider.OpenRouter) return;
+                JArray data = root["data"] as JArray;
                 if (data == null) return;
                 foreach (JToken item in data)
                 {
@@ -425,12 +443,22 @@ namespace AutoTranslator_Core
                         .Distinct(StringComparer.OrdinalIgnoreCase)
                         .ToList() ?? new List<string>();
                     config.FetchedModelSupportedParameters[id] = parameters;
+                    int? limit = ReadPositiveModelTokenLimit(
+                        item?["top_provider"]?["max_completion_tokens"]);
+                    if (limit.HasValue) config.FetchedModelOutputTokenLimits[id] = limit.Value;
                 }
             }
             catch (Exception ex)
             {
-                Verse.Log.Warning("[AutoTranslationCore] Could not read OpenRouter model capabilities: " + ex.Message);
+                Verse.Log.Warning("[AutoTranslationCore] Could not read model capabilities: " + ex.Message);
             }
+        }
+
+        private static int? ReadPositiveModelTokenLimit(JToken token)
+        {
+            if (token == null) return null;
+            if (!long.TryParse(token.ToString(), out long value) || value <= 0L) return null;
+            return (int)Math.Min(int.MaxValue, value);
         }
 
         // 這個方法負責標記 模型取得Success 狀態。

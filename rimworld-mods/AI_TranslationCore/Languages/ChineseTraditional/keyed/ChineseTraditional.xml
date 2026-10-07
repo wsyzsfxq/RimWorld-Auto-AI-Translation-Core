@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LanguageData>
-  <ATC_ModTitle>AI 智能漢化網絡 (AI Translation Network)V4.1 BETA</ATC_ModTitle>
+  <ATC_ModTitle>AI 智能漢化網絡 (AI Translation Network) V4.5 內測版</ATC_ModTitle>
   <ATC_TargetLang>目標語系</ATC_TargetLang>
   <ATC_Lang_Traditional>繁體中文</ATC_Lang_Traditional>
   <ATC_Lang_Simplified>簡體中文</ATC_Lang_Simplified>
@@ -188,7 +188,7 @@
   <ATC_EnableUIInterceptor>開啟動態 UI 硬編碼攔截 【警告：可能影響效能】</ATC_EnableUIInterceptor>
   <ATC_EnableUINewTranslation>允許 UI 攔截器產生新的 AI 翻譯（關閉後只保留快取替換）</ATC_EnableUINewTranslation>
   <ATC_EnableUIErrorLogInterception>開啟錯誤日誌 UI 攔截（會極大消耗 token）</ATC_EnableUIErrorLogInterception>
-  <ATC_TranslateWorkbenchModNames>在智能補翻清單翻譯模組名稱（保留原名）</ATC_TranslateWorkbenchModNames>
+  <ATC_TranslateWorkbenchModNames>工作台顯示 Mod 中文名稱</ATC_TranslateWorkbenchModNames>
   <ATC_Log_AdvancedDetoxSuccess>高級排毒完畢！精準切除 {0} 個違規標籤，保護了玩家的翻譯資產 (共修復 {1} 個檔案)！</ATC_Log_AdvancedDetoxSuccess>
   <ATC_DeleteModTrans_Btn>刪除翻譯</ATC_DeleteModTrans_Btn>
   <ATC_DeleteModTrans_Title>翻譯檔案焚化爐 (勾選要刪除翻譯的模組)</ATC_DeleteModTrans_Title>

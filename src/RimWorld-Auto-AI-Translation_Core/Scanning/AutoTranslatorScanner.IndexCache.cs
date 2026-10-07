@@ -143,6 +143,42 @@ namespace AutoTranslator_Core
             }
         }
 
+        internal static void SeedWorkflowTranslationXmlCache(
+            string filePath,
+            IEnumerable<KeyValuePair<string, string>> entries)
+        {
+            if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath)) return;
+            string fullPath;
+            FileInfo info;
+            try
+            {
+                fullPath = NormalizeCachePath(filePath);
+                info = new FileInfo(fullPath);
+            }
+            catch
+            {
+                return;
+            }
+
+            Dictionary<string, string> data = new Dictionary<string, string>();
+            foreach (KeyValuePair<string, string> entry in
+                     entries ?? Enumerable.Empty<KeyValuePair<string, string>>())
+            {
+                if (string.IsNullOrWhiteSpace(entry.Key)) continue;
+                data[entry.Key] = entry.Value ?? string.Empty;
+            }
+            lock (TranslationIndexCacheLock)
+            {
+                XmlParseCache[fullPath] = new XmlParseCacheEntry
+                {
+                    Length = info.Length,
+                    LastWriteTicks = info.LastWriteTimeUtc.Ticks,
+                    ParseFailed = false,
+                    Data = data
+                };
+            }
+        }
+
         public static void NotifyTranslationFileChanged(string filePath)
         {
             if (string.IsNullOrEmpty(filePath)) return;
@@ -217,7 +253,7 @@ namespace AutoTranslator_Core
                     List<string> existingFiles = cached.Files.Where(File.Exists).ToList();
                     if (existingFiles.Count == cached.Files.Count)
                     {
-                        return new List<string>(existingFiles);
+                        return ApplyTranslationFileLoadOrder(fullPath, existingFiles);
                     }
 
                     XmlFileListCache.Remove(cacheKey);
@@ -226,7 +262,9 @@ namespace AutoTranslator_Core
 
             try
             {
-                files = Directory.GetFiles(fullPath, "*.xml", searchOption).ToList();
+                files = ApplyTranslationFileLoadOrder(
+                    fullPath,
+                    Directory.GetFiles(fullPath, "*.xml", searchOption));
             }
             catch
             {

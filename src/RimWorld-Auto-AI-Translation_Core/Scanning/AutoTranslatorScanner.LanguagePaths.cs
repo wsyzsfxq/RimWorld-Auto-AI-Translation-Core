@@ -90,6 +90,7 @@ namespace AutoTranslator_Core
                 case TargetLanguage.Polish: return "Polish";
                 case TargetLanguage.Portuguese: return "PortugueseBrazilian";
                 case TargetLanguage.Turkish: return "Turkish";
+                case TargetLanguage.Thai: return "Thai";
                 default: return "English";
             }
         }
@@ -143,6 +144,7 @@ namespace AutoTranslator_Core
             if (sourceLang == TargetLanguage.Korean) return 35;
             if (sourceLang == TargetLanguage.Russian) return 40;
             if (sourceLang == TargetLanguage.Ukrainian) return 45;
+            if (sourceLang == TargetLanguage.Thai) return 50;
 
             return sourceLang.HasValue ? 70 : 100;
         }
@@ -790,6 +792,42 @@ namespace AutoTranslator_Core
         public static List<string> GetAllEffectiveLangPaths(string packageId, string rootDir)
         {
             return GetModPathIndex(packageId, rootDir).EffectiveLangPaths;
+        }
+
+        public static List<string> GetAllEffectiveAssemblyPaths(ModMetaData mod)
+        {
+            return mod == null || mod.RootDir == null
+                ? new List<string>()
+                : GetAllEffectiveAssemblyPaths(mod.PackageId, mod.RootDir.FullName);
+        }
+
+        public static List<string> GetAllEffectiveAssemblyPaths(string packageId, string rootDir)
+        {
+            bool usedRunningModRoots;
+            List<string> contentRoots = ResolveContentRootsForScanning(
+                packageId,
+                rootDir,
+                out usedRunningModRoots);
+            var result = new List<string>();
+            foreach (string contentRoot in contentRoots)
+            {
+                if (string.IsNullOrWhiteSpace(contentRoot)) continue;
+                string assembliesRoot = Path.Combine(contentRoot, "Assemblies");
+                if (!Directory.Exists(assembliesRoot)) continue;
+                try
+                {
+                    result.AddRange(Directory.EnumerateFiles(
+                        assembliesRoot,
+                        "*.dll",
+                        SearchOption.AllDirectories));
+                }
+                catch { }
+            }
+            return result
+                .Select(Path.GetFullPath)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                .ToList();
         }
 
         public static List<string> GetAllTranslationPatchLangPaths(ModMetaData mod)

@@ -35,14 +35,35 @@ namespace AutoTranslator_Core
                     out TranslationUsageReservationHandle usageReservation,
                     out string budgetDenialReason))
             {
+                string denialText;
+                if (string.Equals(budgetDenialReason, "request_in_flight", StringComparison.Ordinal))
+                    denialText = AutoTranslatorMod.WfText(
+                        "相同的模型请求仍在进行中，本次重复请求未发送：",
+                        "An identical model request is already in flight and the duplicate was not sent: ") +
+                        budgetDenialReason;
+                else if (string.Equals(budgetDenialReason, "source_character_budget", StringComparison.Ordinal))
+                    denialText = AutoTranslatorMod.WfText(
+                        "翻译任务已达到原文字符用量上限：",
+                        "Translation source-character budget reached: ") + budgetDenialReason;
+                else if (string.Equals(budgetDenialReason, "estimated_token_budget", StringComparison.Ordinal))
+                    denialText = AutoTranslatorMod.WfText(
+                        "翻译任务已达到预计 Token 用量上限：",
+                        "Translation estimated-token budget reached: ") + budgetDenialReason;
+                else if (string.Equals(budgetDenialReason, "run_paused_by_budget", StringComparison.Ordinal))
+                    denialText = AutoTranslatorMod.WfText(
+                        "本次翻译任务已经因达到用量上限而暂停：",
+                        "This translation run is already paused by its usage budget: ") + budgetDenialReason;
+                else
+                    denialText = "Translation budget paused: " + budgetDenialReason;
                 AutoTranslatorSettings.AddDebugLog(
-                    "Request denied by local usage budget. Provider=" + provider +
-                    ", Items=" + (requestContext != null ? requestContext.ItemCount : 0) + ".");
+                    "Request reservation denied. Provider=" + provider +
+                    ", Items=" + (requestContext != null ? requestContext.ItemCount : 0) +
+                    ", Reason=" + budgetDenialReason + ".");
                 return new ATC_WebResponse
                 {
                     IsSuccess = false,
                     HttpCode = 0,
-                    ErrorText = "Translation budget paused: " + budgetDenialReason,
+                    ErrorText = denialText,
                     ResponseBody = string.Empty,
                     BudgetDenied = true,
                     BudgetDenialReason = budgetDenialReason,
@@ -59,6 +80,8 @@ namespace AutoTranslator_Core
                 new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             TranslationRequestActivity.RequestLease activity = TranslationRequestActivity.CreateRequest();
             int requestId = -1;
+            // 0 = queued, 1 = main-thread callback owns dispatch, 2 = cancelled before dispatch.
+            int dispatchState = 0;
             bool networkRequestStarted = false;
             Stopwatch requestTimer = null;
             bool perfRequestStarted = false;
@@ -93,6 +116,11 @@ namespace AutoTranslator_Core
                     "Request acquired concurrency slot. Provider=" + provider + ".");
                 ATC_Dispatcher.RunOnMainThread(() =>
                 {
+                    if (System.Threading.Interlocked.CompareExchange(ref dispatchState, 1, 0) != 0)
+                    {
+                        dispatchStarted.TrySetResult(false);
+                        return;
+                    }
                     if (completion.Task.IsCompleted)
                     {
                         dispatchStarted.TrySetResult(false);
@@ -101,8 +129,8 @@ namespace AutoTranslator_Core
 
                     if (IsRequestCancellationRequested(additionalCancellation))
                     {
-                        dispatchStarted.TrySetResult(false);
                         completion.TrySetResult(CreateRequestTimeoutResponse(provider, 0));
+                        dispatchStarted.TrySetResult(false);
                         return;
                     }
 
@@ -123,24 +151,31 @@ namespace AutoTranslator_Core
                         if (requestId > 0 &&
                             (completion.Task.IsCompleted || IsRequestCancellationRequested(additionalCancellation)))
                         {
-                            dispatchStarted.TrySetResult(false);
                             AbortTranslationRequest(requestId, "Request completed or cancelled during dispatch");
+                            dispatchStarted.TrySetResult(false);
                             return;
                         }
                         dispatchStarted.TrySetResult(requestId > 0);
                     }
                     catch (Exception ex)
                     {
-                        dispatchStarted.TrySetResult(false);
+                        bool wasSent = networkSendStarted.Task.Status == TaskStatus.RanToCompletion &&
+                                       networkSendStarted.Task.Result;
                         completion.TrySetResult(new ATC_WebResponse
                         {
                             IsSuccess = false,
                             HttpCode = 0,
-                            ErrorText = ex.Message,
+                            ErrorText = "Unity request dispatch failed. ExceptionType=" + ex.GetType().Name,
                             ResponseBody = string.Empty,
-                            FailureKind = TranslationRequestFailureKind.LocalDispatch,
-                            FailureStage = "Dispatching"
+                            FailureKind = wasSent ? TranslationRequestFailureKind.Transport : TranslationRequestFailureKind.LocalDispatch,
+                            FailureStage = wasSent ? "Transport" : "Dispatching"
                         });
+                        if (requestId > 0) AbortTranslationRequest(requestId, "Dispatch failed");
+                    }
+                    finally
+                    {
+                        // Also acknowledge a callback whose cleanup itself throws.
+                        dispatchStarted.TrySetResult(false);
                     }
                 });
 
@@ -151,6 +186,10 @@ namespace AutoTranslator_Core
                     activity.MarkCancelled();
                     response = CreateRequestTimeoutResponse(provider, 0);
                     completion.TrySetResult(response);
+                    // Cancel a queued callback atomically. If it already started, wait for its
+                    // cleanup acknowledgement before releasing the slot and usage reservation.
+                    if (System.Threading.Interlocked.CompareExchange(ref dispatchState, 2, 0) == 1)
+                        await dispatchStarted.Task;
                     if (requestId > 0)
                         await AbortTranslationRequestAsync(
                             requestId,
@@ -233,7 +272,7 @@ namespace AutoTranslator_Core
                     await Task.Delay(100);
                 }
 
-                        response = await completion.Task;
+                response = await completion.Task;
                 PopulateRequestDiagnostics(
                     response,
                     requestContext,
@@ -242,7 +281,7 @@ namespace AutoTranslator_Core
                 if (response != null && !response.IsSuccess && response.FailureKind == TranslationRequestFailureKind.None)
                 {
                     if (response.HttpCode >= 400) response.FailureKind = TranslationRequestFailureKind.Http;
-                    else if ((response.ErrorText ?? string.Empty).IndexOf("timed out", StringComparison.OrdinalIgnoreCase) >= 0)
+                    else if (IsResponseTimeoutError(response.ErrorText))
                         response.FailureKind = TranslationRequestFailureKind.ResponseTimeout;
                     else response.FailureKind = TranslationRequestFailureKind.Transport;
                     response.FailureStage = response.FailureKind == TranslationRequestFailureKind.ResponseTimeout
@@ -267,6 +306,10 @@ namespace AutoTranslator_Core
             }
             finally
             {
+                // StartCoroutine may send and complete synchronously, before the ordinary
+                // waiting-response branch is reached. Account for that real send as well.
+                networkRequestStarted |= networkSendStarted.Task.Status == TaskStatus.RanToCompletion &&
+                                         networkSendStarted.Task.Result;
                 PopulateRequestDiagnostics(
                     response,
                     requestContext,
@@ -308,6 +351,13 @@ namespace AutoTranslator_Core
             if (response.TimeoutSeconds <= 0 &&
                 response.FailureKind == TranslationRequestFailureKind.ResponseTimeout)
                 response.TimeoutSeconds = Math.Max(0, timeoutSeconds);
+        }
+
+        private static bool IsResponseTimeoutError(string errorText)
+        {
+            string value = errorText ?? string.Empty;
+            return value.IndexOf("timed out", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   value.IndexOf("timeout", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private static bool IsRequestCancellationRequested(Func<bool> additionalCancellation)

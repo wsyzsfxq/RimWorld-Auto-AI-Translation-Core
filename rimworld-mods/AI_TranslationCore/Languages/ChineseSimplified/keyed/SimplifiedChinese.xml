@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LanguageData>
-  <ATC_ModTitle>AI 智能汉化网络 (AI Translation Network)V4.1 BETA</ATC_ModTitle>
+  <ATC_ModTitle>AI 智能汉化网络 (AI Translation Network) V4.5 内测版</ATC_ModTitle>
   <ATC_TargetLang>目标语系</ATC_TargetLang>
   <ATC_Lang_Traditional>繁体中文</ATC_Lang_Traditional>
   <ATC_Lang_Simplified>简体中文</ATC_Lang_Simplified>
@@ -26,7 +26,7 @@
   <ATC_TranslateSingleMod>单独翻译指定模组</ATC_TranslateSingleMod>
   <ATC_StartTranslation>开始执行自动补位计画</ATC_StartTranslation>
   <ATC_StopTranslation>紧急停止产线</ATC_StopTranslation>
-  <ATC_Tutorial_Btn>使用教学与 FAQ</ATC_Tutorial_Btn>
+  <ATC_Tutorial_Btn>快速上手与常见问题</ATC_Tutorial_Btn>
   <ATC_UpdateLog_Btn>模组更新日誌</ATC_UpdateLog_Btn>
   <ATC_CurrentTask>当前任务</ATC_CurrentTask>
   <ATC_Idle>空闲中</ATC_Idle>
@@ -80,8 +80,8 @@
   <ATC_FinishMessage_Title>翻译完成提示</ATC_FinishMessage_Title>
   <ATC_FinishMessage_OK>了解！(OK)</ATC_FinishMessage_OK>
   <ATC_FinishMessage_Text>翻译任务已顺利完成！\n【🪂 记忆体空投大成功】\n系统已透过官方合法通道，将最新的翻译直接注入游戏记忆体中！\n您现在可以直接关闭此视窗与设定面板，画面上的物品与科技已经瞬间变成您设定的语言囉！\n(註：实体 XML 备份已在背景自动生成，但您【完全不需要】去模组列表勾选它！下次开机系统也会自动隐形挂载，彻底告别排序冲突！祝您游戏愉快！)</ATC_FinishMessage_Text>
-  <ATC_Tutorial_FullText>【V4.1 BETA 使用教学：从白嫖到贡献】\n1. ☁️ 【先逛云端，拒绝重複造轮子】\n准备翻译前，强烈建议先前往【云端工坊】分页！看看是否有汉化组大佬或其他玩家已经上传了精翻包。支援一键批量下载，瞬间享受熟肉！\n\n2. ⚙️ 【设定 API 准备翻译】\n若云端没有你要的模组，请先至设定页选择【目标语系】(支援中、英、日、俄等多国语言) 与【供应商】(台湾推荐免费 Gemini，大陆推荐 DeepSeek)。支援「无限 API 弹匣」，点击「＋」号新增多组接口，系统会自动为你轮流分配任务，榨乾免费额度！\n(贴上金钥后，完全不需按搜寻，系统会在背景自动为你抓取模型！)\n\n3. 🚀 【一键翻译与记忆体空投】\n设定好线程数后，即可点击【🚀 一键翻译所有模组】或使用【🎯 翻译单/多重模组】进行精准打击。翻译完成后【完全不需要重开游戏】！系统会自动发动「记忆体空投」，瞬间将翻译注入游戏，关闭面板即可看见效果！\n\n4. 🔍 【全域工作台与上传分享】\n觉得机翻怪怪的？进入【全域编辑】分页，使用强大的「全域文本搜寻」一键揪出错字并修改！修改完成后，欢迎回到云端工坊将你的心血以【玩家精翻 (Manual)】的标籤上传，造福全世界的边缘人！\n\n【常见问题 Ｑ＆Ａ】\nQ: 为什么我在云端工坊没有「删除」按钮？\nA: 为了保护大家的心血，删除功能仅限拥有特权码的管理员或汉化组使用。一般玩家请放心上传，系统会智慧合併并自动保留最新的优质版本！\n\nQ: 什么是「一键注入热重载」？\nA: 如果你是硬核玩家，喜欢自己手动修改已生成的翻译 XML 档。存档后，只需点击这颗按钮，系统就会瞬间刷新前台 UI 快取并重新空投记忆体，改完秒看结果！\n\nQ: 为什么产线日誌一直跳出「等待重试」的红字警告？\nA: 这是因为 API 伺服器正在打瞌睡或遇到频率限制！模组内建超强的【指数退避重试】机制。只要后续有继续显示翻译成功，放着让子弹飞一会儿就好啦～(≧∀≦)ゞ\n\nQ: 使用本地端 (如 LM Studio / Ollama) 一直连线失败？\nA: 1. 请确保「自订 Base URL」有填写正确（如 http://localhost:1234），不用担心忘记打后缀，系统会自动帮你补上 /v1！\n2. 金钥 (API Key) 绝对不能留空！如果是本地端，请随便填几个字。\n\nQ: 动态 UI 拦截器会不会很卡？\nA: 本系统已导入「光速 O(1) 查表」与「防爆阀」机制，就算遇到报错海啸，游戏依旧稳锁 120FPS。但请注意，此功能会捕捉画面上所有未翻译外文，若使用【付费 API】请斟酌开启，以免帐单爆表！</ATC_Tutorial_FullText>
-  <ATC_UpdateLog_FullText>--- V4.1 BETA 模组扫描与过滤诊断 ---\n• 修正自定义内容文件夹与旧版本 Defs 无法正确识别的问题。\n• 新增模组过滤明细，可查看原因、候选来源并直接打开模组文件夹。\n• 新增安全的强制翻译功能，并排除未启用的旧版本与条件式内容，避免浪费 Token。\n\n--- V4.0 BETA 云端工坊与全域编辑器上线 ---\n• 全新【云端共享工坊】：支援多语系翻译包一键上传与下载。具备「汉化组精翻」、「玩家精翻」与「AI 机翻」三种品质标籤，内建 3-2-1 智能版本控制、软删除防护与更新日誌功能。\n• 强化【全域翻译工作台】：新增非同步背景「全域文本搜寻」与动态进度条。即使安装数百个模组也能流畅搜寻所有快取与内建翻译，支援多语系过滤与一键跳转编辑。\n• 重构【网路传输底层】：全面升级为 Unity 原生网路引擎 (UnityWebRequest) 并强制 UTF-8 压缩，彻底根除过去因 Windows 系统编码冲突导致的报错与 ZIP 损毁问题。\n• 实装【智能微创排毒】：自动过滤底层高危变数与脸部模组 (如 FaceDef)，终结翻译后小人破图灾情；并在开机时自动清理旧版残留假翻译档。\n\n--- V2.2 底层架构与连线稳定性更新 ---\n• 优化【API 请求架构】：重构底层逻辑，提升不同 AI 供应商的相容性与资料解析稳定性。\n• 实装【自动退避重试】：当遇到伺服器拥挤 (HTTP 429) 或瞬间连线异常 (HTTP 500+) 时，系统将自动进行冷却并重试，减少翻译中断的机率。\n• 新增【自订超时与测试】：设定介面新增「测试连线」按钮与「超时秒数滑杆」。(若使用深度思考模型，系统将自动适配较长的等待时间)。\n• 改良【全局错误通知】：导入跨执行绪 UI 桥接技术，现在当 API 发生连线异常或金钥无效时，会即时于游戏画面左上角弹出提示，无须再频繁切换分页查看日誌。\n\n--- V2.1 翻译体验与智能升级 ---\n• 实装【一键打包导出】：支援将翻译好的模组独立提取至桌面，并附带声明浮水印，方便提交给原作者或汉化组润饰。\n• 新增【智能模组更新雷达】：系统现在能自动侦测出「有更新」或「未翻译」的模组。\n• 支援【自动汰旧换新】：开启后，在遇到模组更新时，系统将自动删除旧翻译档案并重新翻译，确保文本保持最新。\n• 修復【字串换行异常】：修正部分 `\n` 无法正常换行导致排版错误的底层问题。\n\n--- V2.0 效能优化与即时渲染 ---\n• 实装【即时记忆体注入】：翻译完成后，系统将翻译结果直接写入游戏记忆体，画面即刻切换为目标语系，下次开机自动生效，减少载入顺序冲突。\n• 优化【动态 UI 拦截效能】：重构底层拦截逻辑与快取设计，大幅降低游戏帧数 (FPS) 的效能消耗。\n• 新增【一键热重载】：手动修改 XML 翻译档后，可点击按钮瞬间刷新 UI 缓存，无须重新启动游戏。\n\n--- V1.0 正式版发布 ---\n• 实装【动态 UI 拦截系统】：支援即时拦截并自动翻译设定面板或静态 XML 遗漏的外文文本。\n• 实装【原文对照功能】：支援滑鼠悬停显示原文，方便进行双语对照。</ATC_UpdateLog_FullText>
+  <ATC_Tutorial_FullText>【AI 智能汉化网络 V4.5 内测版｜快速上手与常见问题】\n\n【重要】测试版与 Steam 工坊正式版只能启用一个。使用测试版前先停用工坊版、旧版和其他开发版；切回工坊版时先停用或移走测试版，并重新启动游戏。\n\n一、第一次使用\n1. 进入【设置】，在首个章节确认【当前语言（Language）】。目前先以简体中文界面为稳定基准；该选项同时决定 AI 和云端译文的目标语言。\n2. 展开【AI 接口】，填写供应商、Base URL、API Key 和模型；至少启用一个“大量翻译（必需）”接口。\n3. 结构化输出建议保留“自动（推荐）”；可用“个／K／M”设置单次最大输出 Token。\n4. 获取模型列表并点击【测试连接】。API Key 属于敏感凭据，请勿在截图或反馈中展示。\n\n二、推荐流程：先云端，后本地\n1. 进入【云端翻译】，刷新当前已加载 Mod／DLC 的云端列表，优先下载最佳可用译文。\n2. 云端选择顺序为：汉化组精翻 > 人工精翻 > AI 译文；同类取最新。\n3. 云端下载会替换对应生成文件；数据库中的手动译文会恢复，但尚未【刷新状态】的外部 XML 修改可能被覆盖。\n4. 云端没有合适译文时，进入【翻译工作台】并选择 Mod。\n\n三、工作台按钮\n1. 【刷新状态】：外部修改译文文件后，用它同步生成文件与数据库。首次真实 AI 翻译缺少同步状态时会自动同步一次。\n2. 【试跑】：只估算范围和 Token，不调用 AI，不写正式译文；为保持只读，尚未完成首次同步时请先点击【刷新状态】。\n3. 【分析】：补齐 XML／DLL 本地结果；已有有效结果跳过。开启【强制分析】才重新生成。\n4. 【AI 复核】：只判断是否需要翻译；已有 AI 复核结果跳过，不生成译文。\n5. 【AI 翻译】：只翻译“需要翻译”且没有有效译文的条目；已有手动、原生、第三方、云端或有效 AI 译文会跳过。首次缺少同步状态时会先自动同步一次。\n6. 【一键翻译】：确认后依次执行“分析 → AI 复核 → AI 翻译”；若缺少首次同步状态，会在翻译前自动补一次。\n7. 【停止】：停止创建新请求；已完成结果保留，队列和在途请求排空后完全停止。\n\n四、编辑与生效\n1. 在【译文编辑】选择 Mod，可按分类、译文和手动分类筛选。\n2. 保存或删除译文后，点击黄色【热重载】。它会从数据库重建全部有效 XML／DLL 输出再加载，不要求勾选 Mod，不分析，也不调用 AI。\n3. 可清除单条 AI 复核；【清除分类数据】可按 Mod 清除 AI 复核、手动分类或两者。\n4. 优先级：手动译文 > 第三方人工译文 > Mod 原生译文 > 云端译文 > 本地 AI 译文。\n\n五、DLL 硬编码界面\n1. 【DLL UI 临时采集】和【应用已保存的 DLL UI 译文】可以分别开启，也可以同时开启或关闭。\n2. 临时采集只记录未被定向译文替换的原文；应用已保存译文负责加载生成的 DLL UI 译文。\n3. 【遗留 UI 缓存】属于旧拦截器数据，不等于当前工作流数据库或 DLL 采集结果。\n\n六、失败与排错\n1. 翻译失败不会无限循环。并发限制只有有限退避；格式、占位符或不可用译文会记录失败原因。\n2. 模型请求会把受保护占位符转为数字标记，并要求放在译文的对应语义位置；返回后恢复原占位符。占位符被翻译、缺失、新增、重复或无法恢复的结果不会保存。\n3. 展开工作台底部【任务／日志】查看当前 Mod／条目、成功、失败、剩余数量和错误原因。\n4. 工作台显示已翻译但界面仍是英文时，先点击【热重载】；DLL 界面还要确认已开启“应用已保存的 DLL UI 译文”。\n\n反馈问题时请提供 RimWorld 版本、Mod 名称、复现步骤、大致时间、完整截图、任务详情和错误日志；截图前遮住 API Key。</ATC_Tutorial_FullText>
+  <ATC_UpdateLog_FullText>--- V4.5 内测版：独立工作流与译文数据库 ---\n• 新增“分析 → AI 复核 → AI 翻译”三步独立工作流，并保留一键编排；任务区显示当前 Mod／条目、成功、失败与剩余数量。\n• 已有有效分析、AI 复核和译文会自动跳过；失败不会无限重试，已完成并保存的结果可继续使用。\n• 加强占位符保护：请求前转换为数字标记，返回后恢复并校验，异常结果不会写入正式译文。\n• 译文编辑器统一管理 XML／DLL、三层分类和译文来源，支持清除单条或按 Mod 清除分类数据。\n• 热重载升级为“数据库重建输出 + XML／DLL 运行时加载”，不再因磁盘文件缺失而显示已翻译但不生效。\n• DLL UI 临时采集与应用已保存译文可独立启停；遗留 UI 缓存与当前工作流数据明确分离。\n• 重整设置页章节、API 卡片和危险操作确认；章节默认收起并跨重启记忆状态，Token 输入支持个／K／M 单位。\n• 云端下载范围统一为当前已加载 Mod／DLC，批量网络操作显示实际队列并二次确认。\n\n--- V4.1 BETA 模组扫描与过滤诊断 ---\n• 修正自定义内容文件夹与旧版本 Defs 无法正确识别的问题。\n• 新增模组过滤明细，可查看原因、候选来源并直接打开模组文件夹。\n• 新增安全的强制翻译功能，并排除未启用的旧版本与条件式内容，避免浪费 Token。\n\n--- V4.0 BETA 云端工坊与全域编辑器上线 ---\n• 全新【云端共享工坊】：支援多语系翻译包一键上传与下载。具备「汉化组精翻」、「玩家精翻」与「AI 机翻」三种品质标籤，内建 3-2-1 智能版本控制、软删除防护与更新日誌功能。\n• 强化【全域翻译工作台】：新增非同步背景「全域文本搜寻」与动态进度条。即使安装数百个模组也能流畅搜寻所有快取与内建翻译，支援多语系过滤与一键跳转编辑。\n• 重构【网路传输底层】：全面升级为 Unity 原生网路引擎 (UnityWebRequest) 并强制 UTF-8 压缩，彻底根除过去因 Windows 系统编码冲突导致的报错与 ZIP 损毁问题。\n• 实装【智能微创排毒】：自动过滤底层高危变数与脸部模组 (如 FaceDef)，终结翻译后小人破图灾情；并在开机时自动清理旧版残留假翻译档。\n\n--- V2.2 底层架构与连线稳定性更新 ---\n• 优化【API 请求架构】：重构底层逻辑，提升不同 AI 供应商的相容性与资料解析稳定性。\n• 实装【自动退避重试】：当遇到伺服器拥挤 (HTTP 429) 或瞬间连线异常 (HTTP 500+) 时，系统将自动进行冷却并重试，减少翻译中断的机率。\n• 新增【自订超时与测试】：设定介面新增「测试连线」按钮与「超时秒数滑杆」。(若使用深度思考模型，系统将自动适配较长的等待时间)。\n• 改良【全局错误通知】：导入跨执行绪 UI 桥接技术，现在当 API 发生连线异常或金钥无效时，会即时于游戏画面左上角弹出提示，无须再频繁切换分页查看日誌。\n\n--- V2.1 翻译体验与智能升级 ---\n• 实装【一键打包导出】：支援将翻译好的模组独立提取至桌面，并附带声明浮水印，方便提交给原作者或汉化组润饰。\n• 新增【智能模组更新雷达】：系统现在能自动侦测出「有更新」或「未翻译」的模组。\n• 支援【自动汰旧换新】：开启后，在遇到模组更新时，系统将自动删除旧翻译档案并重新翻译，确保文本保持最新。\n• 修復【字串换行异常】：修正部分 `\n` 无法正常换行导致排版错误的底层问题。\n\n--- V2.0 效能优化与即时渲染 ---\n• 实装【即时记忆体注入】：翻译完成后，系统将翻译结果直接写入游戏记忆体，画面即刻切换为目标语系，下次开机自动生效，减少载入顺序冲突。\n• 优化【动态 UI 拦截效能】：重构底层拦截逻辑与快取设计，大幅降低游戏帧数 (FPS) 的效能消耗。\n• 新增【一键热重载】：手动修改 XML 翻译档后，可点击按钮瞬间刷新 UI 缓存，无须重新启动游戏。\n\n--- V1.0 正式版发布 ---\n• 实装【动态 UI 拦截系统】：支援即时拦截并自动翻译设定面板或静态 XML 遗漏的外文文本。\n• 实装【原文对照功能】：支援滑鼠悬停显示原文，方便进行双语对照。</ATC_UpdateLog_FullText>
   <ATC_ApiConfigTitle>API 接口弹匣设定 (支援多组并发轮询)</ATC_ApiConfigTitle>
   <ATC_Provider>供应商</ATC_Provider>
   <ATC_CustomUrlOptional>(自定义 BaseUrl，留空使用预设)</ATC_CustomUrlOptional>
@@ -229,7 +229,7 @@
   <ATC_EnableUIInterceptor>开启动态 UI 硬编码拦截 【警告：可能影响效能】</ATC_EnableUIInterceptor>
   <ATC_EnableUINewTranslation>允许 UI 拦截器产生新的 AI 翻译（关闭后只保留缓存替换）</ATC_EnableUINewTranslation>
   <ATC_EnableUIErrorLogInterception>开启错误日志 UI 拦截（会极大消耗 token）</ATC_EnableUIErrorLogInterception>
-  <ATC_TranslateWorkbenchModNames>在智能补翻清单翻译模组名称（保留原名）</ATC_TranslateWorkbenchModNames>
+  <ATC_TranslateWorkbenchModNames>工作台显示 Mod 中文名</ATC_TranslateWorkbenchModNames>
   <ATC_Log_AdvancedDetoxSuccess>高级排毒完毕！精准切除 {0} 个违规标籤，保护了玩家的翻译资产 (共修復 {1} 个档案)！</ATC_Log_AdvancedDetoxSuccess>
   <ATC_DeleteModTrans_Btn>删除翻译</ATC_DeleteModTrans_Btn>
   <ATC_DeleteModTrans_Title>翻译档案焚化炉 (勾选要删除翻译的模组)</ATC_DeleteModTrans_Title>
@@ -415,8 +415,8 @@
 		EULA 同意纪录 (Consent Record)同意时间 (UTC+8): {0}EULA 版本 (Version): {1}累计同意次数 (Accept Count): {2}使用者本机名称 (Machine): {3}作业系统 (OS): {4}汇出时间 (Export Time): {5}同意项目 (Accepted Items):[O] 我已仔细阅读以上条款并完全理解[O] 我承诺仅用于个人游戏或人工润饰的底料[O] 我了解散布行为的法律后果与我自己有关================================================================
 		重要 (Important)此档案为使用者同意纪录，请勿删除。如有版权争议，此档案将作为使用者已知悉条款的证明。================================================================
 	</ATC_Export_ConsentRecord_Full>
-  <ATC_Tab_Main>终端控制台</ATC_Tab_Main>
-  <ATC_Tab_Settings>详细系统与 API 设定</ATC_Tab_Settings>
+  <ATC_Tab_Main>翻译工作台</ATC_Tab_Main>
+  <ATC_Tab_Settings>设置</ATC_Tab_Settings>
   <ATC_Log_SkipRequested>[System] 玩家已主动请求跳过当前模组...</ATC_Log_SkipRequested>
   <!-- 网路诊断关联 -->
   <ATC_Error_Unknown>未知错误</ATC_Error_Unknown>
@@ -446,8 +446,8 @@
   <!--  假语言档拦截系统 -->
   <ATC_Log_FakeLanguageDetected>🕵️ [防伪系统] 抓到作者偷懒！档案 {0} 被判定为假语言档，已强制送交 AI 重新翻译！</ATC_Log_FakeLanguageDetected>
   <!-- V3.0 / V3.1 云端共享 UI 与讯息 -->
-  <ATC_Tab_Cloud>☁️ 云端共享</ATC_Tab_Cloud>
-  <ATC_Cloud_Refresh>🔄 重新整理云端清单</ATC_Cloud_Refresh>
+  <ATC_Tab_Cloud>云端翻译</ATC_Tab_Cloud>
+  <ATC_Cloud_Refresh>刷新云端列表</ATC_Cloud_Refresh>
   <ATC_Cloud_Fetching>⏳ 正在连线至 Cloudflare 大脑...</ATC_Cloud_Fetching>
   <ATC_Cloud_FetchFailed>⚠️ 无法取得云端资料，请检查网路连线。</ATC_Cloud_FetchFailed>
   <ATC_Cloud_Status_Official>👑 汉化组精翻</ATC_Cloud_Status_Official>
@@ -469,7 +469,7 @@
   <ATC_Cloud_ConnectionNormal>☁️ 云端大脑连线正常：目前资料库共有 {0} 笔翻译纪录。</ATC_Cloud_ConnectionNormal>
   <ATC_Cloud_NoModsWarning>⚠️ 找不到可翻译的第三方模组！\n(如果您的测试环境只有载入官方 DLC 与本模组，清单会是空的喔！)</ATC_Cloud_NoModsWarning>
   <ATC_Cloud_Btn_BatchOfficial>👑 一键下载官方/汉化组</ATC_Cloud_Btn_BatchOfficial>
-  <ATC_Cloud_Btn_BatchManual>🧑 一键下载玩家精翻</ATC_Cloud_Btn_BatchManual>
+  <ATC_Cloud_Btn_BatchManual>🧑 一键下载人工精翻</ATC_Cloud_Btn_BatchManual>
   <ATC_Cloud_Btn_BatchAI>🤖 一键下载机翻(AI)</ATC_Cloud_Btn_BatchAI>
   <ATC_Cloud_Btn_BatchBest>✨ 一键下载最佳翻译</ATC_Cloud_Btn_BatchBest>
   <ATC_Msg_DownloadStart>📥 正在请求空投：{0}...</ATC_Msg_DownloadStart>
@@ -503,8 +503,8 @@
   <ATC_Msg_BatchAiRebuildCandidates>以下模组没有可直接分享的纯 AI 条目。请选择要用原始文本重新 AI 翻译的模组；ATC 只会重建你点击的模组，并输出到上传工作区，不会覆盖本地翻译包。</ATC_Msg_BatchAiRebuildCandidates>
   <ATC_Log_AiUploadFiltered>AI 上传已过滤“{0}”：保留 {1} 条纯 AI，跳过 {2} 条（汉化补丁 {3}、手动修改 {4}、旧版未标记 {5}、其他 {6}）。</ATC_Log_AiUploadFiltered>
   <ATC_Log_AiUploadNoCleanEntries>AI 上传跳过“{0}”：没有可分享的纯 AI 条目；跳过 {1} 条（汉化补丁 {2}、手动修改 {3}、旧版未标记 {4}、其他 {5}）。</ATC_Log_AiUploadNoCleanEntries>
-  <ATC_Msg_AiUploadNoCleanEntries>AI 上传已跳过“{0}”：目前没有可分享的纯 AI 翻译。如果这是玩家精修或汉化补丁内容，请改用玩家精翻/汉化组类型上传。</ATC_Msg_AiUploadNoCleanEntries>
-  <ATC_Msg_AiUploadNoCleanEntriesWithRebuild>AI 上传已跳过“{0}”：目前没有可分享的纯 AI 翻译。\n\n如果这份内容来自玩家精修或汉化补丁，请改用玩家精翻/汉化组类型上传。\n\n也可以让 ATC 从原始模组文本重新生成一份纯 AI 翻译，结果会放进上传工作区，不会覆盖你现有的本地翻译包。</ATC_Msg_AiUploadNoCleanEntriesWithRebuild>
+  <ATC_Msg_AiUploadNoCleanEntries>AI 上传已跳过“{0}”：目前没有可分享的纯 AI 翻译。如果这是用户手动润色或汉化补丁内容，请改用人工精翻/官方译文类型上传。</ATC_Msg_AiUploadNoCleanEntries>
+  <ATC_Msg_AiUploadNoCleanEntriesWithRebuild>AI 上传已跳过“{0}”：目前没有可分享的纯 AI 翻译。\n\n如果这份内容来自用户手动润色或汉化补丁，请改用人工精翻/官方译文类型上传。\n\n也可以让 ATC 从原始模组文本重新生成一份纯 AI 翻译，结果会放进上传工作区，不会覆盖你现有的本地翻译包。</ATC_Msg_AiUploadNoCleanEntriesWithRebuild>
   <ATC_Title_PureAiRebuildForUpload>重新生成纯 AI 上传版</ATC_Title_PureAiRebuildForUpload>
   <ATC_Btn_PureAiRebuildForUpload>用原文重新 AI 翻译</ATC_Btn_PureAiRebuildForUpload>
   <ATC_Msg_PureAiRebuildBusy>目前已有任务执行中，请等完成后再重建纯 AI 上传版。</ATC_Msg_PureAiRebuildBusy>
@@ -523,8 +523,8 @@
   <!-- V3.5 翻译类型与状态扩充 -->
   <ATC_Cloud_Type_Select>📝 您的翻译类型：</ATC_Cloud_Type_Select>
   <ATC_Cloud_Type_AI>🤖 AI 机翻</ATC_Cloud_Type_AI>
-  <ATC_Cloud_Type_Manual>✍️ 手工精翻</ATC_Cloud_Type_Manual>
-  <ATC_Cloud_Status_Manual>🟢 玩家精翻</ATC_Cloud_Status_Manual>
+  <ATC_Cloud_Type_Manual>✍️ 人工精翻</ATC_Cloud_Type_Manual>
+  <ATC_Cloud_Status_Manual>🟢 人工精翻</ATC_Cloud_Status_Manual>
   <ATC_Cloud_Status_LegacyAI>🟤 旧版上传，未记录来源</ATC_Cloud_Status_LegacyAI>
   <ATC_EmergencyResetTitle>终极急救箱 (危险区域)</ATC_EmergencyResetTitle>
   <ATC_Btn_FactoryReset>一键清除所有翻译快取 (恢復原厂设定)</ATC_Btn_FactoryReset>
@@ -585,7 +585,7 @@
   <ATC_Upload_ConfirmUploadBtn>✅ 检查完毕 ‧ 确定上传</ATC_Upload_ConfirmUploadBtn>
   <ATC_Msg_UploadStart>🚀 准备发射！正在将 {0} 的翻译包打包并上传至云端...</ATC_Msg_UploadStart>
   <ATC_Type_Official>汉化组精翻</ATC_Type_Official>
-  <ATC_Type_Manual>玩家精翻</ATC_Type_Manual>
+  <ATC_Type_Manual>人工精翻</ATC_Type_Manual>
   <ATC_Type_AI>AI 机翻</ATC_Type_AI>
   <ATC_Type_LegacyAI>旧版AI机翻</ATC_Type_LegacyAI>
   <ATC_Cloud_LegacyAiTooltip>此翻译为旧版上传，未记录来源，可能包含 AI、玩家编辑或外部翻译来源。</ATC_Cloud_LegacyAiTooltip>
@@ -614,7 +614,7 @@
   <ATC_Cloud_RetryAttemptLog>云端大脑连线间歇性丢包，正在进行第 {0} 次核能重连...</ATC_Cloud_RetryAttemptLog>
   <ATC_Cloud_DownloadRetryFailed>下载重试失败，连线被阻断：{0}</ATC_Cloud_DownloadRetryFailed>
   <!-- V3.0 全域编辑器专属 -->
-  <ATC_Tab_Editor>全域编辑</ATC_Tab_Editor>
+  <ATC_Tab_Editor>译文编辑</ATC_Tab_Editor>
   <ATC_Workbench_SearchMod>搜寻模组名称或 ID...</ATC_Workbench_SearchMod>
   <ATC_Workbench_ShowTranslatedOnly>只显示已翻译的模组</ATC_Workbench_ShowTranslatedOnly>
   <ATC_Workbench_ShowUntranslatedOnly>只显示未翻译的模组</ATC_Workbench_ShowUntranslatedOnly>
@@ -957,6 +957,15 @@
   <ATC_PolicyCloud_StatusUnavailable>云端判断：等待服务升级</ATC_PolicyCloud_StatusUnavailable>
   <ATC_EnableDevelopmentDebugLogging>启用研发调试日志（默认关闭）</ATC_EnableDevelopmentDebugLogging>
   <ATC_EnableDevelopmentDebugLoggingTooltip>将详细请求生命周期诊断写入 RimWorld 日志和 AutoTranslation_Log.txt。日志量可能较大；不会记录 API 密钥、授权头或请求正文。</ATC_EnableDevelopmentDebugLoggingTooltip>
+  <ATC_LogLevel>日志级别</ATC_LogLevel>
+  <ATC_LogLevel_Error>错误</ATC_LogLevel_Error>
+  <ATC_LogLevel_Info>信息</ATC_LogLevel_Info>
+  <ATC_LogLevel_Debug>调试</ATC_LogLevel_Debug>
+  <ATC_LogLevelTooltip>默认“信息”会记录关键运行节点和错误；“调试”会增加开发诊断，日志量也会更多。不会记录 API 密钥、授权头、完整提示词或完整模型响应。</ATC_LogLevelTooltip>
+  <ATC_ApiMaxOutputTokens>ATC 单次最大输出 Token</ATC_ApiMaxOutputTokens>
+  <ATC_ApiMaxOutputTokensTooltip>默认 10000。请依据申请模型 AK/SK 平台的模型文档调整；设置过高可能在模型异常输出时产生额外费用。若超过当前模型已知能力，实际请求会按模型能力执行。</ATC_ApiMaxOutputTokensTooltip>
+  <ATC_ModelOutputCapabilityKnown>模型上限 {0}｜实际 {1}</ATC_ModelOutputCapabilityKnown>
+  <ATC_ModelOutputCapabilityUnknown>提供方限制未知</ATC_ModelOutputCapabilityUnknown>
   <ATC_PolicyAgent_ApiTitle>Policy Agent 专用 API 设置</ATC_PolicyAgent_ApiTitle>
   <ATC_PolicyAgent_ApiNotice>在此设置独立的供应商、Key、Base URL 和模型；Policy Agent 不会使用翻译 API 列表。</ATC_PolicyAgent_ApiNotice>
   <ATC_PolicyAgent_ApiEnabled>启用这组 Agent 专用 API 设置</ATC_PolicyAgent_ApiEnabled>

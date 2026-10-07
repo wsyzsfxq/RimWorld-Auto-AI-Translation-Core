@@ -206,10 +206,18 @@ namespace AutoTranslator_Core
                 .GroupBy(m => m.Value)
                 .ToDictionary(g => g.Key, g => g.Count(), StringComparer.Ordinal);
 
+            var translatedTokens = ProtectedTokenRegex.Matches(translated)
+                .Cast<Match>()
+                .GroupBy(m => m.Value)
+                .ToDictionary(g => g.Key, g => g.Count(), StringComparer.Ordinal);
+
+            if (tokens.Count != translatedTokens.Count) return true;
+
             foreach (var pair in tokens)
             {
-                int translatedCount = Regex.Matches(translated, Regex.Escape(pair.Key)).Count;
-                if (translatedCount != pair.Value) return true;
+                if (!translatedTokens.TryGetValue(pair.Key, out int translatedCount) ||
+                    translatedCount != pair.Value)
+                    return true;
             }
 
             return false;

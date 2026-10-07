@@ -98,5 +98,18 @@ namespace Atc.IlDataflowFixture
         {
             Verse.Log.Message("Context-sensitive text");
         }
+
+        public static F DuplicateFullName<F>(string ignored)
+        {
+            HarmonyLib.AccessTools.Field(typeof(Fixture), "single-generic reflection key");
+            return default(F);
+        }
+
+        public static F DuplicateFullName<T, F>(string ignored)
+        {
+            HarmonyLib.AccessTools.Field(typeof(Fixture), "double-generic reflection key");
+            return default(F);
+        }
+
     }
 }

@@ -1,6 +1,8 @@
 using Newtonsoft.Json.Linq;
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
@@ -48,12 +50,49 @@ namespace AutoTranslator_Core
         private static TranslationUsageLedger _ledger;
         private static bool _wasResumed;
 
+        internal static bool BeginConfiguredWorkflowRun(
+            string runKind,
+            IEnumerable<string> modIdentities,
+            string targetLanguage)
+        {
+            AutoTranslatorSettings settings = AutoTranslatorMod.Settings;
+            if (settings == null || !settings.EnableTranslationUsageBudget)
+            {
+                EndRun(false);
+                return false;
+            }
+
+            List<string> identities = (modIdentities ?? Enumerable.Empty<string>())
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Select(value => value.Trim())
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(value => value, StringComparer.Ordinal)
+                .ToList();
+            string canonical = string.Join("\n", new[]
+            {
+                runKind ?? string.Empty,
+                targetLanguage ?? string.Empty,
+                string.Join("\n", identities)
+            });
+            string journalPath = Path.Combine(
+                AutoTranslatorScanner.GetLocalPackPath(),
+                "Cache",
+                "TranslationUsageRun.v1.json");
+            BeginRun(
+                journalPath,
+                "translation_run_" + ComputeSha256(canonical),
+                settings.TranslationBudgetSourceCharactersPerRun,
+                settings.TranslationBudgetEstimatedTokensPerRun);
+            return true;
+        }
+
         internal static void BeginRun(
             string journalPath,
             string runKey,
             long maximumSourceCharacters,
             long maximumEstimatedTokens)
         {
+            TranslationUsageSnapshot resumedSnapshot;
             lock (Gate)
             {
                 _ledger = TranslationUsageLedger.OpenOrCreate(
@@ -62,7 +101,13 @@ namespace AutoTranslator_Core
                     maximumSourceCharacters,
                     maximumEstimatedTokens);
                 _wasResumed = _ledger.WasResumed;
+                resumedSnapshot = _ledger.GetSnapshot();
             }
+            if (_wasResumed && resumedSnapshot != null && resumedSnapshot.AmbiguousRequests > 0)
+                AutoTranslatorSettings.AddLog(
+                    "用量预算：恢复到上次未完成的翻译任务，发现 " +
+                    resumedSnapshot.AmbiguousRequests +
+                    " 个结果未知的旧请求；再次遇到相同批次时将保留旧请求的预计用量并自动重试。");
         }
 
         internal static void EndRun(bool completed)
@@ -130,9 +175,27 @@ namespace AutoTranslator_Core
                     model,
                     context.SourceCharacters,
                     estimate,
-                    out denialReason))
+                    out denialReason,
+                    out bool recoveredPreviousRequest))
             {
                 return false;
+            }
+
+            if (recoveredPreviousRequest)
+            {
+                AutoTranslatorSettings.AddLog(
+                    "用量预算：发现先前相同模型请求的用量记录，但对应候选仍需要翻译；" +
+                    "已保留旧用量并开始新的重试。" +
+                    (string.IsNullOrWhiteSpace(context.PackageId)
+                        ? string.Empty
+                        : " Mod=" + context.PackageId));
+                AutoTranslatorSettings.AddDebugLog(
+                    "translation.usage previous_request_retry request=" +
+                    requestId.Substring(0, Math.Min(12, requestId.Length)) +
+                    " package=" + (context.PackageId ?? string.Empty) +
+                    " purpose=" + (context.Purpose ?? string.Empty) +
+                    " scope=" + (context.ScopeId ?? string.Empty) +
+                    " estimated_tokens=" + estimate);
             }
 
             handle = new TranslationUsageReservationHandle { RequestId = requestId };

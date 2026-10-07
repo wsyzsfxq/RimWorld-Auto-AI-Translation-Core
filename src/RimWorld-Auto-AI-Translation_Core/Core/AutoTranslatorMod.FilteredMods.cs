@@ -133,13 +133,6 @@ namespace AutoTranslator_Core
                         null);
                 }
 
-                bool isOfficialContent = AutoTranslatorScanner.IsOfficialBaseGameOrDlcPackage(packageId);
-                if (isOfficialContent)
-                {
-                    includeInValidMods = true;
-                    return null;
-                }
-
                 bool hasNormalSources =
                     AutoTranslatorScanner.HasScannableTranslationSourcesNormally(packageId, rootDir);
                 List<string> candidates = GetForceTranslationCandidatePathsCached(rootDir);
