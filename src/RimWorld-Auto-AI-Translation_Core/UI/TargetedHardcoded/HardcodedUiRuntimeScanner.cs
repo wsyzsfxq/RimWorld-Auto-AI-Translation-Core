@@ -453,7 +453,7 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
             List<Assembly> loadedAssemblies = AppDomain.CurrentDomain.GetAssemblies().ToList();
             List<string> normalizedEffectivePaths = (effectiveAssemblyPaths ?? Enumerable.Empty<string>())
                 .Where(path => !string.IsNullOrWhiteSpace(path) && File.Exists(path))
-                .Select(WorkflowPath.NormalizeAbsolute)
+                .Select(path => Path.GetFullPath(path))
                 .Distinct(WorkflowPath.Comparer)
                 .OrderBy(path => path, WorkflowPath.Comparer)
                 .ToList();
