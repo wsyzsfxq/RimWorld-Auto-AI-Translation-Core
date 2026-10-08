@@ -101,8 +101,8 @@ namespace AutoTranslator_Core
             GUI.color = Color.grey;
             Widgets.Label(new Rect(budget.x + 8f, budget.y + 50f, budget.width - 16f, 18f),
                 AutoTranslatorMod.WfText(
-                    $"输入 {_report.ProtectedInputBudgetTokens:N0} · 输出 {_report.ProtectedOutputBudgetTokens:N0} · ×1.2",
-                    $"Input {_report.ProtectedInputBudgetTokens:N0} · Output {_report.ProtectedOutputBudgetTokens:N0} · ×1.2"));
+                    $"输入 {_report.ProtectedInputBudgetTokens:N0} · 输出 {_report.ProtectedOutputBudgetTokens:N0} · ×{DryRunReport.BudgetProtectionRatio:0.0}",
+                    $"Input {_report.ProtectedInputBudgetTokens:N0} · Output {_report.ProtectedOutputBudgetTokens:N0} · ×{DryRunReport.BudgetProtectionRatio:0.0}"));
             GUI.color = Color.white;
         }
 

@@ -48,57 +48,6 @@ namespace AutoTranslator_Core
                 return false;
             }
 
-            if (RequiresProtectedTokenParity(sourceText) &&
-                !LanguageDetector.LooksLikeTargetLanguage(sourceText, AutoTranslatorMod.Settings.TargetLang) &&
-                string.Equals(sanitized, sourceText, StringComparison.Ordinal))
-            {
-                AddValidationStat(s => s.ProtectedTokenMismatchFallback++);
-                failureReason = TranslationValidationReasons.ProtectedTokenMismatch;
-                failureDetail = "The provider returned the unchanged protected-token source text.";
-                return false;
-            }
-
-            if (LanguageDetector.HasWrongChineseVariant(
-                    sanitized,
-                    AutoTranslatorMod.Settings.TargetLang))
-            {
-                failureReason = TranslationValidationReasons.WrongChineseVariant;
-                failureDetail = "The result uses the wrong Chinese writing variant.";
-                return false;
-            }
-
-            if (TranslationResultLanguagePolicy.HasUnexpectedScriptResidual(
-                    sanitized,
-                    sourceText,
-                    AutoTranslatorMod.Settings.TargetLang))
-            {
-                failureReason = TranslationValidationReasons.WrongTargetLanguage;
-                failureDetail = "The result contains unexpected text from another writing system.";
-                return false;
-            }
-
-            if (!TranslationResultLanguagePolicy.ShouldAccept(
-                    sanitized,
-                    sourceText,
-                    AutoTranslatorMod.Settings.TargetLang))
-            {
-                if (TranslationResultLanguagePolicy.HasLikelyEnglishResidual(
-                        sanitized,
-                        sourceText,
-                        AutoTranslatorMod.Settings.TargetLang))
-                {
-                    AddValidationStat(s => s.EnglishResidualFallback++);
-                    failureReason = TranslationValidationReasons.EnglishResidual;
-                    failureDetail = "The result still appears to contain untranslated English.";
-                }
-                else
-                {
-                    failureReason = TranslationValidationReasons.Unknown;
-                    failureDetail = "The result did not pass language-quality validation.";
-                }
-                return false;
-            }
-
             return true;
         }
     }

@@ -89,9 +89,6 @@ namespace AutoTranslator_Core.Workflow
                     lease.RunId, WorkflowTaskKind.ConfigurationEdit, inputJson);
                 try
                 {
-                    if (configuration != null && configuration.EnableDllAnalysis &&
-                        AutoTranslatorMod.Settings != null && AutoTranslatorMod.Settings.EnableUIInterceptor)
-                        throw new InvalidOperationException("DLL analysis and UI interception cannot be enabled at the same time.");
                     _configuration.Save(configuration);
                     _repository.CompleteWorkflowRun(
                         lease.RunId, WorkflowRunState.Completed, string.Empty, string.Empty);
@@ -700,17 +697,25 @@ namespace AutoTranslator_Core.Workflow
             CancellationToken externalCancellation,
             string inputJson = "")
         {
-            EnsureDatabaseInitialized();
             if (!WorkflowTaskCoordinator.Instance.TryBegin(kind, displayName, out WorkflowTaskLease lease))
                 throw new InvalidOperationException("Another background workflow is already running.");
+            // Acquire the lease synchronously, then keep ALL database work and async
+            // continuations off Unity's synchronization context, not just the inner loop.
+            await Task.Run(async () =>
+            {
             using (lease)
             using (CancellationTokenSource linked = CancellationTokenSource.CreateLinkedTokenSource(
                        lease.CancellationToken, externalCancellation))
             {
                 AutoTranslatorSettings.ResetPipelineCancellation();
-                _repository.StartWorkflowRun(lease.RunId, kind, inputJson);
+                bool recorded = false;
                 try
                 {
+                    linked.Token.ThrowIfCancellationRequested();
+                    EnsureDatabaseInitialized();
+                    linked.Token.ThrowIfCancellationRequested();
+                    _repository.StartWorkflowRun(lease.RunId, kind, inputJson);
+                    recorded = true;
                     await operation(linked.Token);
                     _repository.CompleteWorkflowRun(
                         lease.RunId, WorkflowRunState.Completed, string.Empty, string.Empty);
@@ -718,26 +723,18 @@ namespace AutoTranslator_Core.Workflow
                 }
                 catch (OperationCanceledException ex)
                 {
-                    _repository.CompleteWorkflowRun(
-                        lease.RunId, WorkflowRunState.Cancelled, string.Empty, ex.Message);
-                    WorkflowTaskCoordinator.Instance.MarkTerminal(lease.RunId, WorkflowRunState.Cancelled, ex.Message);
+                    RecordWorkflowFailure(lease, recorded, WorkflowRunState.Cancelled, ex.Message);
                     throw;
                 }
                 catch (WorkflowPartialFailureException ex)
                 {
-                    PersistPerModResult(lease.RunId, kind, ex.PartialResult);
-                    _repository.CompleteWorkflowRun(
-                        lease.RunId, WorkflowRunState.Failed,
-                        JsonConvert.SerializeObject(ex.PartialResult), ex.UserSummary);
-                    WorkflowTaskCoordinator.Instance.MarkTerminal(
-                        lease.RunId, WorkflowRunState.Failed, ex.UserSummary);
+                    RecordWorkflowFailure(lease, recorded, WorkflowRunState.Failed, ex.UserSummary,
+                        () => PersistPerModResult(lease.RunId, kind, ex.PartialResult), ex.PartialResult);
                     throw;
                 }
                 catch (Exception ex)
                 {
-                    _repository.CompleteWorkflowRun(
-                        lease.RunId, WorkflowRunState.Failed, string.Empty, ex.Message);
-                    WorkflowTaskCoordinator.Instance.MarkTerminal(lease.RunId, WorkflowRunState.Failed, ex.Message);
+                    RecordWorkflowFailure(lease, recorded, WorkflowRunState.Failed, ex.Message);
                     throw;
                 }
                 finally
@@ -745,6 +742,7 @@ namespace AutoTranslator_Core.Workflow
                     WorkflowTaskCoordinator.Instance.NotifyWorkbenchDataChanged();
                 }
             }
+            }).ConfigureAwait(false);
         }
 
         private async Task<T> RunExclusiveAsync<T>(
@@ -754,17 +752,23 @@ namespace AutoTranslator_Core.Workflow
             CancellationToken externalCancellation,
             string inputJson = "")
         {
-            EnsureDatabaseInitialized();
             if (!WorkflowTaskCoordinator.Instance.TryBegin(kind, displayName, out WorkflowTaskLease lease))
                 throw new InvalidOperationException("Another background workflow is already running.");
+            return await Task.Run(async () =>
+            {
             using (lease)
             using (CancellationTokenSource linked = CancellationTokenSource.CreateLinkedTokenSource(
                        lease.CancellationToken, externalCancellation))
             {
                 AutoTranslatorSettings.ResetPipelineCancellation();
-                _repository.StartWorkflowRun(lease.RunId, kind, inputJson);
+                bool recorded = false;
                 try
                 {
+                    linked.Token.ThrowIfCancellationRequested();
+                    EnsureDatabaseInitialized();
+                    linked.Token.ThrowIfCancellationRequested();
+                    _repository.StartWorkflowRun(lease.RunId, kind, inputJson);
+                    recorded = true;
                     T result = await operation(linked.Token);
                     PersistPerModResult(lease.RunId, kind, result);
                     _repository.CompleteWorkflowRun(
@@ -775,32 +779,49 @@ namespace AutoTranslator_Core.Workflow
                 }
                 catch (OperationCanceledException ex)
                 {
-                    _repository.CompleteWorkflowRun(
-                        lease.RunId, WorkflowRunState.Cancelled, string.Empty, ex.Message);
-                    WorkflowTaskCoordinator.Instance.MarkTerminal(lease.RunId, WorkflowRunState.Cancelled, ex.Message);
+                    RecordWorkflowFailure(lease, recorded, WorkflowRunState.Cancelled, ex.Message);
                     throw;
                 }
                 catch (WorkflowPartialFailureException ex)
                 {
-                    PersistPerModResult(lease.RunId, kind, ex.PartialResult);
-                    _repository.CompleteWorkflowRun(
-                        lease.RunId, WorkflowRunState.Failed,
-                        JsonConvert.SerializeObject(ex.PartialResult), ex.UserSummary);
-                    WorkflowTaskCoordinator.Instance.MarkTerminal(
-                        lease.RunId, WorkflowRunState.Failed, ex.UserSummary);
+                    RecordWorkflowFailure(lease, recorded, WorkflowRunState.Failed, ex.UserSummary,
+                        () => PersistPerModResult(lease.RunId, kind, ex.PartialResult), ex.PartialResult);
                     throw;
                 }
                 catch (Exception ex)
                 {
-                    _repository.CompleteWorkflowRun(
-                        lease.RunId, WorkflowRunState.Failed, string.Empty, ex.Message);
-                    WorkflowTaskCoordinator.Instance.MarkTerminal(lease.RunId, WorkflowRunState.Failed, ex.Message);
+                    RecordWorkflowFailure(lease, recorded, WorkflowRunState.Failed, ex.Message);
                     throw;
                 }
                 finally
                 {
                     WorkflowTaskCoordinator.Instance.NotifyWorkbenchDataChanged();
                 }
+            }
+            }).ConfigureAwait(false);
+        }
+
+        private void RecordWorkflowFailure(WorkflowTaskLease lease, bool recorded,
+            WorkflowRunState state, string error, Action persistPartial = null, object partialResult = null)
+        {
+            try
+            {
+                if (recorded)
+                {
+                    persistPartial?.Invoke();
+                    _repository.CompleteWorkflowRun(lease.RunId, state,
+                        partialResult == null ? string.Empty : JsonConvert.SerializeObject(partialResult), error);
+                }
+            }
+            catch (Exception persistenceError)
+            {
+                AutoTranslatorSettings.AddWarningLog("任务失败状态写入失败：" + persistenceError.Message);
+            }
+            finally
+            {
+                // A database failure must not leave the in-memory task marked Completed
+                // on lease disposal, or replace the original error shown to the user.
+                WorkflowTaskCoordinator.Instance.MarkTerminal(lease.RunId, state, error);
             }
         }
 
@@ -848,7 +869,11 @@ namespace AutoTranslator_Core.Workflow
             catch (OperationCanceledException) { throw; }
             catch (Exception ex)
             {
-                failures.Add(new InvalidOperationException("本地分析步骤失败。", ex));
+                // Native translation read failures are handled inside the catalog and
+                // remain non-fatal. An actual candidate-analysis failure is different:
+                // do not send a previous run's candidates to AI as if this run succeeded.
+                throw new InvalidOperationException(
+                    "本地候选分析未全部完成，已完成结果已保留；本次尚未调用 AI，请处理分析错误后重试。", ex);
             }
 
             try

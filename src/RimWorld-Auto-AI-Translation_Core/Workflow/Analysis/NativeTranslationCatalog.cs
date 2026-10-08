@@ -96,6 +96,7 @@ namespace AutoTranslator_Core.Workflow.Analysis
                     mod.RootDir.FullName.TrimEnd('\\', '/'), generatedRoot)).ToList();
                 int completed = 0;
                 int reused = 0;
+                int failed = 0;
                 foreach (ModMetaData mod in loaded)
                 {
                     token.ThrowIfCancellationRequested();
@@ -103,15 +104,16 @@ namespace AutoTranslator_Core.Workflow.Analysis
                     WorkflowTaskCoordinator.Instance.ReportStage(source.PackageId,
                         "读取原生译文 " + (completed + 1) + "/" + loaded.Count,
                         string.Empty, string.Empty);
-                    List<string> roots = AutoTranslatorScanner.GetAllEffectiveLangPaths(mod)
-                        .Concat(AutoTranslatorScanner.GetAllTranslationPatchLangPaths(mod))
-                        .Distinct(WorkflowPath.Comparer).ToList();
-                    List<string> directories = roots.SelectMany(root =>
-                        AutoTranslatorScanner.GetTargetLanguageBucketPaths(root, languageOption, "Keyed")
-                            .Concat(AutoTranslatorScanner.GetTargetLanguageBucketPaths(root, languageOption, "DefInjected")))
-                        .Distinct(WorkflowPath.Comparer).ToList();
+                    string currentFile = string.Empty;
                     try
                     {
+                        List<string> roots = AutoTranslatorScanner.GetAllEffectiveLangPaths(mod)
+                            .Concat(AutoTranslatorScanner.GetAllTranslationPatchLangPaths(mod))
+                            .Distinct(WorkflowPath.Comparer).ToList();
+                        List<string> directories = roots.SelectMany(root =>
+                            AutoTranslatorScanner.GetTargetLanguageBucketPaths(root, languageOption, "Keyed")
+                                .Concat(AutoTranslatorScanner.GetTargetLanguageBucketPaths(root, languageOption, "DefInjected")))
+                            .Distinct(WorkflowPath.Comparer).ToList();
                         List<string> files = directories.Where(Directory.Exists)
                             .SelectMany(dir => Directory.EnumerateFiles(dir, "*.xml", SearchOption.AllDirectories))
                             .Select(Path.GetFullPath).Distinct(WorkflowPath.Comparer)
@@ -138,14 +140,21 @@ namespace AutoTranslator_Core.Workflow.Analysis
                         else
                         {
                             var entries = new List<NativeTranslationEntry>();
+                            var fileErrors = new List<string>();
                             foreach (string file in files)
                             {
                                 token.ThrowIfCancellationRequested();
+                                currentFile = file;
+                                try
+                                {
                                 string normalized = file.Replace('\\', '/');
                                 int marker = normalized.LastIndexOf("/DefInjected/", StringComparison.OrdinalIgnoreCase);
                                 string defType = marker >= 0
                                     ? normalized.Substring(marker + 13).Split('/')[0] : string.Empty;
                                 string xml = File.ReadAllText(file);
+                                // Some Mods ship empty placeholder files in language folders.
+                                // They contain no translations and must not abort the scan.
+                                if (string.IsNullOrWhiteSpace(xml)) continue;
                                 List<TranslationPolicyCandidate> parsed = marker >= 0
                                     ? TranslationPolicyXmlScanner.ScanDefInjectedXml(xml, defType, new TranslationPolicySourceContext())
                                     : TranslationPolicyXmlScanner.ScanKeyedXml(xml, new TranslationPolicySourceContext());
@@ -159,16 +168,32 @@ namespace AutoTranslator_Core.Workflow.Analysis
                                         EntryKey = entry.KeyOrPath, Text = entry.SourceText
                                     });
                                 }
+                                }
+                                catch (OperationCanceledException) { throw; }
+                                catch (Exception ex)
+                                {
+                                    string error = file + "：" + ex.Message;
+                                    fileErrors.Add(error);
+                                    AutoTranslatorSettings.AddWarningLog(
+                                        "原生译文文件读取失败，继续读取其他文件：" + source.DisplayName + "；" + error);
+                                }
                             }
                             token.ThrowIfCancellationRequested();
-                            _repository.ReplaceNativeTranslationScan(source.ModIdentity, language, fingerprint, entries);
+                            currentFile = string.Empty;
+                            _repository.ReplaceNativeTranslationScan(source.ModIdentity, language, fingerprint, entries,
+                                string.Join("\n", fileErrors));
+                            if (fileErrors.Count > 0) failed++;
                         }
                     }
                     catch (OperationCanceledException) { throw; }
                     catch (Exception ex)
                     {
                         _repository.FailNativeTranslationScan(source.ModIdentity, language, ex.Message);
-                        throw new InvalidOperationException("原生译文读取失败：" + source.DisplayName, ex);
+                        failed++;
+                        AutoTranslatorSettings.AddWarningLog(
+                            "原生译文读取失败，继续分析其他内容：" + source.DisplayName +
+                            (string.IsNullOrEmpty(currentFile) ? string.Empty : "；文件=" + currentFile) +
+                            "；原因=" + ex.Message);
                     }
                     completed++;
                     WorkflowTaskCoordinator.Instance.ReportProgress(completed, loaded.Count,
@@ -179,7 +204,8 @@ namespace AutoTranslator_Core.Workflow.Analysis
                 if (!string.Equals(language, WorkflowRuntimeSettings.GetTargetLanguageFolder(), StringComparison.Ordinal))
                     throw new InvalidOperationException("扫描期间目标语种发生变化，请按当前语种重新分析。");
                 _repository.SetLoadedNativeTranslationSources(loaded.Select(ModAnalysisTargetFactory.CreateModIdentity).ToList());
-                AutoTranslatorSettings.AddLog("原生译文收集完成：" + loaded.Count + " 个已加载 Mod，复用 " + reused + " 个。");
+                AutoTranslatorSettings.AddLog("原生译文收集完成：" + loaded.Count + " 个已加载 Mod，复用 " + reused +
+                    " 个，读取不完整 " + failed + " 个。" + (failed > 0 ? "成功文件参与匹配，读取失败范围保留已有译文保护，继续后续分析。" : string.Empty));
             }, token);
         }
     }

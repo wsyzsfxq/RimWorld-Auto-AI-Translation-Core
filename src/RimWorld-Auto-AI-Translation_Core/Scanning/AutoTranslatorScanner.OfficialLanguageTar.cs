@@ -144,16 +144,6 @@ namespace AutoTranslator_Core
             TargetLanguage targetLang)
         {
             Dictionary<string, string> dict = LoadRawOfficialTarXmlFileToDictCached(file);
-            TargetLanguage placeholderLang = targetLang;
-
-            foreach (string key in dict
-                         .Where(pair => LanguageDetector.LooksLikePlaceholderTranslation(pair.Value, placeholderLang))
-                         .Select(pair => pair.Key)
-                         .ToList())
-            {
-                dict.Remove(key);
-            }
-
             return dict;
         }
 

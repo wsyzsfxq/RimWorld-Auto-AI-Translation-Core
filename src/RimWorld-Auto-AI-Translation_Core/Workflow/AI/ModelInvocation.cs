@@ -18,6 +18,8 @@ namespace AutoTranslator_Core.Workflow.AI
     public sealed class ModelInvocationRequest
     {
         public string Prompt { get; set; } = string.Empty;
+        // Prefix boundary supplied by the prompt builder; null means no reliable split.
+        public int? FixedPromptCharacters { get; set; }
         // Estimation is report-only. It must never determine a real provider request limit.
         public long EstimatedOutputTokens { get; set; }
         // Zero means the selected API/model configuration resolves the real request limit.
@@ -123,6 +125,7 @@ namespace AutoTranslator_Core.Workflow.AI
 
     public static class ApproximateTokenEstimator
     {
+        public const double BudgetProtectionRatio = 1.3d;
         public const string Version = "fallback-cjk3-word1-other4-v1";
         private const int LongOpaqueRunThreshold = 24;
         private static readonly Regex OpaqueIdentifierPattern = new Regex(
@@ -178,7 +181,7 @@ namespace AutoTranslator_Core.Workflow.AI
 
         public static long WithBudgetProtection(long baseTokens)
         {
-            return (long)Math.Ceiling(Math.Max(0, baseTokens) * 1.2d);
+            return (long)Math.Ceiling(Math.Max(0, baseTokens) * BudgetProtectionRatio);
         }
 
         private static long CountWordParts(string run)

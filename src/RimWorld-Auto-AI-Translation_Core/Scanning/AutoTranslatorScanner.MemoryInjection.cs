@@ -844,11 +844,14 @@ namespace AutoTranslator_Core
                 state.MaxApplySliceMs = Math.Max(state.MaxApplySliceMs, sliceTimer.ElapsedMilliseconds);
                 if (sliceTimer.ElapsedMilliseconds >= 50L)
                 {
-                    AutoTranslatorSettings.AddWarningLog(
-                        "Memory Drop 主线程分片较慢：耗时 " + sliceTimer.ElapsedMilliseconds +
+                    string timingDetail = "Memory Drop 主线程分片耗时 " + sliceTimer.ElapsedMilliseconds +
                         " ms；阶段=" + phase +
                         "；Keyed=" + state.KeyedIndex + "/" + state.KeyedEntries.Count +
-                        "；Def 类型=" + state.DefTypeIndex + "/" + (state.Payload.DefsByType?.Count ?? 0));
+                        "；Def 类型=" + state.DefTypeIndex + "/" + (state.Payload.DefsByType?.Count ?? 0);
+                    if (sliceTimer.ElapsedMilliseconds >= 1000L)
+                        AutoTranslatorSettings.AddWarningLog(timingDetail);
+                    else
+                        AutoTranslatorSettings.AddDebugLog(timingDetail);
                 }
                 if (shouldFinish)
                     FinishMemoryDropApply(state, finishSucceeded);
@@ -1320,14 +1323,17 @@ namespace AutoTranslator_Core
                 }
                 if (success && state.FinalizeMs >= 50L)
                 {
-                    AutoTranslatorSettings.AddWarningLog(
-                        "Memory Drop 最终 Def 注入较慢：耗时 " + state.FinalizeMs +
+                    string timingDetail = "Memory Drop 最终 Def 注入耗时 " + state.FinalizeMs +
                         " ms；注入 Def=" + state.InjectedDefs +
                         "；Def 类型=" + (state.Payload.DefsByType?.Count ?? 0) +
                         "；分段 ms=注入前 " + state.BeforeInjectMs +
                         " / 注入后 " + state.AfterInjectMs +
                         " / 恢复清理 " + state.RestoreCleanupMs +
-                        " / 规范化 " + state.NormalizeMs);
+                        " / 规范化 " + state.NormalizeMs;
+                    if (state.FinalizeMs >= 1000L)
+                        AutoTranslatorSettings.AddWarningLog(timingDetail);
+                    else
+                        AutoTranslatorSettings.AddDebugLog(timingDetail);
                 }
 
                 if (state.RejectedDefs > 0)

@@ -30,11 +30,6 @@ namespace AutoTranslator_Core
         {
 
             if (string.IsNullOrWhiteSpace(value) || value.Length < 2) return false;
-            if (AutoTranslatorMod.Settings != null &&
-                LanguageDetector.LooksLikePlaceholderTranslation(value, AutoTranslatorMod.Settings.TargetLang))
-            {
-                return false;
-            }
 
             if (value.All(char.IsDigit) || Regex.IsMatch(value, @"^[^\w\s]+$")) return false;
 

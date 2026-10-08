@@ -12,7 +12,7 @@ namespace AutoTranslator_Core.Workflow.DryRun
 {
     public sealed class DryRunReport
     {
-        public const double BudgetProtectionRatio = 1.2d;
+        public const double BudgetProtectionRatio = ApproximateTokenEstimator.BudgetProtectionRatio;
         public DateTime CreatedUtc { get; set; }
         public string EstimatorVersion { get; set; } = ApproximateTokenEstimator.Version;
         public AiStepEstimate AiReview { get; set; } = new AiStepEstimate();

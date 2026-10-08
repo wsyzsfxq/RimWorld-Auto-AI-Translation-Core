@@ -18,6 +18,25 @@ namespace AutoTranslator_Core.Workflow.Persistence
             _nativeLoadOrder = identities.ToList();
         }
 
+        internal HashSet<string> GetIncompleteNativeTranslationPackages(string targetLanguage)
+        {
+            var packages = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            using (DbConnection connection = _connections.OpenConnection())
+            using (DbCommand command = connection.CreateCommand())
+            {
+                command.CommandText = @"SELECT provider.mod_identity,provider.package_id
+                    FROM NativeTranslationScans scan
+                    JOIN Mods provider ON provider.mod_identity=scan.mod_identity
+                    WHERE scan.target_language=@target AND scan.state IN ('Failed','Partial');";
+                Add(command, "@target", targetLanguage);
+                using (DbDataReader reader = command.ExecuteReader())
+                    while (reader.Read())
+                        if (_loadedNativeSources.Contains(reader.GetString(0)))
+                            packages.Add(reader.GetString(1));
+            }
+            return packages;
+        }
+
         internal ModCatalogSummary SynchronizeModCatalog(IList<ModSnapshotRecord> mods, CancellationToken token,
             Action<int, int, string> progress = null)
         {
@@ -114,7 +133,7 @@ namespace AutoTranslator_Core.Workflow.Persistence
         }
 
         internal void ReplaceNativeTranslationScan(string mod, string language, string fingerprint,
-            IList<NativeTranslationEntry> entries)
+            IList<NativeTranslationEntry> entries, string error = "")
         {
             entries = entries.GroupBy(entry => entry.SourceFile + "\n" + entry.Bucket + "\n" +
                 entry.DefType + "\n" + entry.EntryKey, StringComparer.Ordinal).Select(group => group.Last()).ToList();
@@ -126,11 +145,13 @@ namespace AutoTranslator_Core.Workflow.Persistence
                     command.Transaction = transaction;
                     command.CommandText = @"INSERT INTO NativeTranslationScans
                         (mod_identity,target_language,fingerprint,state,entry_count,error_text,scanned_utc)
-                        VALUES (@mod,@language,@fingerprint,'Completed',@count,'',@now)
+                        VALUES (@mod,@language,@fingerprint,@state,@count,@error,@now)
                         ON CONFLICT(mod_identity,target_language) DO UPDATE SET fingerprint=excluded.fingerprint,
-                        state='Completed',entry_count=excluded.entry_count,error_text='',scanned_utc=excluded.scanned_utc;";
+                        state=excluded.state,entry_count=excluded.entry_count,error_text=excluded.error_text,scanned_utc=excluded.scanned_utc;";
                     Add(command,"@mod",mod); Add(command,"@language",language); Add(command,"@fingerprint",fingerprint);
                     Add(command,"@count",entries.Count); Add(command,"@now",ToDbTime(DateTime.UtcNow));
+                    Add(command,"@state",string.IsNullOrEmpty(error) ? "Completed" : "Partial");
+                    Add(command,"@error",error ?? string.Empty);
                     command.ExecuteNonQuery();
                     command.Parameters.Clear();
                     command.CommandText = "DELETE FROM NativeTranslationEntries WHERE mod_identity=@mod AND target_language=@language;";
@@ -178,7 +199,7 @@ namespace AutoTranslator_Core.Workflow.Persistence
                     FROM NativeTranslationEntries e JOIN NativeTranslationScans s
                     ON s.mod_identity=e.mod_identity AND s.target_language=e.target_language
                     JOIN Mods m ON m.mod_identity=e.mod_identity
-                    WHERE e.target_language=@language AND s.state='Completed' ORDER BY e.mod_identity,e.source_file;";
+                    WHERE e.target_language=@language AND s.state IN ('Completed','Partial') ORDER BY e.mod_identity,e.source_file;";
                 Add(command,"@language",language);
                 using (DbDataReader reader = command.ExecuteReader())
                     while (reader.Read())

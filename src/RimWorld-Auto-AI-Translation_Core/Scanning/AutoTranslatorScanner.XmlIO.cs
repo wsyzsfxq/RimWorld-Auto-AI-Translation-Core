@@ -28,7 +28,7 @@ namespace AutoTranslator_Core
             if (!Directory.Exists(path)) return dict;
             foreach (var f in GetXmlFilesCached(path, SearchOption.AllDirectories))
             {
-                var d = LoadXmlFileToDict(f, ShouldCheckFakeLanguageForFile(f, expectedLang) ? expectedLang : null);
+                var d = LoadXmlFileToDict(f, expectedLang);
                 foreach (var p in d) dict[p.Key] = p.Value;
             }
             return dict;
@@ -39,39 +39,10 @@ namespace AutoTranslator_Core
         public static Dictionary<string, string> LoadXmlFileToDict(string filePath, TargetLanguage? expectedLang = null)
         {
             var dict = LoadRawXmlFileToDictCached(filePath);
-            TargetLanguage placeholderLang = expectedLang ?? (AutoTranslatorMod.Settings != null ? AutoTranslatorMod.Settings.TargetLang : TargetLanguage.Traditional);
-
-            var placeholderKeys = dict
-                .Where(pair => LanguageDetector.LooksLikePlaceholderTranslation(pair.Value, placeholderLang))
-                .Select(pair => pair.Key)
-                .ToList();
-            foreach (string key in placeholderKeys)
-            {
-                dict.Remove(key);
-            }
-
-            bool shouldCheckLanguage = ShouldCheckFakeLanguageForFile(filePath, expectedLang);
-            if (shouldCheckLanguage && IsGeneratedTranslationOutputFile(filePath))
+            if (expectedLang.HasValue && IsGeneratedTranslationOutputFile(filePath))
             {
                 foreach (string key in dict.Keys.ToList())
-                {
-                    if (TranslationResultLanguagePolicy.TryNormalizePersistedGeneratedValue(
-                            dict[key],
-                            expectedLang.Value,
-                            out string normalized))
-                    {
-                        dict[key] = normalized;
-                    }
-                    else
-                    {
-                        dict.Remove(key);
-                    }
-                }
-            }
-            else if (shouldCheckLanguage && LanguageDetector.IsFakeLanguage(dict, expectedLang.Value))
-            {
-                AutoTranslatorSettings.AddLog($"🕵️ [System] " + AutoTranslatorAPI.TranslateText("ATC_Log_FakeLanguageDetected", Path.GetFileName(filePath)));
-                return new Dictionary<string, string>();
+                    dict[key] = LanguageDetector.NormalizeChineseVariant(dict[key], expectedLang.Value);
             }
 
             return dict;
