@@ -28,7 +28,7 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
 
     internal static class HardcodedUiIlDataflowAnalyzer
     {
-        internal const int AnalyzerVersion = 5;
+        internal const int AnalyzerVersion = 6;
         internal const int StructureEngineVersion = 2;
         private const int MaximumSummaryIterations = 8;
         private const int ProgressStageCount = 5;
@@ -1479,7 +1479,7 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
             {
                 for (int index = 0; index < arguments.Length; index++)
                 {
-                    if (IsStringLike(call.Parameters[index].ParameterType))
+                    if (IsStringLike(ResolveCallType(call.Parameters[index].ParameterType, call)))
                         Mark(analysis, arguments[index], true, role, evidence, collectLiterals);
                 }
             }
@@ -1487,13 +1487,13 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
             {
                 for (int index = 0; index < arguments.Length; index++)
                 {
-                    if (IsStringLike(call.Parameters[index].ParameterType))
+                    if (IsStringLike(ResolveCallType(call.Parameters[index].ParameterType, call)))
                         Mark(analysis, arguments[index], false, nonUiReason, evidence, collectLiterals);
                 }
             }
             for (int index = 0; index < arguments.Length; index++)
             {
-                if (IsStringLike(call.Parameters[index].ParameterType) &&
+                if (IsStringLike(ResolveCallType(call.Parameters[index].ParameterType, call)) &&
                     TryGetNonUiArgumentReason(call, index, out string argumentReason))
                     Mark(analysis, arguments[index], false, argumentReason, evidence, collectLiterals);
             }
@@ -1577,7 +1577,7 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
                 returnValue.Containers.UnionWith(instance.Containers);
             }
             else if (methodName.StartsWith("get_", StringComparison.Ordinal) &&
-                     IsStringLike(call.ReturnType) && methodsByName.ContainsKey(call.FullName))
+                     IsStringLike(ResolveCallType(call.ReturnType, call)) && methodsByName.ContainsKey(call.FullName))
             {
                 returnValue.Merge(ExpandContainers(state, context, instance));
             }
@@ -1997,6 +1997,20 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
                 }
             }
             return expanded;
+        }
+
+        private static TypeReference ResolveCallType(TypeReference type, MethodReference call)
+        {
+            if (type is ByReferenceType reference)
+                return ResolveCallType(reference.ElementType, call);
+            if (!(type is GenericParameter parameter)) return type;
+            if (parameter.Type == GenericParameterType.Method && call is GenericInstanceMethod genericMethod &&
+                parameter.Position >= 0 && parameter.Position < genericMethod.GenericArguments.Count)
+                return genericMethod.GenericArguments[parameter.Position];
+            if (parameter.Type == GenericParameterType.Type && call.DeclaringType is GenericInstanceType genericType &&
+                parameter.Position >= 0 && parameter.Position < genericType.GenericArguments.Count)
+                return genericType.GenericArguments[parameter.Position];
+            return type;
         }
 
         private static bool IsStringLike(TypeReference type)

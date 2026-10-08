@@ -32,10 +32,15 @@ namespace AutoTranslator_Core
         internal static async Task<WorkflowRawModelResponse> InvokeWorkflowJsonAsync(
             string prompt,
             CancellationToken cancellationToken,
-            ApiKeyConfig selectedConfiguration = null)
+            ApiKeyConfig selectedConfiguration = null,
+            TranslationTaskTier taskTier = TranslationTaskTier.Bulk,
+            Workflow.AI.ModelInvocationRequest invocation = null)
         {
-            ApiKeyConfig config = selectedConfiguration ?? GetNextWorkflowConfig();
-            if (config == null) throw new InvalidOperationException(DescribeUnavailableWorkflowConfigurations());
+            ApiKeyConfig config = selectedConfiguration ?? GetNextWorkflowConfig(taskTier);
+            if (config == null) throw new InvalidOperationException(
+                taskTier == TranslationTaskTier.Bulk && AutoTranslatorMod.Settings?.ApiConfigs?.Any(IsConfigReady) == true
+                    ? "大量翻译需要至少一个可用的 Bulk 配置；中量或小量配置不会替代大量翻译。"
+                    : DescribeUnavailableWorkflowConfigurations());
             string configurationProblem = GetWorkflowConfigurationProblem(config);
             if (configurationProblem != null)
                 throw new InvalidOperationException(configurationProblem);
@@ -113,14 +118,34 @@ namespace AutoTranslator_Core
             Func<bool> cancelled = () => cancellationToken.IsCancellationRequested ||
                                          AutoTranslatorSettings.IsCancellationRequested;
             string lastFinishReason = string.Empty;
+            string tokenSampleCallId = Guid.NewGuid().ToString("N");
+            int physicalAttempt = 0;
             const int maximumStructuredAttempts = 3;
             for (int structuredAttempt = 0; structuredAttempt < maximumStructuredAttempts; structuredAttempt++)
             {
                 System.Diagnostics.Stopwatch requestTimer = System.Diagnostics.Stopwatch.StartNew();
                 ATC_WebResponse response = await SendTranslationRequestWithConcurrencyRecoveryAsync(
-                    () => SendJsonRequestAttemptAsync(
-                        url, payload.ToString(Newtonsoft.Json.Formatting.None), apiKey,
-                        config.Provider, timeoutSeconds, cancelled),
+                    async () =>
+                    {
+                        int attempt = ++physicalAttempt;
+                        LogWorkflowTokenSample(prompt, payload, invocation, config, model,
+                            tokenSampleCallId, attempt, structuredAttempt + 1, "input", null);
+                        try
+                        {
+                            ATC_WebResponse attemptResponse = await SendJsonRequestAttemptAsync(
+                                url, payload.ToString(Newtonsoft.Json.Formatting.None), apiKey,
+                                config.Provider, timeoutSeconds, cancelled);
+                            LogWorkflowTokenSample(prompt, payload, invocation, config, model,
+                                tokenSampleCallId, attempt, structuredAttempt + 1, "response", attemptResponse);
+                            return attemptResponse;
+                        }
+                        catch
+                        {
+                            LogWorkflowTokenSample(prompt, payload, invocation, config, model,
+                                tokenSampleCallId, attempt, structuredAttempt + 1, "exception", null);
+                            throw;
+                        }
+                    },
                     config,
                     cancelled);
                 requestTimer.Stop();
@@ -176,6 +201,85 @@ namespace AutoTranslator_Core
                 (string.IsNullOrWhiteSpace(lastFinishReason)
                     ? "."
                     : " (finish reason: " + lastFinishReason + ")."));
+        }
+
+        private static void LogWorkflowTokenSample(
+            string prompt, JObject payload, Workflow.AI.ModelInvocationRequest invocation,
+            ApiKeyConfig config, string model, string callId, int attempt, int structuredAttempt,
+            string sampleEvent, ATC_WebResponse response)
+        {
+            if (AutoTranslatorMod.Settings == null || AutoTranslatorMod.Settings.LogLevel < AtcLogLevel.Debug)
+                return;
+
+            string text = prompt ?? string.Empty;
+            int? boundary = invocation?.FixedPromptCharacters;
+            bool knownSplit = boundary.HasValue && boundary.Value >= 0 && boundary.Value <= text.Length;
+            string fixedText = knownSplit ? text.Substring(0, boundary.Value) : string.Empty;
+            string dynamicText = knownSplit ? text.Substring(boundary.Value) : string.Empty;
+            string systemText = string.Join("\n", (payload["messages"] as JArray)?
+                .OfType<JObject>()
+                .Where(message => message["role"]?.ToString() == "system")
+                .Select(message => message["content"]?.ToString() ?? string.Empty) ?? Enumerable.Empty<string>());
+            long promptTokens = Workflow.AI.ApproximateTokenEstimator.Estimate(text);
+            long systemTokens = Workflow.AI.ApproximateTokenEstimator.Estimate(systemText);
+            long? actualInput = null;
+            long? actualOutput = null;
+            long? actualTotal = null;
+            string responseModel = null;
+            string usageStatus = sampleEvent == "input" ? "pending" : "unavailable";
+            if (response != null && !string.IsNullOrWhiteSpace(response.ResponseBody))
+            {
+                try
+                {
+                    JObject envelope = JObject.Parse(response.ResponseBody);
+                    actualInput = ReadNullableTokenCount(config.Provider == TranslatorProvider.Google
+                        ? envelope["usageMetadata"]?["promptTokenCount"] : envelope["usage"]?["prompt_tokens"]);
+                    actualOutput = ReadNullableTokenCount(config.Provider == TranslatorProvider.Google
+                        ? envelope["usageMetadata"]?["candidatesTokenCount"] : envelope["usage"]?["completion_tokens"]);
+                    actualTotal = ReadNullableTokenCount(config.Provider == TranslatorProvider.Google
+                        ? envelope["usageMetadata"]?["totalTokenCount"] : envelope["usage"]?["total_tokens"]);
+                    responseModel = (envelope["model"] ?? envelope["modelVersion"])?.ToString();
+                    usageStatus = actualInput.HasValue && actualOutput.HasValue ? "reported" : "missing_fields";
+                }
+                catch (Newtonsoft.Json.JsonException) { usageStatus = "invalid_response_json"; }
+            }
+
+            // Numeric diagnostics only: no prompt, response text, URL or credentials.
+            var sample = new JObject
+            {
+                ["schema"] = "workflow-token-sample-v1",
+                ["event"] = sampleEvent,
+                ["call_id"] = callId,
+                ["attempt"] = attempt,
+                ["structured_attempt"] = structuredAttempt,
+                ["purpose"] = invocation?.RequestPurpose ?? "connection_or_direct_call",
+                ["request_scope"] = invocation?.RequestScope,
+                ["provider"] = config.Provider.ToString(),
+                ["model"] = model,
+                ["response_model"] = responseModel,
+                ["estimator"] = Workflow.AI.ApproximateTokenEstimator.Version,
+                ["split_known"] = knownSplit,
+                ["item_count"] = invocation?.ItemCount,
+                ["source_chars"] = invocation?.SourceCharacters,
+                ["prompt_chars"] = text.Length,
+                ["fixed_chars"] = knownSplit ? (int?)fixedText.Length : null,
+                ["dynamic_chars"] = knownSplit ? (int?)dynamicText.Length : null,
+                ["system_chars"] = systemText.Length,
+                ["estimated_fixed_tokens"] = knownSplit ? (long?)Workflow.AI.ApproximateTokenEstimator.Estimate(fixedText) : null,
+                ["estimated_dynamic_tokens"] = knownSplit ? (long?)Workflow.AI.ApproximateTokenEstimator.Estimate(dynamicText) : null,
+                ["estimated_system_tokens"] = systemTokens,
+                ["estimated_prompt_tokens"] = promptTokens,
+                ["estimated_input_tokens"] = promptTokens + systemTokens,
+                ["protocol_framing_estimated"] = false,
+                ["estimated_output_tokens"] = invocation?.EstimatedOutputTokens,
+                ["actual_input_tokens"] = actualInput,
+                ["actual_output_tokens"] = actualOutput,
+                ["actual_total_tokens"] = actualTotal,
+                ["usage_status"] = usageStatus,
+                ["response_success"] = response == null ? (bool?)null : response.IsSuccess,
+                ["budget_denied"] = response == null ? (bool?)null : response.BudgetDenied
+            };
+            AutoTranslatorSettings.AddDebugLog("workflow.token_sample " + sample.ToString(Newtonsoft.Json.Formatting.None));
         }
 
         private static WorkflowRawModelResponse ExtractWorkflowResponse(
@@ -305,14 +409,13 @@ namespace AutoTranslator_Core
                     "配置已变化，请重新尝试", "Configuration changed; try again"))));
         }
 
-        private static ApiKeyConfig GetNextWorkflowConfig()
+        private static ApiKeyConfig GetNextWorkflowConfig(TranslationTaskTier taskTier)
         {
             if (AutoTranslatorMod.Settings?.ApiConfigs == null) return null;
             var ready = AutoTranslatorMod.Settings.ApiConfigs
                 .Where(IsConfigReady)
                 .ToList();
-            var eligible = TranslationTaskTierRouter.SelectEligible(ready, TranslationTaskTier.Precision);
-            if (eligible.Count == 0) eligible = ready;
+            var eligible = TranslationTaskTierRouter.SelectEligible(ready, taskTier);
             if (eligible.Count == 0) return null;
             if (eligible.Count == 1) return eligible[0];
             int index = System.Threading.Interlocked.Increment(ref currentKeyIndex);

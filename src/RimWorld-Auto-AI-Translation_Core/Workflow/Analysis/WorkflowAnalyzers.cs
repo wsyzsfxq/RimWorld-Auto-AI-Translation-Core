@@ -23,6 +23,7 @@ namespace AutoTranslator_Core.Workflow.Analysis
         public string TargetLanguage { get; set; } = string.Empty;
         public List<ModFileRecord> Files { get; set; } = new List<ModFileRecord>();
         internal List<NativeTranslationEntry> NativeTranslations { get; set; }
+        internal HashSet<string> UiObservationKeys { get; set; }
     }
 
     public sealed class AnalyzerResult
@@ -238,14 +239,7 @@ namespace AutoTranslator_Core.Workflow.Analysis
                 TranslationPolicyCandidate policyCandidate = policyCandidates[policyIndex];
                 cancellationToken.ThrowIfCancellationRequested();
                 TranslationPolicyClassification policyClassification =
-                    IsAlreadyInTargetLanguage(policyCandidate.SourceText, targetLanguage)
-                        ? new TranslationPolicyClassification
-                        {
-                            CandidateId = policyCandidate.CandidateId,
-                            Decision = TranslationPolicyDecision.HardDeny,
-                            ReasonCode = "source_already_target_language"
-                        }
-                        : TranslationPolicyClassifier.Classify(policyCandidate);
+                    TranslationPolicyClassifier.Classify(policyCandidate);
                 CandidateClassification classification = ToWorkflowClassification(
                     policyClassification.Decision);
                 byte flags = ClassificationFlagsCodec.Set(0, ClassificationLayer.Xml, classification);
@@ -557,11 +551,13 @@ namespace AutoTranslator_Core.Workflow.Analysis
 
         public string CreateAnalysisFingerprint(ModAnalysisTarget target)
         {
+            if (target.UiObservationKeys == null)
+                target.UiObservationKeys = HardcodedUiRuntimeObservationStore.GetObservationKeys(target.Snapshot.PackageId);
             return WorkflowIdentity.CreateAnalysisFingerprint(
                 Version, target.Snapshot.VersionFingerprint,
                 "cecil-dataflow-v3-candidate-ordinal-policy-nonlinguistic-v1|language=" +
                 target.TargetLanguage + "|runtime-ui=" +
-                HardcodedUiRuntimeObservationStore.GetFingerprint(target.Snapshot.PackageId));
+                HardcodedUiRuntimeObservationStore.GetSnapshotFingerprint(target.UiObservationKeys));
         }
 
         public AnalyzerResult Analyze(
@@ -574,6 +570,7 @@ namespace AutoTranslator_Core.Workflow.Analysis
             if (!target.Mod.Active || !target.Snapshot.IsActive)
                 throw new InvalidOperationException(
                     "DLL analysis requires a loaded mod or DLC; unloaded assemblies are not treated as a successful empty scan.");
+            string analysisFingerprint = CreateAnalysisFingerprint(target);
             cancellationToken.ThrowIfCancellationRequested();
             reportProgress?.Invoke(0d, "DLL · " +
                 AutoTranslatorMod.WfText("扫描程序集", "scanning assemblies"));
@@ -598,7 +595,7 @@ namespace AutoTranslator_Core.Workflow.Analysis
             AnalyzerResult result = new AnalyzerResult
             {
                 AnalyzerVersion = Version,
-                AnalysisFingerprint = CreateAnalysisFingerprint(target),
+                AnalysisFingerprint = analysisFingerprint,
                 Diagnostics = scan.Diagnostics.ToList()
             };
             Dictionary<string, int> candidateOrdinalsByMethod =
@@ -612,7 +609,7 @@ namespace AutoTranslator_Core.Workflow.Analysis
             Dictionary<string, int> runtimeMatchCounts = orderedEntries
                 .GroupBy(HardcodedUiRuntimeObservationStore.CreateCandidateMatchKey, StringComparer.Ordinal)
                 .ToDictionary(group => group.Key, group => group.Count(), StringComparer.Ordinal);
-            HashSet<string> observedKeys = HardcodedUiRuntimeObservationStore.GetObservationKeys(target.Snapshot.PackageId);
+            HashSet<string> observedKeys = target.UiObservationKeys;
             int unmatchedObservations = observedKeys.Count(key => !runtimeMatchCounts.ContainsKey(key));
             int ambiguousObservations = observedKeys.Count(key =>
                 runtimeMatchCounts.TryGetValue(key, out int count) && count > 1);
@@ -697,7 +694,7 @@ namespace AutoTranslator_Core.Workflow.Analysis
                     SourceDomain = CandidateSourceDomain.Dll,
                     EntryKind = "HardcodedUiLiteral",
                     LogicalLocator = locator,
-                    ContextJson = JsonConvert.SerializeObject(entry),
+                    ContextJson = CreateDllCandidateContext(entry, decision, runtimeObserved),
                     DefaultOutputFileRelativePath = "HardcodedUiPatchPrototype.json",
                     TranslationEntryKey = entry.EntryId,
                     SourceFileRelativePath = entry.AssemblyRelativePath ?? string.Empty,
@@ -726,6 +723,22 @@ namespace AutoTranslator_Core.Workflow.Analysis
                 0.99d,
                 "DLL · " + AutoTranslatorMod.WfText("分析完成，等待保存", "analysis complete; awaiting save"));
             return result;
+        }
+
+        private static string CreateDllCandidateContext(
+            HardcodedUiPatchEntry entry, HardcodedUiDecisionRecord decision, bool runtimeObserved)
+        {
+            var context = Newtonsoft.Json.Linq.JObject.FromObject(entry);
+            context["analysisEvidence"] = Newtonsoft.Json.Linq.JObject.FromObject(new
+            {
+                reasonCode = decision?.AutomaticReasonCode ?? string.Empty,
+                semanticRole = decision?.SemanticRole ?? string.Empty,
+                evidencePath = decision?.EvidencePath ?? string.Empty,
+                diagnosticFlags = decision?.DiagnosticFlags ?? new List<string>(),
+                runtimeObserved,
+                notice = "Only recorded analysis evidence; missing or uncertain evidence does not prove player visibility."
+            });
+            return context.ToString(Newtonsoft.Json.Formatting.None);
         }
 
         private static CandidateClassification MapDecision(HardcodedUiAutomaticDecision decision)
@@ -762,11 +775,18 @@ namespace AutoTranslator_Core.Workflow.Analysis
             AutoTranslatorSettings.AddDebugLog(
                 "workflow.analysis-step selectedMods=" + (mods?.Count ?? 0) +
                 " domain=" + _analyzer.SourceDomain + " forced=" + forceAnalysis);
+            var failures = new List<Exception>();
             List<ModAnalysisTarget> targets = await BuildTargetsAsync(
-                mods, cancellationToken, stageIndex, stageCount);
+                mods, cancellationToken, stageIndex, stageCount, failures);
             PrepareTargets(targets);
-            await RunLaneAsync(
-                targets, _analyzer, forceAnalysis, cancellationToken, stageIndex, stageCount);
+            try
+            {
+                await RunLaneAsync(
+                    targets, _analyzer, forceAnalysis, cancellationToken, stageIndex, stageCount);
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex) { failures.Add(ex); }
+            if (failures.Count > 0) throw new AggregateException(failures);
         }
 
         internal async Task RefreshExistingTranslationsAsync(IList<ModMetaData> mods,
@@ -793,7 +813,8 @@ namespace AutoTranslator_Core.Workflow.Analysis
             IList<ModMetaData> mods,
             CancellationToken cancellationToken,
             int stageIndex,
-            int stageCount)
+            int stageCount,
+            ICollection<Exception> preparationFailures = null)
         {
             TargetLanguage targetLanguage = WorkflowRuntimeSettings.GetTargetLanguage();
             return Task.Run(() =>
@@ -810,6 +831,8 @@ namespace AutoTranslator_Core.Workflow.Analysis
                         DomainLabel(_analyzer.SourceDomain) + " · " +
                         AutoTranslatorMod.WfText("准备文件", "preparing files"),
                         index + 1, selected.Count);
+                    try
+                    {
                     targets.Add(ModAnalysisTargetFactory.Create(
                         mod,
                         targetLanguage,
@@ -826,6 +849,17 @@ namespace AutoTranslator_Core.Workflow.Analysis
                                 AutoTranslatorMod.WfText(" 字节", " bytes"),
                                 index + 1, selected.Count);
                         }));
+                    }
+                    catch (OperationCanceledException) { throw; }
+                    catch (Exception ex)
+                    {
+                        if (preparationFailures == null) throw;
+                        var failure = new InvalidOperationException(
+                            (mod?.Name ?? mod?.PackageId ?? "Mod") + "：准备分析文件失败：" + ex.Message, ex);
+                        preparationFailures.Add(failure);
+                        AutoTranslatorSettings.AddWarningLog(failure.Message);
+                        continue;
+                    }
                     ReportStageProgress(
                         stageIndex, stageCount,
                         mod?.Name ?? mod?.PackageId ?? string.Empty,
@@ -1379,6 +1413,8 @@ namespace AutoTranslator_Core.Workflow.Analysis
             Dictionary<string, CandidateRecord> candidates = _repository.GetCandidates(
                     new[] { target.Snapshot.ModIdentity }, target.TargetLanguage)
                 .ToDictionary(candidate => candidate.CandidateId, StringComparer.Ordinal);
+            HashSet<string> incompletePackages =
+                _repository.GetIncompleteNativeTranslationPackages(target.TargetLanguage);
             foreach (DetectedTranslationRecord translation in detectedTranslations)
             {
                 if (!candidates.TryGetValue(
@@ -1386,6 +1422,20 @@ namespace AutoTranslator_Core.Workflow.Analysis
                 bool currentExternal =
                     candidate.TranslationOrigin == TranslationOrigin.ModNative ||
                     candidate.TranslationOrigin == TranslationOrigin.ThirdParty;
+                // An unreadable provider is not evidence that its translation lost priority.
+                // Only a fresh reading of this same source may replace its protected value.
+                if (currentExternal &&
+                    candidate.TranslationState == CandidateTranslationState.Translated &&
+                    string.Equals(candidate.SourceTextHashAtTranslation,
+                        candidate.SourceTextHash, StringComparison.Ordinal) &&
+                    incompletePackages.Contains(candidate.TranslationSourcePackageId) &&
+                    !(string.Equals(candidate.TranslationSourcePackageId,
+                          translation.SourcePackageId, StringComparison.OrdinalIgnoreCase) &&
+                      WorkflowPath.Comparer.Equals(candidate.TranslationSourceFileRelativePath,
+                          translation.SourceFileRelativePath) &&
+                      string.Equals(candidate.TranslationSourceEntryKey,
+                          translation.SourceEntryKey, StringComparison.Ordinal)))
+                    continue;
                 // This is a fresh match against the current source and native catalog.
                 // A stale hash invalidates the previous translation, not this new match.
                 bool sameExternalSource = currentExternal &&
@@ -1467,12 +1517,23 @@ namespace AutoTranslator_Core.Workflow.Analysis
 
             int stageCount = dllAnalysisEnabled ? 2 : 1;
             await _nativeTranslations.RefreshAsync(cancellationToken);
-            await _xmlStep.ExecuteAsync(mods, forceAnalysis, cancellationToken, 0, stageCount);
+            var failures = new List<Exception>();
+            try
+            {
+                await _xmlStep.ExecuteAsync(mods, forceAnalysis, cancellationToken, 0, stageCount);
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex) { failures.Add(ex); }
             if (dllAnalysisEnabled)
             {
-                WorkflowRuntimeSettings.EnsureDllAnalysisCanRun();
-                await _dllStep.ExecuteAsync(mods, forceAnalysis, cancellationToken, 1, stageCount);
+                try
+                {
+                    await _dllStep.ExecuteAsync(mods, forceAnalysis, cancellationToken, 1, stageCount);
+                }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception ex) { failures.Add(ex); }
             }
+            if (failures.Count > 0) throw new AggregateException(failures);
         }
 
         public async Task RunXmlOnlyAsync(
@@ -1491,7 +1552,6 @@ namespace AutoTranslator_Core.Workflow.Analysis
             int stageIndex = 0,
             int stageCount = 1)
         {
-            WorkflowRuntimeSettings.EnsureDllAnalysisCanRun();
             await _nativeTranslations.RefreshAsync(cancellationToken);
             await _dllStep.ExecuteAsync(
                 mods, forceAnalysis, cancellationToken, stageIndex, stageCount);

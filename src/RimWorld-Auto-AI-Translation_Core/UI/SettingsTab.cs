@@ -818,9 +818,9 @@ namespace AutoTranslator_Core
                 100000f,
                 10000000f,
                 false,
-                "ATC_UsageBudget_Characters".Translate(characters),
-                "100000",
-                "10000000");
+                "ATC_UsageBudget_Characters".Translate(FormatUsageCharacterCount(characters)),
+                FormatUsageCharacterCount(100000L),
+                FormatUsageCharacterCount(10000000L));
             characters = Math.Max(100000L, (long)Math.Round(sliderValue / 100000f) * 100000L);
 
             Text.Font = GameFont.Tiny;
@@ -838,6 +838,13 @@ namespace AutoTranslator_Core
                     (characters * 5L + 8L) / 9L);
             }
             GUI.color = Color.white;
+        }
+
+        private static string FormatUsageCharacterCount(long count)
+        {
+            return count > 10000L
+                ? (count / 10000d).ToString("0.##", CultureInfo.InvariantCulture) + "万"
+                : count.ToString(CultureInfo.InvariantCulture);
         }
 
         private static string GetLogLevelLabel(AtcLogLevel level)

@@ -19,6 +19,7 @@ namespace AutoTranslator_Core.Workflow.Persistence
         private const string SelectedWorkflowCandidatesTable = "SelectedWorkflowCandidates";
         private const string SelectedProtectedCheckTable = "SelectedProtectedCheck";
         private const string CurrentExternalTranslationsTable = "CurrentExternalTranslations";
+        private const string CurrentLoadedNativeSourcesTable = "CurrentLoadedNativeSources";
         private const string ChangedTranslationFilesTable = "ChangedTranslationFiles";
         private const string ModIdentityColumn = "mod_identity";
         private const string PackageIdColumn = "package_id";
@@ -1981,6 +1982,8 @@ namespace AutoTranslator_Core.Workflow.Persistence
                     CandidateIdColumn,
                     detectedCandidateIds ?? Array.Empty<string>(),
                     transaction);
+                CreateAndFillTemporarySelection(connection, CurrentLoadedNativeSourcesTable,
+                    ModIdentityColumn, _loadedNativeSources, transaction);
                 using (DbCommand markMissing = connection.CreateCommand())
                 {
                     markMissing.Transaction = transaction;
@@ -2000,6 +2003,13 @@ namespace AutoTranslator_Core.Workflow.Persistence
                               AND Candidates.source_domain=@xml_domain
                               AND Candidates.is_present=1
                               AND " + GetCurrentAnalyzerCandidateSql() + @")
+                        AND NOT EXISTS (
+                            SELECT 1 FROM NativeTranslationScans scan
+                            JOIN Mods provider ON provider.mod_identity=scan.mod_identity
+                            JOIN " + CurrentLoadedNativeSourcesTable + @" loaded
+                              ON loaded.mod_identity=provider.mod_identity
+                            WHERE scan.target_language=@target AND scan.state IN ('Failed','Partial')
+                              AND lower(provider.package_id)=lower(TranslationResults.source_package_id))
                         AND NOT EXISTS (SELECT 1 FROM " + CurrentExternalTranslationsTable + @" current
                             WHERE current.candidate_id=TranslationResults.candidate_id);";
                     Add(markMissing, "@updated", ToDbTime(DateTime.UtcNow));
@@ -2549,12 +2559,13 @@ namespace AutoTranslator_Core.Workflow.Persistence
             return result;
         }
 
-        public void ReplaceTranslationFileCache(
+        private static void ReplaceTranslationFileCache(
+            DbConnection connection,
+            DbTransaction transaction,
             string targetLanguage,
-            ICollection<TranslationFileCacheRecord> records)
+            ICollection<TranslationFileCacheRecord> records,
+            CancellationToken cancellationToken)
         {
-            using (DbConnection connection = _connections.OpenConnection())
-            using (DbTransaction transaction = connection.BeginTransaction())
             {
                 using (DbCommand delete = connection.CreateCommand())
                 {
@@ -2565,6 +2576,7 @@ namespace AutoTranslator_Core.Workflow.Persistence
                 }
                 foreach (TranslationFileCacheRecord record in records ?? Array.Empty<TranslationFileCacheRecord>())
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     using (DbCommand insert = connection.CreateCommand())
                     {
                         insert.Transaction = transaction;
@@ -2584,7 +2596,6 @@ namespace AutoTranslator_Core.Workflow.Persistence
                         insert.ExecuteNonQuery();
                     }
                 }
-                transaction.Commit();
             }
         }
 
@@ -2604,8 +2615,10 @@ namespace AutoTranslator_Core.Workflow.Persistence
             string targetLanguage,
             ICollection<TranslationSynchronizationMutation> mutations,
             ICollection<ObservedTranslationEntry> observedEntries,
+            ICollection<TranslationFileCacheRecord> fileCache,
             Func<long, string> resultJsonFactory,
-            Action<int, int, string> progress = null)
+            Action<int, int, string> progress = null,
+            CancellationToken cancellationToken = default(CancellationToken))
         {
             targetLanguage = targetLanguage ?? string.Empty;
             string now = ToDbTime(DateTime.UtcNow);
@@ -2620,6 +2633,7 @@ namespace AutoTranslator_Core.Workflow.Persistence
                 foreach (TranslationSynchronizationMutation mutation in
                          mutations ?? Array.Empty<TranslationSynchronizationMutation>())
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     if (mutation == null || string.IsNullOrWhiteSpace(mutation.CandidateId)) continue;
                     using (DbCommand command = connection.CreateCommand())
                     {
@@ -2739,6 +2753,7 @@ namespace AutoTranslator_Core.Workflow.Persistence
                 foreach (ObservedTranslationEntry observed in
                          observedEntries ?? Array.Empty<ObservedTranslationEntry>())
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     if (observed == null) continue;
                     using (DbCommand insertObserved = connection.CreateCommand())
                     {
@@ -2781,6 +2796,8 @@ namespace AutoTranslator_Core.Workflow.Persistence
                 }
                 completedUnits++;
                 progress?.Invoke(completedUnits, totalUnits, "发布完整同步代次");
+                ReplaceTranslationFileCache(connection, transaction, targetLanguage, fileCache, cancellationToken);
+                cancellationToken.ThrowIfCancellationRequested();
                 using (DbCommand publish = connection.CreateCommand())
                 {
                     publish.Transaction = transaction;
@@ -2797,6 +2814,7 @@ namespace AutoTranslator_Core.Workflow.Persistence
                     Add(publish, "@result", resultJsonFactory?.Invoke(generation) ?? string.Empty);
                     publish.ExecuteNonQuery();
                 }
+                cancellationToken.ThrowIfCancellationRequested();
                 transaction.Commit();
                 completedUnits++;
                 progress?.Invoke(completedUnits, totalUnits, "同步代次发布完成");

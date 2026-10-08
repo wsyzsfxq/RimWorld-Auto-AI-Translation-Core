@@ -91,8 +91,8 @@ namespace AutoTranslator_Core
                 AutoTranslatorMod.WfText("预计总预算", "Estimated budget"),
                 _report.ProtectedBudgetTokens.ToString("N0") + " Token",
                 AutoTranslatorMod.WfText(
-                    $"输入 {_report.ProtectedInputBudgetTokens:N0}　输出 {_report.ProtectedOutputBudgetTokens:N0}　×1.2",
-                    $"Input {_report.ProtectedInputBudgetTokens:N0}  Output {_report.ProtectedOutputBudgetTokens:N0}  ×1.2"));
+                    $"输入 {_report.ProtectedInputBudgetTokens:N0}　输出 {_report.ProtectedOutputBudgetTokens:N0}　×{DryRunReport.BudgetProtectionRatio:0.0}",
+                    $"Input {_report.ProtectedInputBudgetTokens:N0}  Output {_report.ProtectedOutputBudgetTokens:N0}  ×{DryRunReport.BudgetProtectionRatio:0.0}"));
         }
 
         private static void DrawTotalCard(Rect rect, string title, string value, string detail)

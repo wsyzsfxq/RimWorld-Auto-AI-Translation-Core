@@ -51,6 +51,7 @@ namespace AutoTranslator_Core.Workflow.Synchronization
         public HashSet<string> ChangedRelativePaths { get; } =
             new HashSet<string>(WorkflowPath.Comparer);
         public int IndexedFiles { get; set; }
+        public List<TranslationFileCacheRecord> FileCache { get; } = new List<TranslationFileCacheRecord>();
 
         public static string CreateKey(string relativePath, string entryKey)
         {
@@ -147,13 +148,9 @@ namespace AutoTranslator_Core.Workflow.Synchronization
             }
             cancellationToken.ThrowIfCancellationRequested();
             result.IndexedFiles = current.Count;
-            WorkflowTaskCoordinator.Instance.ReportStage(
-                string.Empty,
-                "保存本地译文文件索引",
-                "⏳ 译文状态同步：保存本地译文文件索引",
-                "workflow.synchronization file-cache replace files=" + current.Count +
-                " entries=" + result.Entries.Count);
-            _repository.ReplaceTranslationFileCache(targetLanguage, current);
+            // This is an uncommitted snapshot. Publish it only together with the
+            // corresponding translation mutations and completed synchronization.
+            result.FileCache.AddRange(current);
             WorkflowTaskCoordinator.Instance.ReportStage(
                 string.Empty,
                 "本地译文文件索引完成",
@@ -671,6 +668,7 @@ namespace AutoTranslator_Core.Workflow.Synchronization
                 targetLanguage,
                 mutations,
                 index.Entries.Values.ToList(),
+                index.FileCache,
                 generation =>
                 {
                     result.CompletedGeneration = generation;
@@ -686,7 +684,7 @@ namespace AutoTranslator_Core.Workflow.Synchronization
                         subCompletedUnits: completed,
                         subTotalUnits: total,
                         writeRuntimeLog: false);
-                });
+                }, cancellationToken);
             WorkflowTaskCoordinator.Instance.ReportStage(
                 string.Empty,
                 "译文状态同步完成",

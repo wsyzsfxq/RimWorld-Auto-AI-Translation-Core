@@ -75,10 +75,8 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
             TargetLanguage targetLanguage)
         {
             if (string.IsNullOrWhiteSpace(source) || string.IsNullOrWhiteSpace(translated)) return false;
-            if (string.Equals(source.Trim(), translated.Trim(), StringComparison.OrdinalIgnoreCase)) return false;
             if (!ProtectedTokensMatch(source, translated)) return false;
-            if (LanguageDetector.LooksLikePlaceholderTranslation(translated, targetLanguage)) return false;
-            return TranslationResultLanguagePolicy.ShouldAccept(translated, source, targetLanguage);
+            return true;
         }
 
         private static string NormalizeRole(string role)

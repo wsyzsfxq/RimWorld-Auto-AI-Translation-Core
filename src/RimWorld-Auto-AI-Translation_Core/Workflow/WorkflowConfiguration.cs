@@ -21,12 +21,6 @@ namespace AutoTranslator_Core.Workflow
             return AutoTranslatorScanner.GetFolderNameByLanguage(GetTargetLanguage());
         }
 
-        public static void EnsureDllAnalysisCanRun()
-        {
-            if (AutoTranslatorMod.Settings != null && AutoTranslatorMod.Settings.EnableUIInterceptor)
-                throw new InvalidOperationException(
-                    "DLL analysis cannot run while UI interception is enabled.");
-        }
     }
 
     public sealed class WorkflowConfiguration

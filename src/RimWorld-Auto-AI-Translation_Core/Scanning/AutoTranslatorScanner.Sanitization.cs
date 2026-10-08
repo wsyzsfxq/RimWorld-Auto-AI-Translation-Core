@@ -73,11 +73,6 @@ namespace AutoTranslator_Core
             translated = RestoreUntranslatableGrammarRule(translated, original);
             translated = LanguageDetector.NormalizeChineseVariant(translated, AutoTranslatorMod.Settings.TargetLang);
 
-            if (LanguageDetector.LooksLikePlaceholderTranslation(translated, AutoTranslatorMod.Settings.TargetLang))
-            {
-                return null;
-            }
-
             return translated;
         }
 
@@ -155,7 +150,6 @@ namespace AutoTranslator_Core
         {
             if (string.IsNullOrEmpty(translated) || string.IsNullOrEmpty(original)) return translated;
 
-            bool missingToken = false;
             string result = translated;
             var tokens = ProtectedTokenRegex.Matches(original)
                 .Cast<Match>()
@@ -181,17 +175,10 @@ namespace AutoTranslator_Core
                     }
                 }
 
-                if (!result.Contains(token))
-                {
-                    missingToken = true;
-                }
             }
 
-            if (missingToken && RequiresProtectedTokenParity(original))
-            {
-                AddValidationStat(s => s.StructureFallback++);
-                return original;
-            }
+            // Keep missing tokens visible to the structural validator; returning the
+            // source would conceal the loss and turn it into a false successful result.
 
             return result;
         }

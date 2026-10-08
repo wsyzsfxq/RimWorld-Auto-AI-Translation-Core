@@ -122,16 +122,14 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
 
         public static string GetFingerprint(string packageId)
         {
-            EnsureLoaded();
-            string normalizedPackage = (packageId ?? string.Empty).Trim().ToLowerInvariant();
-            lock (Sync)
-            {
-                string material = WorkflowIdentity.UiObservationPipelineVersion + "\n" + string.Join("\n", _observations.Values
-                    .Where(item => IsCurrentPipeline(item) && string.Equals(item.PackageId, normalizedPackage, StringComparison.OrdinalIgnoreCase))
-                    .Select(CreateKey)
-                    .OrderBy(key => key, StringComparer.Ordinal));
-                return HardcodedUiMethodIdentity.ComputeSha256(material);
-            }
+            return GetSnapshotFingerprint(GetObservationKeys(packageId));
+        }
+
+        internal static string GetSnapshotFingerprint(IEnumerable<string> keys)
+        {
+            string material = WorkflowIdentity.UiObservationPipelineVersion + "\n" +
+                string.Join("\n", keys.OrderBy(key => key, StringComparer.Ordinal));
+            return HardcodedUiMethodIdentity.ComputeSha256(material);
         }
 
         public static int GetObservationCount()

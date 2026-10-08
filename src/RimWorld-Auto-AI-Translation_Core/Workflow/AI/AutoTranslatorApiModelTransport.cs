@@ -20,7 +20,10 @@ namespace AutoTranslator_Core.Workflow.AI
                 itemCount: request.ItemCount))
             {
                 response = await AutoTranslatorAPI.InvokeWorkflowJsonAsync(
-                    request.Prompt, cancellationToken);
+                    request.Prompt, cancellationToken, taskTier:
+                    request.RequestPurpose == "ai_review" ? TranslationTaskTier.Standard :
+                    request.RequestPurpose == "ai_translation_retry" ? TranslationTaskTier.Precision :
+                    TranslationTaskTier.Bulk, invocation: request);
             }
             return new ModelInvocationResult
             {
