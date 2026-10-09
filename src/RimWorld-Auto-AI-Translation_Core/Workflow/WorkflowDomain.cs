@@ -64,7 +64,8 @@ namespace AutoTranslator_Core.Workflow
         ModCatalogSynchronization = 16,
         ReferenceDictionaryEdit = 17,
         ApiConnectionTest = 18,
-        TranslationFileMaintenance = 19
+        TranslationFileMaintenance = 19,
+        HistoricalDataMigration = 20
     }
 
     public enum WorkflowRunState : byte

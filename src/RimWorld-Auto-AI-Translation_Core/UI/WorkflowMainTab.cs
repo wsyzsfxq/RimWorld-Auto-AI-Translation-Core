@@ -669,6 +669,13 @@ namespace AutoTranslator_Core
             float leftWidth = expanded ? rect.width * 0.4f : rect.width;
             Rect left = new Rect(rect.x + 6f, rect.y + 5f, leftWidth - 12f, rect.height - 10f);
             Rect right = new Rect(rect.x + leftWidth, rect.y, rect.width - leftWidth, rect.height);
+            if (task.IsBusy && task.Kind == WorkflowTaskKind.HistoricalDataMigration)
+            {
+                Widgets.Label(left, WfText("迁移历史数据（不预扫总数）", "Historical migration (no pre-count)") +
+                    "\n" + task.CurrentMod + "\n" + task.Detail);
+                if (expanded) DrawWorkflowInspectorOutput(right.ContractedBy(6f), task, false);
+                return;
+            }
             string name = task.IsBusy ? task.DisplayName : Settings.CurrentTaskName;
             float progress = task.IsBusy && task.TotalUnits > 0
                 ? task.Progress
@@ -903,6 +910,8 @@ namespace AutoTranslator_Core
             string state = task.IsCancellationRequested
                 ? WfText("正在停止", "Stopping")
                 : WfText("运行中", "Running");
+            if (task.Kind == WorkflowTaskKind.HistoricalDataMigration)
+                return WfText("状态：", "State: ") + state + "\n" + task.CurrentMod + "\n" + task.Detail;
             string item = task.TotalItems > 0
                 ? (task.IsConcurrentStage
                     ? task.CurrentItemIndex
@@ -1691,11 +1700,60 @@ namespace AutoTranslator_Core
                     : (Action)(() => ExportFlowController.StartExportFlow())),
                 new FloatMenuOption(WfText("查看任务日志", "View task log"),
                     () => _workflowInspectorMode = WorkflowInspectorMode.RuntimeLog),
+                new FloatMenuOption(WfText("迁移历史数据", "Migrate historical data"),
+                    busy ? (Action)null : BeginHistoricalDataMigration),
                 new FloatMenuOption(WfText("清理过期数据…", "Clean expired data..."),
                     busy || _expiredDataPreviewLoading
                         ? (Action)null
                         : BeginExpiredDataCleanupConfirmation)
             }));
+        }
+
+        private static void BeginHistoricalDataMigration()
+        {
+            Find.WindowStack.Add(new Window_AtcDialog(
+                WfText("将当前语种、已启用 Mod 的旧 XML 译文迁入新版数据库。\n" +
+                    "全部记为 AI 来源，只补缺，不覆盖已有译文；缺少新版条目时先进行本地 XML 分析。\n" +
+                    "旧 XML 没有保存历史原文，本次按条目位置匹配。旧 UI 缓存不导入 DLL 条目。\n" +
+                    "不调用 AI，不删除旧文件，不预扫总数。是否开始？",
+                    "Import historical XML translations for enabled mods and the current language.\n" +
+                    "Imported text counts as AI; existing translations are preserved. Local XML analysis creates missing entries.\n" +
+                    "Historical originals are unavailable; matching uses entry locations. Legacy UI cache is excluded.\n" +
+                    "No AI calls, deletion, or total pre-count. Continue?"),
+                WfText("开始迁移", "Start migration"), StartHistoricalDataMigration,
+                WfText("取消", "Cancel"), null, WfText("迁移历史数据", "Migrate historical data"), true));
+        }
+
+        private static async void StartHistoricalDataMigration()
+        {
+            try
+            {
+                var mods = ModLister.AllInstalledMods.Where(mod => mod != null && mod.Active).ToList();
+                var result = await WorkflowBackendRuntime.GetOrCreate().RunHistoricalDataMigrationAsync(mods);
+                ATC_Dispatcher.RunOnMainThread(() =>
+                {
+                    _workflowOperationCompletionPendingRefresh = true;
+                    Find.WindowStack.Add(new Window_AtcDialog(result.ToString(),
+                        WfText("关闭", "Close"), null, null, null,
+                        WfText("历史数据迁移报告", "Historical migration report")));
+                });
+            }
+            catch (OperationCanceledException)
+            {
+                ATC_Dispatcher.RunOnMainThread(() =>
+                {
+                    _workflowOperationCompletionPendingRefresh = true;
+                    AutoTranslatorSettings.AddLog(WfText("历史数据迁移已停止，已入库译文保留。", "Migration stopped; imported text is retained."));
+                });
+            }
+            catch (Exception ex)
+            {
+                ATC_Dispatcher.RunOnMainThread(() =>
+                {
+                    _workflowOperationCompletionPendingRefresh = true;
+                    AutoTranslatorSettings.AddErrorLog(WfText("历史数据迁移失败：", "Migration failed: ") + ex.GetBaseException().Message);
+                });
+            }
         }
 
         private static async void BeginExpiredDataCleanupConfirmation()
