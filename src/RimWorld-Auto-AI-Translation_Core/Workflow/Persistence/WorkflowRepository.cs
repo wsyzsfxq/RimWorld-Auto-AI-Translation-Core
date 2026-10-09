@@ -1777,6 +1777,19 @@ namespace AutoTranslator_Core.Workflow.Persistence
             string relativePath,
             string entryKey)
         {
+            SaveTranslationCore(candidateId, targetLanguage, translationText, origin, relativePath, entryKey, false);
+        }
+
+        public bool TrySaveHistoricalTranslation(string candidateId, string targetLanguage,
+            string translationText, string relativePath, string entryKey)
+        {
+            return SaveTranslationCore(candidateId, targetLanguage, translationText,
+                TranslationOrigin.AiTranslation, relativePath, entryKey, true);
+        }
+
+        private bool SaveTranslationCore(string candidateId, string targetLanguage, string translationText,
+            TranslationOrigin origin, string relativePath, string entryKey, bool onlyFillMissing)
+        {
             string translationHash = WorkflowIdentity.HashText(translationText);
             using (DbConnection connection = _connections.OpenConnection())
             using (DbCommand command = connection.CreateCommand())
@@ -1797,7 +1810,9 @@ namespace AutoTranslator_Core.Workflow.Persistence
                     last_synced_utc=excluded.last_synced_utc, error_text='',
                     ai_provider='', ai_model='', ai_prompt_version='', ai_run_id='', ai_batch_index=0,
                     updated_utc=excluded.updated_utc
-                    WHERE excluded.translation_origin >= TranslationResults.translation_origin;";
+                    WHERE excluded.translation_origin >= TranslationResults.translation_origin
+                      AND (@fill_missing=0 OR COALESCE(TranslationResults.translation_text,'')='');";
+                Add(command, "@fill_missing", onlyFillMissing ? 1 : 0);
                 Add(command, "@target", targetLanguage);
                 Add(command, "@state", (int)CandidateTranslationState.Translated);
                 Add(command, "@origin", (int)origin);
@@ -1807,7 +1822,7 @@ namespace AutoTranslator_Core.Workflow.Persistence
                 Add(command, "@key", entryKey);
                 Add(command, "@updated", ToDbTime(DateTime.UtcNow));
                 Add(command, "@id", candidateId);
-                command.ExecuteNonQuery();
+                return command.ExecuteNonQuery() > 0;
             }
         }
 

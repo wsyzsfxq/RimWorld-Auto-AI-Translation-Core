@@ -359,6 +359,8 @@ namespace AutoTranslator_Core.Workflow
                     return AutoTranslatorMod.WfText("清除所选 Mod 的结果", "Clear selected mod results");
                 case WorkflowTaskKind.RuntimeTranslationReload:
                     return AutoTranslatorMod.WfText("译文热重载", "Translation hot reload");
+                case WorkflowTaskKind.HistoricalDataMigration:
+                    return AutoTranslatorMod.WfText("迁移历史数据", "Migrate historical data");
                 default:
                     return AutoTranslatorMod.WfText("后台任务", "Background task");
             }
