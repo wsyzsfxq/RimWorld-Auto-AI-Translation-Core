@@ -4,15 +4,17 @@ This repository keeps project files, source code, and the packaged RimWorld mod 
 
 ## C# project files
 
-Keep both RimWorld build project files here:
+Keep the RimWorld build project files here:
 
 - `RimWorld-Auto-AI-Translation_Core/RimWorld-Auto-AI-Translation_Core.csproj`
 - `RimWorld-Auto-AI-Translation_Core/RimWorld-Auto-AI-Translation_Core.RW15.csproj`
+- `RimWorld-Auto-AI-Translation_Core/RimWorld-Auto-AI-Translation_Core.RW17.csproj`
 
-The two projects intentionally sit side by side:
+The projects intentionally sit side by side:
 
 - `RimWorld-Auto-AI-Translation_Core.csproj` builds the current RimWorld target.
 - `RimWorld-Auto-AI-Translation_Core.RW15.csproj` builds the RimWorld 1.5 target.
+- `RimWorld-Auto-AI-Translation_Core.RW17.csproj` builds RimWorld 1.7 on .NET 10 using the shared source.
 
 ## C# source files
 
@@ -20,7 +22,7 @@ Keep actual C# source files here:
 
 - `src/RimWorld-Auto-AI-Translation_Core/`
 
-Both `.csproj` files compile source files from this shared `src` directory. Do not move source files back beside the `.csproj` files.
+All `.csproj` files compile source files from this shared `src` directory. Do not move source files back beside the `.csproj` files.
 
 ## Output folders
 
@@ -30,6 +32,7 @@ Build output stays under the project-file folder:
 - `RimWorld-Auto-AI-Translation_Core/bin/Release/`
 - `RimWorld-Auto-AI-Translation_Core/bin/Debug-RW15/`
 - `RimWorld-Auto-AI-Translation_Core/bin/Release-RW15/`
+- `RimWorld-Auto-AI-Translation_Core/bin/Release-RW17/`
 
 Intermediate output stays under:
 
@@ -47,6 +50,7 @@ Version-specific assemblies belong here:
 
 - `rimworld-mods/AI_TranslationCore/1.5/Assemblies/`
 - `rimworld-mods/AI_TranslationCore/1.6/Assemblies/`
+- `rimworld-mods/AI_TranslationCore/1.7/Assemblies/`
 
 `LoadFolders.xml` controls RimWorld version routing for the packaged mod.
 

@@ -55,6 +55,9 @@ namespace AutoTranslator_Core
                     return "ATC_ApiFailureCategory_LocalDispatch";
                 if (failure.FailureKind == TranslationRequestFailureKind.ResponseTimeout)
                 {
+                    // HttpClient does not expose the Unity upload progress counters.
+                    // A zero counter cannot tell us whether sending or receiving timed out.
+                    if (IsNativeTransport(failure)) return "ATC_ApiFailureCategory_ResponseTimeout";
                     if (failure.RequestBodyBytes > 0L &&
                         failure.UploadedBytes >= failure.RequestBodyBytes)
                         return "ATC_ApiFailureCategory_ResponseTimeoutAfterUpload";
@@ -82,6 +85,7 @@ namespace AutoTranslator_Core
                 string noResponseText)
             {
                 failure = failure ?? new TranslationFailureDiagnosticData();
+                bool native = IsNativeTransport(failure);
                 string response = failure.FailureKind == TranslationRequestFailureKind.ResponseTimeout &&
                                   string.IsNullOrWhiteSpace(failure.ResponseSummary)
                     ? EmptyAsUnknown(noResponseText)
@@ -96,12 +100,17 @@ namespace AutoTranslator_Core
                     "; EstimatedInputTokens=" + Math.Max(0L, failure.EstimatedInputTokens) +
                     "; TimeoutSeconds=" + Math.Max(0, failure.TimeoutSeconds) +
                     "; RequestBodyBytes=" + Math.Max(0L, failure.RequestBodyBytes) +
-                    "; UploadedBytes=" + Math.Max(0L, failure.UploadedBytes) +
-                    "; UploadProgress=" + Math.Max(0f, failure.UploadProgress).ToString("0.000", System.Globalization.CultureInfo.InvariantCulture) +
+                    "; UploadedBytes=" + (native ? "n/a" : Math.Max(0L, failure.UploadedBytes).ToString(System.Globalization.CultureInfo.InvariantCulture)) +
+                    "; UploadProgress=" + (native ? "n/a" : Math.Max(0f, failure.UploadProgress).ToString("0.000", System.Globalization.CultureInfo.InvariantCulture)) +
                     "; DownloadedBytes=" + Math.Max(0L, failure.DownloadedBytes) +
-                    "; UnityResult=" + EmptyAsUnknown(failure.UnityResult) +
+                    (native ? "; Transport=SocketsHttpHandler" : "; UnityResult=" + EmptyAsUnknown(failure.UnityResult)) +
                     "; Error=" + EmptyAsUnknown(failure.ErrorText) +
                     "; Response=" + response;
+            }
+
+            private static bool IsNativeTransport(TranslationFailureDiagnosticData failure)
+            {
+                return (failure?.FailureStage ?? string.Empty).StartsWith("Native", StringComparison.Ordinal);
             }
 
             private static string EmptyAsUnknown(string value)

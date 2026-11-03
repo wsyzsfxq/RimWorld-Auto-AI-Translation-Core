@@ -14,7 +14,8 @@ namespace AutoTranslator_Core
         Alibaba,
         OpenRouter,
         DeepL,
-        Custom_OpenAI
+        Custom_OpenAI,
+        MiMo
     }
 
     internal sealed class ApiKeyConfig

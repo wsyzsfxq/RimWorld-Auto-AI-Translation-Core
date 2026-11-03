@@ -192,12 +192,14 @@ namespace AutoTranslator_Core
             }
             Rect classification = new Rect(search.xMax + 7f, filterY, rect.width * 0.25f, 27f);
             Rect translation = new Rect(classification.xMax + 7f, filterY, rect.xMax - classification.xMax - 14f, 27f);
-            if (WorkflowUiStyle.Button(classification, GetEditorClassificationFilterLabel() + "  ▾",
-                    WorkflowButtonStyle.Dropdown, true, GameFont.Tiny))
+            if (WorkflowUiStyle.LabeledDropdown(classification, WfText("分类", "Class"),
+                    GetEditorClassificationFilterLabel(), 50f, font: GameFont.Tiny))
                 OpenWorkflowEditorClassificationFilterMenu();
-            if (WorkflowUiStyle.Button(translation, GetEditorTranslationFilterLabel() + "  ▾",
-                    WorkflowButtonStyle.Dropdown, true, GameFont.Tiny))
+            if (WorkflowUiStyle.LabeledDropdown(translation, WfText("译文", "Translation"),
+                    GetEditorTranslationFilterLabel(), 75f, font: GameFont.Tiny))
                 OpenWorkflowEditorTranslationFilterMenu();
+            TooltipHandler.TipRegion(classification, GetEditorClassificationFilterLabel());
+            TooltipHandler.TipRegion(translation, GetEditorTranslationFilterLabel());
 
             float detailHeight = _workflowEditorMultiSelectMode ? 0f : 205f;
             Rect list = new Rect(rect.x + 6f, search.yMax + 5f, rect.width - 12f,
@@ -416,14 +418,17 @@ namespace AutoTranslator_Core
                 int selectedCount = _workflowEditorSelectedCandidateIds.Count;
                 Rect batchRect = new Rect(rect.xMax - batchButtonWidth - gap, y,
                     batchButtonWidth, height);
+                bool modelReady = AutoTranslatorAPI.HasUsableWorkflowConfiguration(TranslationTaskTier.Bulk);
                 if (WorkflowUiStyle.Button(
                         batchRect,
                         WfText("AI 批量翻译", "AI batch translate") + " (" + selectedCount + ")",
                         WorkflowButtonStyle.Primary,
-                        selectedCount > 0 && !AutoTranslatorSettings.IsRunning,
+                        selectedCount > 0 && !AutoTranslatorSettings.IsRunning && modelReady,
                         GameFont.Tiny))
                     StartWorkflowEditorAiTranslation(
                         _workflowEditorSelectedCandidateIds.ToList(), true);
+                if (!modelReady)
+                    TooltipHandler.TipRegion(batchRect, WfText("未配置大模型", "No language model configured"));
             }
         }
 
@@ -477,19 +482,16 @@ namespace AutoTranslator_Core
             DrawWorkflowEditorLayer(aiLayerRect,
                 "AI · " + GetClassificationLabel(item.AiClassification),
                 item.EffectiveLayer == ClassificationLayer.AiReview);
-            string manualLabel = WfText("手动 · ", "Manual · ") +
-                                 (item.ManualClassification == CandidateClassification.NotAnalyzed
+            string manualLabel = item.ManualClassification == CandidateClassification.NotAnalyzed
                                      ? WfText("未设置", "Not set")
-                                     : GetClassificationLabel(item.ManualClassification)) + "  ▾";
-            if (WorkflowUiStyle.Button(
-                    manualLayerRect,
-                    manualLabel,
-                    item.EffectiveLayer == ClassificationLayer.Manual
-                        ? WorkflowButtonStyle.ActiveTab
-                        : WorkflowButtonStyle.Dropdown,
-                    !AutoTranslatorSettings.IsRunning,
-                    GameFont.Tiny))
+                                     : GetClassificationLabel(item.ManualClassification);
+            if (WorkflowUiStyle.LabeledDropdown(manualLayerRect, WfText("手动", "Manual"),
+                    manualLabel, 45f, !AutoTranslatorSettings.IsRunning, font: GameFont.Tiny))
                 OpenWorkflowEditorManualClassificationMenu(item);
+            if (item.EffectiveLayer == ClassificationLayer.Manual)
+                Widgets.DrawBoxSolid(new Rect(manualLayerRect.x, manualLayerRect.yMax - 3f,
+                    manualLayerRect.width, 3f), WorkflowUiStyle.GoodText);
+            TooltipHandler.TipRegion(manualLayerRect, WfText("手动分类：", "Manual classification: ") + manualLabel);
             if (WorkflowUiStyle.Button(
                     clearItemAiRect,
                     WfText("清除本条", "Clear item"),
@@ -550,7 +552,7 @@ namespace AutoTranslator_Core
             Widgets.Label(sourceBox.ContractedBy(5f), item.SourceText ?? string.Empty);
             bool busy = AutoTranslatorSettings.IsRunning;
             GUI.color = busy ? Color.grey : Color.white;
-            _workflowEditorTranslationBuffer = Widgets.TextArea(
+            _workflowEditorTranslationBuffer = WorkflowTextInput.Area(
                 translationBox, _workflowEditorTranslationBuffer ?? string.Empty);
             GUI.color = Color.white;
 
@@ -567,8 +569,11 @@ namespace AutoTranslator_Core
                 Rect button = new Rect(rect.x + 7f + i * (buttonWidth + buttonGap), buttonY, buttonWidth, 31f);
                 WorkflowButtonStyle style = i == 0
                     ? WorkflowButtonStyle.Primary
-                    : i == 1 ? WorkflowButtonStyle.Stop : WorkflowButtonStyle.Dropdown;
-                bool clicked = WorkflowUiStyle.Button(button, labels[i], style, !busy, GameFont.Tiny);
+                    : i == 1 ? WorkflowButtonStyle.Stop : WorkflowButtonStyle.Quiet;
+                bool modelReady = i != 2 || AutoTranslatorAPI.HasUsableWorkflowConfiguration(TranslationTaskTier.Bulk);
+                bool clicked = WorkflowUiStyle.Button(button, labels[i], style, !busy && modelReady, GameFont.Tiny);
+                if (!modelReady)
+                    TooltipHandler.TipRegion(button, WfText("未配置大模型", "No language model configured"));
                 if (!clicked || busy) continue;
                 switch (i)
                 {
@@ -923,6 +928,12 @@ namespace AutoTranslator_Core
                 item.EffectiveLayer = ClassificationLayer.Manual;
                 return;
             }
+            if (item.OfficialKeyedLocalization)
+            {
+                item.EffectiveClassification = CandidateClassification.NeedsTranslation;
+                item.EffectiveLayer = ClassificationLayer.Xml;
+                return;
+            }
             if (item.AiClassificationIsCurrent &&
                 item.AiClassification != CandidateClassification.NotAnalyzed)
             {
@@ -984,11 +995,11 @@ namespace AutoTranslator_Core
         {
             switch (_workflowEditorClassificationFilter)
             {
-                case WorkflowEditorClassificationFilter.NeedsTranslation: return WfText("分类：需要翻译", "Class: needs");
-                case WorkflowEditorClassificationFilter.Undetermined: return WfText("分类：待判定", "Class: undetermined");
-                case WorkflowEditorClassificationFilter.NoTranslationNeeded: return WfText("分类：无需翻译", "Class: no translation");
-                case WorkflowEditorClassificationFilter.ManualClassified: return WfText("分类：有手动分类", "Class: manual");
-                default: return WfText("分类：全部", "Class: all");
+                case WorkflowEditorClassificationFilter.NeedsTranslation: return WfText("需要翻译", "Needs translation");
+                case WorkflowEditorClassificationFilter.Undetermined: return WfText("待判定", "Undetermined");
+                case WorkflowEditorClassificationFilter.NoTranslationNeeded: return WfText("无需翻译", "No translation");
+                case WorkflowEditorClassificationFilter.ManualClassified: return WfText("有手动分类", "Manual");
+                default: return WfText("全部", "All");
             }
         }
 
@@ -1027,10 +1038,10 @@ namespace AutoTranslator_Core
         {
             switch (_workflowEditorTranslationFilter)
             {
-                case WorkflowEditorTranslationFilter.Untranslated: return WfText("译文：未翻译", "Translation: new");
-                case WorkflowEditorTranslationFilter.Translated: return WfText("译文：已翻译", "Translation: done");
-                case WorkflowEditorTranslationFilter.Failed: return WfText("译文：失败", "Translation: failed");
-                default: return WfText("译文：全部", "Translation: all");
+                case WorkflowEditorTranslationFilter.Untranslated: return WfText("未翻译", "Untranslated");
+                case WorkflowEditorTranslationFilter.Translated: return WfText("已翻译", "Translated");
+                case WorkflowEditorTranslationFilter.Failed: return WfText("失败", "Failed");
+                default: return WfText("全部", "All");
             }
         }
 

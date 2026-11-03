@@ -30,7 +30,7 @@ namespace AutoTranslator_Core.Workflow
             bool dllReloadRequested = await EnableAndRequestDllReloadAsync();
             AutoTranslatorSettings.AddLog(
                 "运行时译文热重载：XML=" + (xmlRefreshed ? "成功" : "失败") +
-                "；DLL=" + (dllReloadRequested ? "已应用" : "应用失败"));
+                "；" + DescribeDllRefresh(dllReloadRequested));
             return xmlRefreshed && dllReloadRequested;
         }
 
@@ -49,6 +49,14 @@ namespace AutoTranslator_Core.Workflow
                         return;
                     }
 
+                    if (UIInterceptionModeController.LegacySelected)
+                    {
+                        // The saved manifest remains available when the user switches back.
+                        // Successful deferral must not change the other mode's enable preference.
+                        completion.TrySetResult(true);
+                        return;
+                    }
+
                     settings.EnableHardcodedUiPrototype = true;
                     LoadedModManager.GetMod<AutoTranslatorMod>()?.WriteSettings();
                     completion.TrySetResult(await HardcodedUiTargetedPatchManager.RequestReloadAsync());
@@ -61,6 +69,23 @@ namespace AutoTranslator_Core.Workflow
                 }
             });
             return completion.Task;
+        }
+
+        internal static string DescribeDllRefresh(bool succeeded)
+        {
+            if (!UIInterceptionModeController.LegacySelected && succeeded &&
+                HardcodedUiTargetedPatchManager.Status == "ready" &&
+                HardcodedUiTargetedPatchManager.AppliedCount == 0 &&
+                !File.Exists(HardcodedUiTargetedPatchManager.ManifestPath))
+                return "当前没有 DLL 译文，无需应用";
+            if (!UIInterceptionModeController.LegacySelected && !succeeded &&
+                HardcodedUiTargetedPatchManager.Status == "rejected" &&
+                HardcodedUiTargetedPatchManager.LastError ==
+                    "no compatible display arguments; existing translations retained")
+                return "DLL 译文已保存，但没有找到可替换的显示文字；具体条目及原因见日志";
+            return UIInterceptionModeController.LegacySelected
+                ? "DLL 译文已保存，UI 拦截模式下暂停应用"
+                : (succeeded ? "DLL 补丁清单已应用" : "DLL 补丁清单应用失败");
         }
     }
 }

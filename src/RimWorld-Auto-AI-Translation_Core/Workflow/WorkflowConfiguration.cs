@@ -9,6 +9,23 @@ namespace AutoTranslator_Core.Workflow
 {
     internal static class WorkflowRuntimeSettings
     {
+        internal static bool DllWorkflowApplicable =>
+            AutoTranslatorMod.Settings?.UseLegacyUIInterception != true;
+
+        internal static ICollection<CandidateSourceDomain> GetExcludedSourceDomains(
+            WorkflowExecutionOptions options, string modIdentity, bool includeDll)
+        {
+            ICollection<CandidateSourceDomain> failedDomains = options?.GetFailedAnalysisDomains(modIdentity);
+            if (includeDll) return failedDomains;
+            // Mode exclusions and analysis failures share only the query filter.
+            // No saved preference, failure record, candidate or translation is changed.
+            HashSet<CandidateSourceDomain> excluded = failedDomains == null
+                ? new HashSet<CandidateSourceDomain>()
+                : new HashSet<CandidateSourceDomain>(failedDomains);
+            excluded.Add(CandidateSourceDomain.Dll);
+            return excluded;
+        }
+
         public static TargetLanguage GetTargetLanguage()
         {
             if (AutoTranslatorMod.Settings == null)
@@ -35,6 +52,17 @@ namespace AutoTranslator_Core.Workflow
         public AiReviewScope TemporaryAiReviewScope { get; set; }
         public double? TemporaryUndeterminedTranslationRatio { get; set; }
         public ICollection<string> CandidateIds { get; set; }
+
+        // Per-run exclusions never change saved analysis or the user's selection.
+        [JsonIgnore]
+        internal Dictionary<string, HashSet<CandidateSourceDomain>> FailedAnalysisDomains { get; set; }
+
+        internal ICollection<CandidateSourceDomain> GetFailedAnalysisDomains(string modIdentity)
+        {
+            return FailedAnalysisDomains != null &&
+                FailedAnalysisDomains.TryGetValue(modIdentity, out HashSet<CandidateSourceDomain> domains)
+                ? domains : null;
+        }
     }
 
     internal sealed class WorkflowConfigurationStore

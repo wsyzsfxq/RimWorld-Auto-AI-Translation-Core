@@ -39,6 +39,8 @@ namespace AutoTranslator_Core.Workflow.Synchronization
         public string RelativePath { get; set; } = string.Empty;
         public string EntryKey { get; set; } = string.Empty;
         public string Error { get; set; } = string.Empty;
+        internal TranslationBackupOrigin RestoredOrigin { get; set; }
+        internal string RestoredSourceHash { get; set; }
     }
 
     public sealed class TranslationFileIndexResult
@@ -81,7 +83,8 @@ namespace AutoTranslator_Core.Workflow.Synchronization
 
         public string PackRoot => _packRoot;
 
-        public TranslationFileIndexResult Build(string targetLanguage, CancellationToken cancellationToken)
+        public TranslationFileIndexResult Build(
+            string targetLanguage, CancellationToken cancellationToken, bool forceContentRead = false)
         {
             TranslationFileIndexResult result = new TranslationFileIndexResult();
             Dictionary<string, TranslationFileCacheRecord> previous =
@@ -109,7 +112,8 @@ namespace AutoTranslator_Core.Workflow.Synchronization
                     cancellationToken.ThrowIfCancellationRequested();
                     try
                     {
-                        if (ReadFileWithCache(file, previous, current, result, false))
+                        if (ReadFileWithCache(file, previous, current, result, false,
+                            forceContentRead: forceContentRead))
                             result.ChangedRelativePaths.Add(Relative(file));
                     }
                     catch (Exception ex) { PreserveFailedFile(file, previous, current, result, ex); }
@@ -127,7 +131,8 @@ namespace AutoTranslator_Core.Workflow.Synchronization
                 cancellationToken.ThrowIfCancellationRequested();
                 try
                 {
-                    if (ReadFileWithCache(manifestPath, previous, current, result, true, targetLanguage))
+                    if (ReadFileWithCache(manifestPath, previous, current, result, true, targetLanguage,
+                        forceContentRead))
                         result.ChangedRelativePaths.Add(Relative(manifestPath));
                 }
                 catch (Exception ex) { PreserveFailedFile(manifestPath, previous, current, result, ex); }
@@ -198,13 +203,15 @@ namespace AutoTranslator_Core.Workflow.Synchronization
             ICollection<TranslationFileCacheRecord> current,
             TranslationFileIndexResult result,
             bool dllManifest,
-            string targetLanguage = null)
+            string targetLanguage = null,
+            bool forceContentRead = false)
         {
             string relative = Relative(file);
             FileInfo fileInfo = new FileInfo(file);
             List<ObservedTranslationEntry> entries;
             bool contentChanged = true;
-            if (previous.TryGetValue(relative, out TranslationFileCacheRecord cached) &&
+            previous.TryGetValue(relative, out TranslationFileCacheRecord cached);
+            if (!forceContentRead && cached != null &&
                 cached.FileLength == fileInfo.Length &&
                 cached.LastWriteUtc.HasValue &&
                 cached.LastWriteUtc.Value == fileInfo.LastWriteTimeUtc)
@@ -354,14 +361,27 @@ namespace AutoTranslator_Core.Workflow.Synchronization
 
         public TranslationSynchronizationResult Synchronize(
             CancellationToken cancellationToken,
-            string targetLanguage = null)
+            string targetLanguage = null,
+            bool restoredFilesAreAuthoritative = false,
+            ICollection<TranslationBackupOrigin> restoredOrigins = null)
         {
             Stopwatch stopwatch = Stopwatch.StartNew();
             if (string.IsNullOrWhiteSpace(targetLanguage))
                 targetLanguage = WorkflowRuntimeSettings.GetTargetLanguageFolder();
+            var originByCandidate = (restoredOrigins ?? new List<TranslationBackupOrigin>())
+                .Where(origin => origin != null && !string.IsNullOrWhiteSpace(origin.CandidateId) &&
+                    string.Equals(origin.Language, targetLanguage, StringComparison.Ordinal))
+                .GroupBy(origin => origin.CandidateId, StringComparer.Ordinal)
+                .Where(group => group.Count() == 1)
+                .ToDictionary(group => group.Key, group => group.Single(), StringComparer.Ordinal);
             AutoTranslatorSettings.AddDebugLog(
                 "workflow.synchronization start targetLanguage=" + (targetLanguage ?? string.Empty));
-            TranslationFileIndexResult index = _index.Build(targetLanguage, cancellationToken);
+            // A restored file can have the same timestamp and length as the file
+            // it replaces. Read its bytes before trusting any cached observations.
+            TranslationFileIndexResult index = _index.Build(
+                targetLanguage, cancellationToken, forceContentRead: restoredFilesAreAuthoritative);
+            if (restoredFilesAreAuthoritative)
+                index.ChangedRelativePaths.UnionWith(_repository.GetTranslationBackupOutputPaths());
             TranslationSynchronizationResult result = new TranslationSynchronizationResult
             {
                 IndexedEntries = index.Entries.Count,
@@ -469,6 +489,15 @@ namespace AutoTranslator_Core.Workflow.Synchronization
                                 "Translation file could not be read."
                     });
                     result.ReadErrorEntries++;
+                        continue;
+                    }
+                    if (restoredFilesAreAuthoritative)
+                    {
+                        // A restore is a deliberate replacement, including deletions.
+                        // Do not mirror database-only values or higher-priority results
+                        // over the files the user has just selected.
+                        ReconcileRestoredTranslation(candidate, targetLanguage, target, index,
+                            originByCandidate, key, mutations, result);
                         continue;
                     }
                     if (string.Equals(
@@ -684,7 +713,7 @@ namespace AutoTranslator_Core.Workflow.Synchronization
                         subCompletedUnits: completed,
                         subTotalUnits: total,
                         writeRuntimeLog: false);
-                }, cancellationToken);
+                }, cancellationToken, restoredFilesAreAuthoritative);
             WorkflowTaskCoordinator.Instance.ReportStage(
                 string.Empty,
                 "译文状态同步完成",
@@ -700,6 +729,67 @@ namespace AutoTranslator_Core.Workflow.Synchronization
                 " generation=" + result.CompletedGeneration +
                 " durationMs=" + result.DurationMilliseconds);
             return result;
+        }
+
+        private static void ReconcileRestoredTranslation(
+            CandidateRecord candidate,
+            string targetLanguage,
+            TranslationWriteTarget target,
+            TranslationFileIndexResult index,
+            Dictionary<string, TranslationBackupOrigin> restoredOrigins,
+            string key,
+            List<TranslationSynchronizationMutation> mutations,
+            TranslationSynchronizationResult result)
+        {
+            if (!candidate.IsPresent || string.Equals(candidate.LastSyncStatus, "SourceMissing", StringComparison.OrdinalIgnoreCase) ||
+                !index.Entries.TryGetValue(key, out ObservedTranslationEntry observed))
+            {
+                mutations.Add(new TranslationSynchronizationMutation
+                { Kind = TranslationSynchronizationMutationKind.Clear, CandidateId = candidate.CandidateId });
+                result.ClearedMissingEntries++;
+                return;
+            }
+            observed.CandidateId = candidate.CandidateId;
+            TranslationBackupOrigin savedOrigin = null;
+            bool sameSnapshotText = restoredOrigins.TryGetValue(candidate.CandidateId, out TranslationBackupOrigin saved) &&
+                string.Equals(saved.Path, observed.RelativePath, WorkflowPath.Comparison) &&
+                string.Equals(saved.Key, observed.EntryKey, StringComparison.Ordinal) &&
+                string.Equals(saved.TextHash, observed.TextHash, StringComparison.Ordinal);
+            if (sameSnapshotText &&
+                string.Equals(saved.SourceHash, candidate.SourceTextHash, StringComparison.Ordinal) &&
+                (int)saved.Origin >= (int)TranslationOrigin.None && (int)saved.Origin <= (int)TranslationOrigin.Manual)
+                savedOrigin = saved;
+            // A file differing from today's database is not proof of a manual edit.
+            // Only the snapshot's exact text/source match can restore its old origin.
+            TranslationOrigin origin = savedOrigin?.Origin ?? TranslationOrigin.None;
+            bool sourceChanged = sameSnapshotText
+                ? !string.Equals(saved.SourceHash, candidate.SourceTextHash, StringComparison.Ordinal)
+                : !string.IsNullOrEmpty(candidate.SourceTextHashAtTranslation) &&
+                    !string.Equals(candidate.SourceTextHashAtTranslation, candidate.SourceTextHash, StringComparison.Ordinal);
+            string error = sourceChanged ? "原文已变化，恢复的旧译文需要重新确认。" : null;
+            if (!sourceChanged && !AutoTranslatorScanner.TryAcceptTranslatedValue(observed.Text, candidate.SourceText,
+                out string ignored, out string reason, out string detail))
+                error = string.IsNullOrWhiteSpace(detail) ? reason : detail;
+            if (error != null)
+            {
+                mutations.Add(new TranslationSynchronizationMutation
+                {
+                    Kind = TranslationSynchronizationMutationKind.Invalid,
+                    CandidateId = candidate.CandidateId, Text = observed.Text, Origin = origin,
+                    RelativePath = target.RelativePath, EntryKey = target.EntryKey, Error = error,
+                    RestoredSourceHash = sourceChanged
+                        ? (sameSnapshotText ? saved.SourceHash : candidate.SourceTextHashAtTranslation) : null
+                });
+                result.InvalidEntries++;
+                result.Diagnostics.Add(candidate.CandidateId + ": " + error);
+            }
+            else
+            {
+                TranslationSynchronizationMutation mutation = CreateSaveMutation(candidate, observed, origin);
+                mutation.RestoredOrigin = savedOrigin;
+                mutations.Add(mutation);
+                result.ImportedBaselineEntries++;
+            }
         }
 
         private void RemoveStaleManagedTranslation(

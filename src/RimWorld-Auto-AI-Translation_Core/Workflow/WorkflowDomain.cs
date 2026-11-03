@@ -37,6 +37,21 @@ namespace AutoTranslator_Core.Workflow
         Manual = 5
     }
 
+    internal sealed class TranslationBackupOrigin
+    {
+        public string CandidateId;
+        public string Language;
+        public string Path;
+        public string Key;
+        public string TextHash;
+        public string SourceHash;
+        public TranslationOrigin Origin;
+        public string SourcePackage;
+        public string SourceFile;
+        public string SourceKey;
+        public string AiProvider;
+    }
+
     public enum CandidateSourceDomain : byte
     {
         Xml = 0,
@@ -65,7 +80,10 @@ namespace AutoTranslator_Core.Workflow
         ReferenceDictionaryEdit = 17,
         ApiConnectionTest = 18,
         TranslationFileMaintenance = 19,
-        HistoricalDataMigration = 20
+        HistoricalDataMigration = 20,
+        TranslationBackup = 21,
+        TranslationBackupRestore = 22,
+        CloudUpload = 23
     }
 
     public enum WorkflowRunState : byte

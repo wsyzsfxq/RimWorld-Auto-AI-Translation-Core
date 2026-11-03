@@ -1,0 +1,7 @@
+<Project>
+  <!-- Keep the SDK project's restore assets separate from the existing projects. -->
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'RimWorld-Auto-AI-Translation_Core.RW17'">
+    <BaseIntermediateOutputPath>$(MSBuildThisFileDirectory)obj\RW17\</BaseIntermediateOutputPath>
+    <MSBuildProjectExtensionsPath>$(BaseIntermediateOutputPath)</MSBuildProjectExtensionsPath>
+  </PropertyGroup>
+</Project>

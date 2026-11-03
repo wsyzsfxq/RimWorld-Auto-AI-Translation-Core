@@ -8,7 +8,9 @@ namespace AutoTranslator_Core
 {
     public static partial class AutoTranslatorAPI
     {
+#if !RIMWORLD_1_7
         private const int UnityTransportCleanupGraceSeconds = 15;
+#endif
 
         private static async Task<ATC_WebResponse> SendJsonRequestAttemptAsync(
             string url,
@@ -16,7 +18,9 @@ namespace AutoTranslator_Core
             string apiKey,
             TranslatorProvider provider,
             int timeoutSeconds,
-            Func<bool> additionalCancellation = null)
+            Func<bool> additionalCancellation = null,
+            string player2GameClientId = null,
+            bool usePlayer2Protocol = false)
         {
             int safeTimeoutSeconds = Math.Max(1, timeoutSeconds);
             TranslationUsageRequestContext requestContext =
@@ -72,16 +76,18 @@ namespace AutoTranslator_Core
                 };
             }
 
+#if !RIMWORLD_1_7
             TaskCompletionSource<ATC_WebResponse> completion =
                 new TaskCompletionSource<ATC_WebResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
             TaskCompletionSource<bool> dispatchStarted =
                 new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             TaskCompletionSource<bool> networkSendStarted =
                 new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-            TranslationRequestActivity.RequestLease activity = TranslationRequestActivity.CreateRequest();
-            int requestId = -1;
             // 0 = queued, 1 = main-thread callback owns dispatch, 2 = cancelled before dispatch.
             int dispatchState = 0;
+#endif
+            TranslationRequestActivity.RequestLease activity = TranslationRequestActivity.CreateRequest();
+            int requestId = -1;
             bool networkRequestStarted = false;
             Stopwatch requestTimer = null;
             bool perfRequestStarted = false;
@@ -114,6 +120,24 @@ namespace AutoTranslator_Core
                 activity.MarkDispatching();
                 AutoTranslatorSettings.AddDebugLog(
                     "Request acquired concurrency slot. Provider=" + provider + ".");
+#if RIMWORLD_1_7
+                // Keep usage reservation, duplicate suppression and concurrency above this
+                // boundary. The native task completes only after its request is disposed.
+                response = await NativeHttpTransport.SendAsync(
+                    url, "POST", System.Text.Encoding.UTF8.GetBytes(jsonPayload ?? string.Empty),
+                    ApiRequestHeaders.Build(provider, apiKey, player2GameClientId, usePlayer2Protocol),
+                    safeTimeoutSeconds, () => IsRequestCancellationRequested(additionalCancellation),
+                    translationRequest: true,
+                    onSendStarted: () =>
+                    {
+                        networkRequestStarted = true;
+                        activity.MarkSent();
+                        requestTimer = Stopwatch.StartNew();
+                        perfRequestStarted = true;
+                        AutoTranslatorPerf.BeginApiRequest();
+                        activity.MarkWaitingResponse();
+                    });
+#else
                 ATC_Dispatcher.RunOnMainThread(() =>
                 {
                     if (System.Threading.Interlocked.CompareExchange(ref dispatchState, 1, 0) != 0)
@@ -144,7 +168,9 @@ namespace AutoTranslator_Core
                             provider,
                             safeTimeoutSeconds,
                             completion,
-                            networkSendStarted);
+                            networkSendStarted,
+                            player2GameClientId,
+                            usePlayer2Protocol);
                         AutoTranslatorSettings.AddDebugLog(
                             "Request dispatched to Unity transport. Provider=" + provider +
                             ", RequestId=" + requestId + ", TimeoutSeconds=" + safeTimeoutSeconds + ".");
@@ -273,6 +299,7 @@ namespace AutoTranslator_Core
                 }
 
                 response = await completion.Task;
+#endif
                 PopulateRequestDiagnostics(
                     response,
                     requestContext,
@@ -289,7 +316,8 @@ namespace AutoTranslator_Core
                         : "Transport";
                 }
                 if (response != null && response.IsSuccess) activity.MarkCompleted();
-                else if (IsRequestCancellationRequested(additionalCancellation)) activity.MarkCancelled();
+                else if (response?.FailureKind == TranslationRequestFailureKind.Cancelled ||
+                         IsRequestCancellationRequested(additionalCancellation)) activity.MarkCancelled();
                 else activity.MarkFailed();
                 AutoTranslatorSettings.AddDebugLog(
                     "Request completed. Provider=" + provider +
@@ -298,18 +326,28 @@ namespace AutoTranslator_Core
                     ", Http=" + (response != null ? response.HttpCode : 0L) +
                     ", FailureKind=" + (response != null ? response.FailureKind.ToString() : "NoResponse") +
                     ", Stage=" + (response != null ? response.FailureStage : "Unknown") +
+#if RIMWORLD_1_7
+                    ", RequestBodyBytes=" + (response != null ? response.RequestBodyBytes : 0L) +
+#else
                     ", Upload=" + (response != null ? response.UploadedBytes : 0L) +
                     "/" + (response != null ? response.RequestBodyBytes : 0L) +
+#endif
                     ", Download=" + (response != null ? response.DownloadedBytes : 0L) +
+#if RIMWORLD_1_7
+                    ", Transport=SocketsHttpHandler.");
+#else
                     ", UnityResult=" + (response != null ? response.UnityResult : "Unknown") + ".");
+#endif
                 return response;
             }
             finally
             {
+#if !RIMWORLD_1_7
                 // StartCoroutine may send and complete synchronously, before the ordinary
                 // waiting-response branch is reached. Account for that real send as well.
                 networkRequestStarted |= networkSendStarted.Task.Status == TaskStatus.RanToCompletion &&
                                          networkSendStarted.Task.Result;
+#endif
                 PopulateRequestDiagnostics(
                     response,
                     requestContext,

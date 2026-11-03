@@ -1,3 +1,4 @@
+#if !RIMWORLD_1_7
 using System;
 using System.Collections;
 using System.Collections.Concurrent;
@@ -89,7 +90,9 @@ namespace AutoTranslator_Core
 
             // 這個方法負責處理 FireRequest 相關流程。
             // EN: This method handles fire request.
-            public int FireRequest(string url, string jsonBody, string apiKey, TranslatorProvider provider, int timeoutSeconds, TaskCompletionSource<ATC_WebResponse> tcs, TaskCompletionSource<bool> sendStarted)
+            public int FireRequest(string url, string jsonBody, string apiKey, TranslatorProvider provider,
+                int timeoutSeconds, TaskCompletionSource<ATC_WebResponse> tcs, TaskCompletionSource<bool> sendStarted,
+                string player2GameClientId = null, bool usePlayer2Protocol = false)
             {
                 if (tcs == null) return -1;
 
@@ -110,7 +113,8 @@ namespace AutoTranslator_Core
                 try
                 {
                     active.Coroutine = StartCoroutine(ExecuteGuardedRequestCoroutine(
-                        active, url, jsonBody, apiKey, provider, timeoutSeconds));
+                        active, url, jsonBody, apiKey, provider, timeoutSeconds,
+                        player2GameClientId, usePlayer2Protocol));
                     if (active.Coroutine == null && !active.IsCompleted)
                         FailRequestExecution(active);
                 }
@@ -125,10 +129,12 @@ namespace AutoTranslator_Core
             // Drive the iterator here so every failure completes both request signals.
             private IEnumerator ExecuteGuardedRequestCoroutine(
                 ActiveTranslationRequest active, string url, string jsonBody,
-                string apiKey, TranslatorProvider provider, int timeoutSeconds)
+                string apiKey, TranslatorProvider provider, int timeoutSeconds,
+                string player2GameClientId, bool usePlayer2Protocol)
             {
                 IEnumerator execution = ExecuteRequestCoroutine(
-                    active, url, jsonBody, apiKey, provider, timeoutSeconds);
+                    active, url, jsonBody, apiKey, provider, timeoutSeconds,
+                    player2GameClientId, usePlayer2Protocol);
                 try
                 {
                     while (!active.IsCompleted)
@@ -208,7 +214,9 @@ namespace AutoTranslator_Core
 
             // 這個方法負責執行 RequestCoroutine 動作。
             // EN: This method executes request coroutine.
-            private IEnumerator ExecuteRequestCoroutine(ActiveTranslationRequest active, string url, string jsonBody, string apiKey, TranslatorProvider provider, int timeoutSeconds)
+            private IEnumerator ExecuteRequestCoroutine(ActiveTranslationRequest active, string url,
+                string jsonBody, string apiKey, TranslatorProvider provider, int timeoutSeconds,
+                string player2GameClientId, bool usePlayer2Protocol)
             {
                 // FinishRequest owns disposal on every terminal path, including an external stop.
                 UnityWebRequest webRequest = new UnityWebRequest(url, "POST");
@@ -218,20 +226,9 @@ namespace AutoTranslator_Core
                 webRequest.uploadHandler = new UploadHandlerRaw(bodyRaw);
                 webRequest.downloadHandler = new DownloadHandlerBuffer();
                 webRequest.useHttpContinue = false;
-                webRequest.SetRequestHeader("Content-Type", "application/json");
-
-                string trimmedApiKey = apiKey != null ? apiKey.Trim() : string.Empty;
-                if (!string.IsNullOrEmpty(trimmedApiKey))
-                {
-                    if (provider == TranslatorProvider.DeepL)
-                    {
-                        webRequest.SetRequestHeader("Authorization", "DeepL-Auth-Key " + trimmedApiKey);
-                    }
-                    else if (provider != TranslatorProvider.Google)
-                    {
-                        webRequest.SetRequestHeader("Authorization", "Bearer " + trimmedApiKey);
-                    }
-                }
+                foreach (var header in ApiRequestHeaders.Build(
+                    provider, apiKey, player2GameClientId, usePlayer2Protocol))
+                    webRequest.SetRequestHeader(header.Key, header.Value);
 
                 webRequest.timeout = timeoutSeconds > 0 ? timeoutSeconds : 60;
                 UnityWebRequestAsyncOperation operation = webRequest.SendWebRequest();
@@ -423,3 +420,4 @@ namespace AutoTranslator_Core
         }
     }
 }
+#endif

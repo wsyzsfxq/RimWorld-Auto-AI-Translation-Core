@@ -1,5 +1,7 @@
 using System;
 using System.Data.Common;
+using System.Collections.Generic;
+using System.Linq;
 using Newtonsoft.Json;
 
 namespace AutoTranslator_Core.Workflow.Persistence
@@ -20,45 +22,61 @@ namespace AutoTranslator_Core.Workflow.Persistence
 
     internal sealed partial class WorkflowRepository
     {
-        public ReusableTranslation FindReusableTranslation(CandidateRecord candidate, string targetLanguage)
+        public Dictionary<string, ReusableTranslation> FindReusableTranslations(
+            IList<CandidateRecord> candidates, string targetLanguage)
         {
+            var results = new Dictionary<string, ReusableTranslation>(StringComparer.Ordinal);
+            if (candidates.Count == 0) return results;
             using (DbConnection connection = _connections.OpenConnection())
-            using (DbCommand command = connection.CreateCommand())
             {
-                command.CommandText = @"SELECT r.* FROM Candidates c
-                    JOIN TranslationResults r ON r.candidate_id=c.candidate_id
-                    WHERE c.source_text_hash=@hash AND c.source_text=@text COLLATE BINARY
-                      AND c.candidate_id<>@id AND r.target_language=@target
-                      AND r.source_text_hash_at_translation=c.source_text_hash
-                      AND r.translation_origin>0 AND r.translation_text<>''
-                      AND r.validation_status<>'Invalid'
-                      AND (r.translation_state=2 OR r.translation_origin>1)
-                      AND r.last_sync_status NOT IN ('ReadError','SourceChanged','SourceMissing')
-                      AND NOT EXISTS (SELECT 1 FROM PendingFileOperations p
-                          WHERE p.candidate_id=c.candidate_id AND p.target_language=@target AND p.state IN (0,2))
-                    ORDER BY r.translation_origin DESC,r.updated_utc DESC,c.candidate_id LIMIT 1;";
-                Add(command, "@hash", candidate.SourceTextHash);
-                Add(command, "@text", candidate.SourceText);
-                Add(command, "@id", candidate.CandidateId);
-                Add(command, "@target", targetLanguage);
-                using (DbDataReader reader = command.ExecuteReader())
+                // Bound SQL parameters without limiting the number of candidates processed.
+                for (int offset = 0; offset < candidates.Count; offset += 100)
+                using (DbCommand command = connection.CreateCommand())
                 {
-                    if (!reader.Read()) return null;
-                    return new ReusableTranslation
+                    var batch = candidates.Skip(offset).Take(100).ToList();
+                    var values = new List<string>();
+                    for (int i = 0; i < batch.Count; i++)
                     {
-                        Text = Convert.ToString(reader["translation_text"]),
-                        Origin = (TranslationOrigin)Convert.ToInt32(reader["translation_origin"]),
-                        SourcePackage = Convert.ToString(reader["source_package_id"]),
-                        SourceFile = Convert.ToString(reader["source_file_relative_path"]),
-                        SourceKey = Convert.ToString(reader["source_entry_key"]),
-                        Provider = Convert.ToString(reader["ai_provider"]),
-                        Model = Convert.ToString(reader["ai_model"]),
-                        PromptVersion = Convert.ToString(reader["ai_prompt_version"]),
-                        RunId = Convert.ToString(reader["ai_run_id"]),
-                        BatchIndex = Convert.ToInt32(reader["ai_batch_index"])
-                    };
+                        values.Add("(@id" + i + ",@hash" + i + ",@text" + i + ")");
+                        Add(command, "@id" + i, batch[i].CandidateId);
+                        Add(command, "@hash" + i, batch[i].SourceTextHash);
+                        Add(command, "@text" + i, batch[i].SourceText);
+                    }
+                    Add(command, "@target", targetLanguage);
+                    command.CommandText = "WITH requested(id,hash,text) AS (VALUES " +
+                        string.Join(",", values) + @")
+                        SELECT requested.id AS recipient_id,r.* FROM requested
+                        JOIN TranslationResults r ON r.target_language=@target
+                        AND r.candidate_id=(SELECT c.candidate_id FROM Candidates c
+                            JOIN TranslationResults donor ON donor.candidate_id=c.candidate_id
+                            WHERE c.source_text_hash=requested.hash AND c.source_text=requested.text COLLATE BINARY
+                              AND c.candidate_id<>requested.id AND donor.target_language=@target
+                              AND donor.source_text_hash_at_translation=c.source_text_hash
+                              AND donor.translation_origin>0 AND donor.translation_text<>''
+                              AND donor.validation_status<>'Invalid'
+                              AND (donor.translation_state=2 OR donor.translation_origin>1)
+                              AND donor.last_sync_status NOT IN ('ReadError','SourceChanged','SourceMissing')
+                              AND NOT EXISTS (SELECT 1 FROM PendingFileOperations p
+                                  WHERE p.candidate_id=c.candidate_id AND p.target_language=@target AND p.state IN (0,2))
+                            ORDER BY donor.translation_origin DESC,donor.updated_utc DESC,c.candidate_id LIMIT 1);";
+                    using (DbDataReader reader = command.ExecuteReader())
+                    while (reader.Read())
+                        results[Convert.ToString(reader["recipient_id"])] = new ReusableTranslation
+                        {
+                            Text = Convert.ToString(reader["translation_text"]),
+                            Origin = (TranslationOrigin)Convert.ToInt32(reader["translation_origin"]),
+                            SourcePackage = Convert.ToString(reader["source_package_id"]),
+                            SourceFile = Convert.ToString(reader["source_file_relative_path"]),
+                            SourceKey = Convert.ToString(reader["source_entry_key"]),
+                            Provider = Convert.ToString(reader["ai_provider"]),
+                            Model = Convert.ToString(reader["ai_model"]),
+                            PromptVersion = Convert.ToString(reader["ai_prompt_version"]),
+                            RunId = Convert.ToString(reader["ai_run_id"]),
+                            BatchIndex = Convert.ToInt32(reader["ai_batch_index"])
+                        };
                 }
             }
+            return results;
         }
 
         private static void RestoreReuseProvenance(DbConnection connection, DbTransaction transaction,

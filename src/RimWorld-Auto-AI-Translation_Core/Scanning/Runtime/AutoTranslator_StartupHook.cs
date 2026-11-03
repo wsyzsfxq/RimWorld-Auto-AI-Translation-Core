@@ -18,11 +18,12 @@ namespace AutoTranslator_Core
         // EN: This field stores installed runtime state or cached data.
         private static bool _installed;
         private static bool _playDataHookInstalled;
-        private static int _defsLoadedMemoryDropQueued;
+        private static int _queuedPlayDataGeneration = -1;
 
         static AutoTranslator_StartupHook()
         {
             InstallPlayDataLoaderHook();
+            InstallEarlyLanguageHook();
             AutoTranslator_LongEventCompat.ExecuteWhenFinished(EnsureInstalled);
         }
 
@@ -55,6 +56,8 @@ namespace AutoTranslator_Core
                 hook.AddComponent<AutoTranslator_PumpBehaviour>();
                 hook.AddComponent<UIInterceptorLifecycle>();
                 AutoTranslatorScanner.ApplyStartupKeyedHotfixes();
+                try { OfficialKeyedCatalog.Capture(); }
+                catch (Exception ex) { AutoTranslatorSettings.AddWarningLog("官方翻译目录暂未读取，分析时会重新读取：" + ex.Message); }
                 TargetedHardcodedUi.HardcodedUiTargetedPatchManager.Initialize();
                 AutoTranslatorScanner.RequestKeyedMemoryDrop();
             }
@@ -88,19 +91,90 @@ namespace AutoTranslator_Core
             }
         }
 
+        private static void InstallEarlyLanguageHook()
+        {
+            try
+            {
+                MethodInfo prepare = AccessTools.Method(typeof(LoadedLanguage), "InjectIntoData_BeforeImpliedDefs", Type.EmptyTypes);
+                MethodInfo target = AccessTools.Method(typeof(LoadedLanguage), "InjectIntoData_AfterImpliedDefs", Type.EmptyTypes);
+                MethodInfo clear = AccessTools.Method(typeof(PlayDataLoader), "ClearAllPlayData", Type.EmptyTypes);
+                if (prepare == null || target == null || clear == null)
+                {
+                    Log.Warning("[AutoTranslationCore] Early language hook unavailable; normal startup loading retained.");
+                    return;
+                }
+                var harmony = new Harmony("MingYang.AutoTranslation.Startup.EarlyLanguage");
+                harmony.Patch(clear, postfix: new HarmonyMethod(
+                    typeof(AutoTranslator_StartupHook), nameof(AfterPlayDataCleared)));
+                harmony.Patch(prepare, postfix: new HarmonyMethod(
+                    typeof(AutoTranslator_StartupHook), nameof(AfterInitialLanguageInjection)) { priority = Priority.Last });
+                harmony.Patch(target, postfix: new HarmonyMethod(
+                    typeof(AutoTranslator_StartupHook), nameof(AfterFinalLanguageInjection)) { priority = Priority.Last });
+            }
+            catch (Exception ex)
+            {
+                Log.Warning("[AutoTranslationCore] Early language hook install failed; normal startup loading retained: " + ex.Message);
+            }
+        }
+
+        private static void AfterInitialLanguageInjection(LoadedLanguage __instance)
+        {
+            try
+            {
+                int generation = WorkflowBackendRuntime.PlayDataGeneration;
+                void Capture()
+                {
+                    try
+                    {
+                        if (generation == WorkflowBackendRuntime.PlayDataGeneration)
+                            AutoTranslatorScanner.PrepareEarlyStartupTranslations(__instance);
+                    }
+                    catch (Exception ex) { Log.Warning("[AutoTranslationCore] Early language capture skipped: " + ex.Message); }
+                }
+                if (UnityData.IsInMainThread) Capture();
+                else
+                {
+                    ATC_Dispatcher.RunOnMainThread(Capture);
+                    // On a cold launch the dispatcher may not have a main-thread context yet.
+                    // This native callback is registered before the game's final language callback.
+                    AutoTranslator_LongEventCompat.ExecuteWhenFinished(Capture);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning("[AutoTranslationCore] Early language capture skipped: " + ex.Message);
+            }
+        }
+
+        private static void AfterFinalLanguageInjection(LoadedLanguage __instance)
+        {
+            try { AutoTranslatorScanner.ApplyReadyEarlyStartupTranslations(__instance); }
+            catch (Exception ex) { Log.Warning("[AutoTranslationCore] Early language application skipped: " + ex.Message); }
+        }
+
+        private static void AfterPlayDataCleared()
+        {
+            try
+            {
+                WorkflowBackendRuntime.InvalidateStartupTranslationLoading();
+                AutoTranslatorScanner.ResetEarlyStartupTranslations();
+                OfficialKeyedCatalog.Reset();
+            }
+            catch (Exception ex)
+            {
+                Log.Warning("[AutoTranslationCore] Failed to retire previous startup translation state: " + ex.Message);
+            }
+        }
+
         private static void AfterPlayDataLoaded()
         {
-            if (System.Threading.Interlocked.Exchange(ref _defsLoadedMemoryDropQueued, 1) == 1)
-            {
-                return;
-            }
-
-            ATC_Dispatcher.RunOnMainThread(QueueDefsLoadedMemoryDrop);
+            ScheduleDefsLoadedMemoryDrop(WorkflowBackendRuntime.PlayDataGeneration);
         }
 
         public static void PollForLoadedPlayData()
         {
-            if (System.Threading.Interlocked.CompareExchange(ref _defsLoadedMemoryDropQueued, 0, 0) == 1)
+            int generation = WorkflowBackendRuntime.PlayDataGeneration;
+            if (System.Threading.Volatile.Read(ref _queuedPlayDataGeneration) == generation)
             {
                 return;
             }
@@ -120,27 +194,31 @@ namespace AutoTranslator_Core
                 return;
             }
 
-            if (System.Threading.Interlocked.Exchange(ref _defsLoadedMemoryDropQueued, 1) == 1)
-            {
-                return;
-            }
-
-            Log.Message("[AutoTranslationCore] PlayDataLoader.Loaded fallback detected; queuing startup memory drop.");
-            QueueDefsLoadedMemoryDrop();
+            ScheduleDefsLoadedMemoryDrop(generation);
         }
 
-        private static void QueueDefsLoadedMemoryDrop()
+        private static void ScheduleDefsLoadedMemoryDrop(int generation)
         {
+            int queued = System.Threading.Volatile.Read(ref _queuedPlayDataGeneration);
+            if (queued >= generation || generation != WorkflowBackendRuntime.PlayDataGeneration ||
+                System.Threading.Interlocked.CompareExchange(ref _queuedPlayDataGeneration, generation, queued) != queued) return;
+            AutoTranslator_LongEventCompat.ExecuteWhenFinished(() =>
+                ATC_Dispatcher.RunOnMainThread(() => QueueDefsLoadedMemoryDrop(generation)));
+        }
+
+        private static void QueueDefsLoadedMemoryDrop(int generation)
+        {
+            if (generation != WorkflowBackendRuntime.PlayDataGeneration) return;
             try
             {
                 AutoTranslatorMod.EnsureNetworkDispatchReady();
                 EnsureInstalled();
                 AutoTranslatorMod.RefreshWorkflowModMetadataCacheIfNeeded(force: true);
-                WorkflowBackendRuntime.QueueStartupTranslationLoading();
+                WorkflowBackendRuntime.QueueStartupTranslationLoading(generation);
             }
             catch (Exception ex)
             {
-                System.Threading.Interlocked.Exchange(ref _defsLoadedMemoryDropQueued, 0);
+                System.Threading.Interlocked.CompareExchange(ref _queuedPlayDataGeneration, -1, generation);
                 Log.Warning("[AutoTranslationCore] Defs-loaded memory drop queue failed: " + ex);
             }
         }

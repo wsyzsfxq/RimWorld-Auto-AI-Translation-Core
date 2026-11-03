@@ -47,19 +47,18 @@ namespace AutoTranslator_Core
                 Widgets.EndScrollView();
 
                 Rect resetRect = new Rect(0f, inRect.height - 42f, 190f, 36f);
-                if (Widgets.ButtonText(resetRect, "ATC_Cloud_OrderReset".Translate()))
+                if (WorkflowUiStyle.Button(resetRect, "ATC_Cloud_OrderReset".Translate(), WorkflowButtonStyle.Warning))
                 {
                     BuildRows(useSavedOrder: false);
                     _dirty = true;
                 }
 
                 Rect applyRect = new Rect(inRect.width - 300f, inRect.height - 42f, 150f, 36f);
-                GUI.color = _dirty ? new Color(0.65f, 1f, 0.7f) : Color.white;
-                if (Widgets.ButtonText(applyRect, "ATC_Cloud_OrderApply".Translate())) ApplyAndClose();
-                GUI.color = Color.white;
+                if (WorkflowUiStyle.Button(applyRect, "ATC_Cloud_OrderApply".Translate(),
+                        _dirty ? WorkflowButtonStyle.Primary : WorkflowButtonStyle.Quiet)) ApplyAndClose();
 
                 Rect closeRect = new Rect(inRect.width - 140f, inRect.height - 42f, 140f, 36f);
-                if (Widgets.ButtonText(closeRect, "ATC_ContactAuthor_Close".Translate())) Close();
+                if (WorkflowUiStyle.Button(closeRect, "ATC_ContactAuthor_Close".Translate())) Close();
             }
             finally
             {
@@ -81,8 +80,8 @@ namespace AutoTranslator_Core
 
             Rect downRect = new Rect(rowRect.xMax - 38f, rowRect.y + 6f, 32f, 30f);
             Rect upRect = new Rect(downRect.x - 38f, rowRect.y + 6f, 32f, 30f);
-            if (Widgets.ButtonText(upRect, "↑") && index > 0) Move(index, index - 1);
-            if (Widgets.ButtonText(downRect, "↓") && index + 1 < _rows.Count) Move(index, index + 1);
+            if (WorkflowUiStyle.Button(upRect, "↑", enabled: index > 0)) Move(index, index - 1);
+            if (WorkflowUiStyle.Button(downRect, "↓", enabled: index + 1 < _rows.Count)) Move(index, index + 1);
             TooltipHandler.TipRegion(upRect, "ATC_Cloud_OrderMoveUp".Translate());
             TooltipHandler.TipRegion(downRect, "ATC_Cloud_OrderMoveDown".Translate());
 

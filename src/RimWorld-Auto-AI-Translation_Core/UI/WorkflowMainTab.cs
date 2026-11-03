@@ -64,6 +64,11 @@ namespace AutoTranslator_Core
         private const float WorkflowSelectionAutoScrollMinimumSpeed = 35f;
         private const float WorkflowSelectionAutoScrollMaximumSpeed = 420f;
         private const float WorkflowSelectionAutoScrollHorizontalTolerance = 10f;
+        private const int WorkflowActionCount = 7;
+        private const int WorkflowDryRunActionIndex = 1;
+        private const int WorkflowReviewActionIndex = 2;
+        private const float WorkflowActionGap = 6f;
+        private const float WorkflowOptionsRowHeight = 34f;
         private static List<WorkflowModMetadataSnapshot> _workflowModMetadataCache =
             new List<WorkflowModMetadataSnapshot>();
         private static readonly Dictionary<string, ModMetaData> _workflowModsByIdentity =
@@ -111,7 +116,7 @@ namespace AutoTranslator_Core
             float inspectorHeight = anyTask
                 ? (_workflowInspectorMode == WorkflowInspectorMode.Collapsed ? 116f : 178f)
                 : (_workflowInspectorMode == WorkflowInspectorMode.Collapsed ? 25f : 132f);
-            const float optionsHeight = 27f;
+            float optionsHeight = GetWorkflowOptionsHeight(full.width);
             const float actionsHeight = 31f;
             const float lowerGaps = 12f;
             float listHeight = Mathf.Max(
@@ -172,8 +177,10 @@ namespace AutoTranslator_Core
             Widgets.Label(scopeRect, GetWorkflowScopeLabel());
             GUI.color = Color.white;
             Text.Anchor = TextAnchor.UpperLeft;
-            if (WorkflowUiStyle.Button(filterRect, GetWorkflowFilterLabel()))
+            if (WorkflowUiStyle.LabeledDropdown(filterRect, WfText("分析状态", "Analysis"),
+                    GetWorkflowFilterLabel(), 80f, font: GameFont.Tiny))
                 OpenWorkflowFilterMenu();
+            TooltipHandler.TipRegion(filterRect, WfText("分析状态：", "Analysis status: ") + GetWorkflowFilterLabel());
             bool busy = WorkflowTaskCoordinator.Instance.IsBusy || AutoTranslatorSettings.LegacyPipelineIsRunning;
             if (WorkflowUiStyle.Button(refreshRect, WfText("刷新状态", "Refresh"),
                     WorkflowButtonStyle.Quiet, !busy))
@@ -289,6 +296,7 @@ namespace AutoTranslator_Core
             int queryBatchSize = Mathf.Max(visibleRowCount, visibleRowCount * 3);
             int prefetchRows = Mathf.Max(0, (queryBatchSize - visibleRowCount) / 2);
             int firstVisible = Mathf.Max(0, Mathf.FloorToInt(_workflowModScroll.y / rowHeight));
+            ModNameTranslationCache.QueueVisible(mods.Skip(firstVisible).Take(visibleRowCount + 1));
             int firstRow = Mathf.Max(0, firstVisible - prefetchRows);
             int lastRowExclusive = Mathf.Min(mods.Count, firstRow + queryBatchSize);
             for (int i = firstRow; i < lastRowExclusive; i++)
@@ -362,7 +370,10 @@ namespace AutoTranslator_Core
             HandleWorkflowSelectionGesture(selectionHitRect, mod, busy);
             DrawWorkflowSelectionMark(selectionHitRect, selected, mod.IsProtectedSystemPackage, busy);
             Text.Font = GameFont.Tiny;
-            Widgets.Label(new Rect(modCell.x + 27f, modCell.y + 3f, modCell.width - 29f, 18f), mod.DisplayName);
+            string displayName = ModNameTranslationCache.GetDisplayName(mod);
+            Rect nameRect = new Rect(modCell.x + 27f, modCell.y + 3f, modCell.width - 29f, 18f);
+            Widgets.Label(nameRect, displayName);
+            TooltipHandler.TipRegion(nameRect, displayName);
             GUI.color = Color.grey;
             Widgets.Label(new Rect(modCell.x + 27f, modCell.y + 19f, modCell.width - 29f, 17f), mod.PackageId);
             GUI.color = Color.white;
@@ -374,7 +385,9 @@ namespace AutoTranslator_Core
                     widths[1] + widths[2] + widths[3] + widths[4] - 5f, row.height - 10f);
                 GUI.color = WorkflowUiStyle.MutedText;
                 Widgets.Label(protectedState,
-                    WfText("系统／官方内容，不作为翻译目标", "System/official content; not a translation target"));
+                    string.Equals(mod.PackageId, "brrainz.harmony", StringComparison.OrdinalIgnoreCase)
+                        ? WfText("基础组件，不作为翻译目标", "Infrastructure; not a translation target")
+                        : WfText("系统／官方内容，不作为翻译目标", "System/official content; not a translation target"));
                 GUI.color = Color.white;
                 Text.Font = GameFont.Small;
                 return;
@@ -383,8 +396,16 @@ namespace AutoTranslator_Core
             Rect analysisCell = new Rect(x, row.y + 1f, widths[1] - 3f, row.height - 2f);
             DrawWorkflowAnalysisLine(new Rect(analysisCell.x, analysisCell.y, analysisCell.width, 18f),
                 "XML", mod.XmlAnalysis);
-            DrawWorkflowAnalysisLine(new Rect(analysisCell.x, analysisCell.y + 18f, analysisCell.width, 18f),
-                "DLL", mod.DllAnalysis);
+            Rect dllAnalysisLine = new Rect(analysisCell.x, analysisCell.y + 18f, analysisCell.width, 18f);
+            if (UIInterceptionModeController.LegacySelected)
+            {
+                GUI.color = WorkflowUiStyle.MutedText;
+                Widgets.Label(dllAnalysisLine,
+                    WfText("UI 拦截模式不适用", "Not applicable in UI interception mode"));
+                GUI.color = Color.white;
+            }
+            else
+                DrawWorkflowAnalysisLine(dllAnalysisLine, "DLL", mod.DllAnalysis);
             if (Widgets.ButtonInvisible(analysisCell))
                 Find.WindowStack.Add(new Window_WorkflowLocalAnalysisSummary(mod));
             TooltipHandler.TipRegion(analysisCell,
@@ -529,7 +550,8 @@ namespace AutoTranslator_Core
         private static void DrawWorkflowEffectiveStateLines(Rect rect, WorkflowModSummary mod)
         {
             DrawWorkflowEffectiveStateLine(new Rect(rect.x, rect.y, rect.width, 18f), "XML", mod.XmlState);
-            DrawWorkflowEffectiveStateLine(new Rect(rect.x, rect.y + 18f, rect.width, 18f), "DLL", mod.DllState);
+            if (!UIInterceptionModeController.LegacySelected)
+                DrawWorkflowEffectiveStateLine(new Rect(rect.x, rect.y + 18f, rect.width, 18f), "DLL", mod.DllState);
         }
 
         private static void DrawWorkflowEffectiveStateLine(
@@ -551,7 +573,8 @@ namespace AutoTranslator_Core
         private static void DrawWorkflowTranslationStateLines(Rect rect, WorkflowModSummary mod)
         {
             DrawWorkflowTranslationStateLine(new Rect(rect.x, rect.y, rect.width, 18f), "XML", mod.XmlState);
-            DrawWorkflowTranslationStateLine(new Rect(rect.x, rect.y + 18f, rect.width, 18f), "DLL", mod.DllState);
+            if (!UIInterceptionModeController.LegacySelected)
+                DrawWorkflowTranslationStateLine(new Rect(rect.x, rect.y + 18f, rect.width, 18f), "DLL", mod.DllState);
         }
 
         private static void DrawWorkflowTranslationStateLine(
@@ -979,56 +1002,126 @@ namespace AutoTranslator_Core
             return Math.Max(1, (int)age.TotalMinutes) + WfText(" 分钟前", "m ago");
         }
 
+        private static Rect GetWorkflowActionColumnRect(Rect row, int index)
+        {
+            float width = Mathf.Max(0f,
+                (row.width - WorkflowActionGap * (WorkflowActionCount - 1)) / WorkflowActionCount);
+            return new Rect(row.x + index * (width + WorkflowActionGap), row.y, width, row.height);
+        }
+
+        private static float GetWorkflowOptionCaptionWidth(string label)
+        {
+            GameFont previousFont = Text.Font;
+            bool previousWrap = Text.WordWrap;
+            try
+            {
+                Text.Font = GameFont.Tiny;
+                Text.WordWrap = false;
+                return Mathf.Ceil(Text.CalcSize(label).x) + 8f;
+            }
+            finally
+            {
+                Text.WordWrap = previousWrap;
+                Text.Font = previousFont;
+            }
+        }
+
+        private static bool WorkflowOptionsNeedExtraRow(float width)
+        {
+            Rect reviewColumn = GetWorkflowActionColumnRect(
+                new Rect(0f, 0f, width, WorkflowOptionsRowHeight), WorkflowReviewActionIndex);
+            float togglesWidth = WorkflowUiStyle.ToggleButtonWidth(WfText("强制分析", "Force")) +
+                WorkflowActionGap + WorkflowUiStyle.ToggleButtonWidth(WfText("DLL 分析", "DLL analysis"));
+            float remainingWidth = reviewColumn.x - WorkflowActionGap - togglesWidth;
+            return remainingWidth < 0f ||
+                (_workflowUiSnapshot?.LatestDryRun != null &&
+                 remainingWidth - WorkflowActionGap < GetWorkflowOptionCaptionWidth(WfText("详情", "Details")));
+        }
+
+        private static float GetWorkflowOptionsHeight(float width)
+        {
+            return WorkflowOptionsRowHeight * (WorkflowOptionsNeedExtraRow(width) ? 2f : 1f);
+        }
+
         private void DrawWorkflowOptions(Rect rect, bool busy)
         {
-            const float gap = 6f;
-            float width = (rect.width - gap * 6f) / 7f;
+            const float gap = WorkflowActionGap;
+            bool extraRow = WorkflowOptionsNeedExtraRow(rect.width);
+            Rect toggleRow = new Rect(rect.x, rect.y, rect.width, WorkflowOptionsRowHeight);
+            // The scope group and its action share exactly the same column geometry.
+            Rect scopeRow = new Rect(rect.x, rect.yMax - WorkflowOptionsRowHeight,
+                rect.width, WorkflowOptionsRowHeight);
+            Rect scopeRect = GetWorkflowActionColumnRect(scopeRow, WorkflowReviewActionIndex);
             Text.Font = GameFont.Tiny;
-            bool force = _workflowForceAnalysis;
             string forceLabel = WfText("强制分析", "Force");
-            float forceWidth = Mathf.Min(width * 0.58f, Text.CalcSize(forceLabel).x + 30f);
-            Rect forceRect = new Rect(rect.x, rect.y + 3f, forceWidth, rect.height - 3f);
-            Widgets.CheckboxLabeled(forceRect, forceLabel, ref force);
-            if (!busy) _workflowForceAnalysis = force;
+            string dllLabel = WfText("DLL 分析", "DLL analysis");
+            Rect forceRect = new Rect(toggleRow.x, toggleRow.y,
+                WorkflowUiStyle.ToggleButtonWidth(forceLabel), toggleRow.height - 2f);
+            if (DrawWorkflowOptionToggle(forceRect, forceLabel,
+                    _workflowForceAnalysis, !busy))
+                _workflowForceAnalysis = !_workflowForceAnalysis;
+            TooltipHandler.TipRegion(forceRect, WfText(
+                "开启后，即使已有有效分析结果也会重新分析。",
+                "When enabled, existing valid results are analyzed again."));
 
             bool dllEnabled = _workflowUiConfiguration?.EnableDllAnalysis ?? false;
-            Rect dllRect = new Rect(forceRect.xMax + 4f, rect.y,
-                rect.x + width - forceRect.xMax - 4f, rect.height - 2f);
-            if (WorkflowUiStyle.Button(dllRect,
-                    dllEnabled
-                        ? WfText("✓ DLL 分析", "✓ DLL analysis")
-                        : WfText("○ DLL 分析", "○ DLL analysis"),
-                    dllEnabled ? WorkflowButtonStyle.Primary : WorkflowButtonStyle.Quiet,
-                    !busy, GameFont.Tiny))
+            bool dllApplicable = WorkflowRuntimeSettings.DllWorkflowApplicable;
+            Rect dllRect = new Rect(forceRect.xMax + gap, toggleRow.y,
+                WorkflowUiStyle.ToggleButtonWidth(dllLabel), toggleRow.height - 2f);
+            if (DrawWorkflowOptionToggle(dllRect, dllLabel,
+                    dllEnabled && dllApplicable, !busy && dllApplicable))
                 SaveWorkflowConfiguration(config => config.EnableDllAnalysis = !dllEnabled);
-            TooltipHandler.TipRegion(dllRect, dllEnabled
+            TooltipHandler.TipRegion(dllRect, !dllApplicable
+                ? WfText("UI 拦截模式不适用；切回 DLL 分析模式后可设置。",
+                    "Not applicable in UI interception mode. Switch back to DLL analysis mode to change this setting.")
+                : dllEnabled
                 ? WfText("DLL 分析已开启；点击关闭。", "DLL analysis is enabled; click to disable.")
                 : WfText("DLL 分析未开启；点击开启。", "DLL analysis is disabled; click to enable."));
 
             DryRunReport report = _workflowUiSnapshot?.LatestDryRun;
-            Rect dryRunRect = new Rect(rect.x + width + gap, rect.y, width, rect.height - 2f);
+            Rect dryRunRect = extraRow
+                ? GetWorkflowActionColumnRect(scopeRow, WorkflowDryRunActionIndex)
+                : new Rect(dllRect.xMax + gap, toggleRow.y,
+                    Mathf.Max(0f, scopeRect.x - gap - dllRect.xMax - gap), toggleRow.height - 2f);
+            string dryRunLabel = report == null ? string.Empty :
+                WfText("查看上次：", "View last: ") + report.ProtectedBudgetTokens.ToString("N0") + " Token";
+            if (GetWorkflowOptionCaptionWidth(dryRunLabel) > dryRunRect.width)
+                dryRunLabel = WfText("查看试跑", "View dry run");
+            if (GetWorkflowOptionCaptionWidth(dryRunLabel) > dryRunRect.width)
+                dryRunLabel = WfText("详情", "Details");
             if (report != null && WorkflowUiStyle.Button(
                     dryRunRect,
-                    WfText("查看上次：", "View last: ") + report.ProtectedBudgetTokens.ToString("N0") + " Token",
+                    dryRunLabel,
                     WorkflowButtonStyle.Quiet, true, GameFont.Tiny))
                 Find.WindowStack.Add(new Window_WorkflowDryRunReport(report, _workflowUiSnapshot));
             if (report != null)
                 TooltipHandler.TipRegion(dryRunRect,
+                    WfText("上次试跑预估：", "Last dry-run estimate: ") +
+                    report.ProtectedBudgetTokens.ToString("N0") + " Token\n" +
                     WfText("点击查看上次试跑详情。", "View the latest dry-run details."));
 
             string scope = GetAiReviewScopeLabel(_workflowUiConfiguration?.AiReviewScope);
-            Rect scopeRect = new Rect(rect.x + (width + gap) * 2f, rect.y, width, rect.height - 2f);
-            if (WorkflowUiStyle.Button(scopeRect,
-                    WfText("复核范围：", "Scope: ") + scope + "  ▾",
-                    WorkflowButtonStyle.Dropdown, !busy, GameFont.Tiny))
+            string scopeValue = GetAiReviewScopeCompactLabel(_workflowUiConfiguration?.AiReviewScope);
+            string scopeLabel = WfText("复核范围", "Review");
+            if (GetWorkflowOptionCaptionWidth(scopeLabel) +
+                GetWorkflowOptionCaptionWidth(scopeValue + "  ▾") > scopeRect.width)
+                scopeLabel = WfText("范围", "Scope");
+            if (WorkflowUiStyle.LabeledDropdown(scopeRect, scopeLabel, scopeValue,
+                    Mathf.Min(GetWorkflowOptionCaptionWidth(scopeLabel), scopeRect.width * 0.48f),
+                    !busy, font: GameFont.Tiny))
                 OpenAiReviewScopeMenu();
+            TooltipHandler.TipRegion(scopeRect,
+                WfText("当前复核范围：", "Current review scope: ") + scope);
             Text.Font = GameFont.Small;
+        }
+
+        private static bool DrawWorkflowOptionToggle(Rect rect, string label, bool selected, bool enabled)
+        {
+            return WorkflowUiStyle.ToggleButton(rect, label, selected, enabled);
         }
 
         private void DrawWorkflowActions(Rect rect, bool busy)
         {
-            const float gap = 6f;
-            float width = (rect.width - gap * 6f) / 7f;
             List<ModMetaData> selectedMods = GetSelectedWorkflowMods();
             List<string> selectedModIdentities = selectedMods
                 .Select(ModAnalysisTargetFactory.CreateModIdentity)
@@ -1036,6 +1129,8 @@ namespace AutoTranslator_Core
                 .Distinct(StringComparer.Ordinal)
                 .ToList();
             bool canRun = !busy && selectedMods.Count > 0;
+            bool reviewModelReady = AutoTranslatorAPI.HasUsableWorkflowConfiguration(TranslationTaskTier.Standard, review: true);
+            bool translationModelReady = AutoTranslatorAPI.HasUsableWorkflowConfiguration(TranslationTaskTier.Bulk);
             string[] labels =
             {
                 WfText("分析", "Analyze"),
@@ -1048,7 +1143,9 @@ namespace AutoTranslator_Core
             };
             string[] tooltips =
             {
-                WfText("补齐所选 Mod 的本地 XML／DLL 分析结果。", "Complete local XML/DLL analysis for selected mods."),
+                UIInterceptionModeController.LegacySelected
+                    ? WfText("补齐所选 Mod 的本地 XML 分析结果。", "Complete local XML analysis for selected mods.")
+                    : WfText("补齐所选 Mod 的本地 XML／DLL 分析结果。", "Complete local XML/DLL analysis for selected mods."),
                 WfText("只估算所选 Mod 的 Token，不调用模型。", "Estimate tokens without calling the model."),
                 WfText("使用 AI 复核所选 Mod 的条目分类。", "Use AI to review classifications for selected mods."),
                 WfText("翻译当前需要翻译且尚无有效译文的条目；首次缺少译文状态同步时会自动补一次。", "Translate needed entries without a valid translation; the initial translation-state sync runs automatically when required."),
@@ -1057,15 +1154,28 @@ namespace AutoTranslator_Core
                 WfText("请求停止当前后台任务。", "Request cancellation of the current background task.")
             };
             Text.Font = GameFont.Tiny;
-            for (int i = 0; i < 7; i++)
+            for (int i = 0; i < WorkflowActionCount; i++)
             {
-                Rect button = new Rect(rect.x + i * (width + gap), rect.y, width, rect.height);
-                bool enabled = i == 6 ? busy : canRun;
+                Rect button = GetWorkflowActionColumnRect(rect, i);
+                bool enabled = i == 6
+                    ? busy || UIInterceptionModeController.HasOutstandingWork ||
+                      (UIInterceptionModeController.LegacyEnabled && Settings.EnableUINewTranslation &&
+                       !AutoTranslatorSettings.IsCancellationRequested)
+                    : canRun;
+                bool modelReady = i == 2 ? reviewModelReady
+                    : i == 3 ? translationModelReady
+                    : i == 4 ? reviewModelReady && translationModelReady : true;
+                enabled &= modelReady;
                 WorkflowButtonStyle style = i == 4
                     ? WorkflowButtonStyle.Primary
                     : i == 6 ? WorkflowButtonStyle.Stop : WorkflowButtonStyle.Quiet;
                 bool clicked = WorkflowUiStyle.Button(button, labels[i], style, enabled, GameFont.Tiny);
-                TooltipHandler.TipRegion(button, tooltips[i]);
+                bool noReviewModel = !reviewModelReady && (i == 2 || i == 4) &&
+                    AutoTranslatorAPI.HasUsableWorkflowConfiguration(TranslationTaskTier.Standard);
+                TooltipHandler.TipRegion(button, modelReady ? tooltips[i]
+                    : noReviewModel
+                        ? WfText("未配置可用于复核的大模型", "No language model configured for review")
+                        : WfText("未配置大模型", "No language model configured"));
                 if (!clicked || !enabled) continue;
                 switch (i)
                 {
@@ -1089,7 +1199,8 @@ namespace AutoTranslator_Core
                         OpenOneClickTranslationConfirmation(
                             selectedMods,
                             _workflowForceAnalysis,
-                            _workflowUiConfiguration?.EnableDllAnalysis ?? false,
+                            WorkflowRuntimeSettings.DllWorkflowApplicable &&
+                                (_workflowUiConfiguration?.EnableDllAnalysis ?? false),
                             _workflowUiConfiguration?.AiReviewScope);
                         break;
                     case 5: OpenWorkflowResultCleanup(selectedModIdentities); break;
@@ -1248,6 +1359,7 @@ namespace AutoTranslator_Core
                 string search = _workflowModSearch.Trim();
                 query = query.Where(mod =>
                     (mod.DisplayName ?? string.Empty).IndexOf(search, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    ModNameTranslationCache.GetDisplayName(mod).IndexOf(search, StringComparison.OrdinalIgnoreCase) >= 0 ||
                     (mod.PackageId ?? string.Empty).IndexOf(search, StringComparison.OrdinalIgnoreCase) >= 0);
             }
             List<WorkflowModSummary> protectedMods = _workflowModFilter == WorkflowModFilter.All
@@ -1256,15 +1368,22 @@ namespace AutoTranslator_Core
                     .ToList()
                 : new List<WorkflowModSummary>();
             query = query.Where(mod => !mod.IsProtectedSystemPackage);
+            bool includeDll = WorkflowRuntimeSettings.DllWorkflowApplicable;
             switch (_workflowModFilter)
             {
-                case WorkflowModFilter.NeedsTranslation: query = query.Where(mod => mod.NeedsTranslation > 0); break;
-                case WorkflowModFilter.Undetermined: query = query.Where(mod => mod.Undetermined > 0); break;
-                case WorkflowModFilter.Untranslated: query = query.Where(mod => mod.Untranslated > 0); break;
+                case WorkflowModFilter.NeedsTranslation:
+                    query = query.Where(mod => (includeDll ? mod.NeedsTranslation : mod.XmlState.NeedsTranslation) > 0);
+                    break;
+                case WorkflowModFilter.Undetermined:
+                    query = query.Where(mod => (includeDll ? mod.Undetermined : mod.XmlState.Undetermined) > 0);
+                    break;
+                case WorkflowModFilter.Untranslated:
+                    query = query.Where(mod => (includeDll ? mod.Untranslated : mod.XmlState.Untranslated) > 0);
+                    break;
                 case WorkflowModFilter.Failed:
-                    query = query.Where(mod => mod.Failed > 0 ||
+                    query = query.Where(mod => (includeDll ? mod.Failed : mod.XmlState.Failed) > 0 ||
                         mod.XmlAnalysis?.Freshness == AnalysisResultFreshness.Failed ||
-                        mod.DllAnalysis?.Freshness == AnalysisResultFreshness.Failed);
+                        (includeDll && mod.DllAnalysis?.Freshness == AnalysisResultFreshness.Failed));
                     break;
             }
             if (_workflowModSortField == WorkflowModSortField.LatestDryRun)
@@ -1338,11 +1457,11 @@ namespace AutoTranslator_Core
         {
             switch (_workflowModFilter)
             {
-                case WorkflowModFilter.NeedsTranslation: return WfText("分析状态：需要翻译", "Analysis status: needs translation");
-                case WorkflowModFilter.Undetermined: return WfText("分析状态：待判定", "Analysis status: undetermined");
-                case WorkflowModFilter.Untranslated: return WfText("分析状态：未翻译", "Analysis status: untranslated");
-                case WorkflowModFilter.Failed: return WfText("分析状态：失败", "Analysis status: failed");
-                default: return WfText("分析状态：全部", "Analysis status: all");
+                case WorkflowModFilter.NeedsTranslation: return WfText("需要翻译", "Needs translation");
+                case WorkflowModFilter.Undetermined: return WfText("待判定", "Undetermined");
+                case WorkflowModFilter.Untranslated: return WfText("未翻译", "Untranslated");
+                case WorkflowModFilter.Failed: return WfText("失败", "Failed");
+                default: return WfText("全部", "All");
             }
         }
 
@@ -1379,6 +1498,18 @@ namespace AutoTranslator_Core
             if (scope.IncludeUndetermined) values.Add(WfText("待判定", "Undetermined"));
             if (scope.IncludeNoTranslationNeeded) values.Add(WfText("无需翻译", "No translation"));
             return values.Count == 0 ? WfText("未设置", "None") : string.Join("、", values);
+        }
+
+        private static string GetAiReviewScopeCompactLabel(AiReviewScope scope)
+        {
+            scope = scope ?? new AiReviewScope();
+            int selected = (scope.IncludeNeedsTranslation ? 1 : 0) +
+                (scope.IncludeUndetermined ? 1 : 0) + (scope.IncludeNoTranslationNeeded ? 1 : 0);
+            if (selected == 0) return WfText("未设置", "None");
+            if (selected == 3) return WfText("全部", "All");
+            if (selected == 2) return WfText("已选2类", "2 types");
+            if (scope.IncludeNeedsTranslation) return WfText("需翻译", "Needs");
+            return scope.IncludeUndetermined ? WfText("待判定", "Pending") : WfText("无需翻译", "No need");
         }
 
         private static void UpdateWorkflowUiReadModel()
@@ -1638,7 +1769,8 @@ namespace AutoTranslator_Core
         private static void RequestWorkflowStop()
         {
             bool requested = WorkflowTaskCoordinator.Instance.RequestCancellation();
-            if (AutoTranslatorSettings.LegacyPipelineIsRunning)
+            if (AutoTranslatorSettings.LegacyPipelineIsRunning || UIInterceptionModeController.LegacyEnabled ||
+                UIInterceptionModeController.HasOutstandingWork)
             {
                 AutoTranslatorSettings.RequestPipelineCancellation();
                 requested = true;
@@ -1847,7 +1979,7 @@ namespace AutoTranslator_Core
                     MessageTypeDefOf.NeutralEvent, false);
                 return;
             }
-            Application.OpenURL("file:///" + path.Replace('\\', '/'));
+            DesktopFileOpener.OpenFile(path);
         }
 
         private static void DrawOutlinedProgressLabel(Rect rect, string text, GameFont font)

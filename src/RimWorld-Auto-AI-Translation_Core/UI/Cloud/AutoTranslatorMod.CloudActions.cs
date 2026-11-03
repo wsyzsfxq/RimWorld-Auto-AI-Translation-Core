@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 using Verse;
@@ -40,6 +41,7 @@ namespace AutoTranslator_Core
             public string TaskName;
             public bool CopyBackToLivePack;
             public ModMetaData Mod;
+            public long TranslationCount;
         }
 
         
@@ -718,6 +720,13 @@ namespace AutoTranslator_Core
 
         private void ExecuteBatchUpload(CloudBatchUploadSource source)
         {
+            if (AutoTranslatorSettings.IsRunning) return;
+            if (string.IsNullOrWhiteSpace(Settings.CloudNickname))
+            {
+                Messages.Message(WfText("请先填写贡献者昵称。", "Enter a contributor nickname first."),
+                    MessageTypeDefOf.RejectInput, false);
+                return;
+            }
             string packPath = AutoTranslatorScanner.GetLocalPackPath();
             string workspaceRoot = System.IO.Path.Combine(packPath, "Upload_Workspace");
             string targetLangFolder = AutoTranslatorScanner.GetFolderNameByLanguage(Settings.CloudTargetLang);
@@ -742,221 +751,9 @@ namespace AutoTranslator_Core
                     Mod = m
                 })
                 .ToList();
-            if (QueueBatchUploadPreparation(
-                source,
-                workspaceRoot,
-                targetLangFolder,
-                targetLangLabel,
-                liveLangDir,
-                uNickname,
-                uToken,
-                uploadType,
-                uploadTypeLabel,
-                updateLog,
-                installedModSnapshots))
-            {
-                return;
-            }
-
-            int skippedPatchModCount = 0;
-            var uploadSources = new List<BatchUploadSourceItem>();
-
-            if (source == CloudBatchUploadSource.Workspace)
-            {
-                var modDirs = System.IO.Directory.Exists(workspaceRoot)
-                    ? System.IO.Directory.GetDirectories(workspaceRoot)
-                    .Where(modDir =>
-                    {
-                        string packageId = System.IO.Path.GetFileName(modDir);
-                        var tempMeta = Verse.ModLister.AllInstalledMods.FirstOrDefault(m => string.Equals(m.PackageId, packageId, StringComparison.OrdinalIgnoreCase));
-                        string displayName = tempMeta != null ? tempMeta.Name : packageId;
-                        if (ShouldSkipCloudSharingMod(tempMeta, packageId, displayName))
-                        {
-                            skippedPatchModCount++;
-                            return false;
-                        }
-                        return true;
-                    })
-                    .ToArray()
-                    : new string[0];
-
-                foreach (string modDir in modDirs)
-                {
-                    string packageId = System.IO.Path.GetFileName(modDir);
-                    string langDir = System.IO.Path.Combine(modDir, targetLangFolder);
-                    if (!HasUploadableTranslationFiles(langDir, packageId, true)) continue;
-                    var tempMeta = Verse.ModLister.AllInstalledMods.FirstOrDefault(m => string.Equals(m.PackageId, packageId, StringComparison.OrdinalIgnoreCase));
-                    string displayName = tempMeta != null ? tempMeta.Name : packageId;
-                    uploadSources.Add(new BatchUploadSourceItem
-                    {
-                        PackageId = packageId,
-                        SourceDir = langDir,
-                        DisplayName = displayName,
-                        ModName = displayName,
-                        CopyBackToLivePack = true
-                    });
-                }
-            }
-            else
-            {
-                var uploadablePackages = BuildUploadableLocalPackPackageSet(liveLangDir, Verse.ModLister.AllInstalledMods);
-                foreach (var mod in Verse.ModLister.AllInstalledMods)
-                {
-                    if (mod == null || !mod.Active || string.IsNullOrEmpty(mod.PackageId)) continue;
-                    if (ShouldSkipCloudSharingMod(mod))
-                    {
-                        skippedPatchModCount++;
-                        continue;
-                    }
-                    if (!uploadablePackages.Contains(mod.PackageId)) continue;
-
-                    uploadSources.Add(new BatchUploadSourceItem
-                    {
-                        PackageId = mod.PackageId,
-                        SourceDir = liveLangDir,
-                        DisplayName = mod.Name,
-                        ModName = mod.Name,
-                        CopyBackToLivePack = false
-                    });
-                }
-            }
-
-            if (skippedPatchModCount > 0)
-            {
-                Messages.Message("ATC_Msg_CloudBatchPatchModsSkipped".Translate(skippedPatchModCount), MessageTypeDefOf.NeutralEvent, false);
-            }
-            if (uploadSources.Count == 0)
-            {
-                string emptyKey = source == CloudBatchUploadSource.Workspace
-                    ? "ATC_Msg_WorkspaceEmpty"
-                    : "ATC_Msg_BatchUploadPackEmpty";
-                Messages.Message(emptyKey.Translate(), MessageTypeDefOf.RejectInput, false);
-                return;
-            }
-
-            Messages.Message("ATC_Msg_BatchUploadStart".Translate(uploadSources.Count), MessageTypeDefOf.NeutralEvent, false);
-
-            System.Threading.Tasks.Task.Run(async () =>
-            {
-                int successCount = 0;
-                int failCount = 0;
-                List<string> failedMods = new List<string>();
-                
-
-                AutoTranslatorSettings.IsRunning = true;
-
-                try
-                {
-                    for (int i = 0; i < uploadSources.Count; i++)
-                    {
-                        BatchUploadSourceItem item = uploadSources[i];
-                        string packageId = item.PackageId;
-                        string displayName = !string.IsNullOrEmpty(item.DisplayName) ? item.DisplayName : packageId;
-
-                        try
-                        {
-                            AutoTranslatorMod.Settings.CurrentTaskName = "ATC_Cloud_Uploading".Translate(displayName);
-                            AutoTranslatorMod.Settings.CurrentProgress = (float)i / uploadSources.Count;
-
-                            string langDir = item.SourceDir;
-
-                            if (!System.IO.Directory.Exists(langDir))
-                            {
-                                failCount++;
-                                failedMods.Add(displayName);
-                                AutoTranslatorSettings.AddWarningLog("ATC_Log_BatchUploadMissingFolder".Translate(displayName));
-                                continue;
-                            }
-
-                            if (!AutoTranslatorScanner.GetXmlFilesForTranslationCache(langDir, System.IO.SearchOption.AllDirectories)
-                                    .Any(file => !AutoTranslatorScanner.IsWorkbenchManualExportPath(file)))
-                            {
-                                failCount++;
-                                failedMods.Add(displayName);
-                                AutoTranslatorSettings.AddWarningLog("ATC_Log_BatchUploadNoXml".Translate(displayName));
-                                continue;
-                            }
-
-                            string modName = !string.IsNullOrEmpty(item.ModName) ? item.ModName : displayName;
-
-                            AutoTranslatorCloudClient.UploadTranslationResult uploadResult =
-                                await AutoTranslatorCloudClient.UploadTranslationWithDetailsAsync(packageId, targetLangFolder, modName, uNickname, uploadType, langDir, uToken, updateLog);
-                            bool success = uploadResult != null && uploadResult.Success;
-
-                            if (success)
-                            {
-                                successCount++;
-                                if (!item.CopyBackToLivePack) continue;
-
-                                foreach (string file in AutoTranslatorScanner.GetXmlFilesForTranslationCache(langDir, System.IO.SearchOption.AllDirectories))
-                                {
-                                    if (AutoTranslatorScanner.IsWorkbenchManualExportPath(file)) continue;
-                                    string relPath = file.Substring(langDir.Length).TrimStart('\\', '/');
-
-                                    string justFileName = System.IO.Path.GetFileName(file);
-                                    string justFileNameLower = justFileName.ToLower();
-                                    string id1 = packageId.ToLower();
-                                    string id2 = packageId.Replace(".", "_").ToLower();
-
-                                    if (!justFileNameLower.StartsWith(id1 + "_") && !justFileNameLower.StartsWith(id1 + ".") &&
-                                        !justFileNameLower.StartsWith(id2 + "_") && !justFileNameLower.StartsWith(id2 + "."))
-                                    {
-                                        string dirName = System.IO.Path.GetDirectoryName(relPath);
-                                        string newFileName = $"{id2}_{justFileName}";
-                                        relPath = string.IsNullOrEmpty(dirName) ? newFileName : System.IO.Path.Combine(dirName, newFileName);
-                                    }
-
-                                    string destPath = System.IO.Path.Combine(liveLangDir, relPath);
-                                    System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(destPath));
-                                    System.IO.File.Copy(file, destPath, true);
-                                }
-                            }
-                            else
-                            {
-                                failCount++;
-                                failedMods.Add(displayName);
-                                AutoTranslatorScanner.UploadLabelValidationSummary provenanceSummary =
-                                    uploadResult != null ? uploadResult.ValidationSummary : null;
-                                
-                            }
-                        }
-                        catch (Exception itemEx)
-                        {
-                            failCount++;
-                            failedMods.Add(displayName);
-                            AutoTranslatorSettings.AddWarningLog("ATC_Log_BatchUploadItemFailed".Translate(displayName, itemEx.Message));
-                            Log.Warning($"[AutoTranslationCore] Batch upload skipped {displayName} ({packageId}): {itemEx}");
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    AutoTranslatorSettings.AddErrorLog("❌ " + "ATC_Log_BatchUploadWorkerFailed".Translate(ex.Message));
-                    Log.Warning("[AutoTranslationCore] Batch upload worker failed: " + ex);
-                }
-                finally
-                {
-                    ATC_Dispatcher.RunOnMainThread(() =>
-                    {
-
-                        AutoTranslatorSettings.IsRunning = false;
-                        AutoTranslatorMod.Settings.CurrentTaskName = "";
-                        AutoTranslatorMod.Settings.CurrentProgress = 0f;
-
-                        Verse.Messages.Message("ATC_Msg_BatchUploadSuccess".Translate(successCount, uploadTypeLabel), RimWorld.MessageTypeDefOf.PositiveEvent, false);
-                        if (failCount > 0)
-                        {
-                            AutoTranslatorSettings.AddWarningLog("ATC_Log_BatchUploadFailedList".Translate(failCount, string.Join(", ", failedMods.Take(8).ToArray())));
-                        }
-
-                        
-
-                        AutoTranslatorSettings.HasFetchedCloudThisSession = false;
-                        ModUpdateDetector.ClearStatusCache();
-                        AutoTranslator_Core.Workflow.WorkflowTaskCoordinator.Instance.NotifyWorkbenchDataChanged();
-                    });
-                }
-            });
+            QueueBatchUploadPreparation(
+                source, workspaceRoot, targetLangFolder, targetLangLabel, liveLangDir,
+                uNickname, uToken, uploadType, uploadTypeLabel, updateLog, installedModSnapshots);
         }
 
         // 這個方法負責判斷 HasUploadable翻譯Files 條件是否成立。
@@ -974,16 +771,37 @@ namespace AutoTranslator_Core
             string updateLog,
             List<CloudLocalModSnapshot> installedModSnapshots)
         {
-            AutoTranslatorSettings.IsRunning = true;
-            AutoTranslatorMod.Settings.CurrentTaskName = "Preparing batch upload";
+            if (!WorkflowTaskCoordinator.Instance.TryBegin(WorkflowTaskKind.CloudUpload,
+                    "Prepare cloud upload", out WorkflowTaskLease lease)) return false;
+            AutoTranslatorSettings.ResetPipelineCancellation();
+            AutoTranslatorMod.Settings.CurrentTaskName = WfText("正在读取可上传的译文", "Reading available translations");
             AutoTranslatorMod.Settings.CurrentProgress = 0f;
 
             System.Threading.Tasks.Task.Run(() =>
             {
-                BatchUploadPreparationResult result = PrepareBatchUpload(source, workspaceRoot, targetLangFolder, liveLangDir, installedModSnapshots);
+                BatchUploadPreparationResult result;
+                try
+                {
+                    result = PrepareBatchUpload(source, workspaceRoot, targetLangFolder, liveLangDir,
+                        installedModSnapshots, lease.CancellationToken);
+                    lease.CancellationToken.ThrowIfCancellationRequested();
+                    WorkflowTaskCoordinator.Instance.MarkTerminal(lease.RunId,
+                        string.IsNullOrEmpty(result.Error) ? WorkflowRunState.Completed : WorkflowRunState.Failed,
+                        result.Error);
+                }
+                catch (OperationCanceledException)
+                {
+                    WorkflowTaskCoordinator.Instance.MarkTerminal(lease.RunId, WorkflowRunState.Cancelled);
+                    ATC_Dispatcher.RunOnMainThread(() =>
+                    {
+                        Settings.CurrentTaskName = string.Empty;
+                        Settings.CurrentProgress = 0f;
+                    });
+                    return;
+                }
+                finally { lease.Dispose(); }
                 ATC_Dispatcher.RunOnMainThread(() =>
                 {
-                    AutoTranslatorSettings.IsRunning = false;
                     AutoTranslatorMod.Settings.CurrentTaskName = "";
                     AutoTranslatorMod.Settings.CurrentProgress = 0f;
 
@@ -1015,58 +833,26 @@ namespace AutoTranslator_Core
                     string sourceLabel = source == CloudBatchUploadSource.Workspace
                         ? WfText("贡献工作区", "contribution workspace")
                         : WfText("当前本地译文", "current local translations");
-                    string updateLogState = string.IsNullOrWhiteSpace(updateLog)
-                        ? WfText("未填写", "not provided")
-                        : WfText("已填写", "provided");
-                    string uploadPreview = string.Join("、", result.UploadSources
-                        .Take(8)
-                        .Select(item => !string.IsNullOrWhiteSpace(item.DisplayName)
-                            ? item.DisplayName
-                            : item.PackageId)
-                        .ToArray());
-                    if (result.UploadSources.Count > 8)
-                    {
-                        uploadPreview += WfText(
-                            " 等 " + result.UploadSources.Count + " 个 Mod",
-                            " and " + (result.UploadSources.Count - 8) + " more");
-                    }
-                    string message = WfText(
-                        "即将把本机译文上传到公共云端。其他用户可能会下载这些内容。\n\n" +
-                        "上传来源：" + sourceLabel + "\n" +
-                        "目标语言：" + targetLangLabel + "（" + targetLangFolder + "）\n" +
-                        "云端来源类别：" + uploadTypeLabel + "\n" +
-                        "待上传 Mod：" + result.UploadSources.Count + " 个\n" +
-                        "内容预览：" + uploadPreview + "\n" +
-                        "更新说明：" + updateLogState + "\n\n" +
-                        "请确认来源、语言和类别均正确。是否开始上传？",
-                        "Translations from this computer are about to be uploaded to the public cloud. Other users may download them.\n\n" +
-                        "Source: " + sourceLabel + "\n" +
-                        "Target language: " + targetLangLabel + " (" + targetLangFolder + ")\n" +
-                        "Cloud source category: " + uploadTypeLabel + "\n" +
-                        "Mods to upload: " + result.UploadSources.Count + "\n" +
-                        "Preview: " + uploadPreview + "\n" +
-                        "Update note: " + updateLogState + "\n\n" +
-                        "Confirm that the source, language, and category are correct. Start upload?");
-                    Find.WindowStack.Add(new Window_AtcDialog(
-                        message,
-                        WfText("确认上传", "Upload"),
-                        () =>
+                    string description = WfText(
+                        "上传来源：" + sourceLabel + "；目标语言：" + targetLangLabel +
+                        "；上传标记：" + uploadTypeLabel + "。\n选择要公开分享的译文，再点“上传所选译文”。",
+                        "Source: " + sourceLabel + "; language: " + targetLangLabel +
+                        "; label: " + uploadTypeLabel + ".\nChoose translations to share, then select Upload selected.");
+                    Find.WindowStack.Add(new Window_CloudUploadSelection(
+                        result.UploadSources.Select(item => new CloudUploadSelectionItem
                         {
-                            Messages.Message("ATC_Msg_BatchUploadStart".Translate(result.UploadSources.Count),
-                                MessageTypeDefOf.NeutralEvent, false);
-                            StartPreparedBatchUpload(
-                                result.UploadSources,
-                                targetLangFolder,
-                                liveLangDir,
-                                uNickname,
-                                uToken,
-                                uploadType,
-                                uploadTypeLabel,
-                                updateLog);
-                        },
-                        WfText("取消", "Cancel"),
-                        null,
-                        WfText("确认批量上传", "Confirm batch upload")));
+                            PackageId = item.PackageId,
+                            DisplayName = item.DisplayName,
+                            TranslationCount = item.TranslationCount
+                        }), targetLangFolder, description,
+                        selected =>
+                        {
+                            var chosen = new HashSet<string>(selected, StringComparer.OrdinalIgnoreCase);
+                            return StartPreparedBatchUpload(result.UploadSources
+                                .Where(item => chosen.Contains(item.PackageId)).ToList(),
+                                targetLangFolder, liveLangDir, uNickname, uToken,
+                                uploadType, uploadTypeLabel, updateLog);
+                        }));
                 });
             });
 
@@ -1078,7 +864,8 @@ namespace AutoTranslator_Core
             string workspaceRoot,
             string targetLangFolder,
             string liveLangDir,
-            List<CloudLocalModSnapshot> installedModSnapshots)
+            List<CloudLocalModSnapshot> installedModSnapshots,
+            CancellationToken cancellationToken)
         {
             BatchUploadPreparationResult result = new BatchUploadPreparationResult();
             try
@@ -1096,6 +883,7 @@ namespace AutoTranslator_Core
 
                     foreach (string modDir in modDirs)
                     {
+                        cancellationToken.ThrowIfCancellationRequested();
                         string packageId = Path.GetFileName(modDir);
                         installedByPackage.TryGetValue(packageId, out CloudLocalModSnapshot installed);
                         string displayName = installed != null && !string.IsNullOrWhiteSpace(installed.DisplayName)
@@ -1128,6 +916,7 @@ namespace AutoTranslator_Core
                     HashSet<string> uploadablePackages = BuildUploadableLocalPackPackageSet(liveLangDir, installedModSnapshots);
                     foreach (CloudLocalModSnapshot mod in installedModSnapshots ?? new List<CloudLocalModSnapshot>())
                     {
+                        cancellationToken.ThrowIfCancellationRequested();
                         if (mod == null || string.IsNullOrEmpty(mod.PackageId)) continue;
                         if (mod.ShouldSkipCloudSharing)
                         {
@@ -1147,17 +936,38 @@ namespace AutoTranslator_Core
                         });
                     }
                 }
+                foreach (BatchUploadSourceItem item in result.UploadSources)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    item.TranslationCount = CountUploadableTranslationEntries(item.SourceDir, item.PackageId, cancellationToken);
+                }
+                result.UploadSources = result.UploadSources.Where(item => item.TranslationCount > 0)
+                    .GroupBy(item => item.PackageId, StringComparer.OrdinalIgnoreCase)
+                    .Select(group => group.First()).ToList();
             }
+            catch (OperationCanceledException) { throw; }
             catch (Exception ex)
             {
-                result.Error = ex.Message;
+                result.Error = WfText("读取可上传译文失败：", "Could not read available translations: ") + ex.Message;
                 Verse.Log.Warning($"[AutoTranslationCore] Batch upload preparation failed: {ex}");
             }
 
             return result;
         }
 
-        private static void StartPreparedBatchUpload(
+        private static long CountUploadableTranslationEntries(string sourceDir, string packageId, CancellationToken cancellationToken)
+        {
+            long count = 0;
+            foreach (string file in AutoTranslatorScanner.GetXmlFilesForTranslationCache(sourceDir, SearchOption.AllDirectories))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!AutoTranslatorScanner.ShouldIncludeUploadFile(sourceDir, file, packageId)) continue;
+                count += AutoTranslatorScanner.LoadXmlFileToDict(file).Count(entry => !string.IsNullOrWhiteSpace(entry.Value));
+            }
+            return count;
+        }
+
+        private static bool StartPreparedBatchUpload(
             List<BatchUploadSourceItem> uploadSources,
             string targetLangFolder,
             string liveLangDir,
@@ -1167,6 +977,16 @@ namespace AutoTranslator_Core
             string uploadTypeLabel,
             string updateLog)
         {
+            if (uploadSources == null || uploadSources.Count == 0) return false;
+            if (!WorkflowTaskCoordinator.Instance.TryBegin(WorkflowTaskKind.CloudUpload,
+                    "Upload selected translations", out WorkflowTaskLease lease))
+            {
+                Messages.Message(WfText("其他任务正在运行，请稍后再上传。", "Another task is running; try again after it finishes."),
+                    MessageTypeDefOf.RejectInput, false);
+                return false;
+            }
+            AutoTranslatorSettings.ResetPipelineCancellation();
+            Messages.Message("ATC_Msg_BatchUploadStart".Translate(uploadSources.Count), MessageTypeDefOf.NeutralEvent, false);
             System.Threading.Tasks.Task.Run(async () =>
             {
                 int successCount = 0;
@@ -1174,15 +994,16 @@ namespace AutoTranslator_Core
                 List<string> failedMods = new List<string>();
                 
 
-                AutoTranslatorSettings.IsRunning = true;
-
                 try
                 {
                     for (int i = 0; i < uploadSources.Count; i++)
                     {
+                        lease.CancellationToken.ThrowIfCancellationRequested();
                         BatchUploadSourceItem item = uploadSources[i];
                         string packageId = item.PackageId;
                         string displayName = !string.IsNullOrEmpty(item.DisplayName) ? item.DisplayName : packageId;
+                        WorkflowTaskCoordinator.Instance.ReportProgress(i, uploadSources.Count,
+                            displayName, WfText("正在上传所选译文", "Uploading selected translations"));
 
                         try
                         {
@@ -1199,8 +1020,7 @@ namespace AutoTranslator_Core
                                 continue;
                             }
 
-                            if (!AutoTranslatorScanner.GetXmlFilesForTranslationCache(langDir, SearchOption.AllDirectories)
-                                    .Any(file => !AutoTranslatorScanner.IsWorkbenchManualExportPath(file)))
+                            if (CountUploadableTranslationEntries(langDir, packageId, lease.CancellationToken) == 0)
                             {
                                 failCount++;
                                 failedMods.Add(displayName);
@@ -1211,7 +1031,8 @@ namespace AutoTranslator_Core
                             string modName = !string.IsNullOrEmpty(item.ModName) ? item.ModName : displayName;
 
                             AutoTranslatorCloudClient.UploadTranslationResult uploadResult =
-                                await AutoTranslatorCloudClient.UploadTranslationWithDetailsAsync(packageId, targetLangFolder, modName, uNickname, uploadType, langDir, uToken, updateLog);
+                                await AutoTranslatorCloudClient.UploadTranslationWithDetailsAsync(packageId, targetLangFolder, modName, uNickname, uploadType, langDir, uToken, updateLog,
+                                    lease.CancellationToken);
                             bool success = uploadResult != null && uploadResult.Success;
 
                             if (success)
@@ -1248,9 +1069,11 @@ namespace AutoTranslator_Core
                                 failedMods.Add(displayName);
                                 AutoTranslatorScanner.UploadLabelValidationSummary provenanceSummary =
                                     uploadResult != null ? uploadResult.ValidationSummary : null;
-                                
+                                if (!string.IsNullOrWhiteSpace(provenanceSummary?.BlockReason))
+                                    AutoTranslatorSettings.AddWarningLog(displayName + ": " + provenanceSummary.BlockReason);
                             }
                         }
+                        catch (OperationCanceledException) { throw; }
                         catch (Exception itemEx)
                         {
                             failCount++;
@@ -1259,21 +1082,31 @@ namespace AutoTranslator_Core
                             Log.Warning($"[AutoTranslationCore] Batch upload skipped {displayName} ({packageId}): {itemEx}");
                         }
                     }
+                    WorkflowTaskCoordinator.Instance.MarkTerminal(lease.RunId,
+                        failCount > 0 ? WorkflowRunState.Failed : WorkflowRunState.Completed);
+                }
+                catch (OperationCanceledException)
+                {
+                    WorkflowTaskCoordinator.Instance.MarkTerminal(lease.RunId, WorkflowRunState.Cancelled);
+                    AutoTranslatorSettings.AddLog(WfText(
+                        "已停止上传；已完成的云端上传会保留。", "Upload stopped; completed cloud uploads are kept."));
                 }
                 catch (Exception ex)
                 {
+                    WorkflowTaskCoordinator.Instance.MarkTerminal(lease.RunId, WorkflowRunState.Failed, ex.Message);
                     AutoTranslatorSettings.AddErrorLog("ATC_Log_BatchUploadWorkerFailed".Translate(ex.Message));
                     Log.Warning("[AutoTranslationCore] Batch upload worker failed: " + ex);
                 }
                 finally
                 {
+                    lease.Dispose();
                     ATC_Dispatcher.RunOnMainThread(() =>
                     {
-                        AutoTranslatorSettings.IsRunning = false;
                         AutoTranslatorMod.Settings.CurrentTaskName = "";
                         AutoTranslatorMod.Settings.CurrentProgress = 0f;
 
-                        Verse.Messages.Message("ATC_Msg_BatchUploadSuccess".Translate(successCount, uploadTypeLabel), RimWorld.MessageTypeDefOf.PositiveEvent, false);
+                        Verse.Messages.Message("ATC_Msg_BatchUploadSuccess".Translate(successCount, uploadTypeLabel),
+                            successCount > 0 ? RimWorld.MessageTypeDefOf.PositiveEvent : RimWorld.MessageTypeDefOf.NeutralEvent, false);
                         if (failCount > 0)
                         {
                             AutoTranslatorSettings.AddWarningLog("ATC_Log_BatchUploadFailedList".Translate(failCount, string.Join(", ", failedMods.Take(8).ToArray())));
@@ -1287,6 +1120,7 @@ namespace AutoTranslator_Core
                     });
                 }
             });
+            return true;
         }
 
         private static bool HasUploadableTranslationFiles(string sourceDir, string packageId, bool isWorkspace)

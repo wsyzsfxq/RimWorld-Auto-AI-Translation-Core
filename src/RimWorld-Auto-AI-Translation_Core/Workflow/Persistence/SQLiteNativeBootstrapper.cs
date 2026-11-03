@@ -25,10 +25,11 @@ namespace AutoTranslator_Core.Workflow.Persistence
         {
             string runtimeId = GetRuntimeId();
             string nativeFileName = GetNativeFileName(runtimeId);
-            string sourceDirectory = Path.Combine(coreModRoot, "1.6", "Native", "sqlite", runtimeId);
+            string versionFolder = GetVersionFolder();
+            string sourceDirectory = Path.Combine(coreModRoot, versionFolder, "Native", "sqlite", runtimeId);
             string sourceNativePath = Path.Combine(sourceDirectory, nativeFileName);
             string sourceHashPath = sourceNativePath + ".sha256";
-            string providerPath = Path.Combine(coreModRoot, "1.6", "Assemblies", "System.Data.SQLite.dll");
+            string providerPath = Path.Combine(coreModRoot, versionFolder, "Assemblies", "System.Data.SQLite.dll");
 
             if (!File.Exists(providerPath))
                 throw new FileNotFoundException("SQLite managed provider is not included in the mod package.", providerPath);
@@ -65,6 +66,18 @@ namespace AutoTranslator_Core.Workflow.Persistence
             if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
                 return RuntimeInformation.ProcessArchitecture == Architecture.Arm64 ? "osx-arm64" : "osx-x64";
             return ThrowUnsupported(RuntimeInformation.OSDescription);
+        }
+
+        // SQLite runtime assets are shipped per game-version folder so that each
+        // build loads the provider and native library that match its runtime:
+        // 1.6 ships the net471 provider, 1.7 ships the netstandard2.0 provider.
+        private static string GetVersionFolder()
+        {
+#if RIMWORLD_1_7
+            return "1.7";
+#else
+            return "1.6";
+#endif
         }
 
         private static string ThrowUnsupported(string platform)

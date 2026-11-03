@@ -19,13 +19,54 @@ namespace AutoTranslator_Core
     public static class Patch_GUI_Label_GUIContent
     {
         public static bool BypassInterceptor;
-        internal static bool CanObserve => AutoTranslatorMod.Settings?.EnableUIInterceptor == true &&
-            !BypassInterceptor && !UIInterceptorPatchGuard.IsNestedLabelCall;
+        internal static bool CaptureActive => UIInterceptionModeController.CaptureEnabled && !BypassInterceptor;
+        internal static bool CanObserve => CaptureActive && !UIInterceptorPatchGuard.IsNestedLabelCall;
+#if RIMWORLD_1_7
+        public static void Prefix(GUIContent __1, out bool __state)
+        {
+            // An unillustrated GUIContent label forwards its text to the string overload.
+            Patch_Widgets_Label_String.Prefix(__1?.text, out __state);
+        }
+
+        public static Exception Finalizer(Exception __exception, bool __state)
+        {
+            return Patch_Widgets_Label_String.Finalizer(__exception, __state);
+        }
+#else
         public static void Prefix(Rect position, GUIContent content)
         {
             if (CanObserve && content != null) UIInterceptor.ObserveDisplayedText(content.text);
         }
+#endif
     }
+#if RIMWORLD_1_7
+    [HarmonyPatch(typeof(GUI), nameof(GUI.Label), new[] { typeof(Rect), typeof(string), typeof(GUIStyle) })]
+    public static class Patch_GUI_Label_String
+    {
+        public static void Prefix(string __1, out bool __state)
+        {
+            Patch_Widgets_Label_String.Prefix(__1, out __state);
+        }
+
+        public static Exception Finalizer(Exception __exception, bool __state)
+        {
+            return Patch_Widgets_Label_String.Finalizer(__exception, __state);
+        }
+    }
+
+    [HarmonyPatch(typeof(GUI), "PublishTooltip", new[] { typeof(Rect), typeof(GUIContent) })]
+    public static class Patch_GUI_PublishTooltip
+    {
+        public static void Prefix(Rect __0, GUIContent __1)
+        {
+            // Waylith publishes a hovered label, button or box tooltip independently of its label text.
+            if (!Patch_GUI_Label_GUIContent.CaptureActive || string.IsNullOrEmpty(__1?.tooltip)) return;
+            Event current = Event.current;
+            if (current != null && current.type == EventType.Repaint && __0.Contains(current.mousePosition))
+                UIInterceptor.ObserveDisplayedText(__1.tooltip);
+        }
+    }
+#endif
     public static class Patch_LudeonTK_LogWindow_Bypass
     {
         public static void Prefix(out bool __state)
@@ -61,10 +102,11 @@ namespace AutoTranslator_Core
     {
         public static void Prefix(string __1, out bool __state)
         {
-            __state = Patch_GUI_Label_GUIContent.CanObserve;
-            if (!__state) return;
+            __state = false;
+            if (!Patch_GUI_Label_GUIContent.CanObserve) return;
             UIInterceptor.ObserveDisplayedText(__1);
             UIInterceptorPatchGuard.EnterNestedLabelCall();
+            __state = true;
         }
         public static Exception Finalizer(Exception __exception, bool __state)
         {
@@ -112,12 +154,18 @@ namespace AutoTranslator_Core
         private static readonly ConditionalWeakTable<Func<string>, Getter> Getters = new ConditionalWeakTable<Func<string>, Getter>();
         internal static Func<string> Wrap(Func<string> original)
         {
+            original = LegacyInterception.Patch_GUI_Label_GUIContent.UnwrapTranslatedTooltipGetter(original);
             if (original == null || original.Target is Getter) return original;
             return Getters.GetValue(original, getter => new Getter(getter)).Invoke;
+        }
+        internal static Func<string> Unwrap(Func<string> getter)
+        {
+            return getter?.Target is Getter wrapped ? wrapped.Original : getter;
         }
         private sealed class Getter
         {
             private readonly Func<string> _original;
+            internal Func<string> Original => _original;
             internal Getter(Func<string> original) { _original = original; }
             internal string Invoke()
             {

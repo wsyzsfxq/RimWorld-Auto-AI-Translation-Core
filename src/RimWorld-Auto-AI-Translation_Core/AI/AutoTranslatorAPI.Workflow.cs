@@ -36,17 +36,19 @@ namespace AutoTranslator_Core
             TranslationTaskTier taskTier = TranslationTaskTier.Bulk,
             Workflow.AI.ModelInvocationRequest invocation = null)
         {
-            ApiKeyConfig config = selectedConfiguration ?? GetNextWorkflowConfig(taskTier);
+            bool review = string.Equals(invocation?.RequestPurpose, "ai_review", StringComparison.Ordinal);
+            ApiKeyConfig config = selectedConfiguration ?? GetNextWorkflowConfig(taskTier, review);
             if (config == null) throw new InvalidOperationException(
                 taskTier == TranslationTaskTier.Bulk && AutoTranslatorMod.Settings?.ApiConfigs?.Any(IsConfigReady) == true
                     ? "大量翻译需要至少一个可用的 Bulk 配置；中量或小量配置不会替代大量翻译。"
-                    : DescribeUnavailableWorkflowConfigurations());
-            string configurationProblem = GetWorkflowConfigurationProblem(config);
+                    : DescribeUnavailableWorkflowConfigurations(review));
+            string configurationProblem = GetWorkflowConfigurationProblem(config, review);
             if (configurationProblem != null)
                 throw new InvalidOperationException(configurationProblem);
 
             string apiKey = CleanInput(config.Key);
-            string model = CleanInput(config.SelectedModel);
+            bool usePlayer2 = Player2LocalApi.IsEnabled(config);
+            string model = usePlayer2 ? Player2LocalApi.ClientSelectedModel : CleanInput(config.SelectedModel);
             int configuredOutputTokenLimit = Math.Max(1, config.AtcMaxOutputTokens);
             int? knownModelOutputTokenLimit = config.GetKnownOutputTokenLimit(model);
             int maximumOutputTokens = config.ResolveActualOutputTokenLimit(model);
@@ -99,17 +101,11 @@ namespace AutoTranslator_Core
                 StructuredTranslationMode structuredMode = StructuredTranslationProviderAdapter.ResolveMode(config);
                 if (structuredMode != StructuredTranslationMode.PromptOnly)
                     payload["response_format"] = new JObject { ["type"] = "json_object" };
-                if (config.Provider == TranslatorProvider.DeepSeek)
-                {
-                    // Workflow steps need the final JSON, not chain-of-thought. DeepSeek V4 enables
-                    // thinking by default; a small structured-output budget can otherwise be spent
-                    // entirely on reasoning and leave message.content empty.
-                    payload["thinking"] = new JObject { ["type"] = "disabled" };
-                    payload["max_tokens"] = Math.Max(1, maximumOutputTokens);
-                }
                 if (config.Provider == TranslatorProvider.OpenRouter)
                     payload["provider"] = new JObject { ["require_parameters"] = false };
             }
+            payload = PrepareProviderChatPayload(payload, config.Provider, usePlayer2);
+            payload = ApiThinkingPolicy.Prepare(payload, config, baseUrl, review);
 
             int timeoutSeconds = WorkflowRequestTimeout.Resolve(
                 AutoTranslatorMod.Settings != null ? AutoTranslatorMod.Settings.TimeoutSeconds : 120);
@@ -134,7 +130,8 @@ namespace AutoTranslator_Core
                         {
                             ATC_WebResponse attemptResponse = await SendJsonRequestAttemptAsync(
                                 url, payload.ToString(Newtonsoft.Json.Formatting.None), apiKey,
-                                config.Provider, timeoutSeconds, cancelled);
+                                config.Provider, timeoutSeconds, cancelled,
+                                config.Player2GameClientId, usePlayer2);
                             LogWorkflowTokenSample(prompt, payload, invocation, config, model,
                                 tokenSampleCallId, attempt, structuredAttempt + 1, "response", attemptResponse);
                             return attemptResponse;
@@ -384,42 +381,91 @@ namespace AutoTranslator_Core
                                     " Never return an empty response; emit the complete JSON object now.";
         }
 
-        private static string GetWorkflowConfigurationProblem(ApiKeyConfig config)
+        internal static string GetThinkingStatus(ApiKeyConfig config, bool review)
+        {
+            if (config == null) return string.Empty;
+            try { return ApiThinkingPolicy.GetStatus(config, GetBaseUrl(config), review); }
+            catch (InvalidOperationException)
+            {
+                return AutoTranslatorMod.WfText("请先填写有效接口地址", "Enter a valid API URL first");
+            }
+        }
+
+        internal static string GetWorkflowConfigurationProblem(ApiKeyConfig config, bool review = false)
         {
             if (config == null) return AutoTranslatorMod.WfText("配置不存在", "Configuration is missing");
             if (!config.Enabled) return AutoTranslatorMod.WfText("配置未启用", "Configuration is disabled");
             if (config.Provider == TranslatorProvider.DeepL)
                 return AutoTranslatorMod.WfText("DeepL 不支持工作流 JSON 模型调用", "DeepL does not support workflow JSON model requests");
+            if (Player2LocalApi.IsEnabled(config))
+                return Player2LocalApi.GetConfigurationProblem(config);
             if (string.IsNullOrEmpty(CleanInput(config.Key)))
-                return AutoTranslatorMod.WfText("API Key 清理空白和无效字符后为空", "API key is empty after input normalization");
+                return AutoTranslatorMod.WfText("请填写 API Key", "Enter an API key");
             if (string.IsNullOrEmpty(CleanInput(config.SelectedModel)))
-                return AutoTranslatorMod.WfText("模型名称清理空白和无效字符后为空", "Model name is empty after input normalization");
-            return null;
+                return AutoTranslatorMod.WfText("请选择或填写模型名称", "Select or enter a model name");
+            string customUrl = CleanInput(config.CustomBaseUrl);
+            if (!string.IsNullOrEmpty(customUrl))
+            {
+                if (!customUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+                    !customUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                    customUrl = "http://" + customUrl;
+                if (!Uri.TryCreate(customUrl, UriKind.Absolute, out Uri parsedUrl) ||
+                    (parsedUrl.Scheme != Uri.UriSchemeHttp && parsedUrl.Scheme != Uri.UriSchemeHttps))
+                    return AutoTranslatorMod.WfText("接口地址无效", "The API URL is invalid");
+            }
+            if (config.Provider == TranslatorProvider.MiMo &&
+                config.StructuredOutput == StructuredOutputPreference.JsonSchema)
+                return AutoTranslatorMod.WfText(
+                    "MiMo 的聊天接口未提供 JSON Schema 模式，请将结构化输出改为自动或 JSON 对象。",
+                    "MiMo's chat API does not offer JSON Schema mode. Select Auto or JSON object output.");
+            return ApiThinkingPolicy.GetUnsupportedReason(config, GetBaseUrl(config), review);
         }
 
-        private static string DescribeUnavailableWorkflowConfigurations()
+        private static string DescribeUnavailableWorkflowConfigurations(bool review = false)
         {
             List<ApiKeyConfig> configs = AutoTranslatorMod.Settings?.ApiConfigs?.ToList() ?? new List<ApiKeyConfig>();
-            string summary = AutoTranslatorMod.WfText("没有可用于翻译或复核的 API 配置。", "No API configuration is available for translation or review.");
+            string summary = review
+                ? AutoTranslatorMod.WfText("未配置可用于复核的大模型。", "No model is configured for review.")
+                : AutoTranslatorMod.WfText("未配置可用于翻译的大模型。", "No model is configured for translation.");
             if (configs.Count == 0)
                 return summary + AutoTranslatorMod.WfText("请先在设置中添加接口。", " Add an API configuration in settings.");
             return summary + " " + string.Join("; ", configs.Select((item, index) =>
                 "API " + (index + 1) + ": " +
-                (GetWorkflowConfigurationProblem(item) ?? AutoTranslatorMod.WfText(
+                (GetWorkflowConfigurationProblem(item, review) ?? AutoTranslatorMod.WfText(
                     "配置已变化，请重新尝试", "Configuration changed; try again"))));
         }
 
-        private static ApiKeyConfig GetNextWorkflowConfig(TranslationTaskTier taskTier)
+        private static ApiKeyConfig GetNextWorkflowConfig(TranslationTaskTier taskTier, bool review)
         {
             if (AutoTranslatorMod.Settings?.ApiConfigs == null) return null;
             var ready = AutoTranslatorMod.Settings.ApiConfigs
-                .Where(IsConfigReady)
+                .Where(config => GetWorkflowConfigurationProblem(config, review) == null)
                 .ToList();
             var eligible = TranslationTaskTierRouter.SelectEligible(ready, taskTier);
             if (eligible.Count == 0) return null;
             if (eligible.Count == 1) return eligible[0];
             int index = System.Threading.Interlocked.Increment(ref currentKeyIndex);
             return eligible[(index & int.MaxValue) % eligible.Count];
+        }
+
+        internal static void EnsureWorkflowConfigurationAvailable(TranslationTaskTier taskTier, bool review = false)
+        {
+            var ready = AutoTranslatorMod.Settings?.ApiConfigs?.Where(
+                config => GetWorkflowConfigurationProblem(config, review) == null).ToList()
+                ?? new List<ApiKeyConfig>();
+            if (TranslationTaskTierRouter.SelectEligible(ready, taskTier).Count > 0) return;
+            throw new InvalidOperationException(
+                taskTier == TranslationTaskTier.Bulk && ready.Count > 0
+                    ? "请在“大模型配置”中启用一个可用于大量翻译的模型。任务尚未开始。"
+                    : DescribeUnavailableWorkflowConfigurations(review));
+        }
+
+        internal static bool HasUsableWorkflowConfiguration(TranslationTaskTier taskTier, bool review = false)
+        {
+            var ready = AutoTranslatorMod.Settings?.ApiConfigs?.Where(
+                config => GetWorkflowConfigurationProblem(config, review) == null).ToList()
+                ?? new List<ApiKeyConfig>();
+            return TranslationTaskTierRouter.SelectEligible(ready, taskTier).Count > 0;
         }
     }
 }

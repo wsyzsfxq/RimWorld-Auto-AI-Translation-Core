@@ -28,7 +28,11 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
 
     internal static class HardcodedUiIlDataflowAnalyzer
     {
+#if RIMWORLD_1_7
+        internal const int AnalyzerVersion = 8;
+#else
         internal const int AnalyzerVersion = 7;
+#endif
         internal const int StructureEngineVersion = 2;
         private const int MaximumSummaryIterations = 8;
         private const int ProgressStageCount = 5;
@@ -2031,7 +2035,11 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
 
         private static DefaultAssemblyResolver CreateResolver(string assemblyPath)
         {
+#if RIMWORLD_1_7
+            var resolver = new WaylithAssemblyResolver();
+#else
             var resolver = new DefaultAssemblyResolver();
+#endif
             var directories = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             string ownDirectory = Path.GetDirectoryName(Path.GetFullPath(assemblyPath));
             if (!string.IsNullOrWhiteSpace(ownDirectory)) directories.Add(ownDirectory);
@@ -2050,6 +2058,65 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
             foreach (string directory in directories) resolver.AddSearchDirectory(directory);
             return resolver;
         }
+
+#if RIMWORLD_1_7
+        private sealed class WaylithAssemblyResolver : DefaultAssemblyResolver
+        {
+            private readonly List<KeyValuePair<string, string>> redirects =
+                new List<KeyValuePair<string, string>>();
+
+            internal WaylithAssemblyResolver()
+            {
+                // Cecil reads files and does not inherit the CLR's assembly aliases.
+                // Use the running game's rules rather than copying old Unity DLLs.
+                string configured = AppContext.GetData("WaylithClr.AssemblyNameRedirects") as string;
+                if (string.IsNullOrWhiteSpace(configured))
+                {
+                    string configPath = Path.Combine(
+                        Path.GetDirectoryName(typeof(Verse.Mod).Assembly.Location), "RimWorld.runtimeconfig.json");
+                    if (File.Exists(configPath))
+                        configured = Newtonsoft.Json.Linq.JObject.Parse(File.ReadAllText(configPath))
+                            ["runtimeOptions"]?["configProperties"]?["WaylithClr.AssemblyNameRedirects"]?.ToString();
+                }
+                foreach (string rule in (configured ?? string.Empty).Split(';'))
+                {
+                    int separator = rule.IndexOf('=');
+                    if (separator <= 0) continue;
+                    redirects.Add(new KeyValuePair<string, string>(
+                        rule.Substring(0, separator).Trim(), rule.Substring(separator + 1).Trim()));
+                }
+            }
+
+            public override AssemblyDefinition Resolve(AssemblyNameReference name)
+            {
+                // Redirect before entering the default cache so all Unity aliases
+                // share one target assembly and one disposal owner.
+                return base.Resolve(Redirect(name));
+            }
+
+            public override AssemblyDefinition Resolve(AssemblyNameReference name, ReaderParameters parameters)
+            {
+                return base.Resolve(Redirect(name), parameters);
+            }
+
+            private AssemblyNameReference Redirect(AssemblyNameReference name)
+            {
+                if (name == null) return null;
+                foreach (var rule in redirects)
+                {
+                    bool matches = rule.Key.EndsWith("*", StringComparison.Ordinal)
+                        ? name.Name.StartsWith(rule.Key.Substring(0, rule.Key.Length - 1), StringComparison.Ordinal)
+                        : string.Equals(name.Name, rule.Key, StringComparison.Ordinal);
+                    if (!matches) continue;
+                    // An explicit empty target excludes this name from later wildcard rules.
+                    return string.IsNullOrEmpty(rule.Value) || rule.Value == name.Name
+                        ? name
+                        : new AssemblyNameReference(rule.Value, new Version(0, 0, 0, 0));
+                }
+                return name;
+            }
+        }
+#endif
 
         private static void AddFlag(HardcodedUiDecisionRecord record, string flag)
         {

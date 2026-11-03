@@ -233,7 +233,7 @@ namespace AutoTranslator_Core
 
         // 這個方法負責判斷 Is語言FolderMatch 條件是否成立。
         // EN: This method checks is language folder match.
-        private static bool IsLanguageFolderMatch(string folderName, string expectedFolder)
+        internal static bool IsLanguageFolderMatch(string folderName, string expectedFolder)
         {
             if (string.IsNullOrWhiteSpace(folderName) || string.IsNullOrWhiteSpace(expectedFolder)) return false;
 
@@ -307,7 +307,9 @@ namespace AutoTranslator_Core
         {
             get
             {
-#if RIMWORLD_1_5
+#if RIMWORLD_1_7
+                return "1.7";
+#elif RIMWORLD_1_5
                 return "1.5";
 #else
                 return "1.6";
@@ -319,7 +321,9 @@ namespace AutoTranslator_Core
         // EN: This method gets current load folder versions.
         private static string[] GetCurrentLoadFolderVersions()
         {
-#if RIMWORLD_1_5
+#if RIMWORLD_1_7
+            return new[] { "v1.7", "1.7" };
+#elif RIMWORLD_1_5
             return new[] { "v1.5", "1.5" };
 #else
             return new[] { "v1.6", "1.6" };

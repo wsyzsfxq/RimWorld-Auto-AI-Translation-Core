@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
+using System.Threading;
 using System.Threading.Tasks;
 using Verse;
 using static AutoTranslator_Core.DeleteTranslationWindow;
@@ -37,13 +38,16 @@ namespace AutoTranslator_Core
             string translationType,
             string sourceFolder,
             string adminToken,
-            string updateLog = "")
+            string updateLog = "",
+            CancellationToken cancellationToken = default(CancellationToken))
         {
             string preparedSourceFolder = sourceFolder;
             UploadTranslationResult result = new UploadTranslationResult();
             try
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 if (!System.IO.Directory.Exists(sourceFolder)) return result;
+                string uploaderId = await CloudClientIdentity.GetValueAsync();
                 AutoTranslatorScanner.UploadLabelValidationSummary provenanceSummary;
                 if (!AutoTranslatorScanner.TryPrepareUploadSourceFolder(sourceFolder, packageId, language, translationType, out preparedSourceFolder, out provenanceSummary))
                 {
@@ -64,6 +68,7 @@ namespace AutoTranslator_Core
 
                 foreach (string file in AutoTranslatorScanner.GetXmlFilesForTranslationCache(preparedSourceFolder, System.IO.SearchOption.AllDirectories))
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     if (!AutoTranslatorScanner.ShouldIncludeUploadFile(preparedSourceFolder, file, packageId)) continue;
                     string fileName = System.IO.Path.GetFileName(file).ToLower();
                     bool shouldPack = isWorkspace;
@@ -155,7 +160,7 @@ namespace AutoTranslator_Core
                     ModName = modName,
                     LatestVersion = RimWorld.VersionControl.CurrentVersionStringWithoutBuild,
                     ModLastUpdated = actualModUpdate.ToString("O"),
-                    UploaderID = UnityEngine.SystemInfo.deviceUniqueIdentifier,
+                    UploaderID = uploaderId,
                     Author = author,
                     TranslationType = translationType,
                     TranslationSourceKind = GetCloudTranslationSourceKind(translationType),
@@ -178,6 +183,7 @@ namespace AutoTranslator_Core
 
                 for (int attempt = 0; attempt <= maxRetries; attempt++)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     if (attempt >= 3 && CloudApiBaseUrl == PrimaryApiBaseUrl)
                     {
                         CloudApiBaseUrl = BackupApiBaseUrl;
@@ -187,11 +193,24 @@ namespace AutoTranslator_Core
                     try
                     {
                         var tcs = new TaskCompletionSource<bool>();
+                        UnityEngine.Networking.UnityWebRequest activeRequest = null;
+                        using (cancellationToken.Register(() =>
+                        {
+                            tcs.TrySetCanceled();
+                            ATC_Dispatcher.RunOnMainThread(() =>
+                            {
+                                try { activeRequest?.Abort(); }
+                                catch (ObjectDisposedException) { }
+                            });
+                        }))
+                        {
                         ATC_Dispatcher.RunOnMainThread(() =>
                         {
                             try
                             {
+                                cancellationToken.ThrowIfCancellationRequested();
                                 var request = new UnityEngine.Networking.UnityWebRequest($"{CloudApiBaseUrl}/upload", "POST");
+                                activeRequest = request;
                                 request.uploadHandler = new UnityEngine.Networking.UploadHandlerRaw(payloadBytes);
                                 request.downloadHandler = new UnityEngine.Networking.DownloadHandlerBuffer();
                                 request.SetRequestHeader("Content-Type", "application/json");
@@ -220,7 +239,9 @@ namespace AutoTranslator_Core
                             result.Success = true;
                             return result;
                         }
+                        }
                     }
+                    catch (OperationCanceledException) { throw; }
                     catch (Exception ex)
                     {
                         if (attempt == maxRetries)
@@ -229,11 +250,12 @@ namespace AutoTranslator_Core
                         }
                     }
                     int delay = (int)Math.Pow(2, attempt + 1) * 1000 + new System.Random().Next(100, 500);
-                    await Task.Delay(delay);
+                    await Task.Delay(delay, cancellationToken);
                 }
 
                 return result;
             }
+            catch (OperationCanceledException) { throw; }
             catch (Exception ex)
             {
                 LogCloudTranslatedError("ATC_Cloud_UploadFailed", ex.Message); return result;

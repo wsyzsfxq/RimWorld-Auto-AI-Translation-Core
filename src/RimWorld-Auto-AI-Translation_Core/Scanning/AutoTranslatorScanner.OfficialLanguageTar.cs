@@ -19,7 +19,8 @@ namespace AutoTranslator_Core
             "ludeon.rimworld.anomaly",
             "ludeon.rimworld.odyssey",
             "auto.aitranslation.core",
-            "aitranslation.pack"
+            "aitranslation.pack",
+            "brrainz.harmony"
         };
 
         private const string OfficialTarKeyedCategory = "Keyed";

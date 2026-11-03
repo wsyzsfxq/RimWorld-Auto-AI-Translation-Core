@@ -4,8 +4,16 @@ using System.Threading.Tasks;
 
 namespace AutoTranslator_Core.Workflow.AI
 {
-    public sealed class AutoTranslatorApiModelTransport : ILanguageModelTransport
+    public sealed class AutoTranslatorApiModelTransport : ILanguageModelTransport, ILanguageModelConfigurationValidator
     {
+        public void EnsureConfigured(TranslationTaskTier taskTier)
+        {
+            // Standard is used by the review step at this gateway; its automatic
+            // thinking policy must be supported before any review batches start.
+            AutoTranslatorAPI.EnsureWorkflowConfigurationAvailable(
+                taskTier, review: taskTier == TranslationTaskTier.Standard);
+        }
+
         public async Task<ModelInvocationResult> InvokeAsync(
             ModelInvocationRequest request,
             CancellationToken cancellationToken)

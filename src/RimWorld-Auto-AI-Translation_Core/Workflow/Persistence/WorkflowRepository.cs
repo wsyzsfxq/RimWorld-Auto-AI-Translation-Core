@@ -521,7 +521,7 @@ namespace AutoTranslator_Core.Workflow.Persistence
         }
 
         public List<string> GetModsMissingAnyCompletedLocalAnalysis(
-            ICollection<string> modIdentities)
+            ICollection<string> modIdentities, bool includeDll = true)
         {
             List<string> result = new List<string>();
             if (modIdentities == null || modIdentities.Count == 0) return result;
@@ -536,12 +536,14 @@ namespace AutoTranslator_Core.Workflow.Persistence
                         SELECT 1 FROM AnalysisRuns runs
                         INNER JOIN Mods ON Mods.mod_identity=runs.mod_identity
                         WHERE runs.mod_identity=selected.mod_identity
+                          AND (@include_dll=1 OR runs.source_domain=0)
                           AND runs.mod_version_fingerprint=Mods.version_fingerprint
                           AND runs.analyzer_version=CASE WHEN runs.source_domain=0
                               THEN @xml_version ELSE @dll_version END
                           AND runs.state=@completed AND " + CurrentAnalysisRunSql + @")
                     ORDER BY selected.mod_identity;";
                 Add(command, "@analysis_language", WorkflowRuntimeSettings.GetTargetLanguageFolder());
+                Add(command, "@include_dll", includeDll ? 1 : 0);
                 Add(command, "@completed", (int)WorkflowRunState.Completed);
                 Add(command, "@xml_version", WorkflowIdentity.XmlAnalyzerVersion);
                 Add(command, "@dll_version", WorkflowIdentity.DllAnalyzerVersion);
@@ -1043,7 +1045,8 @@ namespace AutoTranslator_Core.Workflow.Persistence
             bool requireTranslationNotCurrent,
             ICollection<string> candidateIds = null,
             bool requireTranslationReady = false,
-            bool requireAiReviewMissing = false)
+            bool requireAiReviewMissing = false,
+            ICollection<CandidateSourceDomain> excludedSourceDomains = null)
         {
             List<CandidateClassification> selected = (classifications ?? Array.Empty<CandidateClassification>())
                 .Distinct().ToList();
@@ -1079,7 +1082,7 @@ namespace AutoTranslator_Core.Workflow.Persistence
                         : string.Empty) +
                     (requireTranslationNotCurrent
                         ? " AND NOT " + GetTranslationCurrentSql()
-                        : string.Empty) + ";";
+                        : string.Empty) + ExcludeAnalysisDomainsSql(command, excludedSourceDomains) + ";";
                 AddAiPageCommonParameters(command, modIdentity, targetLanguage);
                 return Convert.ToInt64(command.ExecuteScalar());
             }
@@ -1093,7 +1096,8 @@ namespace AutoTranslator_Core.Workflow.Persistence
             AiCandidateCursor cursor,
             int pageSize,
             ICollection<string> candidateIds = null,
-            bool requireAiReviewMissing = false)
+            bool requireAiReviewMissing = false,
+            ICollection<CandidateSourceDomain> excludedSourceDomains = null)
         {
             AiCandidatePage page = new AiCandidatePage();
             List<CandidateClassification> selected = (classifications ?? Array.Empty<CandidateClassification>())
@@ -1148,6 +1152,7 @@ namespace AutoTranslator_Core.Workflow.Persistence
                     (requireTranslationNotCurrent
                         ? " AND " + GetTranslationReadySql() + " AND NOT " + GetTranslationCurrentSql()
                         : string.Empty) +
+                    ExcludeAnalysisDomainsSql(command, excludedSourceDomains) +
                     cursorWhere + @" ORDER BY Candidates.source_file_relative_path,
                         Candidates.source_line_number, Candidates.candidate_id LIMIT @limit;";
                 AddAiPageCommonParameters(command, modIdentity, targetLanguage);
@@ -1171,10 +1176,27 @@ namespace AutoTranslator_Core.Workflow.Persistence
             return page;
         }
 
+        private static string ExcludeAnalysisDomainsSql(
+            DbCommand command, ICollection<CandidateSourceDomain> domains)
+        {
+            if (domains == null || domains.Count == 0) return string.Empty;
+            List<string> parameters = new List<string>();
+            foreach (CandidateSourceDomain domain in domains.Distinct())
+            {
+                string parameter = "@excluded_domain_" + parameters.Count;
+                Add(command, parameter, (int)domain);
+                parameters.Add(parameter);
+            }
+            return " AND Candidates.source_domain NOT IN (" + string.Join(",", parameters) + ")";
+        }
+
         private static string GetEffectiveClassificationSql()
         {
             return @"CASE
                     WHEN ((Candidates.classification_flags >> 6) & 3)<>0 THEN ((Candidates.classification_flags >> 6) & 3)
+                    WHEN Candidates.source_domain=0 AND Candidates.xml_analyzer_version=@xml_version
+                         AND Candidates.xml_reason_code='official_declared_localization_key'
+                         AND (Candidates.classification_flags & 3)=2 THEN 2
                     WHEN ((Candidates.classification_flags >> 4) & 3)<>0
                         THEN ((Candidates.classification_flags >> 4) & 3)
                     WHEN ((Candidates.classification_flags >> 2) & 3)<>0
@@ -2233,6 +2255,7 @@ namespace AutoTranslator_Core.Workflow.Persistence
                 {
                     if (completion == null) continue;
                     string now = ToDbTime(DateTime.UtcNow);
+                    bool translationWritten;
                     using (DbCommand candidate = connection.CreateCommand())
                     {
                         candidate.Transaction = transaction;
@@ -2270,7 +2293,7 @@ namespace AutoTranslator_Core.Workflow.Persistence
                         Add(candidate, "@ai_batch_index", completion.AiBatchIndex);
                         Add(candidate, "@updated", now);
                         Add(candidate, "@id", completion.CandidateId);
-                        candidate.ExecuteNonQuery();
+                        translationWritten = candidate.ExecuteNonQuery() > 0;
                     }
                     if (completion.MarkManualClassification)
                     {
@@ -2291,7 +2314,8 @@ namespace AutoTranslator_Core.Workflow.Persistence
                             classification.ExecuteNonQuery();
                         }
                     }
-                    RestoreReuseProvenance(connection, transaction, completion);
+                    if (translationWritten)
+                        RestoreReuseProvenance(connection, transaction, completion);
                     using (DbCommand operation = connection.CreateCommand())
                     {
                         operation.Transaction = transaction;
@@ -2635,7 +2659,8 @@ namespace AutoTranslator_Core.Workflow.Persistence
             ICollection<TranslationFileCacheRecord> fileCache,
             Func<long, string> resultJsonFactory,
             Action<int, int, string> progress = null,
-            CancellationToken cancellationToken = default(CancellationToken))
+            CancellationToken cancellationToken = default(CancellationToken),
+            bool restoredFilesAreAuthoritative = false)
         {
             targetLanguage = targetLanguage ?? string.Empty;
             string now = ToDbTime(DateTime.UtcNow);
@@ -2663,7 +2688,9 @@ namespace AutoTranslator_Core.Workflow.Persistence
                                  managed_output_file, managed_output_key, error_text, validation_status,
                                  last_sync_status, last_sync_error, last_synced_utc, updated_utc)
                                 SELECT candidate_id, @target, @failed, @origin, @text, @hash,
-                                       source_text_hash, @path, @key, @sync_error, 'Invalid',
+                                       CASE WHEN @restore_authority=1 AND @restore_source_hash<>''
+                                            THEN @restore_source_hash ELSE source_text_hash END,
+                                       @path, @key, @sync_error, 'Invalid',
                                        'Invalid', @sync_error, @updated, @updated
                                 FROM Candidates WHERE candidate_id=@id
                                 ON CONFLICT(candidate_id, target_language) DO UPDATE SET
@@ -2680,6 +2707,8 @@ namespace AutoTranslator_Core.Workflow.Persistence
                                 last_synced_utc=excluded.last_synced_utc, updated_utc=excluded.updated_utc;";
                             Add(command, "@failed", (int)CandidateTranslationState.Failed);
                             Add(command, "@origin", (int)mutation.Origin);
+                            Add(command, "@restore_authority", restoredFilesAreAuthoritative ? 1 : 0);
+                            Add(command, "@restore_source_hash", mutation.RestoredSourceHash ?? string.Empty);
                             Add(command, "@text", mutation.Text ?? string.Empty);
                             Add(command, "@hash", WorkflowIdentity.HashText(mutation.Text));
                             Add(command, "@path", mutation.RelativePath ?? string.Empty);
@@ -2723,10 +2752,12 @@ namespace AutoTranslator_Core.Workflow.Persistence
                             command.CommandText = @"INSERT INTO TranslationResults
                                 (candidate_id, target_language, translation_state, translation_origin,
                                  translation_text, translation_hash, source_text_hash_at_translation,
-                                 managed_output_file, managed_output_key, error_text, validation_status,
+                                 source_package_id, source_file_relative_path, source_entry_key,
+                                 ai_provider, managed_output_file, managed_output_key, error_text, validation_status,
                                  last_sync_status, last_sync_error, last_synced_utc, updated_utc)
                                 SELECT candidate_id, @target, @state, @origin, @text, @hash,
-                                       source_text_hash, @path, @key, '', 'Valid', 'Synced', '', @updated, @updated
+                                       source_text_hash, @restore_package, @restore_source_file, @restore_source_key,
+                                       @restore_ai_provider, @path, @key, '', 'Valid', 'Synced', '', @updated, @updated
                                 FROM Candidates WHERE candidate_id=@id
                                 ON CONFLICT(candidate_id, target_language) DO UPDATE SET
                                 translation_state=excluded.translation_state,
@@ -2734,12 +2765,25 @@ namespace AutoTranslator_Core.Workflow.Persistence
                                 translation_text=excluded.translation_text,
                                 translation_hash=excluded.translation_hash,
                                 source_text_hash_at_translation=excluded.source_text_hash_at_translation,
+                                source_package_id=CASE WHEN @restore_authority=1 THEN excluded.source_package_id ELSE TranslationResults.source_package_id END,
+                                source_file_relative_path=CASE WHEN @restore_authority=1 THEN excluded.source_file_relative_path ELSE TranslationResults.source_file_relative_path END,
+                                source_entry_key=CASE WHEN @restore_authority=1 THEN excluded.source_entry_key ELSE TranslationResults.source_entry_key END,
+                                ai_provider=CASE WHEN @restore_authority=1 THEN @restore_ai_provider ELSE TranslationResults.ai_provider END,
+                                ai_model=CASE WHEN @restore_authority=1 THEN '' ELSE TranslationResults.ai_model END,
+                                ai_prompt_version=CASE WHEN @restore_authority=1 THEN '' ELSE TranslationResults.ai_prompt_version END,
+                                ai_run_id=CASE WHEN @restore_authority=1 THEN '' ELSE TranslationResults.ai_run_id END,
+                                ai_batch_index=CASE WHEN @restore_authority=1 THEN 0 ELSE TranslationResults.ai_batch_index END,
                                 managed_output_file=excluded.managed_output_file,
                                 managed_output_key=excluded.managed_output_key,
                                 validation_status='Valid', last_sync_status='Synced', last_sync_error='',
                                 last_synced_utc=excluded.last_synced_utc,
                                 error_text='', updated_utc=excluded.updated_utc
-                                WHERE excluded.translation_origin >= TranslationResults.translation_origin;";
+                                WHERE @restore_authority=1 OR excluded.translation_origin >= TranslationResults.translation_origin;";
+                            Add(command, "@restore_authority", restoredFilesAreAuthoritative ? 1 : 0);
+                            Add(command, "@restore_package", mutation.RestoredOrigin?.SourcePackage ?? string.Empty);
+                            Add(command, "@restore_source_file", mutation.RestoredOrigin?.SourceFile ?? string.Empty);
+                            Add(command, "@restore_source_key", mutation.RestoredOrigin?.SourceKey ?? string.Empty);
+                            Add(command, "@restore_ai_provider", mutation.RestoredOrigin?.AiProvider ?? string.Empty);
                             Add(command, "@state", (int)CandidateTranslationState.Translated);
                             Add(command, "@origin", (int)mutation.Origin);
                             Add(command, "@text", mutation.Text ?? string.Empty);
@@ -2751,6 +2795,24 @@ namespace AutoTranslator_Core.Workflow.Persistence
                         Add(command, "@id", mutation.CandidateId);
                         Add(command, "@target", targetLanguage);
                         command.ExecuteNonQuery();
+                        if (restoredFilesAreAuthoritative &&
+                            (mutation.Kind == TranslationSynchronizationMutationKind.Invalid ||
+                             mutation.Kind == TranslationSynchronizationMutationKind.Clear))
+                        {
+                            // No previous record's origin details may survive a different
+                            // or rejected restored value merely because its row existed.
+                            using (DbCommand clearOrigin = connection.CreateCommand())
+                            {
+                                clearOrigin.Transaction = transaction;
+                                clearOrigin.CommandText = @"UPDATE TranslationResults SET
+                                    source_package_id='',source_file_relative_path='',source_entry_key='',
+                                    ai_provider='',ai_model='',ai_prompt_version='',ai_run_id='',ai_batch_index=0
+                                    WHERE candidate_id=@id AND target_language=@target;";
+                                Add(clearOrigin, "@id", mutation.CandidateId);
+                                Add(clearOrigin, "@target", targetLanguage);
+                                clearOrigin.ExecuteNonQuery();
+                            }
+                        }
                     }
                     completedUnits++;
                     if (completedUnits % 250 == 0 || completedUnits == mutationCount)
