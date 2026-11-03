@@ -22,7 +22,8 @@ namespace AutoTranslator_Core
         public static string GetModelFetchFingerprint(ApiKeyConfig config)
         {
             if (config == null) return "";
-            return $"{config.Provider}|{CleanInput(config.CustomBaseUrl)}|{CleanInput(config.Key)}";
+            return $"{config.Provider}|{CleanInput(config.CustomBaseUrl)}|{CleanInput(config.Key)}|" +
+                   $"{config.UsePlayer2Protocol}|{(config.Player2GameClientId ?? string.Empty).Trim()}";
         }
 
         // 這個方法負責處理 自動取得For設定 相關流程。
@@ -67,6 +68,7 @@ namespace AutoTranslator_Core
         {
             if (config == null) return false;
             if (!config.Enabled || config.IsFetching || AutoTranslatorSettings.IsRunning) return false;
+            if (Player2LocalApi.IsEnabled(config)) return false;
 
             string fetchFingerprint = GetModelFetchFingerprint(config);
             return fetchFingerprint != config.lastFetchedKey &&
@@ -79,7 +81,8 @@ namespace AutoTranslator_Core
         private static bool HasModelFetchCredential(ApiKeyConfig config)
         {
             if (config == null) return false;
-            if (CleanInput(config.Key).Length > 10) return true;
+            if (Player2LocalApi.IsEnabled(config)) return Player2LocalApi.GetConfigurationProblem(config) == null;
+            if (!string.IsNullOrEmpty(CleanInput(config.Key))) return true;
 
             return config.Provider == TranslatorProvider.Custom_OpenAI &&
                    !string.IsNullOrWhiteSpace(config.CustomBaseUrl);
@@ -92,7 +95,16 @@ namespace AutoTranslator_Core
             if (config == null) return;
             if (!config.Enabled) return;
             if (config.IsFetching && !force) return;
+            if (Player2LocalApi.IsEnabled(config))
+            {
+                // The local client owns model selection; /models is not part of this protocol.
+                ResetModelFetchState(config, clearModels: true);
+                MarkModelFetchSuccess(config, GetModelFetchFingerprint(config));
+                return;
+            }
+#if !RIMWORLD_1_7
             ATC_Dispatcher.EnsureAlive();
+#endif
 
             if (force)
             {
@@ -106,6 +118,9 @@ namespace AutoTranslator_Core
             config.FetchStartedUtcTicks = DateTime.UtcNow.Ticks;
             config.PendingFetchFingerprint = fetchFingerprint;
             int fetchGeneration = ++config.FetchGeneration;
+            Func<bool> fetchCancelled = () => config.FetchGeneration != fetchGeneration ||
+                                               !config.IsFetching ||
+                                               GetModelFetchFingerprint(config) != fetchFingerprint;
             config.FetchedModels.Clear();
 
             if (config.Provider == TranslatorProvider.DeepL)
@@ -143,6 +158,7 @@ namespace AutoTranslator_Core
 
                 try
                 {
+                    if (fetchCancelled()) return;
                     string apiKey = CleanInput(config.Key);
                     string baseUrl = GetBaseUrl(config);
                     bool isGoogleRaw = config.Provider == TranslatorProvider.Google;
@@ -151,6 +167,13 @@ namespace AutoTranslator_Core
                     int maxRetries = 2;
                     for (int attempt = 0; attempt <= maxRetries; attempt++)
                     {
+                        if (fetchCancelled()) return;
+#if RIMWORLD_1_7
+                        var headers = ApiRequestHeaders.Build(config.Provider, apiKey);
+                        headers["Accept"] = "application/json";
+                        var resHolder = await NativeHttpTransport.SendAsync(
+                            url, "GET", null, headers, 15, fetchCancelled, false, true);
+#else
                         var tcs = new TaskCompletionSource<ATC_WebResponse>();
                         var dispatchStarted = new TaskCompletionSource<bool>();
 
@@ -158,7 +181,7 @@ namespace AutoTranslator_Core
                         {
                             try
                             {
-                                if (config.FetchGeneration != fetchGeneration || !config.IsFetching)
+                                if (fetchCancelled())
                                 {
                                     dispatchStarted.TrySetResult(false);
                                     return;
@@ -168,10 +191,8 @@ namespace AutoTranslator_Core
                                 request.timeout = 15;
                                 request.SetRequestHeader("Accept", "application/json");
 
-                                if (!isGoogleRaw && !string.IsNullOrEmpty(apiKey))
-                                {
-                                    request.SetRequestHeader("Authorization", $"Bearer {apiKey}");
-                                }
+                                foreach (var header in ApiRequestHeaders.Build(config.Provider, apiKey))
+                                    request.SetRequestHeader(header.Key, header.Value);
 
                                 var operation = request.SendWebRequest();
                                 dispatchStarted.TrySetResult(true);
@@ -218,7 +239,7 @@ namespace AutoTranslator_Core
                         // generation is explicitly cancelled/reset.
                         if (!await TranslationRequestSignalWaiter.WaitAsync(
                                 dispatchStarted.Task,
-                                () => config.FetchGeneration != fetchGeneration || !config.IsFetching))
+                                fetchCancelled))
                         {
                             return;
                         }
@@ -230,20 +251,25 @@ namespace AutoTranslator_Core
                         }
                         catch (Exception ex)
                         {
+                            if (fetchCancelled()) return;
                             AutoTranslatorSettings.AddErrorLog(TranslateText("ATC_Error_FetchModelsException", config.Provider.ToString(), ex.Message));
-                            ScheduleModelFetchRetry(config, fetchGeneration);
+                            ScheduleModelFetchRetry(config, fetchGeneration, fetchFingerprint);
                             break;
                         }
 
                         var resHolder = await tcs.Task;
-                        if (config.FetchGeneration != fetchGeneration) return;
+#endif
+                        if (fetchCancelled() || resHolder.FailureKind == TranslationRequestFailureKind.Cancelled)
+                            return;
 
                         if (resHolder.IsSuccess)
                         {
                             List<string> models = ParseModelList(resHolder.ResponseBody, isGoogleRaw);
+                            if (fetchCancelled()) return;
                             if (models.Count > 0)
                             {
                                 CaptureModelCapabilities(config, resHolder.ResponseBody, isGoogleRaw);
+                                ApiThinkingPolicy.RememberModelCapabilities(config, resHolder.ResponseBody);
                                 config.FetchedModels = models.OrderBy(x => x).ToList();
                                 if (string.IsNullOrEmpty(config.SelectedModel)) config.SelectedModel = config.FetchedModels[0];
                                 MarkModelFetchSuccess(config, fetchFingerprint);
@@ -253,7 +279,7 @@ namespace AutoTranslator_Core
                             }
 
                             AutoTranslatorSettings.AddErrorLog(TranslateText("ATC_Error_FetchModels_Unknown", config.Provider.ToString(), "200", "Empty model list"));
-                            ScheduleModelFetchRetry(config, fetchGeneration);
+                            ScheduleModelFetchRetry(config, fetchGeneration, fetchFingerprint);
                             break;
                         }
 
@@ -268,14 +294,15 @@ namespace AutoTranslator_Core
                         }
 
                         LogModelFetchError(config, resHolder);
-                        ScheduleModelFetchRetry(config, fetchGeneration);
+                        ScheduleModelFetchRetry(config, fetchGeneration, fetchFingerprint);
                         break;
                     }
                 }
                 catch (Exception e)
                 {
+                    if (fetchCancelled()) return;
                     AutoTranslatorSettings.AddErrorLog(TranslateText("ATC_Error_FetchModelsException", config.Provider.ToString(), e.Message));
-                    ScheduleModelFetchRetry(config, fetchGeneration);
+                    ScheduleModelFetchRetry(config, fetchGeneration, fetchFingerprint);
                 }
                 finally
                 {
@@ -312,6 +339,7 @@ namespace AutoTranslator_Core
         public static void ResetModelFetchState(ApiKeyConfig config, bool clearModels = false)
         {
             if (config == null) return;
+            ApiThinkingPolicy.ForgetModelCapabilities(config);
             config.IsFetching = false;
             config.FetchStartedUtcTicks = 0L;
             config.FetchGeneration++;
@@ -473,13 +501,13 @@ namespace AutoTranslator_Core
 
         // 這個方法負責處理 Schedule模型取得Retry 相關流程。
         // EN: This method handles schedule model fetch retry.
-        private static void ScheduleModelFetchRetry(ApiKeyConfig config, int fetchGeneration)
+        private static void ScheduleModelFetchRetry(ApiKeyConfig config, int fetchGeneration, string fetchFingerprint)
         {
             if (config == null) return;
-            if (config.FetchGeneration != fetchGeneration) return;
+            if (config.FetchGeneration != fetchGeneration || !config.IsFetching) return;
 
             string fingerprint = GetModelFetchFingerprint(config);
-            if (string.IsNullOrEmpty(fingerprint)) return;
+            if (string.IsNullOrEmpty(fingerprint) || fingerprint != fetchFingerprint) return;
 
             config.lastFetchedKey = "";
             config.PendingFetchFingerprint = fingerprint;

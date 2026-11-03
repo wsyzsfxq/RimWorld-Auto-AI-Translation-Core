@@ -43,6 +43,10 @@ namespace AutoTranslator_Core
         // 這個欄位保存 HasManual目標語言 的執行狀態或快取資料。
         // EN: This field stores has manual target language runtime state or cached data.
         public bool HasManualTargetLanguage = false;
+
+        // Read diagnostics only; these are not another copy of the preference.
+        internal bool TargetLanguageNodeWasLoaded { get; private set; }
+        internal bool ManualLanguageNodeWasLoaded { get; private set; }
         // 這個欄位保存 Only掃描Active模組 的執行狀態或快取資料。
         // EN: This field stores only scan active mods runtime state or cached data.
         public bool OnlyScanActiveMods = true;
@@ -68,8 +72,8 @@ namespace AutoTranslator_Core
         public int PolicyAgentMaxCallsPerMod = 20;
         public int PolicyAgentMaxRetriesPerRequest = 0;
         public bool EnableTranslationUsageBudget = true;
-        public long TranslationBudgetSourceCharactersPerRun = 900000L;
-        public long TranslationBudgetEstimatedTokensPerRun = 500000L;
+        public long TranslationBudgetSourceCharactersPerRun = 5000000L;
+        public long TranslationBudgetEstimatedTokensPerRun = (5000000L * 5L + 8L) / 9L;
         public List<ApiKeyConfig> ApiConfigs = new List<ApiKeyConfig>();
         // Settings chapters are collapsed by default and remember the user's choices.
         public bool SettingsGeneralExpanded = false;
@@ -168,7 +172,7 @@ namespace AutoTranslator_Core
             get
             {
                 return IsCancellationRequested &&
-                    (IsRunning || AutoTranslatorAPI.HasOutstandingTranslationWork);
+                    (IsRunning || AutoTranslatorAPI.HasOutstandingTranslationWork || UIInterceptionModeController.HasOutstandingWork);
             }
         }
 
@@ -185,8 +189,10 @@ namespace AutoTranslator_Core
                 cancellationGeneration = ++_pipelineCancellationGeneration;
                 IsCancellationRequested = true;
                 IsSkipCurrentRequested = false;
+                AutoTranslatorScanner.InvalidateEarlyStartupTranslations();
             }
             WorkflowTaskCoordinator.Instance.RequestCancellation();
+            UIInterceptionModeController.CancelPendingWork();
             AutoTranslatorAPI.AbortActiveTranslationRequests("Pipeline cancellation requested");
             if (needsStandaloneCompletionMonitor)
                 _ = MonitorStandaloneCancellationCompletionAsync(cancellationGeneration);
@@ -207,6 +213,7 @@ namespace AutoTranslator_Core
         private static async Task MonitorStandaloneCancellationCompletionAsync(
             int cancellationGeneration)
         {
+            await UIInterceptionModeController.WaitForWorkDrainAsync();
             await AutoTranslatorAPI.WaitForTranslationRequestDrainAsync();
             lock (PipelineStateLock)
             {
@@ -224,13 +231,15 @@ namespace AutoTranslator_Core
             bool stoppedByUser;
             while (true)
             {
+                if (IsCancellationRequested) await UIInterceptionModeController.WaitForWorkDrainAsync();
                 await AutoTranslatorAPI.WaitForTranslationRequestDrainAsync();
 
                 bool mustDrainAgain;
                 lock (PipelineStateLock)
                 {
                     stoppedByUser = IsCancellationRequested;
-                    mustDrainAgain = AutoTranslatorAPI.HasOutstandingTranslationWork;
+                    mustDrainAgain = AutoTranslatorAPI.HasOutstandingTranslationWork ||
+                        (IsCancellationRequested && UIInterceptionModeController.HasOutstandingWork);
                     if (!mustDrainAgain)
                     {
                         IsRunning = false;
@@ -246,6 +255,9 @@ namespace AutoTranslator_Core
         // 這個欄位保存 EnableUIInterceptor 的執行狀態或快取資料。
         // EN: This field stores enable UI interceptor runtime state or cached data.
         public bool EnableUIInterceptor = false;
+        // Keep both modes' enable preferences when switching between them.
+        public bool UseLegacyUIInterception = true;
+        public bool EnableLegacyUIInterceptor = true;
         // UI interception is a temporary discovery probe. 0 means no automatic shutdown.
         public int UIInterceptorAutoDisableMinutes = 5;
         // 這個欄位保存 EnableUINew翻譯 的執行狀態或快取資料。
@@ -335,7 +347,8 @@ namespace AutoTranslator_Core
         public bool AutoTranslateOnUpdate = false;
         // 這個欄位保存 TimeoutSeconds 的執行狀態或快取資料。
         // EN: This field stores timeout seconds runtime state or cached data.
-        public int TimeoutSeconds = 60;
+        public int TimeoutSeconds = 180;
+        public string ExtraTranslationInstructions = string.Empty;
 
         // 這個欄位保存 自動ClearOldOnUpdate 的執行狀態或快取資料。
         // EN: This field stores auto clear old on update runtime state or cached data.
@@ -475,6 +488,7 @@ namespace AutoTranslator_Core
         {
             SetPackageIdBlocked(UITranslationModBlacklist, packageId, blocked);
             UIInterceptor.ResetProbeCaches();
+            UIInterceptionModeController.RefreshLegacyRenderCache();
         }
 
         private static bool ContainsPackageId(List<string> packageIds, string packageId)
@@ -833,8 +847,14 @@ namespace AutoTranslator_Core
             base.ExposeData();
             if (Scribe.mode == LoadSaveMode.Saving)
                 EnableDevelopmentDebugLogging = LogLevel == AtcLogLevel.Debug;
-            Scribe_Values.Look(ref TargetLang, "TargetLang", TargetLanguage.Traditional);
-            Scribe_Values.Look(ref HasManualTargetLanguage, "HasManualTargetLanguage", false);
+            if (Scribe.mode == LoadSaveMode.LoadingVars)
+            {
+                TargetLanguageNodeWasLoaded = Scribe.loader.curXmlParent?["TargetLang"] != null;
+                ManualLanguageNodeWasLoaded = Scribe.loader.curXmlParent?["HasManualTargetLanguage"] != null;
+            }
+            // Always keep the chosen value explicit, including the historical default.
+            Scribe_Values.Look(ref TargetLang, "TargetLang", TargetLanguage.Traditional, true);
+            Scribe_Values.Look(ref HasManualTargetLanguage, "HasManualTargetLanguage", false, true);
             Scribe_Values.Look(ref SettingsGeneralExpanded, "SettingsGeneralExpanded", false);
             Scribe_Values.Look(ref SettingsAiExpanded, "SettingsAiExpanded", false);
             Scribe_Values.Look(ref SettingsPerformanceExpanded, "SettingsPerformanceExpanded", false);
@@ -842,6 +862,8 @@ namespace AutoTranslator_Core
             Scribe_Values.Look(ref SettingsMaintenanceExpanded, "SettingsMaintenanceExpanded", false);
             Scribe_Values.Look(ref OnlyScanActiveMods, "OnlyScanActiveMods", true);
             Scribe_Values.Look(ref EnableUIInterceptor, "EnableUIInterceptor", false);
+            Scribe_Values.Look(ref UseLegacyUIInterception, "UseLegacyUIInterception", true);
+            Scribe_Values.Look(ref EnableLegacyUIInterceptor, "EnableLegacyUIInterceptor", true);
             Scribe_Values.Look(ref UIInterceptorAutoDisableMinutes, "UIInterceptorAutoDisableMinutes", 5);
             if (UIInterceptorAutoDisableMinutes < 0) UIInterceptorAutoDisableMinutes = 5;
             else if (UIInterceptorAutoDisableMinutes == 1) UIInterceptorAutoDisableMinutes = 2;
@@ -906,7 +928,7 @@ namespace AutoTranslator_Core
             Scribe_Values.Look(
                 ref TranslationBudgetSourceCharactersPerRun,
                 "TranslationBudgetSourceCharactersPerRun",
-                900000L);
+                5000000L);
             TranslationBudgetSourceCharactersPerRun = Math.Min(
                 100000000L,
                 Math.Max(1000L, TranslationBudgetSourceCharactersPerRun));
@@ -940,13 +962,15 @@ namespace AutoTranslator_Core
             Scribe_Values.Look(ref CloudBatchDownloadConcurrency, "CloudBatchDownloadConcurrency", 3);
             CloudBatchDownloadConcurrency = Math.Max(1, Math.Min(4, CloudBatchDownloadConcurrency));
 
-            Scribe_Values.Look(ref TimeoutSeconds, "TimeoutSeconds", 60);
+            Scribe_Values.Look(ref TimeoutSeconds, "TimeoutSeconds", 180);
+            Scribe_Values.Look(ref ExtraTranslationInstructions, "ExtraTranslationInstructions", string.Empty);
+            ExtraTranslationInstructions = TranslationPreferences.Normalize(ExtraTranslationInstructions);
 
             Scribe_Values.Look(ref CloudNickname, "CloudNickname", "野生大佬");
             Scribe_Values.Look(ref CloudAdminToken, "CloudAdminToken", "");
             Scribe_Values.Look(ref CloudUploadType, "CloudUploadType", "AI_Auto");
             Scribe_Values.Look(ref CloudBatchUploadLog, "CloudBatchUploadLog", "");
-            Scribe_Values.Look(ref CloudTargetLang, "CloudTargetLang", TargetLanguage.Traditional);
+            Scribe_Values.Look(ref CloudTargetLang, "CloudTargetLang", TargetLanguage.Traditional, true);
 
             Scribe_Values.Look(ref HasAcceptedExportEula, "HasAcceptedExportEula", false);
             Scribe_Values.Look(ref EulaAcceptedTimestamp, "EulaAcceptedTimestamp", "");

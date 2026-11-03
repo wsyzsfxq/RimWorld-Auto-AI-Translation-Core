@@ -29,12 +29,17 @@ namespace AutoTranslator_Core
                 return;
             }
 
+            string uploaderId;
+            if (!CloudClientIdentity.TryGetValue(out uploaderId))
+            {
+                Messages.Message(AutoTranslatorMod.WfText("暂时无法读取或保存云端身份，请稍后重试。", "Cloud identity could not be loaded or saved. Please try again."), MessageTypeDefOf.RejectInput, false);
+                return;
+            }
             Messages.Message("ATC_Msg_UploadStart".Translate(_mod.Name), MessageTypeDefOf.NeutralEvent, false);
 
             string pkgId = _mod.PackageId; string mLang = _targetLangFolder; string mName = _modName;
             string modRootDir = _mod.RootDir != null ? _mod.RootDir.FullName : "";
             string latestVersion = RimWorld.VersionControl.CurrentVersionStringWithoutBuild;
-            string uploaderId = UnityEngine.SystemInfo.deviceUniqueIdentifier;
             string token = AutoTranslatorMod.Settings.CloudAdminToken;
             string uNick = AutoTranslatorMod.Settings.CloudNickname;
             string uType = AutoTranslatorMod.NormalizeCloudUploadType(_uploadType, !string.IsNullOrWhiteSpace(token));

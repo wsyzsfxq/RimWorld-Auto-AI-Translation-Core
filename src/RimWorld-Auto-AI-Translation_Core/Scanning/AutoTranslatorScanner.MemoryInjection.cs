@@ -56,6 +56,7 @@ namespace AutoTranslator_Core
 
         private class MemoryDropPayload
         {
+            public int PreparationGeneration;
             public bool KeyedOnly;
             public bool PackageScoped;
             public string PackageId;
@@ -95,6 +96,8 @@ namespace AutoTranslator_Core
             public int ClearedKeyed;
             public int ClearedDefs;
             public int RejectedDefs;
+            public int UnavailableDefs;
+            public string FirstUnavailableDef;
             public bool NeedsDataInjection;
             public bool PackageClearApplied;
             public int ApplySlices;
@@ -316,6 +319,7 @@ namespace AutoTranslator_Core
         private static void StartMemoryDropPreparationIfNeeded()
         {
             bool keyedOnly;
+            int generation;
             List<string> packageIds = null;
             Dictionary<string, Dictionary<string, HashSet<string>>> clearKeysByPackage = null;
             lock (_pendingInjectLock)
@@ -343,14 +347,10 @@ namespace AutoTranslator_Core
                 {
                     return;
                 }
+                if (Interlocked.CompareExchange(ref _memoryDropPrepareRunning, 1, 0) != 0) return;
+                generation = _memoryDropGeneration;
             }
 
-            if (Interlocked.CompareExchange(ref _memoryDropPrepareRunning, 1, 0) != 0)
-            {
-                return;
-            }
-
-            int generation = Volatile.Read(ref _memoryDropGeneration);
             Task.Run(() => PrepareMemoryDropPayloadWorker(keyedOnly, packageIds, clearKeysByPackage, generation));
         }
 
@@ -383,6 +383,7 @@ namespace AutoTranslator_Core
 
                     if (payload != null)
                     {
+                        payload.PreparationGeneration = generation;
                         _pendingMemoryDropPayload = payload;
                         if (payload.KeyedOnly)
                         {
@@ -433,7 +434,11 @@ namespace AutoTranslator_Core
             }
             catch (Exception ex)
             {
-                lock (_pendingInjectLock) _memoryDropCycleSucceeded = false;
+                lock (_pendingInjectLock)
+                {
+                    if (generation != _memoryDropGeneration) return;
+                    _memoryDropCycleSucceeded = false;
+                }
                 AutoTranslatorSettings.AddErrorLog("❌ " + AutoTranslatorAPI.TranslateText("ATC_LogError_MemoryDropFailed", ex.Message));
                 Log.Error($"[AutoTranslationCore] Memory Drop preparation failed: {ex.Message}");
             }
@@ -448,6 +453,7 @@ namespace AutoTranslator_Core
 
         internal static void PumpMainThreadDispatcher()
         {
+            BindRuntimeTranslationLanguage(LanguageDatabase.activeLanguage);
             TargetedHardcodedUi.HardcodedUiTargetedPatchManager.PumpReload();
             int currentFrame = UnityEngine.Time.frameCount;
             if (_activeMemoryDropApply != null && _lastMemoryDropApplyFrame != currentFrame)
@@ -492,12 +498,14 @@ namespace AutoTranslator_Core
             return BuildMemoryDropPayload(keyedOnly, packageIds, null);
         }
 
-        private static MemoryDropPayload BuildMemoryDropPayload(bool keyedOnly, List<string> packageIds, Dictionary<string, Dictionary<string, HashSet<string>>> clearKeysByPackage)
+        private static MemoryDropPayload BuildMemoryDropPayload(bool keyedOnly, List<string> packageIds,
+            Dictionary<string, Dictionary<string, HashSet<string>>> clearKeysByPackage,
+            string packPath = null, string targetFolder = null, TranslationFileOrderSnapshot startupOrder = null)
         {
-            if (AutoTranslatorMod.Settings == null) return null;
+            if (startupOrder == null && AutoTranslatorMod.Settings == null) return null;
 
-            string packPath = GetLocalPackPath();
-            string targetFolder = GetFolderNameByLanguage(AutoTranslatorMod.Settings.TargetLang);
+            packPath = packPath ?? GetLocalPackPath();
+            targetFolder = targetFolder ?? GetFolderNameByLanguage(AutoTranslatorMod.Settings.TargetLang);
             string langRoot = Path.Combine(packPath, "Languages", targetFolder);
             if (!Directory.Exists(langRoot)) return null;
 
@@ -517,7 +525,7 @@ namespace AutoTranslator_Core
                 return null;
             }
 
-            if (!packageScoped && !keyedOnly && IsFullMemoryDropStampCurrent(langRoot, targetFolder))
+            if (startupOrder == null && !packageScoped && !keyedOnly && IsFullMemoryDropStampCurrent(langRoot, targetFolder))
             {
                 Log.Message("[AutoTranslationCore] Memory Drop skipped: translation files unchanged since last full injection.");
                 return null;
@@ -533,7 +541,7 @@ namespace AutoTranslator_Core
                 KeyedPath = keyedPath,
                 ClearKeysByDefType = BuildMemoryDropClearKeys(packageIds, clearKeysByPackage),
                 Keyed = Directory.Exists(keyedPath)
-                    ? LoadXmlFilesToDictForMemoryDrop(keyedPath, cleanPackageIds)
+                    ? LoadXmlFilesToDictForMemoryDrop(keyedPath, cleanPackageIds, startupOrder)
                     : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
                 DefsByType = new List<MemoryDropDefTypePayload>(),
                 PreparedAtUtc = DateTime.UtcNow
@@ -545,7 +553,7 @@ namespace AutoTranslator_Core
                 foreach (var typeDir in Directory.GetDirectories(defPath))
                 {
                     string defTypeName = Path.GetFileName(typeDir);
-                    var defDict = LoadXmlFilesToDictForMemoryDrop(typeDir, cleanPackageIds);
+                    var defDict = LoadXmlFilesToDictForMemoryDrop(typeDir, cleanPackageIds, startupOrder);
                     if (defDict.Count == 0) continue;
 
                     payload.DefsByType.Add(new MemoryDropDefTypePayload
@@ -742,22 +750,20 @@ namespace AutoTranslator_Core
             return result;
         }
 
-        private static Dictionary<string, string> LoadXmlFilesToDictForMemoryDrop(string path, HashSet<string> cleanPackageIds)
+        private static Dictionary<string, string> LoadXmlFilesToDictForMemoryDrop(string path, HashSet<string> cleanPackageIds,
+            TranslationFileOrderSnapshot order)
         {
-            if (cleanPackageIds == null || cleanPackageIds.Count == 0)
-            {
-                return LoadXmlFilesToDict(path);
-            }
-
-            var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            bool filterPackages = cleanPackageIds != null && cleanPackageIds.Count > 0;
+            var dict = new Dictionary<string, string>(filterPackages ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
             if (!Directory.Exists(path)) return dict;
 
-            foreach (var file in GetXmlFilesCached(path, SearchOption.AllDirectories))
+            foreach (var file in GetXmlFilesCached(path, SearchOption.AllDirectories, order))
             {
-                string fileName = Path.GetFileNameWithoutExtension(file);
-                if (!cleanPackageIds.Any(cleanId => fileName.IndexOf(cleanId, StringComparison.OrdinalIgnoreCase) >= 0))
+                if (filterPackages)
                 {
-                    continue;
+                    string fileName = Path.GetFileNameWithoutExtension(file);
+                    if (!cleanPackageIds.Any(cleanId => fileName.IndexOf(cleanId, StringComparison.OrdinalIgnoreCase) >= 0))
+                        continue;
                 }
 
                 var fileDict = LoadXmlFileToDict(file);
@@ -777,7 +783,7 @@ namespace AutoTranslator_Core
 
         private static void BeginMemoryDropApply(MemoryDropPayload payload)
         {
-            if (payload == null) return;
+            if (payload == null || payload.PreparationGeneration != Volatile.Read(ref _memoryDropGeneration)) return;
             if (LanguageDatabase.activeLanguage == null || AutoTranslatorMod.Settings == null) return;
             // Preserve the language-loading prerequisite of the game's global
             // injection wrappers before creating any runtime replacement packages.
@@ -838,6 +844,8 @@ namespace AutoTranslator_Core
                 if (ContinuePackageClear(state, activeLang)) return;
                 if (ApplyKeyedBatch(state, activeLang)) return;
                 if (!state.Payload.KeyedOnly && ApplyDefBatch(state, activeLang)) return;
+                if (!state.Payload.KeyedOnly && !state.Payload.PackageScoped && ReferenceEquals(_earlyDefsToNormalize, activeLang))
+                    state.NeedsDataInjection = true;
                 if (!state.Payload.KeyedOnly && state.NeedsDataInjection && !state.FinalizationStarted)
                 {
                     state.FinalizationStarted = true;
@@ -1193,6 +1201,8 @@ namespace AutoTranslator_Core
                 return;
             }
 
+            InvalidateEarlyStartupTranslations();
+            BindRuntimeTranslationLanguage(LanguageDatabase.activeLanguage);
             Interlocked.Increment(ref _memoryDropGeneration);
             lock (_pendingInjectLock)
             {
@@ -1309,6 +1319,57 @@ namespace AutoTranslator_Core
             }
         }
 
+        private static LoadedLanguage _runtimeTranslationLanguage;
+
+        private static void BindRuntimeTranslationLanguage(LoadedLanguage language)
+        {
+            var oldApply = _activeMemoryDropApply;
+            if (oldApply != null && oldApply.Payload.PreparationGeneration != Volatile.Read(ref _memoryDropGeneration))
+            {
+                oldApply.ClearSteps?.Dispose();
+                oldApply.FinalizationSteps?.Dispose();
+                _activeMemoryDropApply = null;
+            }
+            if (ReferenceEquals(_runtimeTranslationLanguage, language)) return;
+            _runtimeTranslationLanguage = language;
+            _earlyDefsToNormalize = null;
+            RuntimeKeyedBaselines.Clear();
+            RuntimeInjectedKeyedKeys.Clear();
+            RuntimeDefBaselines.Clear();
+            RuntimeInjectedDefKeys.Clear();
+            ResetMemoryDropStamps();
+            lock (_staticTranslationRefreshLock)
+            {
+                _staticTranslationRefreshGeneration++;
+                _staticTranslationAssemblyScanQueue = null;
+                _staticTranslationRefreshQueue = null;
+                _staticTranslationTargetHints.Clear();
+                _staticTranslationSourceHints.Clear();
+                _staticTranslationTargetLookup.Clear();
+                _staticTranslationSourceLookup.Clear();
+            }
+        }
+
+        private static void DiscardMemoryDropForClearedPlayData()
+        {
+            List<TaskCompletionSource<bool>> oldWaiters;
+            lock (_pendingInjectLock)
+            {
+                Interlocked.Increment(ref _memoryDropGeneration);
+                _pendingMemoryDropPayload = null;
+                _pendingMemoryDrop = false;
+                _pendingKeyedMemoryDrop = false;
+                _pendingMemoryDropPackageIds.Clear();
+                _pendingMemoryDropClearKeysByPackage.Clear();
+                _pendingStaticCachedTranslationRefresh = false;
+                oldWaiters = new List<TaskCompletionSource<bool>>(_memoryDropCompletionWaiters);
+                _memoryDropCompletionWaiters.Clear();
+                _memoryDropCycleSucceeded = true;
+            }
+            ResetMemoryDropStamps();
+            foreach (var waiter in oldWaiters) waiter.TrySetResult(false);
+        }
+
         private static bool ApplyKeyedBatch(MemoryDropApplyState state, LoadedLanguage activeLang)
         {
             if (state == null || activeLang == null || state.KeyedEntries == null) return false;
@@ -1385,6 +1446,17 @@ namespace AutoTranslator_Core
                         continue;
                     }
 
+                    // Cloud/local packs may also contain optional or older Mod content.
+                    // Keep those translations on disk, but do not submit an absent Def
+                    // as a failed field injection in the currently loaded game.
+                    if (IsRuntimeDefTargetMissing(state.CurrentDefType, kvp.Key))
+                    {
+                        state.UnavailableDefs++;
+                        if (state.FirstUnavailableDef == null)
+                            state.FirstUnavailableDef = state.CurrentDefType.Name + "/" + kvp.Key;
+                        continue;
+                    }
+
                     DefInjectionPackage.DefInjection existing;
                     if (state.CurrentPackage.injections.TryGetValue(kvp.Key, out existing) && existing.injected &&
                         string.Equals(existing.injection, kvp.Value, StringComparison.Ordinal)) continue;
@@ -1411,6 +1483,26 @@ namespace AutoTranslator_Core
             }
 
             return state.DefTypeIndex < state.Payload.DefsByType.Count || state.CurrentDefEntries != null;
+        }
+
+        private static bool IsRuntimeDefTargetMissing(Type defType, string path)
+        {
+            // Match the game's own SetDefFieldAtPath lookup, including TKey aliases
+            // and renamed Defs. A malformed field path still goes to the injector.
+            if (TKeySystem.TryGetNormalizedPath(path, out string normalizedPath)) path = normalizedPath;
+            int separator = path == null ? -1 : path.IndexOf('.');
+            if (separator <= 0) return false;
+            string defName = BackCompatibility.BackCompatibleDefName(
+                defType, path.Substring(0, separator), true, null);
+            return GenDefDatabase.GetDefSilentFail(defType, defName, false) == null;
+        }
+
+        private static void ReportUnavailableRuntimeDefs(MemoryDropApplyState state)
+        {
+            if (state.UnavailableDefs == 0) return;
+            AutoTranslatorSettings.AddWarningLog(
+                "本次跳过 " + state.UnavailableDefs + " 条当前游戏没有对应内容的 Def 译文，文件已保留；首条：" +
+                state.FirstUnavailableDef);
         }
 
         private static void FinishMemoryDropApply(MemoryDropApplyState state, bool success)
@@ -1452,6 +1544,7 @@ namespace AutoTranslator_Core
                 {
                     Log.Warning($"[AutoTranslationCore] Blocked {state.RejectedDefs} unsafe DefInjected entries during memory injection.");
                 }
+                ReportUnavailableRuntimeDefs(state);
 
                 if (success && (state.InjectedKeyed > 0 || state.InjectedDefs > 0 || state.ClearedKeyed > 0 || state.ClearedDefs > 0))
                 {
@@ -1483,6 +1576,8 @@ namespace AutoTranslator_Core
                 }
                 else if (success && !state.Payload.KeyedOnly && !state.Payload.PackageScoped)
                 {
+                    if (state.FinalizationPhase >= 4 && ReferenceEquals(_earlyDefsToNormalize, state.Language))
+                        _earlyDefsToNormalize = null;
                     MarkFullMemoryDropStamp(state.Payload.LangRoot, state.Payload.TargetFolder);
                 }
             }
@@ -1499,6 +1594,7 @@ namespace AutoTranslator_Core
                         " ms；最终注入=" + state.FinalizeMs +
                         " ms；Keyed=" + state.InjectedKeyed +
                         "；Def=" + state.InjectedDefs +
+                        "；暂不适用 Def=" + state.UnavailableDefs +
                         "；成功=" + (success ? "是" : "否"));
                 }
 

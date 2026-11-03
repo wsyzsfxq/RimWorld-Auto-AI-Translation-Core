@@ -19,13 +19,13 @@ namespace AutoTranslator_Core
 
         static UIInterceptor()
         {
-            // Only install observation hooks. There are no legacy workers or model queues.
+            // Install hooks once. Each mode gates its own hooks; legacy workers start lazily.
             new Harmony("MingYang.AutoTranslation.UIInterceptor").PatchAll(typeof(UIInterceptor).Assembly);
         }
 
         internal static void ObserveDisplayedText(string text, MethodBase sourceMethod = null)
         {
-            if (AutoTranslatorMod.Settings?.EnableUIInterceptor != true ||
+            if (!UIInterceptionModeController.CaptureEnabled ||
                 string.IsNullOrWhiteSpace(text) ||
                 ShouldBypassUIPatchText(text) || HardcodedUiRuntime.IsAppliedTranslationText(text) ||
                 !HardcodedUiRuntimeObservationStore.ShouldInspectStack(text)) return;
@@ -47,16 +47,23 @@ namespace AutoTranslator_Core
             }
         }
 
+        internal static string ResolveDisplayedSourcePackage()
+        {
+            return ResolveSourceOwnerFromStack()?.PackageId;
+        }
+
         public static void PrepareForLanguageChange()
         {
+            UIInterceptionModeController.PrepareForLanguageChange();
             HardcodedUiRuntimeObservationStore.Flush();
             ResetProbeCaches();
         }
 
         public static void ReloadForLanguageChange()
         {
+            UIInterceptionModeController.ReloadForLanguageChange();
             ResetProbeCaches();
-            HardcodedUiRuntimeObservationStore.BeginSession();
+            if (UIInterceptionModeController.CaptureEnabled) HardcodedUiRuntimeObservationStore.BeginSession();
         }
 
         private static SourceOwnerResolution ResolveSourceOwnerFromStack()

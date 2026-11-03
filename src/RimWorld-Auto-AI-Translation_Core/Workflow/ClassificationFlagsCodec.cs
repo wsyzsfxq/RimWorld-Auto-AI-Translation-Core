@@ -52,6 +52,14 @@ namespace AutoTranslator_Core.Workflow
             return GetEffective(GetEffectiveFlags(candidate));
         }
 
+        public static bool IsOfficialKeyedLocalization(CandidateRecord candidate)
+        {
+            return candidate != null && candidate.SourceDomain == CandidateSourceDomain.Xml &&
+                string.Equals(candidate.XmlAnalyzerVersion, WorkflowIdentity.XmlAnalyzerVersion, StringComparison.Ordinal) &&
+                string.Equals(candidate.XmlReasonCode, WorkflowIdentity.OfficialKeyedReason, StringComparison.Ordinal) &&
+                Get(candidate.ClassificationFlags, ClassificationLayer.Xml) == CandidateClassification.NeedsTranslation;
+        }
+
         public static ClassificationLayer? GetEffectiveLayer(byte flags)
         {
             for (int layer = (int)ClassificationLayer.Manual; layer >= (int)ClassificationLayer.Xml; layer--)
@@ -83,6 +91,14 @@ namespace AutoTranslator_Core.Workflow
                 flags = Clear(flags, ClassificationLayer.Dll);
             if (!WorkflowIdentity.IsAiReviewCurrent(candidate))
                 flags = Clear(flags, ClassificationLayer.AiReview);
+            // Official Keyed declarations are direct localization evidence. Keep
+            // AI advice stored, but it cannot veto this narrow, current XML rule.
+            // The manual layer remains highest priority.
+            if (IsOfficialKeyedLocalization(candidate))
+            {
+                flags = Clear(flags, ClassificationLayer.AiReview);
+                flags = Clear(flags, ClassificationLayer.Dll);
+            }
             return flags;
         }
     }

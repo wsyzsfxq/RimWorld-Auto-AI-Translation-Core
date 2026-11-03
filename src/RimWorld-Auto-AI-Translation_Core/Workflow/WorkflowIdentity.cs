@@ -10,15 +10,20 @@ namespace AutoTranslator_Core.Workflow
     {
         public const string CandidateIdentitySchemaVersion = "atc-candidate-v1";
         // Small rule updates use decimal revisions within the released xml-3 series.
-        public const string XmlAnalyzerVersion = "xml-3.01";
+        public const string XmlAnalyzerVersion = "xml-3.02";
+        public const string OfficialKeyedReason = "official_declared_localization_key";
+#if RIMWORLD_1_7
+        public const string DllAnalyzerVersion = "dll-3.09-rw17";
+#else
         public const string DllAnalyzerVersion = "dll-3.08";
+#endif
         // One revision covers UI capture, source-Mod attribution and candidate classification.
         public const string UiObservationPipelineVersion = "ui-1.02";
         // AI review metadata is retained for diagnostics. A non-empty AI layer is
         // reusable until the user explicitly clears that mod's AI review results.
         public const string AiReviewVersion = "ai-review-4";
         public const string AiReviewPromptVersion = "ai-review-prompt-4.0";
-        public const string AiTranslationPromptVersion = "ai-translation-prompt-2.2";
+        public const string AiTranslationPromptVersion = "ai-translation-prompt-2.3";
         private const string CandidateIdPrefix = "atc1_";
 
         public static string CreateCandidateId(

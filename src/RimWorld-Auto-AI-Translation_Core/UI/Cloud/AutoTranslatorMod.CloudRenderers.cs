@@ -21,9 +21,8 @@ namespace AutoTranslator_Core
         private void DrawCloudToolbarAndSettings(Listing_Standard l, Rect viewRect)
         {
             Rect headerRow = l.GetRect(30f);
-            Widgets.Label(new Rect(headerRow.x, headerRow.y + 5f, 90f, 24f), WfText("目标语言", "Language"));
-            if (WorkflowUiStyle.Button(new Rect(headerRow.x + 90f, headerRow.y, 200f, 30f),
-                    "🌐 " + GetLangLabel(Settings.CloudTargetLang), WorkflowButtonStyle.Quiet))
+            if (WorkflowUiStyle.LabeledDropdown(new Rect(headerRow.x, headerRow.y, 290f, headerRow.height),
+                    WfText("目标语言", "Language"), GetLangLabel(Settings.CloudTargetLang), 90f))
             {
                 List<FloatMenuOption> options = new List<FloatMenuOption>();
                 foreach (TargetLanguage lang in Enum.GetValues(typeof(TargetLanguage)))
@@ -205,14 +204,13 @@ namespace AutoTranslator_Core
                 {
                     string packPath = AutoTranslatorScanner.GetLocalPackPath();
                     string workspaceRoot = System.IO.Path.Combine(packPath, "Upload_Workspace");
-                    System.IO.Directory.CreateDirectory(workspaceRoot);
-                    UnityEngine.Application.OpenURL("file://" + workspaceRoot);
+                    DesktopFileOpener.OpenFolder(workspaceRoot, createIfMissing: true);
                 }
                 if (WorkflowUiStyle.Button(new Rect(uploadButtons.x + 180f, uploadButtons.y, 190f, 30f),
-                        WfText("上传贡献工作区", "Upload workspace"), WorkflowButtonStyle.Primary))
+                        WfText("上传贡献工作区", "Upload workspace"), WorkflowButtonStyle.Primary, !AutoTranslatorSettings.IsRunning))
                     ExecuteBatchUpload(CloudBatchUploadSource.Workspace);
                 if (WorkflowUiStyle.Button(new Rect(uploadButtons.x + 380f, uploadButtons.y, 190f, 30f),
-                        WfText("上传当前本地译文", "Upload local pack"), WorkflowButtonStyle.Primary))
+                        WfText("上传当前本地译文", "Upload local pack"), WorkflowButtonStyle.Primary, !AutoTranslatorSettings.IsRunning))
                     ExecuteBatchUpload(CloudBatchUploadSource.LocalPack);
 
                 Rect typeRow = l.GetRect(30f);
@@ -262,7 +260,7 @@ namespace AutoTranslator_Core
 
                 Widgets.Label(l.GetRect(22f), "ATC_Cloud_BatchUploadLogLabel".Translate());
                 Rect batchLogRect = l.GetRect(54f);
-                Settings.CloudBatchUploadLog = Widgets.TextArea(batchLogRect, Settings.CloudBatchUploadLog ?? "");
+                Settings.CloudBatchUploadLog = WorkflowTextInput.Area(batchLogRect, Settings.CloudBatchUploadLog ?? "");
                 if (string.IsNullOrEmpty(Settings.CloudBatchUploadLog))
                 {
                     GUI.color = Color.gray;
@@ -626,8 +624,8 @@ namespace AutoTranslator_Core
 
                     string verLabel = $"v{cloudRecord.LatestVersion} ({currentLocType}){mergedTag}";
 
-                    if (WorkflowUiStyle.Button(verDropRect, verLabel,
-                            WorkflowButtonStyle.Quiet, true, GameFont.Tiny))
+                    if (WorkflowUiStyle.LabeledDropdown(verDropRect, WfText("版本", "Version"),
+                            "v" + cloudRecord.LatestVersion, 40f, font: GameFont.Tiny))
                     {
                         List<FloatMenuOption> verOptions = new List<FloatMenuOption>();
                         foreach (var v in allVersions)
@@ -645,7 +643,6 @@ namespace AutoTranslator_Core
                         }
                         Find.WindowStack.Add(new FloatMenu(verOptions));
                     }
-
                     if (Mouse.IsOver(verDropRect))
                     {
                         string yesStr = "ATC_Cloud_YesWithCount".Translate(cloudRecord.MergedAiCount);
@@ -657,7 +654,7 @@ namespace AutoTranslator_Core
                         string currentUploader = string.IsNullOrWhiteSpace(cloudRecord.Author)
                             ? WfText("未知", "Unknown")
                             : cloudRecord.Author.Trim();
-                        string tipStr = WfText("上传者：", "Uploader: ") + currentUploader + "\n" +
+                        string tipStr = verLabel + "\n" + WfText("上传者：", "Uploader: ") + currentUploader + "\n" +
                                         "ATC_Cloud_UploadDate".Translate(cloudRecord.LastUpdated.ToString("yyyy-MM-dd HH:mm")) + "\n" +
                                         "ATC_Cloud_TransType".Translate(currentLocType) + "\n" +
                                         "ATC_Cloud_IsSmartMerged".Translate(mergeStatus) + "\n" +
@@ -721,8 +718,7 @@ namespace AutoTranslator_Core
                 {
                     string packPath = AutoTranslatorScanner.GetLocalPackPath();
                     string workspaceDir = Path.Combine(packPath, "Upload_Workspace", mod.PackageId, targetLangFolder);
-                    Directory.CreateDirectory(workspaceDir);
-                    UnityEngine.Application.OpenURL("file://" + workspaceDir);
+                    DesktopFileOpener.OpenFolder(workspaceDir, createIfMissing: true);
                 }));
 
                 options.Add(new FloatMenuOption(WfText("贡献这个 Mod 的译文", "Contribute this mod"), () =>

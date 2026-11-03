@@ -14,6 +14,22 @@ using Verse;
 
 namespace AutoTranslator_Core.Workflow.Analysis
 {
+    internal sealed class ModDomainAnalysisException : Exception
+    {
+        internal ModDomainAnalysisException(string modIdentity, string displayName,
+            CandidateSourceDomain sourceDomain, Exception cause)
+            : base(displayName + " / " + sourceDomain + ": " + cause.Message, cause)
+        {
+            ModIdentity = modIdentity;
+            DisplayName = displayName;
+            SourceDomain = sourceDomain;
+        }
+
+        internal string ModIdentity { get; }
+        internal string DisplayName { get; }
+        internal CandidateSourceDomain SourceDomain { get; }
+    }
+
     public sealed class ModAnalysisTarget
     {
         public ModMetaData Mod { get; set; }
@@ -79,8 +95,8 @@ namespace AutoTranslator_Core.Workflow.Analysis
         {
             return WorkflowIdentity.CreateAnalysisFingerprint(
                 Version, target.Snapshot.VersionFingerprint,
-                "target-language-aware-policy+def-inheritance-v1+shared-known-text-v1+source-priority|language=" +
-                target.TargetLanguage);
+                "target-language-aware-policy+def-inheritance-v1+shared-known-text-v1+source-priority+official-keyed-v1|language=" +
+                target.TargetLanguage + "|official-catalog=" + OfficialKeyedCatalog.SourceFingerprint(target.Snapshot.PackageId));
         }
 
         public AnalyzerResult Analyze(
@@ -163,6 +179,7 @@ namespace AutoTranslator_Core.Workflow.Analysis
                     "XML · " + AutoTranslatorMod.WfText("文件 ", "file ") + processedFiles + "/" + sourceFiles.Count +
                     " · " + relative);
             }
+            SupplementOfficialKeyed(target, result, existingTranslations, targetLanguage, cancellationToken);
             result.Candidates = result.Candidates
                 .GroupBy(candidate => candidate.CandidateId, StringComparer.Ordinal)
                 // XmlSourceDirectories is ordered by language preference. Preserve
@@ -176,6 +193,62 @@ namespace AutoTranslator_Core.Workflow.Analysis
                 .ToList();
             reportProgress?.Invoke(1d, "XML · " + AutoTranslatorMod.WfText("完成", "complete"));
             return result;
+        }
+
+        private static void SupplementOfficialKeyed(ModAnalysisTarget target, AnalyzerResult result,
+            Dictionary<string, DetectedTranslationRecord> existingTranslations, TargetLanguage targetLanguage,
+            CancellationToken cancellationToken)
+        {
+            var byKey = result.Candidates.Where(candidate => candidate.EntryKind == "Keyed")
+                .GroupBy(candidate => candidate.TranslationEntryKey, StringComparer.Ordinal)
+                .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+            int added = 0;
+            foreach (OfficialKeyedCatalog.Entry entry in OfficialKeyedCatalog.ForPackage(target.Snapshot.PackageId))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!string.Equals(entry.PackageId, target.Snapshot.PackageId, StringComparison.OrdinalIgnoreCase)) continue;
+                if (!entry.Source.Any(char.IsLetter) || IsAlreadyInTargetLanguage(entry.Source, targetLanguage)) continue;
+                string locator = "key=" + entry.Key;
+                if (!byKey.TryGetValue(entry.Key, out CandidateRecord candidate))
+                {
+                    string relative = Relative(target, entry.File);
+                    candidate = new CandidateRecord
+                    {
+                        CandidateId = WorkflowIdentity.CreateCandidateId(target.Snapshot.ModIdentity,
+                            CandidateSourceDomain.Xml, "Keyed", locator),
+                        PackageId = target.Snapshot.PackageId, ModIdentity = target.Snapshot.ModIdentity,
+                        ModVersionFingerprint = target.Snapshot.VersionFingerprint,
+                        SnapshotId = target.Snapshot.SnapshotId, SourceDomain = CandidateSourceDomain.Xml,
+                        EntryKind = "Keyed", LogicalLocator = locator,
+                        DefaultOutputFileRelativePath = CreateDefaultOutputPath(target, TranslationPolicyBucket.Keyed, string.Empty),
+                        TranslationEntryKey = entry.Key, SourceFileRelativePath = relative,
+                        SourceLineNumber = entry.Line, SourceLineEnd = entry.Line, SourceText = entry.Source,
+                        SourceTextHash = WorkflowIdentity.HashText(entry.Source),
+                        ContentFingerprint = WorkflowIdentity.CreateContentFingerprint(entry.Source, relative + "\n" + locator),
+                        EstimatedTokens = ApproximateTokenEstimator.Estimate(entry.Source),
+                        XmlAnalyzerVersion = AnalyzerVersion, XmlAnalysisFingerprint = result.AnalysisFingerprint,
+                        UpdatedUtc = DateTime.UtcNow
+                    };
+                    result.Candidates.Add(candidate);
+                    byKey[entry.Key] = candidate;
+                    added++;
+                }
+                // Being declared in the game's Keyed catalog is direct evidence of
+                // localization intent, even for short labels without spaces.
+                if (!IsAlreadyInTargetLanguage(candidate.SourceText, targetLanguage))
+                    candidate.ClassificationFlags = ClassificationFlagsCodec.Set(
+                        candidate.ClassificationFlags, ClassificationLayer.Xml, CandidateClassification.NeedsTranslation);
+                var context = JsonConvert.DeserializeObject<XmlWorkflowCandidateContext>(candidate.ContextJson ?? "{}")
+                    ?? new XmlWorkflowCandidateContext();
+                context.CollectionReasonCode = "official_keyed_catalog";
+                context.PolicyReasonCode = "official_declared_localization_key";
+                candidate.ContextJson = JsonConvert.SerializeObject(context);
+                candidate.XmlReasonCode = "official_declared_localization_key";
+                string lookup = CreateTranslationLookupKey(TranslationPolicyBucket.Keyed, string.Empty, entry.Key);
+                if (existingTranslations.TryGetValue(lookup, out DetectedTranslationRecord detected))
+                    result.DetectedTranslations.Add(CloneDetectedTranslation(detected, candidate.CandidateId));
+            }
+            result.Diagnostics.Add("Official Keyed catalog: added=" + added + "; existing candidates retain stable IDs.");
         }
 
         public List<DetectedTranslationRecord> DetectExistingTranslations(
@@ -856,8 +929,9 @@ namespace AutoTranslator_Core.Workflow.Analysis
                     catch (Exception ex)
                     {
                         if (preparationFailures == null) throw;
-                        var failure = new InvalidOperationException(
-                            (mod?.Name ?? mod?.PackageId ?? "Mod") + "：准备分析文件失败：" + ex.Message, ex);
+                        var failure = new ModDomainAnalysisException(
+                            ModAnalysisTargetFactory.CreateModIdentity(mod),
+                            mod?.Name ?? mod?.PackageId ?? "Mod", _analyzer.SourceDomain, ex);
                         preparationFailures.Add(failure);
                         AutoTranslatorSettings.AddWarningLog(failure.Message);
                         continue;
@@ -1025,8 +1099,9 @@ namespace AutoTranslator_Core.Workflow.Analysis
                         runId, target.Snapshot.ModIdentity, target.Snapshot.VersionFingerprint,
                         analyzer.SourceDomain,
                         analyzer.Version, fingerprint, forceAnalysis, ex);
-                    failures.Add(new InvalidOperationException(
-                        target.Snapshot.PackageId + " / " + analyzer.SourceDomain + ": " + ex.Message, ex));
+                    failures.Add(new ModDomainAnalysisException(
+                        target.Snapshot.ModIdentity, target.Snapshot.DisplayName,
+                        analyzer.SourceDomain, ex));
                     AutoTranslatorSettings.AddDebugLog(
                         "workflow.analysis failed mod=" + target.Snapshot.PackageId +
                         " domain=" + analyzer.SourceDomain + " error=" + ex.Message);
@@ -1322,10 +1397,9 @@ namespace AutoTranslator_Core.Workflow.Analysis
                         }
                         lock (failures)
                         {
-                            failures.Add(new InvalidOperationException(
-                                target.Snapshot.PackageId + " / " + analyzer.SourceDomain +
-                                ": " + reportedFailure.Message,
-                                reportedFailure));
+                            failures.Add(new ModDomainAnalysisException(
+                                target.Snapshot.ModIdentity, target.Snapshot.DisplayName,
+                                analyzer.SourceDomain, reportedFailure));
                         }
                         AutoTranslatorSettings.AddDebugLog(
                             "workflow.analysis failed mod=" + target.Snapshot.PackageId +
@@ -1512,12 +1586,14 @@ namespace AutoTranslator_Core.Workflow.Analysis
             bool forceAnalysis,
             CancellationToken cancellationToken)
         {
-            bool dllAnalysisEnabled = _configuration.Load().EnableDllAnalysis;
+            bool dllAnalysisEnabled = WorkflowRuntimeSettings.DllWorkflowApplicable &&
+                _configuration.Load().EnableDllAnalysis;
             AutoTranslatorSettings.AddDebugLog(
                 "workflow.analysis-button selectedMods=" + (mods?.Count ?? 0) +
                 " dllEnabled=" + dllAnalysisEnabled + " forced=" + forceAnalysis);
 
             int stageCount = dllAnalysisEnabled ? 2 : 1;
+            await OfficialKeyedCatalog.CaptureAsync(cancellationToken);
             await _nativeTranslations.RefreshAsync(cancellationToken);
             var failures = new List<Exception>();
             try
@@ -1543,6 +1619,7 @@ namespace AutoTranslator_Core.Workflow.Analysis
             bool forceAnalysis,
             CancellationToken cancellationToken)
         {
+            await OfficialKeyedCatalog.CaptureAsync(cancellationToken);
             await _nativeTranslations.RefreshAsync(cancellationToken);
             await _xmlStep.ExecuteAsync(mods, forceAnalysis, cancellationToken);
         }
@@ -1554,6 +1631,9 @@ namespace AutoTranslator_Core.Workflow.Analysis
             int stageIndex = 0,
             int stageCount = 1)
         {
+            if (!WorkflowRuntimeSettings.DllWorkflowApplicable)
+                throw new InvalidOperationException(
+                    "UI 拦截模式不适用 DLL 分析，请先切回 DLL 分析模式。");
             await _nativeTranslations.RefreshAsync(cancellationToken);
             await _dllStep.ExecuteAsync(
                 mods, forceAnalysis, cancellationToken, stageIndex, stageCount);

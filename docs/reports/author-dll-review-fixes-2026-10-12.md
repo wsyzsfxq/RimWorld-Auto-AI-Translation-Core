@@ -1,5 +1,24 @@
 # 原作者 DLL 审阅问题修复记录
 
+## 2026-10-14 复用写回补充
+
+同日增加注入跳过诊断：按候选记录原文追踪中遇到的字段写入、控制流边界、局部变量取地址、包装类型、其他调用、显示调用的 ref/指针与 IL 前缀；无法细分时明确报告未找到显示参数。DLL 文件哈希、MVID 和方法指纹不符分别记录。日志附方法签名和原文字面量序号。这些是追踪中断证据，不证明该候选只有这一种流向。
+
+静态读取本机三个 Mod DLL 的调用指令（未加载或执行 Mod）：
+
+| 本地样本（Steam Workshop 294100 下） | 实际观察 |
+|---|---|
+| `1874644848/v1.6/Assemblies/CharacterEditor.dll` | `Listing_X.ButtonText` 调用 `Widgets.ButtonText(Rect,string,bool,bool,bool,Nullable<TextAnchor>)`，文字为参数 1（从 0 开始） |
+| `1516158345/Assemblies/Bubbles.dll` | `Bubble.Draw` 调用 `GUI.Label(Rect,string,GUIStyle)`，文字为参数 1；`Listing_Settings.ColorEntry` 同时使用文本输入及 Label，不能把整个方法的字符串统一替换 |
+| `1508850027/Assemblies/RimHUD.dll` | `ListingPlus.CheckboxLabeled` 调用 `Listing_Standard.CheckboxLabeled(string,ref bool,string,float,float)`；带 ref 参数，当前 planner 会跳过 |
+
+另读取本机游戏 `RimWorldWin64_Data/Managed/Assembly-CSharp.dll`：`Listing_Standard.ButtonText(string label,string highlightTag,float widthPct)` 的 IL 在 `0037` 读取 label，`0044` 传给 Widgets.ButtonText；在 `004e` 读取 highlightTag，`004f` 传给 UIHighlighter.HighlightOpportunity。因此不能把该接口全部 string 参数认作显示文字。后续建议以实际核对过的完整签名和参数序号建立规则；任意 Mod 自定义接口不能仅凭名称自动认定。此次只记录证据，未修改参数识别规则，也未核对 1.5 API 或进行运行验收。
+
+- 译文入库因已有较高来源优先级而未写入时，不再恢复另一份复用译文的来源快照，保留已有来源信息。
+- 已有译文查询改为每页分批处理，每批最多 100 个候选、复用同一数据库连接；保持原文精确匹配、哈希、目标语言、来源优先级及待写状态条件。批次大小不限制候选总量。
+- 本页命中的译文统一校验并进入一次批量写出流程，由输出存储按目标文件分组。每个候选保留独立输出位置和来源快照；校验拒绝的条目继续进入原翻译流程。
+- 后续确认后补齐校验失败补试分组：符合现有长度门槛的相同原文每组只请求一次，再分别写回各位置；短文本仍逐位置补试。补试失败状态、完成统计和取消清理覆盖组内全部候选。仅静态审阅，未编译、测试、提交或推送。
+
 日期：2026-10-12。依据原作者对 PR #3 `f36ae8c` 的问题单及确认方案。仅修改源码和文档、静态阅读；未编译、测试、运行游戏、打包、提交或推送。已有历史迁移与发布说明改动保留。
 
 | 问题 | 当前源码处理 |

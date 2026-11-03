@@ -347,6 +347,8 @@ namespace AutoTranslator_Core.Workflow
                     return AutoTranslatorMod.WfText("一键翻译", "One-click translation");
                 case WorkflowTaskKind.CloudTranslation:
                     return AutoTranslatorMod.WfText("云端译文下载与同步", "Cloud translation download and synchronization");
+                case WorkflowTaskKind.CloudUpload:
+                    return AutoTranslatorMod.WfText("云端译文上传", "Cloud translation upload");
                 case WorkflowTaskKind.ManualTranslationEdit:
                     return AutoTranslatorMod.WfText("手动译文编辑", "Manual translation edit");
                 case WorkflowTaskKind.ClassificationEdit:
@@ -361,6 +363,10 @@ namespace AutoTranslator_Core.Workflow
                     return AutoTranslatorMod.WfText("译文热重载", "Translation hot reload");
                 case WorkflowTaskKind.HistoricalDataMigration:
                     return AutoTranslatorMod.WfText("迁移历史数据", "Migrate historical data");
+                case WorkflowTaskKind.TranslationBackup:
+                    return AutoTranslatorMod.WfText("备份译文", "Back up translations");
+                case WorkflowTaskKind.TranslationBackupRestore:
+                    return AutoTranslatorMod.WfText("恢复手动备份", "Restore manual translation backup");
                 default:
                     return AutoTranslatorMod.WfText("后台任务", "Background task");
             }

@@ -17,6 +17,13 @@ namespace AutoTranslator_Core
 
     internal static class WorkflowUiStyle
     {
+        private static readonly GUIStyle[] SingleLineSources = new GUIStyle[3];
+        private static readonly GUIStyle[] SingleLineStyles = new GUIStyle[3];
+        private const float ToggleMarkWidth = 22f;
+        private const float ToggleLeadingPadding = 6f;
+        private const float ToggleLabelGap = 6f;
+        private const float ToggleTrailingPadding = 8f;
+
         internal static readonly Color Panel = new Color(0.075f, 0.09f, 0.102f, 0.96f);
         internal static readonly Color RaisedPanel = new Color(0.12f, 0.145f, 0.165f, 0.96f);
         internal static readonly Color Header = new Color(0.16f, 0.18f, 0.20f, 0.98f);
@@ -34,6 +41,7 @@ namespace AutoTranslator_Core
             bool enabled = true,
             GameFont font = GameFont.Small)
         {
+            enabled &= GUI.enabled;
             Color previousGuiColor = GUI.color;
             GUI.color = Color.white;
             Color background;
@@ -91,22 +99,123 @@ namespace AutoTranslator_Core
             if (enabled && Mouse.IsOver(rect))
                 Widgets.DrawHighlight(rect);
 
-            GameFont previousFont = Text.Font;
-            TextAnchor previousAnchor = Text.Anchor;
-            Text.Font = font;
-            Text.Anchor = TextAnchor.MiddleCenter;
             GUI.color = enabled ? text : new Color(text.r, text.g, text.b, 0.38f);
-            Widgets.Label(new Rect(rect.x + 4f, rect.y + 1f, rect.width - 8f, rect.height - 2f),
-                label ?? string.Empty);
+            SingleLineLabel(new Rect(rect.x + 4f, rect.y + 1f,
+                Mathf.Max(0f, rect.width - 8f), Mathf.Max(0f, rect.height - 2f)),
+                label, font, TextAnchor.MiddleCenter);
             GUI.color = Color.white;
-            Text.Anchor = previousAnchor;
-            Text.Font = previousFont;
 
             if (style == WorkflowButtonStyle.ActiveTab)
                 Widgets.DrawBoxSolid(new Rect(rect.x, rect.yMax - 3f, rect.width, 3f), GoodText);
             bool clicked = enabled && Widgets.ButtonInvisible(rect);
             GUI.color = previousGuiColor;
             return clicked;
+        }
+
+        // Compact controls must not inherit word wrapping or padding from a
+        // preceding label. Measure and draw with the same local style.
+        internal static void SingleLineLabel(Rect rect, string label, GameFont font,
+            TextAnchor anchor = TextAnchor.MiddleLeft)
+        {
+            if (string.IsNullOrEmpty(label) || rect.width <= 0f || rect.height <= 0f) return;
+            GameFont previousFont = Text.Font;
+            TextAnchor previousAnchor = Text.Anchor;
+            bool previousWrap = Text.WordWrap;
+            try
+            {
+                Text.Font = font;
+                Text.Anchor = anchor;
+                Text.WordWrap = false;
+                GUIStyle style = GetSingleLineStyle(font);
+                style.alignment = anchor;
+                GUI.Label(rect, label, style);
+            }
+            finally
+            {
+                Text.WordWrap = previousWrap;
+                Text.Anchor = previousAnchor;
+                Text.Font = previousFont;
+            }
+        }
+
+        private static GUIStyle GetSingleLineStyle(GameFont font)
+        {
+            int index = (int)font;
+            GUIStyle source = Text.CurFontStyle;
+            GUIStyle style = SingleLineStyles[index];
+            if (!ReferenceEquals(source, SingleLineSources[index]) || style == null ||
+                !ReferenceEquals(style.font, source.font) || style.fontSize != source.fontSize)
+            {
+                SingleLineSources[index] = source;
+                style = new GUIStyle(source)
+                {
+                    wordWrap = false,
+                    padding = new RectOffset(),
+                    contentOffset = Vector2.zero,
+                    fixedWidth = 0f,
+                    fixedHeight = 0f,
+                    clipping = TextClipping.Clip
+                };
+                SingleLineStyles[index] = style;
+            }
+            return style;
+        }
+
+        internal static float ToggleButtonWidth(string label, GameFont font = GameFont.Small)
+        {
+            GameFont previousFont = Text.Font;
+            TextAnchor previousAnchor = Text.Anchor;
+            bool previousWrap = Text.WordWrap;
+            try
+            {
+                Text.Font = font;
+                Text.Anchor = TextAnchor.MiddleLeft;
+                Text.WordWrap = false;
+                float textWidth = GetSingleLineStyle(font).CalcSize(new GUIContent(label ?? string.Empty)).x;
+                return Mathf.Ceil(textWidth + ToggleLeadingPadding + ToggleMarkWidth +
+                    ToggleLabelGap + ToggleTrailingPadding);
+            }
+            finally
+            {
+                Text.WordWrap = previousWrap;
+                Text.Anchor = previousAnchor;
+                Text.Font = previousFont;
+            }
+        }
+
+        internal static bool ToggleButton(Rect rect, string label, bool selected,
+            bool enabled = true, GameFont font = GameFont.Small)
+        {
+            enabled &= GUI.enabled;
+            bool clicked = Button(rect, string.Empty, WorkflowButtonStyle.Quiet, enabled, font);
+            Color previousColor = GUI.color;
+            try
+            {
+                Rect markRect = new Rect(rect.x + ToggleLeadingPadding, rect.y,
+                    ToggleMarkWidth, rect.height);
+                GUI.color = !enabled ? MutedText : selected ? GoodText : new Color(0.86f, 0.34f, 0.31f);
+                SingleLineLabel(markRect, selected ? "✓" : "×", font, TextAnchor.MiddleCenter);
+                GUI.color = enabled ? Color.white : MutedText;
+                SingleLineLabel(new Rect(markRect.xMax + ToggleLabelGap, rect.y,
+                    Mathf.Max(0f, rect.xMax - markRect.xMax - ToggleLabelGap - ToggleTrailingPadding), rect.height),
+                    label, font);
+            }
+            finally { GUI.color = previousColor; }
+            return clicked;
+        }
+
+        internal static bool LabeledDropdown(Rect row, string label, string currentValue,
+            float labelWidth, bool enabled = true, float maximumControlWidth = float.MaxValue,
+            GameFont font = GameFont.Small)
+        {
+            labelWidth = Mathf.Min(labelWidth, Mathf.Max(0f, row.width - 8f));
+            SingleLineLabel(new Rect(row.x, row.y, Mathf.Max(0f, labelWidth - 6f), row.height),
+                label, font);
+            Rect control = new Rect(row.x + labelWidth, row.y + 2f,
+                Mathf.Min(maximumControlWidth, Mathf.Max(0f, row.width - labelWidth)),
+                Mathf.Max(0f, row.height - 4f));
+            return Button(control, (currentValue ?? string.Empty) + "  ▾",
+                WorkflowButtonStyle.Dropdown, enabled, font);
         }
 
         internal static void DrawBorder(Rect rect, Color color)

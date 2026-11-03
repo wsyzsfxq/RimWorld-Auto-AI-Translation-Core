@@ -18,6 +18,7 @@ namespace AutoTranslator_Core
     {
         private static bool _settingsLegacyRepairRunning;
         private static bool _settingsRestoreBackupRunning;
+        private static bool _settingsManualBackupRunning;
 
 
         // 這個方法負責繪製 設定分頁 介面。
@@ -28,12 +29,8 @@ namespace AutoTranslator_Core
                     ref Settings.SettingsGeneralExpanded))
                 DrawGeneralDisplaySettings(l);
             l.Gap(12f);
-            if (WorkflowUiStyle.Button(l.GetRect(34f), WfText("参考字典（内置与用户维护）", "Reference dictionary (built-in and user-maintained)"),
-                WorkflowButtonStyle.Quiet, true))
-                Find.WindowStack.Add(new Window_ReferenceDictionary());
-            l.Gap(12f);
 
-            if (DrawSettingsSectionHeader(l, WfText("AI 接口", "AI providers"),
+            if (DrawSettingsSectionHeader(l, WfText("大模型配置", "Language model settings"),
                     ref Settings.SettingsAiExpanded))
                 DrawAiProviderSettings(l);
 
@@ -60,6 +57,16 @@ namespace AutoTranslator_Core
             float sectionStartY = l.CurHeight;
             DrawTranslationUsageBudgetSettings(l, false);
             l.Gap(10f);
+            if (WorkflowUiStyle.Button(l.GetRect(34f),
+                    WfText("额外翻译要求", "Translation preferences"),
+                    WorkflowButtonStyle.Quiet, !AutoTranslatorSettings.IsRunning))
+                Find.WindowStack.Add(new Window_TranslationPreferences(
+                    Settings.ExtraTranslationInstructions, value =>
+                    {
+                        Settings.ExtraTranslationInstructions = value;
+                        WriteSettings();
+                    }));
+            l.Gap(8f);
             DrawSettingsSubsectionHeader(l,
                 WfText("API 接口设置（支持多组并发轮询）", "API providers (supports concurrent rotation)"));
 
@@ -82,7 +89,7 @@ namespace AutoTranslator_Core
                 Settings.ApiConfigs.Add(new ApiKeyConfig());
             }
 
-            // “AI 接口”是一个完整章节：预算、二级标题、所有 API 卡片与新增按钮共用一条章节色轨。
+            // 预算、所有模型配置与新增按钮共用一条章节色轨。
             Widgets.DrawBoxSolid(
                 new Rect(0f, sectionStartY, 4f, Mathf.Max(0f, l.CurHeight - sectionStartY)),
                 WorkflowUiStyle.GoodText);
@@ -105,7 +112,8 @@ namespace AutoTranslator_Core
         private bool DrawApiConfigCard(Listing_Standard l, ApiKeyConfig config, int index)
         {
             bool canEdit = !AutoTranslatorSettings.IsRunning;
-            Rect card = l.GetRect(224f);
+            bool player2 = Player2LocalApi.IsEnabled(config);
+            Rect card = l.GetRect(player2 ? 296f : 260f);
             Widgets.DrawBoxSolid(card, WorkflowUiStyle.Panel);
             WorkflowUiStyle.DrawBorder(card, new Color(0.31f, 0.35f, 0.38f));
             Rect content = card.ContractedBy(12f);
@@ -168,9 +176,8 @@ namespace AutoTranslator_Core
             Rect rowA = new Rect(content.x, firstRowY, content.width, 36f);
             Rect leftA = new Rect(rowA.x, rowA.y, leftWidth, rowA.height);
             Rect rightA = new Rect(rightX, rowA.y, rightWidth, rowA.height);
-            Rect providerRect = DrawFixedLabeledControl(leftA, "ATC_Provider".Translate(), leftLabelWidth);
-            if (WorkflowUiStyle.Button(providerRect, config.Provider + "  ▾",
-                    WorkflowButtonStyle.Dropdown, canEdit))
+            if (DrawSettingsDropdown(leftA, "ATC_Provider".Translate(),
+                    config.Provider.ToString(), leftLabelWidth, canEdit))
             {
                 List<FloatMenuOption> options = new List<FloatMenuOption>();
                 foreach (TranslatorProvider provider in Enum.GetValues(typeof(TranslatorProvider)))
@@ -200,8 +207,13 @@ namespace AutoTranslator_Core
                 DrawFixedLabeledControl(leftB, "ATC_StructuredOutput_Label".Translate(), leftLabelWidth),
                 config, canEdit);
             Rect keyRect = DrawFixedLabeledControl(rightB, "API Key", rightLabelWidth);
-            config.Key = Widgets.TextField(keyRect, config.Key);
-            if (string.IsNullOrEmpty(config.Key)) Widgets.Label(keyRect, "  " + "ATC_PasteKey".Translate());
+            if (player2)
+                Widgets.Label(keyRect, WfText("由 Player2 客户端处理", "Handled by the Player2 client"));
+            else
+            {
+                config.Key = Widgets.TextField(keyRect, config.Key);
+                if (string.IsNullOrEmpty(config.Key)) Widgets.Label(keyRect, "  " + "ATC_PasteKey".Translate());
+            }
 
             Rect rowC = new Rect(content.x, rowB.yMax, content.width, 36f);
             Rect leftC = new Rect(rowC.x, rowC.y, leftWidth, rowC.height);
@@ -216,6 +228,34 @@ namespace AutoTranslator_Core
             Rect rightD = new Rect(rightX, rowD.y, rightWidth, rowD.height);
             DrawOutputTokenLimitControl(leftD, config, canEdit, leftLabelWidth);
             DrawApiConnectionTestButton(rightD, config, canEdit);
+
+            Rect rowE = new Rect(content.x, rowD.yMax, content.width, 36f);
+            Rect thinkingRect = DrawFixedLabeledControl(
+                new Rect(rowE.x, rowE.y, leftWidth, rowE.height),
+                WfText("思考模式", "Reasoning mode"), leftLabelWidth);
+            DrawThinkingModeSelector(thinkingRect, config, canEdit && !player2);
+            if (config.Provider == TranslatorProvider.Custom_OpenAI)
+            {
+                bool usePlayer2 = config.UsePlayer2Protocol;
+                DrawInlineSettingsCheckbox(new Rect(rightX, rowE.y, rightWidth, rowE.height),
+                    WfText("使用 Player2 本地客户端", "Use Player2 desktop client"),
+                    ref usePlayer2, canEdit);
+                if (canEdit && usePlayer2 != config.UsePlayer2Protocol)
+                {
+                    config.UsePlayer2Protocol = usePlayer2;
+                    AutoTranslatorAPI.ResetModelFetchState(config, clearModels: true);
+                }
+            }
+            if (player2)
+            {
+                Rect clientRow = new Rect(content.x, rowE.yMax, content.width, 36f);
+                Rect idRect = DrawFixedLabeledControl(clientRow, "Player2 Game Client ID", leftLabelWidth);
+                string editedId = Widgets.TextField(idRect, config.Player2GameClientId ?? string.Empty);
+                if (canEdit) config.Player2GameClientId = editedId;
+                TooltipHandler.TipRegion(clientRow, WfText(
+                    "填写此 Mod 在 Player2 开发者后台登记的 Game Client ID。模型在 Player2 客户端中选择；本机地址端口不同可修改 Base URL。",
+                    "Use this mod's Game Client ID from the Player2 developer dashboard. Select the model in the desktop app; change Base URL if its local port differs."));
+            }
 
             GUI.color = Color.white;
             return true;
@@ -238,6 +278,11 @@ namespace AutoTranslator_Core
         private void DrawApiModelRow(Rect row, ApiKeyConfig config, bool canEdit, float labelWidth)
         {
             Rect modelArea = DrawFixedLabeledControl(row, WfText("模型", "Model"), labelWidth);
+            if (Player2LocalApi.IsEnabled(config))
+            {
+                Widgets.Label(modelArea, WfText("在 Player2 客户端中选择", "Selected in the Player2 client"));
+                return;
+            }
             const float gap = 6f;
             const float selectWidth = 38f;
             const float refreshWidth = 38f;
@@ -292,7 +337,7 @@ namespace AutoTranslator_Core
             {
                 if (!config.Enabled)
                     Messages.Message("ATC_Msg_ApiKeyDisabled".Translate().ToString(), MessageTypeDefOf.RejectInput, false);
-                else if (string.IsNullOrEmpty(config.Key) || config.Key.Length <= 10)
+                else if (string.IsNullOrWhiteSpace(config.Key) && config.Provider != TranslatorProvider.Custom_OpenAI)
                     Messages.Message("ATC_EmptyConfigWarning".Translate().ToString(), MessageTypeDefOf.RejectInput, false);
                 else
                     AutoTranslatorAPI.AutoFetchForConfig(config, true);
@@ -305,6 +350,7 @@ namespace AutoTranslator_Core
             const float testWidth = 178f;
             Rect testRect = new Rect(row.xMax - testWidth, row.y + 2f, testWidth, row.height - 4f);
             bool canRequest = canEdit && !AutoTranslatorAPI.HasOutstandingTranslationWork;
+            bool modelReady = AutoTranslatorAPI.IsConfigReady(config);
             if (config.IsTesting)
             {
                 GUI.color = Color.yellow;
@@ -314,15 +360,18 @@ namespace AutoTranslator_Core
                 Text.Anchor = previousAnchor;
             }
             else if (WorkflowUiStyle.Button(testRect, "ATC_TestConnection".Translate(),
-                         WorkflowButtonStyle.Primary, canRequest, GameFont.Tiny))
+                         WorkflowButtonStyle.Primary, canRequest && modelReady, GameFont.Tiny))
             {
                 if (!config.Enabled)
                     Messages.Message("ATC_Msg_ApiKeyDisabled".Translate().ToString(), MessageTypeDefOf.RejectInput, false);
-                else if (string.IsNullOrEmpty(config.Key) || string.IsNullOrEmpty(config.SelectedModel))
-                    Messages.Message("ATC_EmptyConfigWarning".Translate().ToString(), MessageTypeDefOf.RejectInput, false);
+                else if (!AutoTranslatorAPI.IsConfigReady(config))
+                    Messages.Message(AutoTranslatorAPI.GetWorkflowConfigurationProblem(config) ??
+                        "ATC_EmptyConfigWarning".Translate().ToString(), MessageTypeDefOf.RejectInput, false);
                 else
                     AutoTranslatorAPI.RunConnectionTest(config);
             }
+            if (!modelReady)
+                TooltipHandler.TipRegion(testRect, WfText("未配置大模型", "No language model configured"));
         }
 
         private void DrawOutputTokenLimitControl(Rect row, ApiKeyConfig config, bool canEdit, float labelWidth)
@@ -395,7 +444,7 @@ namespace AutoTranslator_Core
 
         private void DrawMaintenanceSettings(Listing_Standard l)
         {
-            Rect panel = l.GetRect(82f);
+            Rect panel = l.GetRect(154f);
             Rect content = DrawSettingsSectionBody(panel);
             Rect repairRow = new Rect(content.x, content.y, content.width, 36f);
             GUI.color = _settingsLegacyRepairRunning ? Color.grey : new Color(0.6f, 0.9f, 0.75f);
@@ -426,48 +475,161 @@ namespace AutoTranslator_Core
             GUI.color = _settingsRestoreBackupRunning ? Color.grey : new Color(0.5f, 0.8f, 1f);
             string restoreLabel = _settingsRestoreBackupRunning
                 ? "ATC_CheckingModStatus".Translate().ToString()
-                : "↩ " + "ATC_Btn_RestoreLatestBackup".Translate().ToString();
+                : WfText("还原替换前译文", "Restore translations from before replacement");
             Rect restoreBtnRect = DrawInlineLabeledControl(restoreRow,
-                WfText("恢复最近备份", "Restore latest backup"),
+                WfText("译文自动备份", "Automatic translation backups"),
                 Mathf.Max(260f, Text.CalcSize(restoreLabel).x + 28f), 210f);
+            TooltipHandler.TipRegion(restoreRow, WfText(
+                "清除或替换某个 Mod 的译文前，会自动备份相关译文文件。此按钮分别还原各个已加载 Mod 最近的一份备份，各份时间可能不同；只覆盖备份内的文件，不包含数据库或大模型配置。",
+                "Translation files are backed up before being cleared or replaced. Restores each loaded Mod's latest backup; backup times may differ. Only files in those archives are overwritten. The database and model settings are not included."));
             if (WorkflowUiStyle.Button(restoreBtnRect, restoreLabel,
-                    WorkflowButtonStyle.Quiet, !_settingsRestoreBackupRunning) && !_settingsRestoreBackupRunning)
+                    WorkflowButtonStyle.Quiet, !_settingsRestoreBackupRunning && !AutoTranslatorSettings.IsRunning) && !_settingsRestoreBackupRunning)
             {
                 Find.WindowStack.Add(new Window_AtcDialog(
-                    "ATC_Msg_ConfirmRestoreLatestBackup".Translate(),
+                    WfText("将分别还原各个已加载 Mod 在清除或替换前保存的最近译文文件。各份备份时间可能不同，只会覆盖备份中包含的文件。\n\n是否继续？",
+                        "Restore the latest pre-clear or pre-replacement translation files for each loaded Mod? Backup times may differ, and only archived files will be overwritten."),
                     WfText("确认还原", "Restore backup"),
                     () => {
                         QueueRestoreLatestBackupsFromSettings();
                     },
                     "ATC_Btn_Cancel".Translate(),
                     null,
-                    WfText("确认还原最近翻译备份", "Confirm restore latest translation backup"),
+                    WfText("还原替换前译文", "Restore translations from before replacement"),
                     true,
                     false,
                     new Vector2(720f, 420f)
                 ));
             }
+            Rect manualRow = new Rect(content.x, restoreRow.yMax + 4f, content.width, 36f);
+            DrawSettingsFieldLabel(new Rect(manualRow.x, manualRow.y, 210f, manualRow.height),
+                WfText("手动备份译文", "Manual translation backups"));
+            float manualWidth = Mathf.Max(120f, (manualRow.width - 222f) * 0.5f);
+            Rect backupButton = new Rect(manualRow.x + 210f, manualRow.y, manualWidth, manualRow.height);
+            Rect restoreManualButton = new Rect(backupButton.xMax + 12f, manualRow.y, manualWidth, manualRow.height);
+            bool canBackup = !_settingsManualBackupRunning && !AutoTranslatorSettings.IsRunning;
+            if (WorkflowUiStyle.Button(backupButton, WfText("备份当前译文", "Back up current translations"),
+                WorkflowButtonStyle.Quiet, canBackup))
+                QueueManualTranslationBackup(null);
+            if (WorkflowUiStyle.Button(restoreManualButton, WfText("恢复手动备份…", "Restore manual backup..."),
+                WorkflowButtonStyle.Quiet, canBackup))
+                OpenManualTranslationBackups();
+            TooltipHandler.TipRegion(manualRow, WfText(
+                "一起保存 XML、DLL 和 UI 拦截译文，包含所有目标语言。手动备份单独保存在 ManualBackups 中，不包含数据库和大模型配置；不会自动删除旧的手动备份。",
+                "Saves XML, DLL and UI-interception translations for all target languages together. ManualBackups is separate from automatic backups; database and model settings are not included. Manual backups are kept until you remove them."));
+            Text.Font = GameFont.Tiny;
+            Widgets.Label(new Rect(content.x, manualRow.yMax + 4f, content.width, 28f), WfText(
+                "自动备份保存替换前的文件；手动备份保存当时的全部 XML、DLL 和 UI 拦截译文。",
+                "Automatic backups keep files before replacement; manual backups keep all XML, DLL and UI-interception translations at that time."));
+            Text.Font = GameFont.Small;
             GUI.color = Color.white;
+        }
+
+        private static async void OpenManualTranslationBackups()
+        {
+            if (_settingsManualBackupRunning || AutoTranslatorSettings.IsRunning) return;
+            _settingsManualBackupRunning = true;
+            try
+            {
+                List<TranslationBackupInfo> backups = await Task.Run(TranslationBackupManager.ListBackups);
+                ATC_Dispatcher.RunOnMainThread(() =>
+                {
+                    if (backups.Count == 0)
+                    {
+                        Messages.Message(WfText("还没有手动备份，请先点击“备份当前译文”。",
+                            "No manual backup yet. Choose Back up current translations first."), MessageTypeDefOf.NeutralEvent, false);
+                        return;
+                    }
+                    var options = new List<FloatMenuOption>();
+                    foreach (TranslationBackupInfo backup in backups)
+                    {
+                        TranslationBackupInfo selected = backup;
+                        string label = (backup.BeforeRestore
+                            ? WfText("恢复前保存 · ", "Saved before restore · ")
+                            : WfText("手动备份 · ", "Manual backup · ")) + backup.CreatedLocal.ToString("yyyy-MM-dd HH:mm:ss");
+                        options.Add(new FloatMenuOption(label, () => Find.WindowStack.Add(new Window_AtcDialog(
+                            WfText("将恢复这份备份中的 XML、DLL 和 UI 拦截译文，当前多出的译文文件也会移除。\n" +
+                                "恢复前会另外保存当前译文，以便退回。数据库和大模型配置不在备份中。\n\n备份时间：",
+                                "Restore this snapshot's XML, DLL and UI-interception translations. Translation files added later will be removed. " +
+                                "A separate snapshot of the current translations will be saved before restoring. Database and model settings are not backed up.\n\nBackup time: ") +
+                                selected.CreatedLocal.ToString("yyyy-MM-dd HH:mm:ss"),
+                            WfText("恢复这份备份", "Restore this backup"),
+                            () => QueueManualTranslationBackup(selected.Path),
+                            WfText("取消", "Cancel"), null,
+                            WfText("恢复手动备份", "Restore manual backup"), true, false, new Vector2(740f, 440f)))));
+                    }
+                    Find.WindowStack.Add(new FloatMenu(options));
+                });
+            }
+            catch (Exception ex)
+            {
+                ATC_Dispatcher.RunOnMainThread(() => Messages.Message(
+                    WfText("读取手动备份失败：", "Could not read manual backups: ") + ex.Message,
+                    MessageTypeDefOf.CautionInput, false));
+            }
+            finally { _settingsManualBackupRunning = false; }
+        }
+
+        private static async void QueueManualTranslationBackup(string restorePath)
+        {
+            if (_settingsManualBackupRunning) return;
+            _settingsManualBackupRunning = true;
+            try
+            {
+                TranslationBackupResult result = restorePath == null
+                    ? await TranslationBackupManager.CreateAsync()
+                    : await TranslationBackupManager.RestoreAsync(restorePath);
+                ATC_Dispatcher.RunOnMainThread(() =>
+                {
+                    string message = !string.IsNullOrWhiteSpace(result.Warning) ? result.Warning : restorePath == null
+                        ? WfText("译文已手动备份：", "Translation backup saved: ") + Path.GetFileName(result.Path)
+                        : WfText("手动备份已恢复。恢复前的译文也已另存，可在备份列表中选择“恢复前保存”。",
+                            "Manual backup restored. The previous translations are also available as Saved before restore in the backup list.");
+                    Messages.Message(message, string.IsNullOrWhiteSpace(result.Warning)
+                        ? MessageTypeDefOf.PositiveEvent : MessageTypeDefOf.CautionInput, false);
+                    if (!string.IsNullOrWhiteSpace(result.Warning)) AutoTranslatorSettings.AddWarningLog(message);
+                });
+            }
+            catch (OperationCanceledException)
+            {
+                ATC_Dispatcher.RunOnMainThread(() => Messages.Message(
+                    WfText("备份操作已取消。", "Backup operation cancelled."), MessageTypeDefOf.NeutralEvent, false));
+            }
+            catch (Exception ex)
+            {
+                ATC_Dispatcher.RunOnMainThread(() =>
+                {
+                    string message = WfText("备份操作未完成：", "Backup operation could not finish: ") + ex.Message;
+                    AutoTranslatorSettings.AddErrorLog(message);
+                    Messages.Message(message, MessageTypeDefOf.CautionInput, false);
+                });
+            }
+            finally { _settingsManualBackupRunning = false; }
         }
 
         private void DrawGeneralDisplaySettings(Listing_Standard l)
         {
-            Rect panel = l.GetRect(46f);
+            Rect panel = l.GetRect(88f);
             Rect content = DrawSettingsSectionBody(panel);
             const float gap = 12f;
             float controlWidth = (content.width - gap * 2f) / 3f;
-            Rect languageRect = new Rect(content.x, content.y + 3f, controlWidth, 34f);
-            Rect shortcutRect = new Rect(languageRect.xMax + gap, languageRect.y, controlWidth, languageRect.height);
+            Rect languageRect = new Rect(content.x, content.y + 3f, controlWidth, 36f);
+            Rect shortcutRect = new Rect(languageRect.xMax + gap, languageRect.y + 2f, controlWidth, languageRect.height - 4f);
             Rect modNameRect = new Rect(shortcutRect.xMax + gap, languageRect.y, controlWidth, languageRect.height);
 
-            DrawSettingsModeToggle(shortcutRect,
-                "ATC_ShowWorldMainButton".Translate(), ref Settings.ShowWorldMainButton);
+            if (WorkflowUiStyle.ToggleButton(shortcutRect,
+                    WfText("显示翻译快捷按钮", "Show translation shortcut"), Settings.ShowWorldMainButton))
+            {
+                Settings.ShowWorldMainButton = !Settings.ShowWorldMainButton;
+                WriteSettings();
+            }
+            TooltipHandler.TipRegion(shortcutRect, WfText(
+                "在游戏底部的主按钮栏显示“AI 翻译”按钮，点击可打开翻译界面。",
+                "Show the AI Translation button on the main button bar at the bottom of the game to open the translation window."));
 
             bool canEdit = !AutoTranslatorSettings.IsRunning;
             GUI.color = canEdit ? Color.white : Color.grey;
-            if (WorkflowUiStyle.Button(languageRect,
-                    WfText("当前语言（Language）", "Language") + "  ·  " + GetLangLabel(Settings.TargetLang) + "  ▾",
-                    WorkflowButtonStyle.Dropdown, canEdit))
+            if (DrawSettingsDropdown(languageRect, WfText("当前语言", "Language"),
+                    GetLangLabel(Settings.TargetLang), Mathf.Min(120f, controlWidth * 0.35f), canEdit))
             {
                 List<FloatMenuOption> options = new List<FloatMenuOption>();
                 foreach (TargetLanguage lang in Enum.GetValues(typeof(TargetLanguage)))
@@ -482,7 +644,32 @@ namespace AutoTranslator_Core
                 "The language used by this mod. It currently also selects the target language for AI and cloud translations; all buttons, titles, tips, and dialogs will follow this setting in a future interface-language update."));
             GUI.color = Color.white;
 
-            Widgets.Label(modNameRect, WfText("Mod 列表保留原始名称。", "The Mod list keeps original names."));
+            bool translateNames = Settings.TranslateWorkbenchModNames;
+            bool modelReady = AutoTranslatorAPI.HasUsableWorkflowConfiguration(TranslationTaskTier.Bulk);
+            if (WorkflowUiStyle.ToggleButton(
+                    new Rect(modNameRect.x, modNameRect.y + 2f, modNameRect.width, modNameRect.height - 4f),
+                    WfText("翻译 Mod 名称", "Translate Mod names"), translateNames,
+                    (canEdit || ModNameTranslationCache.IsRunning) && (modelReady || translateNames)))
+                translateNames = !translateNames;
+            if (translateNames != Settings.TranslateWorkbenchModNames)
+            {
+                Settings.TranslateWorkbenchModNames = translateNames;
+                if (!translateNames) ModNameTranslationCache.CancelPending();
+                else AutoTranslatorSettings.ResetPipelineCancellation();
+                WriteSettings();
+            }
+            TooltipHandler.TipRegion(modNameRect, !modelReady
+                ? WfText("未配置大模型", "No language model configured")
+                : WfText("翻译工作台中可见的 Mod 名称，译名与原名一起显示。会消耗大模型用量，已有译名会保存在本地。",
+                    "Translate visible Mod names in the workbench and display both names. Uses model tokens; translations are cached locally."));
+
+            Rect dictionaryRect = new Rect(content.x, languageRect.yMax + 8f, content.width, 32f);
+            if (WorkflowUiStyle.Button(dictionaryRect, WfText("参考字典", "Reference dictionary"),
+                    WorkflowButtonStyle.Quiet, true))
+                Find.WindowStack.Add(new Window_ReferenceDictionary());
+            TooltipHandler.TipRegion(dictionaryRect, WfText(
+                "查看自带词条，也可以添加或修改常用词的译法。只影响之后的翻译。",
+                "View included terms, or add and edit preferred translations. Changes apply to future translations."));
         }
 
         private static Rect DrawSettingsSectionBody(Rect panel, bool drawRail = true)
@@ -531,6 +718,13 @@ namespace AutoTranslator_Core
                 Mathf.Min(maximumControlWidth, Mathf.Max(0f, row.width - labelWidth)), row.height - 4f);
         }
 
+        private static bool DrawSettingsDropdown(Rect row, string label, string currentValue,
+            float labelWidth, bool enabled = true, float maximumControlWidth = float.MaxValue)
+        {
+            return WorkflowUiStyle.LabeledDropdown(row, label, currentValue,
+                labelWidth, enabled, maximumControlWidth);
+        }
+
         private static void DrawSettingsFieldLabel(Rect rect, string label)
         {
             TextAnchor previousAnchor = Text.Anchor;
@@ -574,12 +768,12 @@ namespace AutoTranslator_Core
                 toggleWidth,
                 headerRect.height - 10f);
             if (WorkflowUiStyle.Button(toggleRect, expanded ? "▼" : "▶",
-                    WorkflowButtonStyle.Quiet, true, GameFont.Tiny))
+                    WorkflowButtonStyle.Quiet, true, GameFont.Tiny) || Widgets.ButtonInvisible(headerRect))
             {
                 expanded = !expanded;
                 WriteSettings();
             }
-            TooltipHandler.TipRegion(toggleRect,
+            TooltipHandler.TipRegion(headerRect,
                 expanded ? WfText("收起本章节", "Collapse section") :
                     WfText("展开本章节", "Expand section"));
             return expanded;
@@ -684,8 +878,27 @@ namespace AutoTranslator_Core
 
         private void DrawCompatibilitySettings(Listing_Standard l)
         {
-            Rect panel = l.GetRect(188f);
+            Rect panel = l.GetRect(Settings.UseLegacyUIInterception && AutoTranslatorSettings.IsCancellationRequested ? 308f : 268f);
             Rect content = DrawSettingsSectionBody(panel);
+            bool legacyMode = Settings.UseLegacyUIInterception;
+            Rect selector = new Rect(content.x, content.y, content.width, 36f);
+            if (DrawSettingsDropdown(selector, WfText("界面翻译", "UI translation"),
+                legacyMode ? WfText("UI 拦截模式", "UI interception mode")
+                           : WfText("DLL 分析模式", "DLL analysis mode"),
+                250f, maximumControlWidth: 330f))
+            {
+                Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption>
+                {
+                    new FloatMenuOption(WfText("DLL 分析模式", "DLL analysis mode"), () => SetUiInterceptionMode(false)),
+                    new FloatMenuOption(WfText("UI 拦截模式", "UI interception mode"), () => SetUiInterceptionMode(true))
+                }));
+            }
+            content.yMin = selector.yMax + 8f;
+            if (legacyMode)
+            {
+                DrawLegacyUiInterceptionSettings(content);
+                return;
+            }
             Rect modeRow = new Rect(content.x, content.y, content.width, 34f);
             const float modeGap = 10f;
             float captureWidth = Mathf.Min(390f, modeRow.width * 0.42f);
@@ -751,7 +964,7 @@ namespace AutoTranslator_Core
             Text.Font = GameFont.Small;
 
             Rect actionRow = new Rect(content.x, evidenceRow.yMax + 2f, content.width, 34f);
-            string manageLabel = WfText("打开新版译文编辑器", "Open translation editor");
+            string manageLabel = WfText("打开翻译编辑器", "Open translation editor");
             float manageWidth = Mathf.Min(300f, Mathf.Max(190f, Text.CalcSize(manageLabel).x + 28f));
             Rect uiManagerRect = new Rect(actionRow.x, actionRow.y, manageWidth, 32f);
             if (WorkflowUiStyle.Button(
@@ -761,7 +974,7 @@ namespace AutoTranslator_Core
             {
                 AutoTranslatorSettings.ActiveTab = AutoTranslatorSettings.EditorTabIndex;
             }
-            TooltipHandler.TipRegion(uiManagerRect, WfText("采集结束并完成 DLL 分析后，在新版编辑器管理对应条目。", "After capture and DLL analysis, manage the corresponding entries in the workflow editor."));
+            TooltipHandler.TipRegion(uiManagerRect, WfText("采集结束并完成 DLL 分析后，在翻译编辑器管理对应条目。", "After capture and DLL analysis, manage the corresponding entries in the translation editor."));
 
             string clearLabel = WfText("打开历史数据文件夹", "Open historical data folder");
             float clearWidth = Mathf.Min(340f, Mathf.Max(210f, Text.CalcSize(clearLabel).x + 28f));
@@ -769,7 +982,7 @@ namespace AutoTranslator_Core
             GUI.color = new Color(1f, 0.7f, 0.3f);
             if (WorkflowUiStyle.Button(clearRect, clearLabel, WorkflowButtonStyle.Quiet))
             {
-                System.Diagnostics.Process.Start(AutoTranslatorScanner.GetLocalPackPath());
+                DesktopFileOpener.OpenFolder(AutoTranslatorScanner.GetLocalPackPath());
             }
             GUI.color = Color.white;
 
@@ -780,6 +993,95 @@ namespace AutoTranslator_Core
                 TargetedHardcodedUi.HardcodedUiTargetedPatchManager.GetStatusLine()));
             GUI.color = Color.white;
             Text.Font = GameFont.Small;
+        }
+
+        private void SetUiInterceptionMode(bool legacy)
+        {
+            if (Settings.UseLegacyUIInterception == legacy) return;
+            Settings.UseLegacyUIInterception = legacy;
+            UIInterceptionModeController.Refresh();
+            WriteSettings();
+        }
+
+        private void DrawLegacyUiInterceptionSettings(Rect content)
+        {
+            Rect enabledRow = new Rect(content.x, content.y, content.width, 30f);
+            bool enabled = Settings.EnableLegacyUIInterceptor;
+            Widgets.CheckboxLabeled(enabledRow, WfText("启用 UI 拦截", "Enable UI interception"), ref enabled);
+            if (enabled != Settings.EnableLegacyUIInterceptor)
+            {
+                Settings.EnableLegacyUIInterceptor = enabled;
+                UIInterceptionModeController.Refresh();
+                WriteSettings();
+            }
+            bool translate = Settings.EnableUINewTranslation;
+            Rect translateRow = new Rect(content.x, enabledRow.yMax + 2f, content.width, 30f);
+            bool modelReady = AutoTranslatorAPI.HasUsableWorkflowConfiguration(TranslationTaskTier.Bulk);
+            DrawInlineSettingsCheckbox(translateRow,
+                WfText("自动翻译新文字", "Translate new text automatically"),
+                ref translate, modelReady || translate);
+            TooltipHandler.TipRegion(translateRow, !modelReady
+                ? WfText("未配置大模型", "No language model configured")
+                : WfText("开启后，遇到未翻译的文字会调用大模型。关闭后只显示已经保存的译文。",
+                    "Use the model for new UI text. When disabled, only saved translations are applied."));
+            if (translate != Settings.EnableUINewTranslation)
+            {
+                Settings.EnableUINewTranslation = translate;
+                if (!translate) UIInterceptionModeController.CancelPendingWork();
+                WriteSettings();
+            }
+
+            Rect optionsRow = new Rect(content.x, translateRow.yMax + 2f, content.width, 30f);
+            bool original = Settings.ShowOriginalUI;
+            bool logs = Settings.EnableUIErrorLogInterception;
+            Widgets.CheckboxLabeled(new Rect(optionsRow.x, optionsRow.y, optionsRow.width * 0.48f, 30f),
+                WfText("悬停显示原文", "Show original on hover"), ref original);
+            Widgets.CheckboxLabeled(new Rect(optionsRow.x + optionsRow.width * 0.52f, optionsRow.y, optionsRow.width * 0.48f, 30f),
+                WfText("翻译日志窗口文字", "Translate log window text"), ref logs);
+            if (original != Settings.ShowOriginalUI || logs != Settings.EnableUIErrorLogInterception)
+            {
+                Settings.ShowOriginalUI = original;
+                Settings.EnableUIErrorLogInterception = logs;
+                WriteSettings();
+            }
+            Rect manageRow = new Rect(content.x, optionsRow.yMax + 6f, content.width, 32f);
+            float buttonWidth = (manageRow.width - 12f) * 0.5f;
+            if (WorkflowUiStyle.Button(new Rect(manageRow.x, manageRow.y, buttonWidth, 32f),
+                WfText("管理 UI 拦截译文", "Manage intercepted UI translations"), WorkflowButtonStyle.Quiet))
+                Find.WindowStack.Add(new LegacyInterception.Window_UITranslationManager());
+            if (WorkflowUiStyle.Button(new Rect(manageRow.x + buttonWidth + 12f, manageRow.y, buttonWidth, 32f),
+                "ATC_Btn_ClearUICache".Translate(), WorkflowButtonStyle.Quiet))
+            {
+                UIInterceptionModeController.EnsureLegacyDataInitialized();
+                LegacyInterception.UIInterceptor.ClearUICache();
+                Messages.Message("ATC_Msg_UICacheCleared".Translate(), MessageTypeDefOf.PositiveEvent, false);
+            }
+
+            Text.Font = GameFont.Tiny;
+            GUI.color = WorkflowUiStyle.MutedText;
+            Widgets.Label(new Rect(content.x, manageRow.yMax + 6f, content.width, 44f), WfText(
+                "沿用旧版拦截、后台翻译和 JSON 缓存。此模式暂停 DLL UI 采集和 DLL 译文应用；XML 翻译照常。",
+                "Uses the original interception, background translation and JSON cache. DLL UI capture and DLL translation application pause; XML translation remains available."));
+            GUI.color = Color.white;
+            Text.Font = GameFont.Small;
+            if (AutoTranslatorSettings.IsCancellationRequested)
+            {
+                bool stopped = !AutoTranslatorSettings.IsStopping && !AutoTranslatorSettings.IsRunning;
+                bool canResume = stopped && modelReady;
+                Rect resumeRect = new Rect(content.x, manageRow.yMax + 54f, content.width, 30f);
+                if (!modelReady) TooltipHandler.TipRegion(resumeRect, WfText("未配置大模型", "No language model configured"));
+                if (WorkflowUiStyle.Button(resumeRect,
+                    stopped ? WfText("恢复 UI 自动翻译", "Resume automatic UI translation")
+                              : WfText("正在停止翻译…", "Stopping translation…"),
+                    WorkflowButtonStyle.Quiet, canResume))
+                {
+                    AutoTranslatorSettings.ResetPipelineCancellation();
+                    Settings.EnableLegacyUIInterceptor = true;
+                    Settings.EnableUINewTranslation = true;
+                    UIInterceptionModeController.Refresh();
+                    WriteSettings();
+                }
+            }
         }
 
         private static void DrawSettingsModeToggle(Rect rect, string label, ref bool enabled)
@@ -855,6 +1157,25 @@ namespace AutoTranslator_Core
                 case AtcLogLevel.Debug: return "ATC_LogLevel_Debug".Translate();
                 default: return "ATC_LogLevel_Info".Translate();
             }
+        }
+
+        private static void DrawThinkingModeSelector(Rect rect, ApiKeyConfig config, bool canEdit)
+        {
+            string label = config.ThinkingMode == ApiThinkingMode.Enabled
+                ? WfText("启用", "Enabled")
+                : config.ThinkingMode == ApiThinkingMode.PreferOff
+                    ? WfText("尽量关闭", "Prefer off") : WfText("自动", "Automatic");
+            if (WorkflowUiStyle.Button(rect, label + "  ▾", WorkflowButtonStyle.Dropdown,
+                    canEdit && config.Provider != TranslatorProvider.DeepL))
+                Find.WindowStack.Add(new FloatMenu(new List<FloatMenuOption>
+                {
+                    new FloatMenuOption(WfText("自动", "Automatic"), () => config.ThinkingMode = ApiThinkingMode.Auto),
+                    new FloatMenuOption(WfText("尽量关闭", "Prefer off"), () => config.ThinkingMode = ApiThinkingMode.PreferOff),
+                    new FloatMenuOption(WfText("启用", "Enabled"), () => config.ThinkingMode = ApiThinkingMode.Enabled)
+                }));
+            TooltipHandler.TipRegion(rect,
+                WfText("翻译：", "Translation: ") + AutoTranslatorAPI.GetThinkingStatus(config, false) + "\n" +
+                WfText("复核：", "Review: ") + AutoTranslatorAPI.GetThinkingStatus(config, true));
         }
 
         private void DrawStructuredOutputSelector(Rect selectorRect, ApiKeyConfig config, bool canEdit)
@@ -1032,6 +1353,9 @@ namespace AutoTranslator_Core
         private static void QueueRestoreLatestBackupsFromSettings()
         {
             if (_settingsRestoreBackupRunning) return;
+            if (!AutoTranslator_Core.Workflow.WorkflowTaskCoordinator.Instance.TryBegin(
+                AutoTranslator_Core.Workflow.WorkflowTaskKind.RuntimeTranslationReload,
+                "Restore pre-replacement translations", out AutoTranslator_Core.Workflow.WorkflowTaskLease lease)) return;
             _settingsRestoreBackupRunning = true;
 
             List<AutoTranslatorScanner.LocalTranslationRestoreTarget> targets = Verse.ModLister.AllInstalledMods
@@ -1045,12 +1369,23 @@ namespace AutoTranslator_Core
                 Exception failure = null;
                 try
                 {
+                    lease.CancellationToken.ThrowIfCancellationRequested();
                     restored = AutoTranslatorScanner.RestoreLatestBackups(targets);
+                    AutoTranslator_Core.Workflow.WorkflowTaskCoordinator.Instance.MarkTerminal(
+                        lease.RunId, AutoTranslator_Core.Workflow.WorkflowRunState.Completed);
+                }
+                catch (OperationCanceledException)
+                {
+                    AutoTranslator_Core.Workflow.WorkflowTaskCoordinator.Instance.MarkTerminal(
+                        lease.RunId, AutoTranslator_Core.Workflow.WorkflowRunState.Cancelled);
                 }
                 catch (Exception ex)
                 {
                     failure = ex;
+                    AutoTranslator_Core.Workflow.WorkflowTaskCoordinator.Instance.MarkTerminal(
+                        lease.RunId, AutoTranslator_Core.Workflow.WorkflowRunState.Failed, ex.Message);
                 }
+                finally { lease.Dispose(); }
 
                 ATC_Dispatcher.RunOnMainThread(() =>
                 {
@@ -1070,30 +1405,25 @@ namespace AutoTranslator_Core
 
 // 這個方法負責繪製 執行期ProfilePanel 介面。
 // EN: This method draws runtime profile panel.
-private void DrawRuntimeProfilePanel(Listing_Standard l, Rect viewRect)
+        private void DrawRuntimeProfilePanel(Listing_Standard l, Rect viewRect)
         {
-            Rect panelRect = l.GetRect(78f);
-            Widgets.DrawBoxSolid(panelRect, WorkflowUiStyle.RaisedPanel);
-            WorkflowUiStyle.DrawBorder(panelRect, new Color(0.31f, 0.35f, 0.38f));
+            Rect panelRect = l.GetRect(118f);
+            Rect content = DrawSettingsSectionBody(panelRect);
+            Widgets.Label(new Rect(content.x, content.y, content.width, 26f),
+                WfText("运行统计", "Runtime statistics"));
+            TooltipHandler.TipRegion(panelRect, WfText(
+                "仅在调试日志级别显示，用于查看请求和译文刷新的耗时。这些是统计信息，无需设置。",
+                "Shown with debug logging to help diagnose request and translation refresh delays. These are statistics, not settings."));
 
             Text.Font = GameFont.Tiny;
-            Rect left = new Rect(panelRect.x + 8f, panelRect.y + 6f, panelRect.width * 0.5f - 10f, panelRect.height - 8f);
-            Rect right = new Rect(panelRect.x + panelRect.width * 0.52f, panelRect.y + 6f, panelRect.width * 0.48f - 10f, panelRect.height - 8f);
-
-            Widgets.Label(left,
-                WfText("模型请求由新版工作流统一调度。", "Model requests are managed by the workflow.") + "\n" +
-                WfText("响应超时：", "Response timeout: ") + Settings.TimeoutSeconds + WfText(" 秒", " seconds"));
-
-            Widgets.Label(right,
-                "📡 " + "ATC_Perf_Api".Translate(
-                    AutoTranslatorPerf.ActiveApiRequests.ToString(),
-                    AutoTranslatorPerf.AverageApiMs.ToString(),
-                    AutoTranslatorPerf.LastApiMs.ToString()) + "\n" +
-                "🪂 " + "ATC_Perf_MemoryDrop".Translate(
-                    AutoTranslatorPerf.LastMemoryDropMs.ToString(),
-                    AutoTranslatorPerf.LastMemoryDropKeyed.ToString(),
-                    AutoTranslatorPerf.LastMemoryDropDefs.ToString()) + "\n" +
-                WfText("DLL 采集证据：", "DLL observations: ") +
+            Widgets.Label(new Rect(content.x, content.y + 30f, content.width, 72f),
+                WfText("正在发送的请求：", "Active requests: ") + AutoTranslatorPerf.ActiveApiRequests +
+                WfText("；平均耗时：", "; average time: ") + AutoTranslatorPerf.AverageApiMs + " ms" +
+                WfText("；最近一次：", "; last request: ") + AutoTranslatorPerf.LastApiMs + " ms\n" +
+                WfText("最近一次刷新译文：", "Last translation refresh: ") + AutoTranslatorPerf.LastMemoryDropMs + " ms" +
+                WfText("；文字条目 ", "; text entries ") + AutoTranslatorPerf.LastMemoryDropKeyed +
+                WfText("，物品等数据条目 ", ", game-data entries ") + AutoTranslatorPerf.LastMemoryDropDefs + "\n" +
+                WfText("已采集的 DLL 界面文本：", "Captured DLL UI texts: ") +
                     TargetedHardcodedUi.HardcodedUiRuntimeObservationStore.GetObservationCount());
 
             Text.Font = GameFont.Small;

@@ -6,7 +6,32 @@
   <supportedVersions>
     <li>1.5</li>
     <li>1.6</li>
+    <li>1.7</li>
   </supportedVersions>
+  <modDependenciesByVersion>
+    <v1.6>
+      <li>
+        <packageId>brrainz.harmony</packageId>
+        <displayName>Harmony</displayName>
+        <steamWorkshopUrl>steam://url/CommunityFilePage/2009463077</steamWorkshopUrl>
+      </li>
+    </v1.6>
+    <v1.7>
+      <li>
+        <packageId>brrainz.harmony</packageId>
+        <displayName>Harmony</displayName>
+        <steamWorkshopUrl>steam://url/CommunityFilePage/2009463077</steamWorkshopUrl>
+      </li>
+    </v1.7>
+  </modDependenciesByVersion>
+  <loadAfterByVersion>
+    <v1.6>
+      <li>brrainz.harmony</li>
+    </v1.6>
+    <v1.7>
+      <li>brrainz.harmony</li>
+    </v1.7>
+  </loadAfterByVersion>
   <description>
 V4.6 內測版：整合雲端譯文、本地分析、AI 複核、AI 翻譯、譯文編輯與 XML／DLL 熱重載。
 翻譯結果以本機資料庫管理，可續作、可人工修訂，並保護原文占位符與格式。

@@ -1,0 +1,60 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Library</OutputType>
+    <AssemblyName>RimWorld_Auto_AI_Translation_Core</AssemblyName>
+    <RootNamespace>RimWorld_Auto_AI_Translation_Core</RootNamespace>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <Deterministic>true</Deterministic>
+    <DefineConstants>$(DefineConstants);RIMWORLD_1_7</DefineConstants>
+    <OutputPath>bin\$(Configuration)-RW17\</OutputPath>
+    <IntermediateOutputPath>$(BaseIntermediateOutputPath)$(Configuration)\</IntermediateOutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <RimWorld17Dir Condition="'$(RimWorld17Dir)' == ''">E:\Program Files\steam\steamapps\common\RimWorld</RimWorld17Dir>
+    <Harmony17Path Condition="'$(Harmony17Path)' == ''">E:\Program Files\steam\steamapps\workshop\content\294100\2009463077\1.7\Assemblies\0Harmony.dll</Harmony17Path>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\src\RimWorld-Auto-AI-Translation_Core\**\*.cs" Exclude="..\src\RimWorld-Auto-AI-Translation_Core\bin\**;..\src\RimWorld-Auto-AI-Translation_Core\obj\**" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(RimWorld17Dir)\Assembly-CSharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityStubs">
+      <HintPath>$(RimWorld17Dir)\UnityStubs.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Waylith">
+      <HintPath>$(RimWorld17Dir)\Waylith.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="0Harmony">
+      <HintPath>$(Harmony17Path)</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>..\packages\Newtonsoft.Json.13.0.4\lib\net6.0\Newtonsoft.Json.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="Mono.Cecil">
+      <HintPath>..\packages\Mono.Cecil.0.11.6\lib\netstandard2.0\Mono.Cecil.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <Reference Include="System.Data.SQLite">
+      <HintPath>..\packages\System.Data.SQLite.2.0.4\lib\netstandard2.0\System.Data.SQLite.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
+
+  <Target Name="ValidateRimWorld17References" BeforeTargets="ResolveReferences">
+    <Error Condition="!Exists('$(RimWorld17Dir)\Assembly-CSharp.dll')" Text="RimWorld17Dir must point to the RimWorld 1.7 installation root containing Assembly-CSharp.dll." />
+    <Error Condition="!Exists('$(RimWorld17Dir)\UnityStubs.dll')" Text="RimWorld17Dir is missing the RimWorld 1.7 UnityStubs.dll reference." />
+    <Error Condition="!Exists('$(RimWorld17Dir)\Waylith.dll')" Text="RimWorld17Dir is missing the RimWorld 1.7 Waylith.dll reference." />
+    <Error Condition="!Exists('$(Harmony17Path)')" Text="Harmony17Path must point to the shared Harmony mod's 1.7 .NET 10 assembly." />
+  </Target>
+</Project>

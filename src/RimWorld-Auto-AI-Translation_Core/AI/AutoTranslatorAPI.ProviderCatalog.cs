@@ -38,6 +38,8 @@ namespace AutoTranslator_Core
         // EN: This method gets base URL.
         private static string GetBaseUrl(ApiKeyConfig config)
         {
+            if (Player2LocalApi.IsEnabled(config))
+                return Player2LocalApi.NormalizeBaseUrl(config.CustomBaseUrl);
             string custom = CleanInput(config.CustomBaseUrl);
             if (!string.IsNullOrEmpty(custom))
             {

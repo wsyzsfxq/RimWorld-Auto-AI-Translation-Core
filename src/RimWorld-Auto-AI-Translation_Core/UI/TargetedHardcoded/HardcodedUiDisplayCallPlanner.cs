@@ -18,7 +18,8 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
             public Dictionary<int, HardcodedUiTranspileSpec> Arguments = new Dictionary<int, HardcodedUiTranspileSpec>();
         }
 
-        internal static List<Site> Plan(List<CodeInstruction> body, IList<HardcodedUiTranspileSpec> specs)
+        internal static List<Site> Plan(List<CodeInstruction> body, IList<HardcodedUiTranspileSpec> specs,
+            IDictionary<string, string> diagnostics = null)
         {
             var byOrdinal = specs.ToDictionary(s => s.LiteralOrdinal);
             var stack = new List<HardcodedUiTranspileSpec>();
@@ -30,7 +31,10 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
                 CodeInstruction instruction = body[i];
                 OpCode op = instruction.opcode;
                 if (instruction.labels.Count > 0 || instruction.blocks.Count > 0)
-                { stack.Clear(); locals.Clear(); }
+                {
+                    Record(diagnostics, stack.Concat(locals.Values), "ControlFlowBoundary: 分支汇合或异常边界处无法继续追踪原文");
+                    stack.Clear(); locals.Clear();
+                }
                 if (op == OpCodes.Ldstr)
                 {
                     ordinal++;
@@ -52,6 +56,16 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
                     ParameterInfo[] parameters = call.GetParameters();
                     var arguments = new HardcodedUiTranspileSpec[parameters.Length];
                     for (int p = parameters.Length - 1; p >= 0; p--) arguments[p] = Pop(stack);
+                    bool displayCall = HardcodedUiCallTarget.IsDisplayCall(call);
+                    if (displayCall && parameters.Any(p => p.ParameterType.IsByRef || p.ParameterType.IsPointer))
+                        Record(diagnostics, arguments, "UnsupportedByRef: 显示调用包含 ref/out 或指针参数，当前未支持");
+                    else if (displayCall && i > 0 && body[i - 1].opcode.OpCodeType == OpCodeType.Prefix)
+                        Record(diagnostics, arguments, "UnsupportedPrefix: 显示调用带有尚未支持的 IL 前缀");
+                    else if (!displayCall)
+                        Record(diagnostics, arguments,
+                            call.DeclaringType?.FullName == "Verse.TaggedString" || call.DeclaringType?.FullName == "UnityEngine.GUIContent"
+                                ? "UnsupportedWrappedType: 原文进入文字包装类型，当前未继续追踪"
+                                : "UntrackedCall: 原文进入非直接支持的调用，无法确认后续显示位置");
                     if (!call.IsStatic && op != OpCodes.Newobj) Pop(stack);
                     if (op != OpCodes.Newobj && HardcodedUiCallTarget.IsDisplayCall(call) &&
                         instruction.labels.Count == 0 && instruction.blocks.Count == 0 &&
@@ -73,14 +87,40 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
                 if (op.FlowControl == FlowControl.Branch || op.FlowControl == FlowControl.Cond_Branch ||
                     op.FlowControl == FlowControl.Return || op.FlowControl == FlowControl.Throw ||
                     op.Name.StartsWith("ldloca", StringComparison.Ordinal))
-                { stack.Clear(); locals.Clear(); continue; }
+                {
+                    Record(diagnostics, stack.Concat(locals.Values), op.Name.StartsWith("ldloca", StringComparison.Ordinal)
+                        ? "UnsupportedLocalAddress: 局部变量被取地址，当前未继续追踪"
+                        : "ControlFlowBoundary: 控制流结束或跳转，当前未继续追踪");
+                    stack.Clear(); locals.Clear(); continue;
+                }
                 int pops = StackCount(op.StackBehaviourPop);
                 int pushes = StackCount(op.StackBehaviourPush);
                 if (pops < 0 || pushes < 0) { stack.Clear(); locals.Clear(); continue; }
-                for (int p = 0; p < pops; p++) Pop(stack);
+                for (int p = 0; p < pops; p++)
+                {
+                    var consumed = Pop(stack);
+                    Record(diagnostics, new[] { consumed }, op == OpCodes.Stfld || op == OpCodes.Stsfld
+                        ? "UnsupportedFieldFlow: 原文写入对象或静态字段，当前未跨字段追踪"
+                        : "UntrackedInstruction: 原文经过尚未追踪的指令 " + op.Name);
+                }
                 for (int p = 0; p < pushes; p++) stack.Add(null);
             }
+            if (diagnostics != null)
+            {
+                var matched = new HashSet<string>(sites.SelectMany(site => site.Arguments.Values).Select(spec => spec.EntryId));
+                foreach (var spec in specs)
+                    if (!matched.Contains(spec.EntryId) && !diagnostics.ContainsKey(spec.EntryId))
+                        diagnostics[spec.EntryId] = "NoDisplaySink: 未找到可明确对应此原文的受支持显示参数；原因尚不能细分";
+            }
             return sites;
+        }
+
+        private static void Record(IDictionary<string, string> diagnostics,
+            IEnumerable<HardcodedUiTranspileSpec> values, string reason)
+        {
+            if (diagnostics == null) return;
+            foreach (var value in values)
+                if (value != null && !diagnostics.ContainsKey(value.EntryId)) diagnostics[value.EntryId] = reason;
         }
 
         private static HardcodedUiTranspileSpec Pop(List<HardcodedUiTranspileSpec> stack)

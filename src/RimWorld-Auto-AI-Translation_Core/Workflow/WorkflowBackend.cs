@@ -23,6 +23,7 @@ namespace AutoTranslator_Core.Workflow
         private readonly AiReviewService _review;
         private readonly AiTranslationService _translation;
         private readonly DryRunWorkflowService _dryRun;
+        private readonly LanguageModelGateway _modelGateway;
         private readonly TranslationFileSynchronizer _synchronizer;
         private readonly ManualTranslationService _manualTranslation;
         private readonly ITranslationOutputStore _output;
@@ -41,6 +42,7 @@ namespace AutoTranslator_Core.Workflow
             _generatedPackRoot = System.IO.Path.GetFullPath(generatedPackRoot);
             _configuration = new WorkflowConfigurationStore(_repository);
             LanguageModelGateway gateway = new LanguageModelGateway(modelTransport);
+            _modelGateway = gateway;
             CompositeTranslationOutputStore output = new CompositeTranslationOutputStore(generatedPackRoot);
             _output = output;
             _analysis = new AnalysisWorkflowService(
@@ -146,6 +148,9 @@ namespace AutoTranslator_Core.Workflow
             bool forceAnalysis,
             CancellationToken cancellationToken = default(CancellationToken))
         {
+            if (!WorkflowRuntimeSettings.DllWorkflowApplicable)
+                throw new InvalidOperationException(
+                    "UI 拦截模式不适用 DLL 分析，请先切回 DLL 分析模式。");
             List<ModMetaData> targets = WorkflowStepSelection.FilterTranslationTargets(mods);
             return RunExclusiveAsync(
                 WorkflowTaskKind.DllAnalysis,
@@ -234,11 +239,15 @@ namespace AutoTranslator_Core.Workflow
                         .Select(candidateId => _repository.GetCandidate(candidateId, targetLanguage))
                         .Where(candidate => candidate != null && string.Equals(
                             candidate.ModIdentity, modIdentity, StringComparison.Ordinal))
+                        .Where(candidate => WorkflowRuntimeSettings.DllWorkflowApplicable ||
+                            candidate.SourceDomain != CandidateSourceDomain.Dll)
                         .ToList();
                     token.ThrowIfCancellationRequested();
                     if (scopedCandidates.Count == 0)
                         throw new InvalidOperationException(
-                            "None of the selected entries belong to the current Mod.");
+                            WorkflowRuntimeSettings.DllWorkflowApplicable
+                                ? "None of the selected entries belong to the current Mod."
+                                : "所选条目中没有可处理的 XML 条目；UI 拦截模式不处理 DLL 翻译。");
 
                     List<string> scoped = scopedCandidates
                         .Select(candidate => candidate.CandidateId).ToList();
@@ -858,6 +867,9 @@ namespace AutoTranslator_Core.Workflow
             WorkflowExecutionOptions options,
             CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            _modelGateway.EnsureConfigured(TranslationTaskTier.Standard);
+            _modelGateway.EnsureConfigured(TranslationTaskTier.Bulk);
             List<Exception> failures = new List<Exception>();
             List<string> modIdentities = WorkflowStepSelection.ResolveModIdentities(mods);
             try
@@ -869,11 +881,34 @@ namespace AutoTranslator_Core.Workflow
             catch (OperationCanceledException) { throw; }
             catch (Exception ex)
             {
-                // Native translation read failures are handled inside the catalog and
-                // remain non-fatal. An actual candidate-analysis failure is different:
-                // do not send a previous run's candidates to AI as if this run succeeded.
-                throw new InvalidOperationException(
-                    "本地候选分析未全部完成，已完成结果已保留；本次尚未调用 AI，请处理分析错误后重试。", ex);
+                IEnumerable<Exception> analysisErrors = ex is AggregateException aggregate
+                    ? (IEnumerable<Exception>)aggregate.Flatten().InnerExceptions
+                    : new[] { ex };
+                // Only isolated Mod/domain failures can be skipped. A catalog or
+                // database failure without a known scope must still stop the run.
+                if (analysisErrors.Any(error => !(error is ModDomainAnalysisException)))
+                    throw new InvalidOperationException(
+                        "本地分析未能完成，请查看具体错误；已保存的结果会保留。", ex);
+                List<ModDomainAnalysisException> skipped = analysisErrors
+                    .Cast<ModDomainAnalysisException>().ToList();
+                options = new WorkflowExecutionOptions
+                {
+                    TemporaryAiReviewScope = options?.TemporaryAiReviewScope,
+                    TemporaryUndeterminedTranslationRatio = options?.TemporaryUndeterminedTranslationRatio,
+                    CandidateIds = options?.CandidateIds,
+                    FailedAnalysisDomains = skipped.GroupBy(error => error.ModIdentity, StringComparer.Ordinal)
+                        .ToDictionary(group => group.Key,
+                            group => new HashSet<CandidateSourceDomain>(group.Select(error => error.SourceDomain)),
+                            StringComparer.Ordinal)
+                };
+                string warning = AutoTranslatorMod.WfText(
+                    "以下部分分析失败，已跳过，其他部分继续翻译：", 
+                    "Analysis failed for the following parts; they were skipped and other parts will continue: ") +
+                    string.Join("；", skipped.Select(error => error.DisplayName + "（" +
+                        (error.SourceDomain == CandidateSourceDomain.Xml ? "XML" : "DLL") + "）").Distinct());
+                AutoTranslatorSettings.AddWarningLog(warning);
+                ATC_Dispatcher.RunOnMainThread(() =>
+                    Messages.Message(warning, RimWorld.MessageTypeDefOf.CautionInput, false));
             }
 
             try

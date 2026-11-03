@@ -28,6 +28,12 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
             new Dictionary<string, string>(System.StringComparer.Ordinal));
         private static RuntimeSnapshot _snapshot = EmptySnapshot;
         private static long _resolveCount;
+        private static volatile bool _suspended;
+
+        internal static void SetSuspended(bool suspended)
+        {
+            _suspended = suspended;
+        }
 
         public static long ResolveCount
         {
@@ -36,6 +42,7 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
 
         public static string Resolve(string source, string entryId)
         {
+            if (_suspended) return source;
             Interlocked.Increment(ref _resolveCount);
             if (string.IsNullOrEmpty(source) || string.IsNullOrEmpty(entryId)) return source;
 

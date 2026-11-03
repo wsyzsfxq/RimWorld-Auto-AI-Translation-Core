@@ -182,6 +182,7 @@ namespace AutoTranslator_Core
         public static void NotifyTranslationFileChanged(string filePath)
         {
             if (string.IsNullOrEmpty(filePath)) return;
+            NotifyEarlyStartupInputsChanged();
 
             InvalidateXmlFileCache(filePath);
             InvalidateXmlFileListCachesForChangedPath(filePath);
@@ -192,6 +193,7 @@ namespace AutoTranslator_Core
 
         public static void NotifyTranslationFilesChanged(string rootPath)
         {
+            NotifyEarlyStartupInputsChanged();
             if (string.IsNullOrEmpty(rootPath))
             {
                 ResetKeyedMemoryDropStamp();
@@ -236,7 +238,8 @@ namespace AutoTranslator_Core
             }
         }
 
-        private static List<string> GetXmlFilesCached(string path, SearchOption searchOption)
+        private static List<string> GetXmlFilesCached(string path, SearchOption searchOption,
+            TranslationFileOrderSnapshot order = null)
         {
             List<string> files = new List<string>();
             if (string.IsNullOrEmpty(path) || !Directory.Exists(path)) return files;
@@ -253,7 +256,7 @@ namespace AutoTranslator_Core
                     List<string> existingFiles = cached.Files.Where(File.Exists).ToList();
                     if (existingFiles.Count == cached.Files.Count)
                     {
-                        return ApplyTranslationFileLoadOrder(fullPath, existingFiles);
+                        return ApplyTranslationFileLoadOrder(fullPath, existingFiles, order);
                     }
 
                     XmlFileListCache.Remove(cacheKey);
@@ -264,7 +267,7 @@ namespace AutoTranslator_Core
             {
                 files = ApplyTranslationFileLoadOrder(
                     fullPath,
-                    Directory.GetFiles(fullPath, "*.xml", searchOption));
+                    Directory.GetFiles(fullPath, "*.xml", searchOption), order);
             }
             catch
             {

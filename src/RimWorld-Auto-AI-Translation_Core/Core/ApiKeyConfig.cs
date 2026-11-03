@@ -25,7 +25,7 @@ namespace AutoTranslator_Core
     // EN: This class manages the main workflow and state for ApiKeyConfig.
     public class ApiKeyConfig : IExposable
     {
-        public const int DefaultAtcMaxOutputTokens = 10000;
+        public const int DefaultAtcMaxOutputTokens = 100000;
         // 這個欄位保存 供應商 的執行狀態或快取資料。
         // EN: This field stores provider runtime state or cached data.
         public TranslatorProvider Provider = TranslatorProvider.Google;
@@ -41,12 +41,15 @@ namespace AutoTranslator_Core
         // 這個欄位保存 CustomBase網址 的執行狀態或快取資料。
         // EN: This field stores custom base URL runtime state or cached data.
         public string CustomBaseUrl = "";
+        public bool UsePlayer2Protocol = false;
+        public string Player2GameClientId = "";
         // 這個欄位保存 Selected模型 的執行狀態或快取資料。
         // EN: This field stores selected model runtime state or cached data.
         public string SelectedModel = "";
         public int AtcMaxOutputTokens = DefaultAtcMaxOutputTokens;
         public OutputTokenDisplayUnit AtcMaxOutputTokenUnit = OutputTokenDisplayUnit.Thousands;
         public StructuredOutputPreference StructuredOutput = StructuredOutputPreference.Auto;
+        public ApiThinkingMode ThinkingMode = ApiThinkingMode.Auto;
         public TranslationTaskTier TaskTier = TranslationTaskTier.Bulk;
 
         public List<string> FetchedModels = new List<string>();
@@ -54,7 +57,7 @@ namespace AutoTranslator_Core
             new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
         public Dictionary<string, int> FetchedModelOutputTokenLimits =
             new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        [NonSerialized] public string AtcMaxOutputTokensBuffer = "10";
+        [NonSerialized] public string AtcMaxOutputTokensBuffer = "100";
 
         // 這個欄位保存 IsFetching 的執行狀態或快取資料。
         // EN: This method handles expose data.
@@ -97,6 +100,8 @@ namespace AutoTranslator_Core
             Scribe_Values.Look(ref Enabled, "Enabled", true);
             Scribe_Values.Look(ref Key, "Key", "");
             Scribe_Values.Look(ref CustomBaseUrl, "CustomBaseUrl", "");
+            Scribe_Values.Look(ref UsePlayer2Protocol, "UsePlayer2Protocol", false);
+            Scribe_Values.Look(ref Player2GameClientId, "Player2GameClientId", "");
             Scribe_Values.Look(ref SelectedModel, "SelectedModel", "");
             Scribe_Values.Look(
                 ref AtcMaxOutputTokens,
@@ -107,6 +112,7 @@ namespace AutoTranslator_Core
                 "AtcMaxOutputTokenUnit",
                 OutputTokenDisplayUnit.Thousands);
             Scribe_Values.Look(ref StructuredOutput, "StructuredOutput", StructuredOutputPreference.Auto);
+            Scribe_Values.Look(ref ThinkingMode, "ThinkingMode", ApiThinkingMode.Auto);
             Scribe_Values.Look(ref TaskTier, "TaskTier", TranslationTaskTier.Bulk);
             Scribe_Collections.Look(ref FetchedModels, "FetchedModels", LookMode.Value);
             Scribe_Collections.Look(
@@ -116,6 +122,7 @@ namespace AutoTranslator_Core
                 LookMode.Value);
 
             if (FetchedModels == null) FetchedModels = new List<string>();
+            if (!Enum.IsDefined(typeof(ApiThinkingMode), ThinkingMode)) ThinkingMode = ApiThinkingMode.Auto;
             AtcMaxOutputTokens = Math.Max(1, AtcMaxOutputTokens);
             double displayValue = AtcMaxOutputTokenUnit == OutputTokenDisplayUnit.Millions
                 ? AtcMaxOutputTokens / 1000000d

@@ -45,16 +45,16 @@ namespace AutoTranslator_Core
             Widgets.Label(new Rect(0f,0f,rect.width,32f),T("参考字典", "Reference dictionary") + " · " + _language);
             Text.Font = GameFont.Small;
             Widgets.Label(new Rect(0f,40f,rect.width,50f), T(
-                "用户维护原词、建议译名、词性和语境。模型按当前语境选择义项；修改字典只影响后续新翻译，不重翻已有译文。",
-                "Maintain terms, suggested translations, parts of speech and context. Changes guide future translations and do not retranslate existing content."));
+                "这里可以查看自带词条，也可以添加或修改常用词的译法。修改后只影响新的翻译，已有译文保持不变。",
+                "View included terms, or add and edit preferred translations. Changes apply to new translations; existing translations are kept."));
             float leftWidth = rect.width * 0.47f;
             _search = Widgets.TextField(new Rect(0f,94f,leftWidth-184f,30f),_search);
-            if (Widgets.ButtonText(new Rect(leftWidth-178f,94f,84f,30f),T("复制", "Copy")))
+            if (WorkflowUiStyle.Button(new Rect(leftWidth-178f,94f,84f,30f),T("复制", "Copy")))
             {
                 _editing=JsonConvert.DeserializeObject<ReferenceDictionaryEntry>(JsonConvert.SerializeObject(_editing));
                 _editing.EntryId=string.Empty; _editing.IsBuiltIn=false;
             }
-            if (Widgets.ButtonText(new Rect(leftWidth-88f,94f,88f,30f),T("新增", "Add"))) NewEntry();
+            if (WorkflowUiStyle.Button(new Rect(leftWidth-88f,94f,88f,30f),T("新增", "Add"))) NewEntry();
             var visible = _entries.Where(entry => string.IsNullOrWhiteSpace(_search) ||
                 (entry.SourceForm+" "+entry.TargetForm+" "+entry.ContextHint).IndexOf(_search,StringComparison.OrdinalIgnoreCase)>=0).ToList();
             Rect list = new Rect(0f,132f,leftWidth,rect.height-178f);
@@ -81,7 +81,9 @@ namespace AutoTranslator_Core
             _editing.PartOfSpeech=Field(x,ref y,width,T("词性（可选）", "Part of speech (optional)"),_editing.PartOfSpeech);
             _editing.ContextHint=Field(x,ref y,width,T("适用语境／含义（可选）", "Context / meaning (optional)"),_editing.ContextHint);
             _editing.ExampleText=Field(x,ref y,width,T("例句（可选）", "Example (optional)"),_editing.ExampleText);
-            if (Widgets.ButtonText(new Rect(x,y,width,30f),T("适用范围：", "Scope: ")+ScopeName(_editing.ScopeModIdentity)))
+            Rect scopeRect = new Rect(x,y,width,34f);
+            if (WorkflowUiStyle.LabeledDropdown(scopeRect,T("适用范围", "Scope"),
+                    ScopeName(_editing.ScopeModIdentity),100f))
             {
                 var options=new List<FloatMenuOption> { new FloatMenuOption(T("全部 Mod 共用", "Shared by all Mods"),()=>_editing.ScopeModIdentity=string.Empty) };
                 foreach (var mod in _mods)
@@ -91,11 +93,12 @@ namespace AutoTranslator_Core
                 }
                 Find.WindowStack.Add(new FloatMenu(options));
             }
+            TooltipHandler.TipRegion(scopeRect, ScopeName(_editing.ScopeModIdentity));
             y+=38f;
             bool enabled=_editing.Enabled;
-            Widgets.CheckboxLabeled(new Rect(x,y,width,28f),T("启用此义项", "Enable this sense"),ref enabled);
+            Widgets.CheckboxLabeled(new Rect(x,y,width,28f),T("启用此词条", "Enable this entry"),ref enabled);
             _editing.Enabled=enabled; y+=34f;
-            if (Widgets.ButtonText(new Rect(x,y,width,32f),T("保存", "Save")))
+            if (WorkflowUiStyle.Button(new Rect(x,y,width,32f),T("保存", "Save"), WorkflowButtonStyle.Primary))
             {
                 try
                 {

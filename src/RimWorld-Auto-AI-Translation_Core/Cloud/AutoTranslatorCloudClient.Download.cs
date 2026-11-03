@@ -6,7 +6,9 @@ using System.IO.Compression;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+#if !RIMWORLD_1_7
 using UnityEngine.Networking;
+#endif
 using Verse;
 using static AutoTranslator_Core.DeleteTranslationWindow;
 // 這個檔案負責雲端下載流程。
@@ -265,6 +267,10 @@ namespace AutoTranslator_Core
             int timeoutSeconds,
             CancellationToken cancellationToken)
         {
+#if RIMWORLD_1_7
+            return await DownloadCloudArchiveNativeAttemptAsync(
+                url, tempFilePath, timeoutSeconds, cancellationToken);
+#else
             cancellationToken.ThrowIfCancellationRequested();
             var tcs = new TaskCompletionSource<CloudDownloadAttemptResult>();
             ATC_Dispatcher.RunOnMainThread(() =>
@@ -334,6 +340,7 @@ namespace AutoTranslator_Core
                 }
             });
             return await WaitForCloudTask(tcs.Task, timeoutSeconds + 10, "cloud download");
+#endif
         }
 
         private static CloudModRecord FindCloudRecordById(string recordId)

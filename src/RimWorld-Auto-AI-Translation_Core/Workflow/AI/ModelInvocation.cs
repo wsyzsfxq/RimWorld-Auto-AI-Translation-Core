@@ -81,6 +81,11 @@ namespace AutoTranslator_Core.Workflow.AI
         Task<ModelInvocationResult> InvokeAsync(ModelInvocationRequest request, CancellationToken cancellationToken);
     }
 
+    public interface ILanguageModelConfigurationValidator
+    {
+        void EnsureConfigured(TranslationTaskTier taskTier);
+    }
+
     public sealed class LanguageModelGateway
     {
         private readonly ILanguageModelTransport _transport;
@@ -88,6 +93,13 @@ namespace AutoTranslator_Core.Workflow.AI
         public LanguageModelGateway(ILanguageModelTransport transport)
         {
             _transport = transport;
+        }
+
+        public void EnsureConfigured(TranslationTaskTier taskTier)
+        {
+            if (_transport == null) throw new InvalidOperationException("请先配置大模型。");
+            if (_transport is ILanguageModelConfigurationValidator validator)
+                validator.EnsureConfigured(taskTier);
         }
 
         public Task<ModelInvocationResult> InvokeAsync(

@@ -293,6 +293,7 @@ namespace AutoTranslator_Core
             EnsureNetworkDispatchReady();
 
             Settings = GetSettings<AutoTranslatorSettings>();
+            LogLoadedLanguagePreference();
             SettingsWindowSizingPatch.EnsureInstalled();
             if (Settings.ApiConfigs == null || Settings.ApiConfigs.Count == 0)
             {
@@ -302,6 +303,7 @@ namespace AutoTranslator_Core
 
             AutoTranslator_StartupHook.EnsureInstalled();
             AutoTranslator_LongEventCompat.ExecuteWhenFinished(EnsureNetworkDispatchReady);
+            AutoTranslator_LongEventCompat.ExecuteWhenFinished(CloudClientIdentity.InitializeOnMainThread);
         }
 
         // 這個方法負責確保 NetworkDispatchReady 已準備完成。
@@ -358,23 +360,76 @@ namespace AutoTranslator_Core
         // EN: This method applies target language change.
         private void ApplyTargetLanguageChange(TargetLanguage targetLang, bool manualSelection)
         {
-            bool changed = Settings.TargetLang != targetLang;
+            AutoTranslatorSettings settings = Settings;
+            if (settings == null) return;
+            TargetLanguage previousTarget = settings.TargetLang;
+            TargetLanguage previousCloudTarget = settings.CloudTargetLang;
+            bool previousManualSelection = settings.HasManualTargetLanguage;
+            bool changed = previousTarget != targetLang;
 
             if (changed)
             {
                 UIInterceptor.PrepareForLanguageChange();
             }
 
-            Settings.TargetLang = targetLang;
-            Settings.CloudTargetLang = targetLang;
-            if (manualSelection) Settings.HasManualTargetLanguage = true;
+            settings.TargetLang = targetLang;
+            settings.CloudTargetLang = targetLang;
+            if (manualSelection) settings.HasManualTargetLanguage = true;
+
+            try
+            {
+                // Persist the object we changed before any cache reload can fail.
+                // Mod.WriteSettings writes its private settings reference instead.
+                settings.Write();
+            }
+            catch (Exception ex)
+            {
+                settings.TargetLang = previousTarget;
+                settings.CloudTargetLang = previousCloudTarget;
+                settings.HasManualTargetLanguage = previousManualSelection;
+                AutoTranslatorSettings.AddErrorLog("语言设置保存失败，未切换语言：" + ex.GetType().Name);
+                Messages.Message(WfText("语言设置保存失败，仍保留之前的选择。请查看错误日志。",
+                    "Could not save the language setting. The previous choice was kept; see the error log."),
+                    MessageTypeDefOf.RejectInput, false);
+                if (changed) TryRefreshLanguageDependentCaches();
+                return;
+            }
+
+            Verse.Log.Message("[AutoTranslationCore] 语言选择已保存：目标=" + settings.TargetLang +
+                "；手动=" + settings.HasManualTargetLanguage + "；配置=" + GetLanguagePreferenceFileName(settings));
 
             if (changed)
             {
-                ResetLanguageDependentCaches();
+                TryRefreshLanguageDependentCaches();
             }
+        }
 
-            WriteSettings();
+        private void LogLoadedLanguagePreference()
+        {
+            Verse.Log.Message("[AutoTranslationCore] 语言设置已读取：目标=" + Settings.TargetLang +
+                "；云端=" + Settings.CloudTargetLang + "；手动=" + Settings.HasManualTargetLanguage +
+                "；目标字段=" + Settings.TargetLanguageNodeWasLoaded +
+                "；手动字段=" + Settings.ManualLanguageNodeWasLoaded +
+                "；配置=" + GetLanguagePreferenceFileName(Settings));
+        }
+
+        private string GetLanguagePreferenceFileName(AutoTranslatorSettings settings)
+        {
+            Mod owner = settings?.Mod ?? this;
+            return GenText.SanitizeFilename("Mod_" + (owner.Content?.FolderName ?? string.Empty) +
+                "_" + owner.GetType().Name + ".xml");
+        }
+
+        private static void TryRefreshLanguageDependentCaches()
+        {
+            try { ResetLanguageDependentCaches(); }
+            catch (Exception ex)
+            {
+                AutoTranslatorSettings.AddWarningLog("语言选择已保留，但译文刷新未完成：" + ex.GetType().Name);
+                Messages.Message(WfText("语言选择已保留，但译文刷新未完成，请重试热重载。",
+                    "The language choice was kept, but translations could not finish refreshing. Try hot reload again."),
+                    MessageTypeDefOf.CautionInput, false);
+            }
         }
 
         // 這個方法負責重置 語言DependentCaches 狀態。
@@ -393,30 +448,31 @@ namespace AutoTranslator_Core
         // EN: This method tries to auto sync language with game and reports whether it succeeded.
         public static bool TryAutoSyncLanguageWithGame(bool resetCaches, bool log, bool writeSettings)
         {
-            if (Settings == null || Settings.HasManualTargetLanguage) return false;
+            AutoTranslatorSettings settings = Settings;
+            if (settings == null || settings.HasManualTargetLanguage) return false;
             if (!TryGetTargetLanguageFromActiveGameLanguage(out TargetLanguage detectedLang, out string activeFolder)) return false;
-            if (Settings.TargetLang == detectedLang && Settings.CloudTargetLang == detectedLang) return false;
+            if (settings.TargetLang == detectedLang && settings.CloudTargetLang == detectedLang) return false;
 
             if (resetCaches)
             {
                 UIInterceptor.PrepareForLanguageChange();
             }
 
-            Settings.TargetLang = detectedLang;
-            Settings.CloudTargetLang = detectedLang;
-
-            if (resetCaches)
-            {
-                ResetLanguageDependentCaches();
-            }
+            settings.TargetLang = detectedLang;
+            settings.CloudTargetLang = detectedLang;
 
             if (writeSettings)
             {
-                try
+                try { settings.Write(); }
+                catch (Exception ex)
                 {
-                    LoadedModManager.GetMod<AutoTranslatorMod>()?.WriteSettings();
+                    AutoTranslatorSettings.AddWarningLog("跟随游戏的语言选择尚未保存：" + ex.GetType().Name);
                 }
-                catch { }
+            }
+
+            if (resetCaches)
+            {
+                TryRefreshLanguageDependentCaches();
             }
 
             if (log)
@@ -435,25 +491,16 @@ namespace AutoTranslator_Core
             activeFolder = Verse.LanguageDatabase.activeLanguage?.folderName;
             if (string.IsNullOrEmpty(activeFolder)) return false;
 
-            switch (activeFolder)
+            // 1.7 language folders may carry a localized suffix, for example
+            // ChineseSimplified (简体中文). Use the same matcher as file scanning.
+            foreach (TargetLanguage language in Enum.GetValues(typeof(TargetLanguage)))
             {
-                case "ChineseTraditional": targetLang = TargetLanguage.Traditional; return true;
-                case "ChineseSimplified": targetLang = TargetLanguage.Simplified; return true;
-                case "Japanese": targetLang = TargetLanguage.Japanese; return true;
-                case "Korean": targetLang = TargetLanguage.Korean; return true;
-                case "Russian": targetLang = TargetLanguage.Russian; return true;
-                case "Ukrainian": targetLang = TargetLanguage.Ukrainian; return true;
-                case "French": targetLang = TargetLanguage.French; return true;
-                case "German": targetLang = TargetLanguage.German; return true;
-                case "Spanish": targetLang = TargetLanguage.Spanish; return true;
-                case "Italian": targetLang = TargetLanguage.Italian; return true;
-                case "Polish": targetLang = TargetLanguage.Polish; return true;
-                case "PortugueseBrazilian": targetLang = TargetLanguage.Portuguese; return true;
-                case "Turkish": targetLang = TargetLanguage.Turkish; return true;
-                case "Thai": targetLang = TargetLanguage.Thai; return true;
-                case "English": targetLang = TargetLanguage.English; return true;
-                default: return false;
+                if (!AutoTranslatorScanner.IsLanguageFolderMatch(activeFolder,
+                        AutoTranslatorScanner.GetFolderNameByLanguage(language))) continue;
+                targetLang = language;
+                return true;
             }
+            return false;
         }
 
         // 這個方法負責重置 雲端取得狀態For語言Change 狀態。

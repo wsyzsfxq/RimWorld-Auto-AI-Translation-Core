@@ -65,13 +65,13 @@ namespace AutoTranslator_Core
                 Widgets.Label(new Rect(0f, y, inRect.width, 22f), "ATC_Correction_ProposedLabel".Translate());
                 y += 24f;
                 Rect proposedRect = new Rect(0f, y, inRect.width, 130f);
-                _proposedTranslation = Widgets.TextArea(proposedRect, _proposedTranslation ?? "");
+                _proposedTranslation = WorkflowTextInput.Area(proposedRect, _proposedTranslation ?? "");
                 y += 140f;
 
                 Widgets.Label(new Rect(0f, y, inRect.width, 22f), "ATC_Correction_ReasonLabel".Translate());
                 y += 24f;
                 Rect reasonRect = new Rect(0f, y, inRect.width, 92f);
-                _reason = Widgets.TextArea(reasonRect, _reason ?? "");
+                _reason = WorkflowTextInput.Area(reasonRect, _reason ?? "");
                 if (string.IsNullOrWhiteSpace(_reason))
                 {
                     GUI.color = Color.gray;
@@ -152,8 +152,14 @@ namespace AutoTranslator_Core
                 return;
             }
 
+            string contributorId;
+            if (!CloudClientIdentity.TryGetValue(out contributorId))
+            {
+                Messages.Message(AutoTranslatorMod.WfText("暂时无法读取或保存云端身份，请稍后重试。", "Cloud identity could not be loaded or saved. Please try again."), MessageTypeDefOf.RejectInput, false);
+                return;
+            }
             _isSubmitting = true;
-            TranslationCorrectionSubmission submission = BuildSubmission(proposed, reason);
+            TranslationCorrectionSubmission submission = BuildSubmission(proposed, reason, contributorId);
             string token = AutoTranslatorMod.Settings != null ? AutoTranslatorMod.Settings.CloudAdminToken : "";
 
             Task.Run(async () =>
@@ -175,7 +181,7 @@ namespace AutoTranslator_Core
             });
         }
 
-        private TranslationCorrectionSubmission BuildSubmission(string proposed, string reason)
+        private TranslationCorrectionSubmission BuildSubmission(string proposed, string reason, string contributorId)
         {
             string packageId = _mod != null ? _mod.PackageId ?? "" : "";
             string targetLangFolder = AutoTranslatorScanner.GetFolderNameByLanguage(AutoTranslatorMod.Settings.TargetLang);
@@ -204,7 +210,7 @@ namespace AutoTranslator_Core
                 CurrentTranslation = _currentTranslation,
                 ProposedTranslation = proposed,
                 Reason = reason,
-                ContributorId = UnityEngine.SystemInfo.deviceUniqueIdentifier,
+                ContributorId = contributorId,
                 ContributorName = AutoTranslatorMod.Settings != null ? AutoTranslatorMod.Settings.CloudNickname ?? "" : "",
                 QualityTier = "InGameCorrection",
                 StatusHint = isOfficialGameText ? "pending_official_review" : "pending",

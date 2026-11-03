@@ -38,6 +38,7 @@ namespace AutoTranslator_Core
                 case TranslatorProvider.GLM:
                 case TranslatorProvider.Alibaba:
                 case TranslatorProvider.DeepSeek:
+                case TranslatorProvider.MiMo:
                     return StructuredTranslationMode.JsonObject;
                 case TranslatorProvider.Custom_OpenAI:
                 default:

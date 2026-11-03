@@ -22,6 +22,7 @@ namespace AutoTranslator_Core
         // EN: This method draws cloud tab.
         private void DrawCloudTab(Listing_Standard l, Rect viewRect)
         {
+            CloudClientIdentity.InitializeOnMainThread();
             DrawCloudToolbarAndSettings(l, viewRect);
 
             if (AutoTranslatorSettings.IsFetchingCloud) return;
@@ -205,7 +206,14 @@ namespace AutoTranslator_Core
         private static bool IsOwnCloudRecord(CloudModRecord record)
         {
             if (record == null || string.IsNullOrWhiteSpace(record.UploaderID)) return false;
-            return string.Equals(record.UploaderID, UnityEngine.SystemInfo.deviceUniqueIdentifier, StringComparison.OrdinalIgnoreCase);
+            return CloudClientIdentity.IsCurrentUserId(record.UploaderID);
+        }
+
+        internal static void InvalidateCloudIdentityCache()
+        {
+            _cachedCloudStatsRegistryCount = -1;
+            _cachedOwnCloudRecords = null;
+            _cachedOwnCloudRecordsRegistryCount = -1;
         }
 
         private List<CloudModRecord> GetOwnLatestCloudRecordsCached(string targetLangFolder)

@@ -12,7 +12,14 @@ namespace AutoTranslator_Core
         private static List<string> CachedGamePackageOrder = new List<string>();
         private static int CachedGamePackageCount = -1;
 
-        private static List<string> ApplyTranslationFileLoadOrder(string rootPath, IEnumerable<string> files)
+        private sealed class TranslationFileOrderSnapshot
+        {
+            public List<string> GameOrder;
+            public List<string> ExplicitOrder;
+        }
+
+        private static List<string> ApplyTranslationFileLoadOrder(string rootPath, IEnumerable<string> files,
+            TranslationFileOrderSnapshot order = null)
         {
             List<string> materialized = (files ?? Enumerable.Empty<string>()).ToList();
             if (!IsLocalTranslationLanguagePath(rootPath))
@@ -22,8 +29,8 @@ namespace AutoTranslator_Core
 
             return TranslationLoadOrderPolicy.OrderFiles(
                 materialized,
-                GetGamePackageOrderSnapshot(),
-                AutoTranslatorMod.Settings?.CloudTranslationPriority);
+                order != null ? order.GameOrder : GetGamePackageOrderSnapshot(),
+                order != null ? order.ExplicitOrder : AutoTranslatorMod.Settings?.CloudTranslationPriority);
         }
 
         public static void NotifyTranslationLoadOrderChanged()
@@ -33,15 +40,16 @@ namespace AutoTranslator_Core
             RequestMemoryDrop();
         }
 
-        private static List<string> GetGamePackageOrderSnapshot()
+        private static List<string> GetGamePackageOrderSnapshot(bool refresh = false)
         {
             try
             {
                 List<ModContentPack> running = LoadedModManager.RunningModsListForReading?.ToList()
                     ?? new List<ModContentPack>();
+                if (refresh && running.Count == 0) throw new InvalidOperationException("Active mod order is not ready.");
                 lock (TranslationLoadOrderLock)
                 {
-                    if (CachedGamePackageCount != running.Count)
+                    if (refresh || CachedGamePackageCount != running.Count)
                     {
                         CachedGamePackageOrder = running
                             .Where(mod => mod != null && !string.IsNullOrWhiteSpace(mod.PackageId))
@@ -54,6 +62,7 @@ namespace AutoTranslator_Core
             }
             catch
             {
+                if (refresh) throw;
                 lock (TranslationLoadOrderLock)
                 {
                     return new List<string>(CachedGamePackageOrder);

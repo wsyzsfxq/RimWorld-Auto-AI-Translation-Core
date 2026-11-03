@@ -135,18 +135,21 @@ namespace AutoTranslator_Core
                     ? _uploadClassification.Description
                     : AutoTranslatorMod.WfText("无法读取来源统计：", "Source statistics unavailable: ") + _uploadClassificationError);
                 if (WorkflowUiStyle.Button(new Rect(0f, 65f, 140f, 28f),
-                        AutoTranslatorMod.WfText("AI 翻译", "AI translation"), WorkflowButtonStyle.Dropdown))
+                        AutoTranslatorMod.WfText("AI 翻译", "AI translation"),
+                        _uploadType == "AI_Auto" ? WorkflowButtonStyle.ActiveTab : WorkflowButtonStyle.Quiet))
                     _uploadType = "AI_Auto";
                 bool canLabelManual = _uploadClassification != null && _uploadClassification.CanLabelManual;
                 if (WorkflowUiStyle.Button(new Rect(150f, 65f, 140f, 28f),
-                        AutoTranslatorMod.WfText("人工精翻", "Human-curated"), WorkflowButtonStyle.Dropdown,
+                        AutoTranslatorMod.WfText("人工精翻", "Human-curated"),
+                        _uploadType == "Manual" ? WorkflowButtonStyle.ActiveTab : WorkflowButtonStyle.Quiet,
                         canLabelManual)) _uploadType = "Manual";
                 TooltipHandler.TipRegion(new Rect(150f, 65f, 140f, 28f),
                     canLabelManual ? AutoTranslatorMod.WfText("选择人工精翻标记", "Choose Human-curated label")
                         : _uploadClassification?.ManualBlockedReason ?? _uploadClassificationError ?? string.Empty);
                 if (!string.IsNullOrWhiteSpace(AutoTranslatorMod.Settings.CloudAdminToken) &&
                     WorkflowUiStyle.Button(new Rect(300f, 65f, 140f, 28f),
-                        "ATC_Type_Official".Translate(), WorkflowButtonStyle.Dropdown)) _uploadType = "Official_Group";
+                        "ATC_Type_Official".Translate(),
+                        _uploadType == "Official_Group" ? WorkflowButtonStyle.ActiveTab : WorkflowButtonStyle.Quiet)) _uploadType = "Official_Group";
                 string selectedTypeLabel = _uploadType == "Official_Group" ? "ATC_Type_Official".Translate().ToString()
                     : _uploadType == "Manual" ? AutoTranslatorMod.WfText("人工精翻", "Human-curated")
                     : AutoTranslatorMod.WfText("AI 翻译", "AI translation");
@@ -206,7 +209,7 @@ namespace AutoTranslator_Core
 
                         if (_isEditable && !_isSavingChanges)
                         {
-                            string newText = Widgets.TextArea(transRect, item.TranslatedText ?? "");
+                            string newText = WorkflowTextInput.Area(transRect, item.TranslatedText ?? "");
                             if (newText != item.TranslatedText)
                             {
                                 item.TranslatedText = newText;
@@ -231,7 +234,7 @@ namespace AutoTranslator_Core
                 Widgets.Label(logLabelRect, "📝 " + "ATC_Upload_LogLabel".Translate());
 
                 Rect logInputRect = new Rect(0, logAreaY + 22f, inRect.width, 55f);
-                _updateLogText = Widgets.TextArea(logInputRect, _updateLogText);
+                _updateLogText = WorkflowTextInput.Area(logInputRect, _updateLogText);
                 if (string.IsNullOrEmpty(_updateLogText))
                 {
                     GUI.color = Color.gray;

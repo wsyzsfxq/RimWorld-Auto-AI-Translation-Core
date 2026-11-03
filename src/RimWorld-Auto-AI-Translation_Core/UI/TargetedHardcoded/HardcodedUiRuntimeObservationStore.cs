@@ -279,7 +279,7 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
             lock (SessionSync)
             {
                 AutoTranslatorSettings settings = AutoTranslatorMod.Settings;
-                bool enabled = settings != null && settings.EnableUIInterceptor;
+                bool enabled = UIInterceptionModeController.CaptureEnabled;
                 if (enabled && (resetCountdown || !_wasEnabled)) Start(settings.UIInterceptorAutoDisableMinutes);
                 if (!enabled && _wasEnabled) EndCapture();
                 _wasEnabled = enabled;
@@ -291,7 +291,7 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
             lock (SessionSync)
             {
                 AutoTranslatorSettings settings = AutoTranslatorMod.Settings;
-                bool enabled = settings != null && settings.EnableUIInterceptor;
+                bool enabled = UIInterceptionModeController.CaptureEnabled;
                 if (!enabled && _wasEnabled)
                 {
                     _wasEnabled = false;

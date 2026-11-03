@@ -109,7 +109,7 @@ namespace AutoTranslator_Core
                     }
                     Widgets.Label(new Rect(0f, 140f, rect.width, 34f), detail);
                     if (_cancellation != null && !_cancellation.IsCancellationRequested &&
-                        Widgets.ButtonText(new Rect(rect.width - 120f, rect.height - 38f, 120f, 32f), "停止"))
+                        WorkflowUiStyle.Button(new Rect(rect.width - 120f, rect.height - 38f, 120f, 32f), "停止", WorkflowButtonStyle.Stop))
                         stopRequested = _cancellation;
                     if (_cancellation != null && _cancellation.IsCancellationRequested)
                         Widgets.Label(new Rect(0f, rect.height - 38f, rect.width, 32f), "正在停止，等待当前操作结束…");
@@ -128,9 +128,9 @@ namespace AutoTranslator_Core
                     : "同步未完成，请重试。\n" + _error);
                 if (!_running)
                 {
-                    if (_summary == null && Widgets.ButtonText(new Rect(0f, rect.height - 38f, 120f, 32f), "重试"))
+                    if (_summary == null && WorkflowUiStyle.Button(new Rect(0f, rect.height - 38f, 120f, 32f), "重试"))
                         _ = SynchronizeAsync();
-                    if (Widgets.ButtonText(new Rect(rect.width - 120f, rect.height - 38f, 120f, 32f), "关闭")) Close();
+                    if (WorkflowUiStyle.Button(new Rect(rect.width - 120f, rect.height - 38f, 120f, 32f), "关闭")) Close();
                 }
             }
             // Cancel only this window's wait/operation, never whichever other task

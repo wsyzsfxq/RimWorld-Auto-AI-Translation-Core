@@ -1,0 +1,1 @@
+﻿E:\Program Files\steam\steamapps\workshop\content\294100\3718308218\1.6\Burst\yaopt_burst_win64.dll: Exception calling "ReadAssembly" with "1" argument(s): "Format of the executable (.exe) or library (.dll) is invalid."

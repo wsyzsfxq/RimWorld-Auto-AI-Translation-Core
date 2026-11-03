@@ -114,6 +114,7 @@ namespace AutoTranslator_Core.Workflow
         public CandidateClassification DllClassification { get; set; }
         public CandidateClassification AiClassification { get; set; }
         public bool AiClassificationIsCurrent { get; set; }
+        public bool OfficialKeyedLocalization { get; set; }
         public CandidateClassification ManualClassification { get; set; }
         public CandidateClassification EffectiveClassification { get; set; }
         public ClassificationLayer? EffectiveLayer { get; set; }
@@ -325,6 +326,7 @@ namespace AutoTranslator_Core.Workflow
                         candidate.ClassificationFlags, ClassificationLayer.Manual),
                     EffectiveClassification = candidate.EffectiveClassification,
                     EffectiveLayer = ClassificationFlagsCodec.GetEffectiveLayer(candidate),
+                    OfficialKeyedLocalization = ClassificationFlagsCodec.IsOfficialKeyedLocalization(candidate),
                     TranslationState = candidate.TranslationState,
                     TranslationOrigin = candidate.TranslationOrigin,
                     TranslationIsCurrent = WorkflowIdentity.IsTranslationCurrent(candidate),

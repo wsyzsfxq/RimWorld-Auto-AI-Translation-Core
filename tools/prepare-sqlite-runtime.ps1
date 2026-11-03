@@ -8,8 +8,13 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$managedSource = Join-Path $PackagesRoot "System.Data.SQLite.2.0.4\lib\net471\System.Data.SQLite.dll"
-$assemblyTarget = Join-Path $ModRoot "1.6\Assemblies\System.Data.SQLite.dll"
+# Each game version ships its own managed provider (matched to its runtime) plus
+# the same native SQLite library. 1.6 uses net471 (Mono / .NET Framework), 1.7 uses
+# netstandard2.0 (.NET 10 / Waylith).
+$versionTargets = @(
+    @{ VersionFolder = "1.6"; ManagedLib = "net471" },
+    @{ VersionFolder = "1.7"; ManagedLib = "netstandard2.0" }
+)
 
 $nativeFiles = @(
     @{ Rid = "win-x64"; Source = "SourceGear.sqlite3.3.53.4\runtimes\win-x64\native\e_sqlite3.dll"; Name = "e_sqlite3.dll" },
@@ -18,26 +23,35 @@ $nativeFiles = @(
     @{ Rid = "osx-arm64"; Source = "SourceGear.sqlite3.3.53.4\runtimes\osx-arm64\native\libe_sqlite3.dylib"; Name = "libe_sqlite3.dylib" }
 )
 
-if (-not (Test-Path -LiteralPath $managedSource -PathType Leaf)) {
-    throw "Missing restored System.Data.SQLite provider: $managedSource"
+# Check every input before changing either version's package.
+foreach ($target in $versionTargets) {
+    $target.ManagedSource = Join-Path $PackagesRoot ("System.Data.SQLite.2.0.4\lib\" + $target.ManagedLib + "\System.Data.SQLite.dll")
+    if (-not (Test-Path -LiteralPath $target.ManagedSource -PathType Leaf)) {
+        throw "Missing restored System.Data.SQLite provider for $($target.ManagedLib): $($target.ManagedSource)"
+    }
 }
-
-$assemblyDirectory = Split-Path -Parent $assemblyTarget
-New-Item -ItemType Directory -Path $assemblyDirectory -Force | Out-Null
-Copy-Item -LiteralPath $managedSource -Destination $assemblyTarget -Force
 
 foreach ($native in $nativeFiles) {
-    $source = Join-Path $PackagesRoot $native.Source
-    if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {
-        throw "Missing restored SQLite native runtime for $($native.Rid): $source"
+    $native.SourcePath = Join-Path $PackagesRoot $native.Source
+    if (-not (Test-Path -LiteralPath $native.SourcePath -PathType Leaf)) {
+        throw "Missing restored SQLite native runtime for $($native.Rid): $($native.SourcePath)"
     }
-
-    $targetDirectory = Join-Path $ModRoot ("1.6\Native\sqlite\" + $native.Rid)
-    New-Item -ItemType Directory -Path $targetDirectory -Force | Out-Null
-    $target = Join-Path $targetDirectory $native.Name
-    Copy-Item -LiteralPath $source -Destination $target -Force
-    $hash = (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash.ToLowerInvariant()
-    Set-Content -LiteralPath ($target + ".sha256") -Value $hash -Encoding ascii -NoNewline
 }
 
-Write-Output "SQLite runtime assets prepared under $ModRoot\1.6"
+foreach ($target in $versionTargets) {
+    $assemblyTarget = Join-Path $ModRoot ($target.VersionFolder + "\Assemblies\System.Data.SQLite.dll")
+    $assemblyDirectory = Split-Path -Parent $assemblyTarget
+    New-Item -ItemType Directory -Path $assemblyDirectory -Force | Out-Null
+    Copy-Item -LiteralPath $target.ManagedSource -Destination $assemblyTarget -Force
+
+    foreach ($native in $nativeFiles) {
+        $targetDirectory = Join-Path $ModRoot ($target.VersionFolder + "\Native\sqlite\" + $native.Rid)
+        New-Item -ItemType Directory -Path $targetDirectory -Force | Out-Null
+        $nativeTarget = Join-Path $targetDirectory $native.Name
+        Copy-Item -LiteralPath $native.SourcePath -Destination $nativeTarget -Force
+        $hash = (Get-FileHash -LiteralPath $nativeTarget -Algorithm SHA256).Hash.ToLowerInvariant()
+        Set-Content -LiteralPath ($nativeTarget + ".sha256") -Value $hash -Encoding ascii -NoNewline
+    }
+
+    Write-Output "SQLite runtime assets prepared under $ModRoot\$($target.VersionFolder)"
+}

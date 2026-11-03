@@ -108,13 +108,46 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
             ATC_Dispatcher.RunOnMainThread(() => StartReload(null));
         }
 
+        // A deliberate restore of an empty DLL snapshot differs from a lost manifest.
+        internal static Task<bool> ClearAfterTranslationRestoreAsync()
+        {
+            var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            ATC_Dispatcher.RunOnMainThread(() =>
+            {
+                if (IsLoading)
+                {
+                    completion.TrySetException(new InvalidOperationException("DLL 译文仍在刷新，请稍后恢复备份。"));
+                    return;
+                }
+                ReloadWaiters.Add(completion);
+                _applyGeneration = Interlocked.Increment(ref _reloadGeneration);
+                Interlocked.Exchange(ref _loading, 1);
+                _replacementStarted = false;
+                _recoveringApply = false;
+                SetStatus("loading", string.Empty);
+                _applySteps = ClearRestoredSnapshotSteps();
+            });
+            return completion.Task;
+        }
+
+        private static IEnumerator<int> ClearRestoredSnapshotSteps()
+        {
+            using (var cleanup = ClearAppliedStateSteps()) while (cleanup.MoveNext()) yield return 0;
+            if (PatchedMethods.Count == 0)
+            {
+                _lastAppliedManifest = null;
+                SetStatus("ready", string.Empty);
+            }
+            else SetStatus("error", "恢复空备份时未能移除全部 DLL 译文补丁。");
+        }
+
         private static void StartReload(TaskCompletionSource<bool> completion)
         {
             if (completion != null) ReloadWaiters.Add(completion);
             int generation = Interlocked.Increment(ref _reloadGeneration);
             if (Interlocked.Exchange(ref _loading, 1) == 1) return;
             SetStatus("loading", string.Empty);
-            if (AutoTranslatorMod.Settings == null || !AutoTranslatorMod.Settings.EnableHardcodedUiPrototype)
+            if (!UIInterceptionModeController.TargetedEnabled)
             {
                 _applyGeneration = generation;
                 _replacementStarted = false;
@@ -140,7 +173,7 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
                     _recoveryManifest = _lastAppliedManifest;
                     _replacementStarted = false;
                     _recoveringApply = false;
-                    _applySteps = AutoTranslatorMod.Settings == null || !AutoTranslatorMod.Settings.EnableHardcodedUiPrototype
+                    _applySteps = !UIInterceptionModeController.TargetedEnabled
                         ? ClearAppliedStateSteps() : ApplyManifest(manifest, error);
                 });
             });
@@ -313,6 +346,15 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
         {
             if (manifest == null)
             {
+                // XML-only users have no DLL manifest yet. This is an empty
+                // workload, while a lost existing manifest remains a real error.
+                if (loadError == "manifest missing" && _lastAppliedManifest == null && PatchedMethods.Count == 0)
+                {
+                    Interlocked.Exchange(ref _candidateCount, 0);
+                    Interlocked.Exchange(ref _appliedCount, 0);
+                    SetStatus("ready", string.Empty);
+                    yield break;
+                }
                 SetStatus("unavailable", loadError);
                 yield break;
             }
@@ -405,10 +447,11 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
                 yield return 0;
                 var specs = pair.Value.Select(item => new HardcodedUiTranspileSpec
                 { EntryId = item.Entry.EntryId, Literal = item.Entry.Literal, LiteralOrdinal = item.Entry.LiteralOrdinal }).ToList();
-                var plan = HardcodedUiDisplayCallPlanner.Plan(validation.GetBody(pair.Value[0].Method), specs);
+                var diagnostics = new Dictionary<string, string>(StringComparer.Ordinal);
+                var plan = HardcodedUiDisplayCallPlanner.Plan(validation.GetBody(pair.Value[0].Method), specs, diagnostics);
                 var matched = new HashSet<string>(plan.SelectMany(site => site.Arguments.Values).Select(spec => spec.EntryId));
                 foreach (var item in pair.Value.Where(item => !matched.Contains(item.Entry.EntryId)))
-                    LogValidationFailure(item.Entry, "no unambiguous supported display argument");
+                    LogValidationFailure(item.Entry, diagnostics[item.Entry.EntryId]);
                 pair.Value.RemoveAll(item => !matched.Contains(item.Entry.EntryId));
                 if (pair.Value.Count == 0) grouped.Remove(pair.Key);
             }
@@ -648,7 +691,7 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
             if (!File.Exists(assemblyPath) ||
                 !string.Equals(validation.GetFileHash(assemblyPath), entry.AssemblySha256, StringComparison.OrdinalIgnoreCase))
             {
-                reason = "assembly hash mismatch";
+                reason = "AssemblyHashMismatch: DLL 文件内容与生成清单时不同，需要重新分析";
                 return false;
             }
 
@@ -677,7 +720,7 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
             }
             if (!string.Equals(loaded.ManifestModule.ModuleVersionId.ToString("D"), entry.AssemblyMvid, StringComparison.OrdinalIgnoreCase))
             {
-                reason = "assembly MVID mismatch";
+                reason = "AssemblyMvidMismatch: 已加载 DLL 的版本标识与清单不同，需要重新分析";
                 return false;
             }
 
@@ -715,7 +758,7 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
             }
             if (!string.Equals(validation.GetMethodHash(method), entry.MethodIlFingerprint, StringComparison.OrdinalIgnoreCase))
             {
-                reason = "method IL fingerprint mismatch";
+                reason = "MethodFingerprintMismatch: 方法指令与清单记录不同，需要重新分析";
                 method = null;
                 return false;
             }
@@ -840,7 +883,8 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
         private static void LogValidationFailure(HardcodedUiPatchEntry entry, string reason)
         {
             Log.Warning("[AutoTranslationCore] Hardcoded UI entry rejected (" +
-                (entry != null ? entry.EntryId : "unknown") + "): " + reason);
+                (entry != null ? entry.EntryId : "unknown") + "): " + reason +
+                (entry == null ? string.Empty : " method=" + entry.MethodSignature + " literalOrdinal=" + entry.LiteralOrdinal));
         }
 
         private static HardcodedUiPatchManifest _lastAppliedManifest;
