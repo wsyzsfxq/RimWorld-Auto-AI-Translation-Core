@@ -445,7 +445,7 @@
   <ATC_Cloud_Status_Outdated>🟡 Translation Suspected Outdated</ATC_Cloud_Status_Outdated>
   <ATC_Cloud_Status_NoCloud>🔘 No Cloud Translation Yet</ATC_Cloud_Status_NoCloud>
   <ATC_Cloud_Status_Latest>🔵 Already Latest Version</ATC_Cloud_Status_Latest>
-  <ATC_Cloud_Btn_Download>☁️ One-Click Airdrop</ATC_Cloud_Btn_Download>
+  <ATC_Cloud_Btn_Download>One-Click Airdrop</ATC_Cloud_Btn_Download>
   <ATC_Cloud_Btn_Upload>⬆️ Contribute Translation</ATC_Cloud_Btn_Upload>
   <ATC_Cloud_Btn_Uploading>⏳ Packaging and uploading...</ATC_Cloud_Btn_Uploading>
   <ATC_Cloud_LastUpdate>Last Updated</ATC_Cloud_LastUpdate>

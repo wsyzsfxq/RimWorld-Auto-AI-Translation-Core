@@ -1,10 +1,12 @@
 using Newtonsoft.Json;
 using RimWorld;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -98,6 +100,8 @@ namespace AutoTranslator_Core
             public int RejectedDefs;
             public int UnavailableDefs;
             public string FirstUnavailableDef;
+            public int UnavailableDefPaths;
+            public readonly List<string> UnavailableDefPathExamples = new List<string>();
             public bool NeedsDataInjection;
             public bool PackageClearApplied;
             public int ApplySlices;
@@ -1460,6 +1464,15 @@ namespace AutoTranslator_Core
                     DefInjectionPackage.DefInjection existing;
                     if (state.CurrentPackage.injections.TryGetValue(kvp.Key, out existing) && existing.injected &&
                         string.Equals(existing.injection, kvp.Value, StringComparison.Ordinal)) continue;
+                    if (IsRuntimeDefFieldTargetMissing(state.CurrentDefType, kvp.Key, out string missingPathReason))
+                    {
+                        state.UnavailableDefPaths++;
+                        string detail = state.CurrentDefType.Name + "/" + kvp.Key + "：" + missingPathReason;
+                        if (state.UnavailableDefPathExamples.Count < 3)
+                            state.UnavailableDefPathExamples.Add(detail);
+                        AutoTranslatorSettings.AddDebugLog("XML 跳过当前不存在的字段路径：" + detail);
+                        continue;
+                    }
                     RememberRuntimeDefBaseline(state.CurrentDefType, state.CurrentPackage, kvp.Key);
                     state.CurrentPackage.injections[kvp.Key] = new DefInjectionPackage.DefInjection
                     {
@@ -1499,10 +1512,93 @@ namespace AutoTranslator_Core
 
         private static void ReportUnavailableRuntimeDefs(MemoryDropApplyState state)
         {
-            if (state.UnavailableDefs == 0) return;
-            AutoTranslatorSettings.AddWarningLog(
-                "本次跳过 " + state.UnavailableDefs + " 条当前游戏没有对应内容的 Def 译文，文件已保留；首条：" +
-                state.FirstUnavailableDef);
+            if (state.UnavailableDefs > 0)
+                AutoTranslatorSettings.AddWarningLog(
+                    "本次跳过 " + state.UnavailableDefs + " 条当前游戏没有对应内容的 Def 译文，文件已保留；首条：" +
+                    state.FirstUnavailableDef);
+            if (state.UnavailableDefPaths > 0)
+                AutoTranslatorSettings.AddWarningLog(
+                    "本次跳过 " + state.UnavailableDefPaths +
+                    " 条当前字段路径不存在的译文，这些条目未显示，文件已保留；其他译文继续加载。详情：" +
+                    string.Join("；", state.UnavailableDefPathExamples));
+        }
+
+        private static bool IsRuntimeDefFieldTargetMissing(Type defType, string path, out string reason)
+        {
+            reason = null;
+            try
+            {
+                if (TKeySystem.TryGetNormalizedPath(path, out string normalizedPath)) path = normalizedPath;
+                string[] parts = (path ?? string.Empty).Split('.');
+                if (parts.Length < 2 || parts.Any(string.IsNullOrWhiteSpace)) return false;
+                string defName = BackCompatibility.BackCompatibleDefName(defType, parts[0], true, null);
+                object target = GenDefDatabase.GetDefSilentFail(defType, defName, false);
+                // Missing Defs have their own counter; this check concerns their fields.
+                if (target == null) return false;
+                const BindingFlags fields = BindingFlags.Instance | BindingFlags.Static |
+                    BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.IgnoreCase;
+                for (int i = 1; i < parts.Length; i++)
+                {
+                    if (target == null)
+                    {
+                        // Some leaf/list assignments can initialize an empty value.
+                        // Without a concrete object, let the game decide.
+                        return false;
+                    }
+                    string segment = parts[i];
+                    bool numericIndex = int.TryParse(segment, out int index);
+                    Type targetType = target.GetType();
+                    if (!numericIndex)
+                    {
+                        // Match DefInjectionPackage.GetFieldNamed, including LoadAlias.
+                        FieldInfo field = targetType.GetField(segment, fields) ?? targetType.GetFields(fields)
+                            .FirstOrDefault(candidate => candidate.GetCustomAttributes(typeof(LoadAliasAttribute), false)
+                                .Cast<LoadAliasAttribute>().Any(alias => alias.alias == segment));
+                        if (field != null)
+                        {
+                            // A null leaf can still receive a string. Let the game check
+                            // field types, NoTranslate and all actual assignment errors.
+                            if (i == parts.Length - 1) return false;
+                            target = field.GetValue(target);
+                            continue;
+                        }
+                    }
+                    if (target is IList list)
+                    {
+                        if (!numericIndex)
+                        {
+                            string handle = segment;
+                            int handleIndex = -1;
+                            int separator = segment.IndexOf('-');
+                            if (separator >= 0)
+                            {
+                                handle = segment.Substring(0, separator);
+                                if (!int.TryParse(segment.Substring(separator + 1), out handleIndex)) return false;
+                            }
+                            index = TranslationHandleUtility.GetElementIndexByHandle(list, handle, handleIndex);
+                        }
+                        if (index < 0 || index >= list.Count)
+                        {
+                            // TranslationCanChangeCount allows some string lists to
+                            // grow. Out-of-range alone is not proof of an obsolete key.
+                            return false;
+                        }
+                        if (i == parts.Length - 1) return false;
+                        target = list[index];
+                        continue;
+                    }
+                    // Other custom indexers remain the game's responsibility.
+                    if (numericIndex || targetType.GetProperty("Count") != null) return false;
+                    reason = "字段 " + segment + " 在 " + targetType.FullName + " 中不存在";
+                    return true;
+                }
+            }
+            catch
+            {
+                // An inspection failure is not proof that a target is absent.
+                // Keep the normal injection and its error reporting in that case.
+            }
+            return false;
         }
 
         private static void FinishMemoryDropApply(MemoryDropApplyState state, bool success)
@@ -1595,6 +1691,7 @@ namespace AutoTranslator_Core
                         " ms；Keyed=" + state.InjectedKeyed +
                         "；Def=" + state.InjectedDefs +
                         "；暂不适用 Def=" + state.UnavailableDefs +
+                        "；暂不适用字段路径=" + state.UnavailableDefPaths +
                         "；成功=" + (success ? "是" : "否"));
                 }
 

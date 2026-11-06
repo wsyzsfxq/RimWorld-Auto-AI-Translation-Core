@@ -47,11 +47,6 @@ namespace AutoTranslator_Core
             }
         }
 
-        internal static string ResolveDisplayedSourcePackage()
-        {
-            return ResolveSourceOwnerFromStack()?.PackageId;
-        }
-
         public static void PrepareForLanguageChange()
         {
             UIInterceptionModeController.PrepareForLanguageChange();

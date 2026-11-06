@@ -5,5 +5,6 @@
 - `AGENTS.md`
 - `docs/designs/README.md`
 - `docs/standards/security-scope.md`
+- `docs/standards/source-delivery.md`
 
 不要在本文件复制规则正文；规则变更统一维护在上述共享入口和标准文档中。

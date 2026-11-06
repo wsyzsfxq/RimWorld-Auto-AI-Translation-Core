@@ -550,23 +550,26 @@ namespace AutoTranslator_Core
                 Text.Font = GameFont.Small;
                 float cursorX = rowRect.xMax - 5f;
 
-                const float detailsWidth = 90f;
+                const float actionGap = 8f;
+                string detailsLabel = WfText("详情", "Details");
+                float detailsWidth = Mathf.Max(85f, WorkflowUiStyle.ButtonWidth(detailsLabel, GameFont.Tiny));
                 cursorX -= detailsWidth;
-                Rect detailsBtn = new Rect(cursorX, rowRect.y + 5f, detailsWidth - 5f, 30f);
-                if (WorkflowUiStyle.Button(detailsBtn, WfText("详情", "Details"),
+                Rect detailsBtn = new Rect(cursorX, rowRect.y + 5f, detailsWidth, 30f);
+                if (WorkflowUiStyle.Button(detailsBtn, detailsLabel,
                         WorkflowButtonStyle.Quiet, true, GameFont.Tiny))
                 {
                     OpenCloudRowDetails(mod, targetLangFolder, cloudRecord, isOfficialGamePackage);
                 }
-                cursorX -= 5f;
+                cursorX -= actionGap;
 
                 if (!isOfficialGamePackage && canDownload)
                 {
-                    float dlWidth = 85f;
+                    string downloadLabel = "ATC_Cloud_Btn_Download".Translate().ToString();
+                    float dlWidth = Mathf.Max(80f, WorkflowUiStyle.ButtonWidth(downloadLabel, GameFont.Tiny));
                     cursorX -= dlWidth;
-                    Rect downloadBtn = new Rect(cursorX, rowRect.y + 5f, dlWidth - 5f, 30f);
+                    Rect downloadBtn = new Rect(cursorX, rowRect.y + 5f, dlWidth, 30f);
                     GUI.color = new Color(0.6f, 1f, 0.6f);
-                    if (WorkflowUiStyle.Button(downloadBtn, "ATC_Cloud_Btn_Download".Translate(),
+                    if (WorkflowUiStyle.Button(downloadBtn, downloadLabel,
                             WorkflowButtonStyle.Primary, true, GameFont.Tiny))
                     {
                         CloudModRecord targetRecord = cloudRecord;
@@ -607,15 +610,19 @@ namespace AutoTranslator_Core
                             WfText("确认云端下载", "Confirm cloud download")));
                     }
                     GUI.color = Color.white;
-                    cursorX -= 5f;
+                    cursorX -= actionGap;
                 }
 
 
                 if (cloudRecord != null)
                 {
-                    float dropWidth = 140f;
+                    string versionLabel = WfText("版本", "Version");
+                    string versionValue = "v" + cloudRecord.LatestVersion;
+                    float versionLabelWidth = Mathf.Max(40f, WorkflowUiStyle.ButtonWidth(versionLabel, GameFont.Tiny) - 16f);
+                    float dropWidth = versionLabelWidth + Mathf.Max(95f,
+                        WorkflowUiStyle.ButtonWidth(versionValue + "  ▾", GameFont.Tiny));
                     cursorX -= dropWidth;
-                    Rect verDropRect = new Rect(cursorX, rowRect.y + 5f, dropWidth - 5f, 30f);
+                    Rect verDropRect = new Rect(cursorX, rowRect.y + 5f, dropWidth, 30f);
 
                     string mergedTag = cloudRecord.IsSmartMerged ? "ATC_Cloud_SmartMerged".Translate().ToString() : "";
 
@@ -624,8 +631,8 @@ namespace AutoTranslator_Core
 
                     string verLabel = $"v{cloudRecord.LatestVersion} ({currentLocType}){mergedTag}";
 
-                    if (WorkflowUiStyle.LabeledDropdown(verDropRect, WfText("版本", "Version"),
-                            "v" + cloudRecord.LatestVersion, 40f, font: GameFont.Tiny))
+                    if (WorkflowUiStyle.LabeledDropdown(verDropRect, versionLabel,
+                            versionValue, versionLabelWidth, font: GameFont.Tiny))
                     {
                         List<FloatMenuOption> verOptions = new List<FloatMenuOption>();
                         foreach (var v in allVersions)

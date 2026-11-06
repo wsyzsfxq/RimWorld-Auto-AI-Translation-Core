@@ -121,6 +121,7 @@ namespace AutoTranslator_Core
                     ReportUnavailableRuntimeDefs(state);
                     AutoTranslatorSettings.AddLog("启动缓存译文提前应用：Keyed=" + state.InjectedKeyed + "；提交 Def=" +
                         state.InjectedDefs + "；暂不适用 Def=" + state.UnavailableDefs +
+                        "；暂不适用字段路径=" + state.UnavailableDefPaths +
                         (state.InjectionFailed ? "；部分条目留待后续加载" : string.Empty));
                 }
             }

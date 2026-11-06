@@ -403,7 +403,7 @@
   <ATC_Cloud_Status_Outdated>🟡 버전 불일치 의심됨</ATC_Cloud_Status_Outdated>
   <ATC_Cloud_Status_NoCloud>🔘 클라우드에 자료 없음</ATC_Cloud_Status_NoCloud>
   <ATC_Cloud_Status_Latest>🔵 최신 사양 일치</ATC_Cloud_Status_Latest>
-  <ATC_Cloud_Btn_Download>☁️ 원클릭 에어드랍</ATC_Cloud_Btn_Download>
+  <ATC_Cloud_Btn_Download>원클릭 에어드랍</ATC_Cloud_Btn_Download>
   <ATC_Cloud_Btn_Upload>⬆️ 번역 기여하기</ATC_Cloud_Btn_Upload>
   <ATC_Cloud_Btn_Uploading>⏳ 파일 암호화 전송 중...</ATC_Cloud_Btn_Uploading>
   <ATC_Cloud_LastUpdate>최근 갱신일</ATC_Cloud_LastUpdate>

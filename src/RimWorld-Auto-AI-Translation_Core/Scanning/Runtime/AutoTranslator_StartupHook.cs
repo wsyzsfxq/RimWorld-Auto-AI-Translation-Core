@@ -56,8 +56,6 @@ namespace AutoTranslator_Core
                 hook.AddComponent<AutoTranslator_PumpBehaviour>();
                 hook.AddComponent<UIInterceptorLifecycle>();
                 AutoTranslatorScanner.ApplyStartupKeyedHotfixes();
-                try { OfficialKeyedCatalog.Capture(); }
-                catch (Exception ex) { AutoTranslatorSettings.AddWarningLog("官方翻译目录暂未读取，分析时会重新读取：" + ex.Message); }
                 TargetedHardcodedUi.HardcodedUiTargetedPatchManager.Initialize();
                 AutoTranslatorScanner.RequestKeyedMemoryDrop();
             }
