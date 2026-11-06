@@ -161,6 +161,17 @@ namespace AutoTranslator_Core
             return style;
         }
 
+        internal static float ButtonWidth(string label, GameFont font = GameFont.Small)
+        {
+            GameFont previousFont = Text.Font;
+            try
+            {
+                Text.Font = font;
+                return Mathf.Ceil(GetSingleLineStyle(font).CalcSize(new GUIContent(label ?? string.Empty)).x + 24f);
+            }
+            finally { Text.Font = previousFont; }
+        }
+
         internal static float ToggleButtonWidth(string label, GameFont font = GameFont.Small)
         {
             GameFont previousFont = Text.Font;

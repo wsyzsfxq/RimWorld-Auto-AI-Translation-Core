@@ -13,9 +13,9 @@ namespace AutoTranslator_Core.Workflow
         public const string XmlAnalyzerVersion = "xml-3.02";
         public const string OfficialKeyedReason = "official_declared_localization_key";
 #if RIMWORLD_1_7
-        public const string DllAnalyzerVersion = "dll-3.09-rw17";
+        public const string DllAnalyzerVersion = "dll-3.10-rw17";
 #else
-        public const string DllAnalyzerVersion = "dll-3.08";
+        public const string DllAnalyzerVersion = "dll-3.09";
 #endif
         // One revision covers UI capture, source-Mod attribution and candidate classification.
         public const string UiObservationPipelineVersion = "ui-1.02";

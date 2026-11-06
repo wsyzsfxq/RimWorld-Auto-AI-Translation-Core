@@ -544,10 +544,6 @@ namespace AutoTranslator_Core.LegacyInterception
         {
             translated = null;
             if (!UIInterceptionModeController.LegacyEnabled) return false;
-            if (OfficialKeyedCatalog.TryResolve(original, out translated)) return true;
-            // Official keyed text belongs to the XML workflow. Do not send its
-            // transformed fallback to a second model request as a new original.
-            if (OfficialKeyedCatalog.IsKnownDisplay(original)) return false;
             EnsureRenderDecisionSettingsCurrent();
             string renderKey = BuildRenderDecisionKey(original);
 

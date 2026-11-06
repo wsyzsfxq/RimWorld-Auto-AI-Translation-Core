@@ -19,6 +19,9 @@ namespace AutoTranslator_Core
         private static bool _settingsLegacyRepairRunning;
         private static bool _settingsRestoreBackupRunning;
         private static bool _settingsManualBackupRunning;
+        private const float CompatibilityRowHeight = 32f;
+        private const float CompatibilityRowGap = 6f;
+        private const float CompatibilityButtonGap = 8f;
 
 
         // 這個方法負責繪製 設定分頁 介面。
@@ -41,9 +44,9 @@ namespace AutoTranslator_Core
                 DrawPerformanceAndDiagnosticsSettings(l, viewRect);
             l.Gap(12f);
 
-            if (DrawSettingsSectionHeader(l, WfText("高级兼容模式", "Advanced compatibility"),
+            if (DrawSettingsSectionHeader(l, WfText("界面翻译模式", "UI translation mode"),
                     ref Settings.SettingsCompatibilityExpanded))
-                DrawCompatibilitySettings(l);
+                DrawCompatibilitySettings(l, viewRect.width);
             l.Gap(12f);
 
             if (DrawSettingsSectionHeader(l, WfText("维护与恢复", "Maintenance and recovery"),
@@ -876,13 +879,41 @@ namespace AutoTranslator_Core
                 Mathf.Max(80f, row.width - labelWidth - valueWidth - 18f), row.height - 12f);
         }
 
-        private void DrawCompatibilitySettings(Listing_Standard l)
+        private void DrawCompatibilitySettings(Listing_Standard l, float availableWidth)
         {
-            Rect panel = l.GetRect(Settings.UseLegacyUIInterception && AutoTranslatorSettings.IsCancellationRequested ? 308f : 268f);
-            Rect content = DrawSettingsSectionBody(panel);
+            Text.Font = GameFont.Small;
             bool legacyMode = Settings.UseLegacyUIInterception;
+            string manageLabel = legacyMode
+                ? WfText("管理拦截译文", "Manage intercepted translations")
+                : WfText("打开翻译编辑器", "Open translation editor");
+            string secondaryLabel = legacyMode
+                ? WfText("清理缓存与黑名单", "Clear cache and blacklist")
+                : WfText("打开历史数据文件夹", "Open historical data folder");
+            string note = legacyMode
+                ? WfText(
+                    "直接替换界面文字，可自动翻译新文字。此模式停止 DLL UI 临时采集并暂停 DLL 译文应用；XML 翻译照常。",
+                    "Replaces UI text and can translate new text automatically. Temporary DLL UI capture stops and DLL translation application pauses; XML translation remains available.")
+                : "ATC_HardcodedUi_Status".Translate(
+                    TargetedHardcodedUi.HardcodedUiTargetedPatchManager.GetStatusLine()).ToString();
+            string evidence = WfText("当前版本采集证据：", "Current-version observations: ") +
+                TargetedHardcodedUi.HardcodedUiRuntimeObservationStore.GetObservationCount() +
+                WfText(" 条；结束采集后重新运行 DLL 分析。", "; rerun DLL analysis after capture ends.");
+            float contentWidth = Mathf.Max(1f, availableWidth - 28f);
+            GetCompatibilityActionRects(new Rect(0f, 0f, contentWidth, CompatibilityRowHeight),
+                manageLabel, secondaryLabel, out Rect measuredManage, out Rect measuredSecondary);
+            float actionHeight = Mathf.Max(measuredManage.yMax, measuredSecondary.yMax);
+            float noteHeight = MeasureCompatibilityText(note, contentWidth);
+            float evidenceHeight = legacyMode ? 0f : MeasureCompatibilityText(evidence, contentWidth);
+            float panelHeight = 6f + 36f + CompatibilityRowGap + CompatibilityRowHeight +
+                CompatibilityRowGap + actionHeight + CompatibilityRowGap + noteHeight;
+            if (!legacyMode)
+                panelHeight += 36f + CompatibilityRowGap + evidenceHeight + CompatibilityRowGap;
+            else if (AutoTranslatorSettings.IsCancellationRequested)
+                panelHeight += CompatibilityRowGap + CompatibilityRowHeight;
+            Rect panel = l.GetRect(panelHeight);
+            Rect content = DrawSettingsSectionBody(panel);
             Rect selector = new Rect(content.x, content.y, content.width, 36f);
-            if (DrawSettingsDropdown(selector, WfText("界面翻译", "UI translation"),
+            if (DrawSettingsDropdown(selector, WfText("当前模式", "Current mode"),
                 legacyMode ? WfText("UI 拦截模式", "UI interception mode")
                            : WfText("DLL 分析模式", "DLL analysis mode"),
                 250f, maximumControlWidth: 330f))
@@ -893,23 +924,24 @@ namespace AutoTranslator_Core
                     new FloatMenuOption(WfText("UI 拦截模式", "UI interception mode"), () => SetUiInterceptionMode(true))
                 }));
             }
-            content.yMin = selector.yMax + 8f;
+            content.yMin = selector.yMax + CompatibilityRowGap;
             if (legacyMode)
             {
-                DrawLegacyUiInterceptionSettings(content);
+                DrawLegacyUiInterceptionSettings(content, manageLabel, secondaryLabel, note, noteHeight);
                 return;
             }
-            Rect modeRow = new Rect(content.x, content.y, content.width, 34f);
-            const float modeGap = 10f;
-            float captureWidth = Mathf.Min(390f, modeRow.width * 0.42f);
-            float applyWidth = Mathf.Min(340f, modeRow.width - captureWidth - modeGap);
+            Rect modeRow = new Rect(content.x, content.y, content.width, CompatibilityRowHeight);
+            const float modeGap = CompatibilityButtonGap;
+            string captureLabel = WfText("UI 临时采集", "Temporary UI capture");
+            string applyLabel = WfText("应用 DLL 译文", "Apply DLL translations");
+            float captureWidth = Mathf.Min(WorkflowUiStyle.ToggleButtonWidth(captureLabel), modeRow.width * 0.42f);
+            float applyWidth = Mathf.Min(WorkflowUiStyle.ToggleButtonWidth(applyLabel), modeRow.width - captureWidth - modeGap);
             Rect captureRect = new Rect(modeRow.x, modeRow.y, captureWidth, 32f);
             Rect applyRect = new Rect(captureRect.xMax + modeGap, modeRow.y, applyWidth, 32f);
 
             bool previousInterceptor = Settings.EnableUIInterceptor;
             bool captureEnabled = previousInterceptor;
-            DrawSettingsModeToggle(captureRect,
-                WfText("DLL UI 临时采集", "Temporary DLL UI capture"), ref captureEnabled);
+            DrawSettingsModeToggle(captureRect, captureLabel, ref captureEnabled);
             if (previousInterceptor != captureEnabled)
             {
                 Settings.EnableUIInterceptor = captureEnabled;
@@ -917,15 +949,14 @@ namespace AutoTranslator_Core
                 WriteSettings();
             }
             TooltipHandler.TipRegion(captureRect, WfText(
-                "只采集 DLL 界面文字证据；可以与已保存译文同时启用。采集会增加界面调用开销。",
-                "Collects DLL UI-text evidence only. It can remain enabled while saved translations are applied.") +
+                "手动开启后采集 DLL 界面文字证据；切换模式前会停止，切回后保持关闭。可以与已保存译文同时启用，采集会增加界面调用开销。",
+                "Manually collect DLL UI-text evidence. Capture stops before switching modes and stays off when returning. It can run alongside saved translations and adds UI overhead.") +
                 "\n" + WfText("采集、Mod 匹配与归类流水线版本：", "Capture, Mod attribution and classification pipeline: ") +
                 AutoTranslator_Core.Workflow.WorkflowIdentity.UiObservationPipelineVersion);
 
             bool previousApply = Settings.EnableHardcodedUiPrototype;
             bool applyEnabled = previousApply;
-            DrawSettingsModeToggle(applyRect,
-                WfText("应用已保存的 DLL UI 译文", "Apply saved DLL UI translations"), ref applyEnabled);
+            DrawSettingsModeToggle(applyRect, applyLabel, ref applyEnabled);
             if (applyEnabled != previousApply)
             {
                 Settings.EnableHardcodedUiPrototype = applyEnabled;
@@ -935,7 +966,7 @@ namespace AutoTranslator_Core
             TooltipHandler.TipRegion(applyRect, "ATC_HardcodedUi_EnablePrototypeTooltip".Translate());
 
             GUI.color = captureEnabled ? Color.white : WorkflowUiStyle.MutedText;
-            Rect timeoutRow = new Rect(content.x, modeRow.yMax + 2f, content.width, 36f);
+            Rect timeoutRow = new Rect(content.x, modeRow.yMax + CompatibilityRowGap, content.width, 36f);
             Rect timeoutRect = DrawSettingsSliderRow(timeoutRow,
                 WfText("采集时限", "Capture duration"),
                 TargetedHardcodedUi.HardcodedUiCaptureSession.GetDurationLabel());
@@ -954,19 +985,12 @@ namespace AutoTranslator_Core
                 "Temporary capture stops after 5 minutes by default. With no time limit, it continues until you turn it off manually. It records DLL UI-text evidence only."));
             GUI.color = Color.white;
 
-            Rect evidenceRow = new Rect(content.x, timeoutRow.yMax, content.width, 24f);
-            Text.Font = GameFont.Tiny;
-            GUI.color = Color.grey;
-            Widgets.Label(evidenceRow, WfText("当前版本采集证据：", "Current-version observations: ") +
-                TargetedHardcodedUi.HardcodedUiRuntimeObservationStore.GetObservationCount() +
-                WfText(" 条；结束采集后重新运行 DLL 分析。", "; rerun DLL analysis after capture ends."));
-            GUI.color = Color.white;
-            Text.Font = GameFont.Small;
+            Rect evidenceRow = new Rect(content.x, timeoutRow.yMax + CompatibilityRowGap, content.width, evidenceHeight);
+            DrawCompatibilityText(evidenceRow, evidence);
 
-            Rect actionRow = new Rect(content.x, evidenceRow.yMax + 2f, content.width, 34f);
-            string manageLabel = WfText("打开翻译编辑器", "Open translation editor");
-            float manageWidth = Mathf.Min(300f, Mathf.Max(190f, Text.CalcSize(manageLabel).x + 28f));
-            Rect uiManagerRect = new Rect(actionRow.x, actionRow.y, manageWidth, 32f);
+            Rect actionRow = new Rect(content.x, evidenceRow.yMax + CompatibilityRowGap, content.width, actionHeight);
+            GetCompatibilityActionRects(actionRow, manageLabel, secondaryLabel,
+                out Rect uiManagerRect, out Rect historyRect);
             if (WorkflowUiStyle.Button(
                     uiManagerRect,
                     manageLabel,
@@ -976,38 +1000,54 @@ namespace AutoTranslator_Core
             }
             TooltipHandler.TipRegion(uiManagerRect, WfText("采集结束并完成 DLL 分析后，在翻译编辑器管理对应条目。", "After capture and DLL analysis, manage the corresponding entries in the translation editor."));
 
-            string clearLabel = WfText("打开历史数据文件夹", "Open historical data folder");
-            float clearWidth = Mathf.Min(340f, Mathf.Max(210f, Text.CalcSize(clearLabel).x + 28f));
-            Rect clearRect = new Rect(uiManagerRect.xMax + 12f, actionRow.y, clearWidth, 32f);
-            GUI.color = new Color(1f, 0.7f, 0.3f);
-            if (WorkflowUiStyle.Button(clearRect, clearLabel, WorkflowButtonStyle.Quiet))
+            if (WorkflowUiStyle.Button(historyRect, secondaryLabel, WorkflowButtonStyle.Quiet))
             {
                 DesktopFileOpener.OpenFolder(AutoTranslatorScanner.GetLocalPackPath());
             }
-            GUI.color = Color.white;
-
-            Rect statusRow = new Rect(content.x, actionRow.yMax + 2f, content.width, 22f);
-            Text.Font = GameFont.Tiny;
-            GUI.color = WorkflowUiStyle.MutedText;
-            Widgets.Label(statusRow, "ATC_HardcodedUi_Status".Translate(
-                TargetedHardcodedUi.HardcodedUiTargetedPatchManager.GetStatusLine()));
-            GUI.color = Color.white;
-            Text.Font = GameFont.Small;
+            DrawCompatibilityText(new Rect(content.x, actionRow.yMax + CompatibilityRowGap,
+                content.width, noteHeight), note);
         }
 
         private void SetUiInterceptionMode(bool legacy)
         {
             if (Settings.UseLegacyUIInterception == legacy) return;
-            Settings.UseLegacyUIInterception = legacy;
-            UIInterceptionModeController.Refresh();
+            UIInterceptionModeController.Refresh(legacy);
             WriteSettings();
         }
 
-        private void DrawLegacyUiInterceptionSettings(Rect content)
+        private void DrawLegacyUiInterceptionSettings(Rect content, string manageLabel,
+            string clearLabel, string note, float noteHeight)
         {
-            Rect enabledRow = new Rect(content.x, content.y, content.width, 30f);
+            const float toggleGap = 8f;
+            string[] toggleLabels =
+            {
+                WfText("启用 UI 拦截", "Enable UI interception"),
+                WfText("自动翻译新文字", "Auto-translate new text"),
+                WfText("悬停显示原文", "Show original on hover"),
+                WfText("翻译日志窗口文字", "Translate log window text")
+            };
+            float[] toggleWidths = toggleLabels.Select(label => WorkflowUiStyle.ToggleButtonWidth(label)).ToArray();
+            float availableWidth = Mathf.Max(0f, content.width - toggleGap * 3f);
+            if (toggleWidths.Sum() > availableWidth)
+            {
+                toggleLabels = new[]
+                {
+                    WfText("UI 拦截", "UI interception"), WfText("自动翻译", "Auto-translate"),
+                    WfText("显示原文", "Show original"), WfText("翻译日志", "Translate logs")
+                };
+                toggleWidths = toggleLabels.Select(label => WorkflowUiStyle.ToggleButtonWidth(label)).ToArray();
+            }
+            float widthScale = Mathf.Min(1f, availableWidth / Mathf.Max(1f, toggleWidths.Sum()));
+            Rect[] toggles = new Rect[toggleLabels.Length];
+            float toggleX = content.x;
+            for (int i = 0; i < toggles.Length; i++)
+            {
+                toggles[i] = new Rect(toggleX, content.y, toggleWidths[i] * widthScale, 32f);
+                toggleX = toggles[i].xMax + toggleGap;
+            }
             bool enabled = Settings.EnableLegacyUIInterceptor;
-            Widgets.CheckboxLabeled(enabledRow, WfText("启用 UI 拦截", "Enable UI interception"), ref enabled);
+            DrawSettingsModeToggle(toggles[0], toggleLabels[0], ref enabled);
+            TooltipHandler.TipRegion(toggles[0], WfText("启用 UI 拦截", "Enable UI interception"));
             if (enabled != Settings.EnableLegacyUIInterceptor)
             {
                 Settings.EnableLegacyUIInterceptor = enabled;
@@ -1015,12 +1055,10 @@ namespace AutoTranslator_Core
                 WriteSettings();
             }
             bool translate = Settings.EnableUINewTranslation;
-            Rect translateRow = new Rect(content.x, enabledRow.yMax + 2f, content.width, 30f);
             bool modelReady = AutoTranslatorAPI.HasUsableWorkflowConfiguration(TranslationTaskTier.Bulk);
-            DrawInlineSettingsCheckbox(translateRow,
-                WfText("自动翻译新文字", "Translate new text automatically"),
+            DrawSettingsModeToggle(toggles[1], toggleLabels[1],
                 ref translate, modelReady || translate);
-            TooltipHandler.TipRegion(translateRow, !modelReady
+            TooltipHandler.TipRegion(toggles[1], !modelReady
                 ? WfText("未配置大模型", "No language model configured")
                 : WfText("开启后，遇到未翻译的文字会调用大模型。关闭后只显示已经保存的译文。",
                     "Use the model for new UI text. When disabled, only saved translations are applied."));
@@ -1031,48 +1069,45 @@ namespace AutoTranslator_Core
                 WriteSettings();
             }
 
-            Rect optionsRow = new Rect(content.x, translateRow.yMax + 2f, content.width, 30f);
             bool original = Settings.ShowOriginalUI;
             bool logs = Settings.EnableUIErrorLogInterception;
-            Widgets.CheckboxLabeled(new Rect(optionsRow.x, optionsRow.y, optionsRow.width * 0.48f, 30f),
-                WfText("悬停显示原文", "Show original on hover"), ref original);
-            Widgets.CheckboxLabeled(new Rect(optionsRow.x + optionsRow.width * 0.52f, optionsRow.y, optionsRow.width * 0.48f, 30f),
-                WfText("翻译日志窗口文字", "Translate log window text"), ref logs);
+            DrawSettingsModeToggle(toggles[2], toggleLabels[2], ref original);
+            DrawSettingsModeToggle(toggles[3], toggleLabels[3], ref logs);
+            TooltipHandler.TipRegion(toggles[2], WfText("悬停显示原文", "Show original on hover"));
+            TooltipHandler.TipRegion(toggles[3], WfText("翻译日志窗口文字", "Translate log window text"));
             if (original != Settings.ShowOriginalUI || logs != Settings.EnableUIErrorLogInterception)
             {
                 Settings.ShowOriginalUI = original;
                 Settings.EnableUIErrorLogInterception = logs;
                 WriteSettings();
             }
-            Rect manageRow = new Rect(content.x, optionsRow.yMax + 6f, content.width, 32f);
-            float buttonWidth = (manageRow.width - 12f) * 0.5f;
-            if (WorkflowUiStyle.Button(new Rect(manageRow.x, manageRow.y, buttonWidth, 32f),
-                WfText("管理 UI 拦截译文", "Manage intercepted UI translations"), WorkflowButtonStyle.Quiet))
+            Rect manageRow = new Rect(content.x, content.y + CompatibilityRowHeight + CompatibilityRowGap,
+                content.width, CompatibilityRowHeight);
+            GetCompatibilityActionRects(manageRow, manageLabel, clearLabel,
+                out Rect manageRect, out Rect clearRect);
+            if (WorkflowUiStyle.Button(manageRect, manageLabel, WorkflowButtonStyle.Quiet))
                 Find.WindowStack.Add(new LegacyInterception.Window_UITranslationManager());
-            if (WorkflowUiStyle.Button(new Rect(manageRow.x + buttonWidth + 12f, manageRow.y, buttonWidth, 32f),
-                "ATC_Btn_ClearUICache".Translate(), WorkflowButtonStyle.Quiet))
+            if (WorkflowUiStyle.Button(clearRect, clearLabel, WorkflowButtonStyle.Stop))
             {
                 UIInterceptionModeController.EnsureLegacyDataInitialized();
                 LegacyInterception.UIInterceptor.ClearUICache();
                 Messages.Message("ATC_Msg_UICacheCleared".Translate(), MessageTypeDefOf.PositiveEvent, false);
             }
-
-            Text.Font = GameFont.Tiny;
-            GUI.color = WorkflowUiStyle.MutedText;
-            Widgets.Label(new Rect(content.x, manageRow.yMax + 6f, content.width, 44f), WfText(
-                "沿用旧版拦截、后台翻译和 JSON 缓存。此模式暂停 DLL UI 采集和 DLL 译文应用；XML 翻译照常。",
-                "Uses the original interception, background translation and JSON cache. DLL UI capture and DLL translation application pause; XML translation remains available."));
-            GUI.color = Color.white;
-            Text.Font = GameFont.Small;
+            TooltipHandler.TipRegion(clearRect, "ATC_Btn_ClearUICache".Translate());
+            Rect noteRow = new Rect(content.x, Mathf.Max(manageRect.yMax, clearRect.yMax) + CompatibilityRowGap,
+                content.width, noteHeight);
+            DrawCompatibilityText(noteRow, note);
             if (AutoTranslatorSettings.IsCancellationRequested)
             {
                 bool stopped = !AutoTranslatorSettings.IsStopping && !AutoTranslatorSettings.IsRunning;
                 bool canResume = stopped && modelReady;
-                Rect resumeRect = new Rect(content.x, manageRow.yMax + 54f, content.width, 30f);
+                string resumeLabel = stopped ? WfText("恢复 UI 自动翻译", "Resume automatic UI translation")
+                    : WfText("正在停止翻译…", "Stopping translation…");
+                Rect resumeRect = new Rect(content.x, noteRow.yMax + CompatibilityRowGap,
+                    Mathf.Min(content.width, WorkflowUiStyle.ButtonWidth(resumeLabel)), CompatibilityRowHeight);
                 if (!modelReady) TooltipHandler.TipRegion(resumeRect, WfText("未配置大模型", "No language model configured"));
                 if (WorkflowUiStyle.Button(resumeRect,
-                    stopped ? WfText("恢复 UI 自动翻译", "Resume automatic UI translation")
-                              : WfText("正在停止翻译…", "Stopping translation…"),
+                    resumeLabel,
                     WorkflowButtonStyle.Quiet, canResume))
                 {
                     AutoTranslatorSettings.ResetPipelineCancellation();
@@ -1084,14 +1119,57 @@ namespace AutoTranslator_Core
             }
         }
 
-        private static void DrawSettingsModeToggle(Rect rect, string label, ref bool enabled)
+        private static void GetCompatibilityActionRects(Rect row, string firstLabel, string secondLabel,
+            out Rect first, out Rect second)
         {
-            string state = enabled ? WfText("开启", "On") : WfText("关闭", "Off");
-            if (WorkflowUiStyle.Button(rect,
-                    label + "  ·  " + state,
-                    enabled ? WorkflowButtonStyle.Primary : WorkflowButtonStyle.Quiet,
-                    true,
-                    GameFont.Small))
+            float firstWidth = Mathf.Min(row.width, WorkflowUiStyle.ButtonWidth(firstLabel));
+            float secondWidth = Mathf.Min(row.width, WorkflowUiStyle.ButtonWidth(secondLabel));
+            first = new Rect(row.x, row.y, firstWidth, CompatibilityRowHeight);
+            second = firstWidth + CompatibilityButtonGap + secondWidth <= row.width
+                ? new Rect(first.xMax + CompatibilityButtonGap, row.y, secondWidth, CompatibilityRowHeight)
+                : new Rect(row.x, first.yMax + CompatibilityRowGap, secondWidth, CompatibilityRowHeight);
+        }
+
+        private static float MeasureCompatibilityText(string text, float width)
+        {
+            GameFont previousFont = Text.Font;
+            bool previousWrap = Text.WordWrap;
+            try
+            {
+                Text.Font = GameFont.Tiny;
+                Text.WordWrap = true;
+                return Mathf.Max(Text.LineHeight, Mathf.Ceil(Text.CalcHeight(text, width)));
+            }
+            finally { Text.Font = previousFont; Text.WordWrap = previousWrap; }
+        }
+
+        private static void DrawCompatibilityText(Rect rect, string text)
+        {
+            GameFont previousFont = Text.Font;
+            bool previousWrap = Text.WordWrap;
+            TextAnchor previousAnchor = Text.Anchor;
+            Color previousColor = GUI.color;
+            try
+            {
+                Text.Font = GameFont.Tiny;
+                Text.WordWrap = true;
+                Text.Anchor = TextAnchor.UpperLeft;
+                GUI.color = WorkflowUiStyle.MutedText;
+                Widgets.Label(rect, text);
+            }
+            finally
+            {
+                GUI.color = previousColor;
+                Text.Anchor = previousAnchor;
+                Text.Font = previousFont;
+                Text.WordWrap = previousWrap;
+            }
+        }
+
+        private static void DrawSettingsModeToggle(Rect rect, string label, ref bool enabled, bool canEdit = true)
+        {
+            rect.width = Mathf.Min(rect.width, WorkflowUiStyle.ToggleButtonWidth(label));
+            if (WorkflowUiStyle.ToggleButton(rect, label, enabled, canEdit))
                 enabled = !enabled;
         }
 

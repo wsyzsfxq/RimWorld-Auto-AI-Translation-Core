@@ -403,7 +403,7 @@
   <ATC_Cloud_Status_Outdated>🟡 Версія перекладу під сумнівом</ATC_Cloud_Status_Outdated>
   <ATC_Cloud_Status_NoCloud>🔘 У хмарі поки порожньо</ATC_Cloud_Status_NoCloud>
   <ATC_Cloud_Status_Latest>🔵 Версія повністю збігається</ATC_Cloud_Status_Latest>
-  <ATC_Cloud_Btn_Download>☁️ Залити в гру</ATC_Cloud_Btn_Download>
+  <ATC_Cloud_Btn_Download>Залити в гру</ATC_Cloud_Btn_Download>
   <ATC_Cloud_Btn_Upload>⬆️ Поділитися перекладом</ATC_Cloud_Btn_Upload>
   <ATC_Cloud_Btn_Uploading>⏳ Упаковка та зашифрована передача...</ATC_Cloud_Btn_Uploading>
   <ATC_Cloud_LastUpdate>Дата оновлення</ATC_Cloud_LastUpdate>

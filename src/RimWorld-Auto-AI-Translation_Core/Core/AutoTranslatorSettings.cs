@@ -255,7 +255,7 @@ namespace AutoTranslator_Core
         // 這個欄位保存 EnableUIInterceptor 的執行狀態或快取資料。
         // EN: This field stores enable UI interceptor runtime state or cached data.
         public bool EnableUIInterceptor = false;
-        // Keep both modes' enable preferences when switching between them.
+        // Retain the selected mode; temporary DLL UI capture ends on a mode switch.
         public bool UseLegacyUIInterception = true;
         public bool EnableLegacyUIInterceptor = true;
         // UI interception is a temporary discovery probe. 0 means no automatic shutdown.
@@ -263,8 +263,8 @@ namespace AutoTranslator_Core
         // 這個欄位保存 EnableUINew翻譯 的執行狀態或快取資料。
         // EN: This field stores enable UI new translation runtime state or cached data.
         public bool EnableUINewTranslation = true;
-        // This opt-in prototype only applies explicitly approved targeted patches.
-        public bool EnableHardcodedUiPrototype = false;
+        // Apply saved DLL translations by default when DLL analysis mode is selected.
+        public bool EnableHardcodedUiPrototype = true;
         // 這個欄位保存 EnableUIErrorLogInterception 的執行狀態或快取資料。
         // EN: This field stores enable UI error log interception runtime state or cached data.
         public bool EnableUIErrorLogInterception = false;
@@ -869,7 +869,7 @@ namespace AutoTranslator_Core
             else if (UIInterceptorAutoDisableMinutes == 1) UIInterceptorAutoDisableMinutes = 2;
             else if (UIInterceptorAutoDisableMinutes > 30) UIInterceptorAutoDisableMinutes = 30;
             Scribe_Values.Look(ref EnableUINewTranslation, "EnableUINewTranslation", true);
-            Scribe_Values.Look(ref EnableHardcodedUiPrototype, "EnableHardcodedUiPrototype", false);
+            Scribe_Values.Look(ref EnableHardcodedUiPrototype, "EnableHardcodedUiPrototype", true);
             Scribe_Values.Look(ref EnableUIErrorLogInterception, "EnableUIErrorLogInterception", false);
             Scribe_Values.Look(ref TranslateWorkbenchModNames, "TranslateWorkbenchModNames", false);
             Scribe_Values.Look(ref ShowWorldMainButton, "ShowWorldMainButton", true);

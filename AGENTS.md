@@ -4,5 +4,6 @@
 
 - `docs/designs/README.md`：当前产品设计基准、文档状态和覆盖关系。
 - `docs/standards/security-scope.md`：本地开源项目的安全边界和禁止过度安全设计规则。
+- `docs/standards/source-delivery.md`：两个远端均只交付源码、资源和文档，禁止提交 DLL 等编译产物。
 
 当前代码行为不自动等于产品设计。尚在讨论的方案不得提前实施；会改变功能、数据语义、性能或架构的安全措施也必须先获得明确确认。

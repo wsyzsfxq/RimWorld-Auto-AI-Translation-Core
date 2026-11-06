@@ -1727,8 +1727,14 @@ namespace AutoTranslator_Core
             }
             catch (Exception ex)
             {
+                string error = ex is WorkflowPartialFailureException partial
+                    ? partial.UserSummary
+                    : ex is AggregateException aggregate
+                        ? string.Join("；", aggregate.Flatten().InnerExceptions
+                            .Select(failure => failure.Message).Distinct())
+                        : ex.Message;
                 ATC_Dispatcher.RunOnMainThread(() =>
-                    AutoTranslatorSettings.AddErrorLog(displayName + ": " + ex.Message));
+                    AutoTranslatorSettings.AddErrorLog(displayName + ": " + error));
             }
         }
 

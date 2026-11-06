@@ -3,8 +3,7 @@ using AutoTranslator_Core.TargetedHardcodedUi;
 
 namespace AutoTranslator_Core
 {
-    // The two modes retain their own settings and data. Switching only changes
-    // which runtime handles UI text; it never migrates or removes translations.
+    // Switching preserves translations and preferences, but ends temporary capture.
     internal static class UIInterceptionModeController
     {
         private static bool _initialized;
@@ -24,18 +23,23 @@ namespace AutoTranslator_Core
             AutoTranslatorMod.Settings?.EnableHardcodedUiPrototype == true;
 
         // Called on the main thread, both after settings changes and at startup.
-        internal static void Refresh()
+        internal static void Refresh(bool? selectedMode = null)
         {
             if (_shuttingDown || AutoTranslatorMod.Settings == null) return;
-            bool selected = LegacySelected;
+            bool selected = selectedMode ?? LegacySelected;
             bool enabled = selected && AutoTranslatorMod.Settings.EnableLegacyUIInterceptor;
             if (_initialized && selected == _lastLegacySelected && enabled == _lastLegacyEnabled) return;
 
             bool modeChanged = !_initialized || selected != _lastLegacySelected;
             _legacyReady = false;
             if (_legacyInitialized) LegacyInterception.UIInterceptor.PrepareForLanguageChange();
-            HardcodedUiRuntime.SetSuspended(selected);
+            // Stop the current handlers and save capture evidence before selecting
+            // the next mode. Temporary capture must be started manually again.
+            HardcodedUiRuntime.SetSuspended(true);
+            if (selected != LegacySelected) AutoTranslatorMod.Settings.EnableUIInterceptor = false;
             HardcodedUiCaptureSession.NotifySettingsChanged(false);
+            AutoTranslatorMod.Settings.UseLegacyUIInterception = selected;
+            HardcodedUiRuntime.SetSuspended(selected);
             UIInterceptor.ResetProbeCaches();
 
             if (enabled)

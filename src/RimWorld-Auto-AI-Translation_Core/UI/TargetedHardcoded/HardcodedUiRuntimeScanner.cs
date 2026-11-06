@@ -21,6 +21,8 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
             new Dictionary<string, HardcodedUiDecisionRecord>(StringComparer.Ordinal);
         internal int AssemblyCount;
         internal int MethodCount;
+        internal int SkippedTypeCount;
+        internal int SkippedMethodCount;
     }
 
     internal static class HardcodedUiRuntimeScanner
@@ -106,7 +108,7 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
                         .Replace(Path.DirectorySeparatorChar, '/');
                     string assemblyHash = HardcodedUiMethodIdentity.ComputeFileSha256(location);
                     string mvid = assembly.ManifestModule.ModuleVersionId.ToString("D");
-                    List<Type> loadableTypes = GetLoadableTypes(assembly).ToList();
+                    List<Type> loadableTypes = GetLoadableTypes(assembly, relativePath, result);
                     int typeProgressInterval = Math.Max(1, loadableTypes.Count / 100);
                     AutoTranslatorSettings.AddDebugLog(
                         "dll.analysis runtime-start mod=" + mod.PackageId +
@@ -133,24 +135,35 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
                                 .Select(group => group.First())
                                 .ToList();
                         }
+                        catch (OperationCanceledException) { throw; }
                         catch (Exception ex)
                         {
-                            result.Diagnostics.Add(type.FullName + ": " + ex.Message);
+                            result.SkippedTypeCount++;
+                            result.Diagnostics.Add(relativePath + " / " + type.FullName + ": " + ex.Message);
                             methods = new List<MethodBase>();
                         }
 
                         foreach (MethodBase method in methods)
                         {
                             cancellationToken.ThrowIfCancellationRequested();
-                            if (method.IsAbstract || method.ContainsGenericParameters) continue;
-                            ScanMethod(
-                                method,
-                                mod.PackageId,
-                                relativePath,
-                                assemblyHash,
-                                mvid,
-                                result,
-                                cancellationToken);
+                            try
+                            {
+                                if (method.IsAbstract || method.ContainsGenericParameters) continue;
+                                // Signatures, method bodies and decoded call operands can
+                                // all force the CLR to resolve an optional Mod dependency.
+                                ScanMethod(
+                                    method,
+                                    mod.PackageId,
+                                    relativePath,
+                                    assemblyHash,
+                                    mvid,
+                                    result,
+                                    cancellationToken);
+                            }
+                            catch (Exception ex) when (IsReflectionLoadFailure(ex))
+                            {
+                                RecordSkippedMethod(result, relativePath, method, ex.Message);
+                            }
                         }
                         int completedTypes = typeIndex + 1;
                         if (completedTypes == loadableTypes.Count ||
@@ -192,6 +205,25 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
             }
 
             cancellationToken.ThrowIfCancellationRequested();
+            if (result.SkippedTypeCount > 0 || result.SkippedMethodCount > 0)
+            {
+                string details = string.Join("; ", result.Diagnostics.Take(3));
+                if (result.MethodCount == 0)
+                    throw new InvalidOperationException(
+                        AutoTranslatorMod.WfText(
+                            "DLL 方法均未能读取，不会保存空白分析结果：",
+                            "No DLL methods could be read; an empty analysis result will not be saved: ") +
+                        details);
+                AutoTranslatorSettings.AddWarningLog(
+                    (mod.Name ?? mod.PackageId) + AutoTranslatorMod.WfText(
+                        " / DLL：已跳过无法读取的类型 ",
+                        " / DLL: skipped unreadable types ") + result.SkippedTypeCount +
+                    AutoTranslatorMod.WfText("、方法 ", "; methods ") + result.SkippedMethodCount +
+                    AutoTranslatorMod.WfText(
+                        "。继续分析可读取部分，结果可能不完整。详情：",
+                        ". Analysis will continue for readable parts; results may be incomplete. Details: ") +
+                    details);
+            }
             result.Entries.Sort((left, right) => string.Compare(left.EntryId, right.EntryId, StringComparison.Ordinal));
             Dictionary<string, HardcodedUiDecisionRecord> baselineDecisions;
             try
@@ -334,27 +366,26 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (method.GetMethodBody() == null) return;
             string signature = HardcodedUiMethodIdentity.GetMethodSignature(method);
             string fingerprint = HardcodedUiMethodIdentity.ComputeMethodIlFingerprint(method);
             if (string.IsNullOrWhiteSpace(fingerprint))
             {
-                result.Diagnostics.Add("IL fingerprint failed: " + signature);
+                RecordSkippedMethod(result, relativePath, method, "IL fingerprint failed: " + signature);
                 return;
             }
 
             List<KeyValuePair<OpCode, object>> instructions;
             try
             {
-                if (method.GetMethodBody() == null) return;
                 instructions = PatchProcessor.ReadMethodBody(method).ToList();
             }
+            catch (OperationCanceledException) { throw; }
             catch (Exception ex)
             {
-                result.Diagnostics.Add("IL read failed: " +
-                    (method.DeclaringType?.FullName ?? "<unknown>") + "." + method.Name + ": " + ex.Message);
+                RecordSkippedMethod(result, relativePath, method, "IL read failed: " + ex.Message);
                 return;
             }
-            result.MethodCount++;
 
             bool methodHasPlayerFacingSink = false;
             for (int instructionIndex = 0; instructionIndex < instructions.Count; instructionIndex++)
@@ -370,6 +401,9 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
                 }
             }
 
+            // Publish only after the whole method has been read. A late type-load
+            // failure must not leave half of this method's candidates behind.
+            var methodEntries = new List<HardcodedUiPatchEntry>();
             int literalOrdinal = -1;
             for (int index = 0; index < instructions.Count; index++)
             {
@@ -387,7 +421,7 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
                         ? "ui_method_literal"
                         : "review_string_literal";
 
-                result.Entries.Add(new HardcodedUiPatchEntry
+                methodEntries.Add(new HardcodedUiPatchEntry
                 {
                     EntryId = HardcodedUiMethodIdentity.CreateEntryId(
                         packageId, relativePath, signature, literalOrdinal, literal),
@@ -409,6 +443,9 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
                     DiscoveryKind = discoveryKind
                 });
             }
+            cancellationToken.ThrowIfCancellationRequested();
+            result.Entries.AddRange(methodEntries);
+            result.MethodCount++;
         }
 
         private static MethodBase FindImmediateSupportedCall(
@@ -521,11 +558,46 @@ namespace AutoTranslator_Core.TargetedHardcodedUi
             catch { return string.Empty; }
         }
 
-        private static IEnumerable<Type> GetLoadableTypes(Assembly assembly)
+        private static void RecordSkippedMethod(
+            HardcodedUiScanResult result, string relativePath, MethodBase method, string reason)
         {
-            try { return assembly.GetTypes(); }
-            catch (ReflectionTypeLoadException ex) { return ex.Types.Where(type => type != null); }
-            catch { return Enumerable.Empty<Type>(); }
+            result.SkippedMethodCount++;
+            // Do not format the signature here: reading parameters/return types
+            // may be the operation that failed in the first place.
+            result.Diagnostics.Add(relativePath + " / " +
+                (method.DeclaringType?.FullName ?? "<unknown>") + "." + method.Name + ": " + reason);
+        }
+
+        private static bool IsReflectionLoadFailure(Exception exception)
+        {
+            return exception is TypeLoadException || exception is ReflectionTypeLoadException ||
+                   exception is FileNotFoundException || exception is FileLoadException ||
+                   exception is BadImageFormatException || exception is MissingMemberException;
+        }
+
+        private static List<Type> GetLoadableTypes(
+            Assembly assembly, string relativePath, HardcodedUiScanResult result)
+        {
+            try { return assembly.GetTypes().ToList(); }
+            catch (ReflectionTypeLoadException ex)
+            {
+                List<Type> types = (ex.Types ?? new Type[0]).Where(type => type != null).ToList();
+                string[] errors = (ex.LoaderExceptions ?? new Exception[0])
+                    .Where(error => error != null)
+                    .Select(error => error.Message)
+                    .Distinct(StringComparer.Ordinal)
+                    .ToArray();
+                string details = errors.Length == 0 ? ex.Message : string.Join("; ", errors);
+                if (types.Count == 0)
+                    throw new InvalidOperationException(
+                        relativePath + ": " + AutoTranslatorMod.WfText(
+                            "DLL 类型均无法读取，不会保存空白分析结果：",
+                            "No DLL types could be read; an empty analysis result will not be saved: ") +
+                        details, ex);
+                result.SkippedTypeCount += Math.Max(1, (ex.Types?.Length ?? 0) - types.Count);
+                result.Diagnostics.Add(relativePath + ": " + details);
+                return types;
+            }
         }
 
     }

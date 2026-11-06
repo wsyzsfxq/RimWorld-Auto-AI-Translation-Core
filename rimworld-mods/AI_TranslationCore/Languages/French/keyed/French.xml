@@ -403,7 +403,7 @@
   <ATC_Cloud_Status_Outdated>🟡 Version de traduction incertaine</ATC_Cloud_Status_Outdated>
   <ATC_Cloud_Status_NoCloud>🔘 Le cloud est actuellement vide</ATC_Cloud_Status_NoCloud>
   <ATC_Cloud_Status_Latest>🔵 La version correspond parfaitement</ATC_Cloud_Status_Latest>
-  <ATC_Cloud_Btn_Download>☁️ Parachuter en jeu</ATC_Cloud_Btn_Download>
+  <ATC_Cloud_Btn_Download>Parachuter en jeu</ATC_Cloud_Btn_Download>
   <ATC_Cloud_Btn_Upload>⬆️ Partager une traduction</ATC_Cloud_Btn_Upload>
   <ATC_Cloud_Btn_Uploading>⏳ Empaquetage et transmission sécurisée...</ATC_Cloud_Btn_Uploading>
   <ATC_Cloud_LastUpdate>Date de mise à jour</ATC_Cloud_LastUpdate>

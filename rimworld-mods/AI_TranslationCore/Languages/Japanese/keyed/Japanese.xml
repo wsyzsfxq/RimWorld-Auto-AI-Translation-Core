@@ -426,7 +426,7 @@
   <ATC_Cloud_Status_Outdated>🟡 翻訳が期限切れの可能性あり</ATC_Cloud_Status_Outdated>
   <ATC_Cloud_Status_NoCloud>🔘 翻訳がまだありません</ATC_Cloud_Status_NoCloud>
   <ATC_Cloud_Status_Latest>🔵 最新版です</ATC_Cloud_Status_Latest>
-  <ATC_Cloud_Btn_Download>☁️ ワンクリックエアドロップ</ATC_Cloud_Btn_Download>
+  <ATC_Cloud_Btn_Download>ワンクリックエアドロップ</ATC_Cloud_Btn_Download>
   <ATC_Cloud_Btn_Upload>⬆️ 翻訳を貢献する</ATC_Cloud_Btn_Upload>
   <ATC_Cloud_Btn_Uploading>⏳ パッケージアップロード中...</ATC_Cloud_Btn_Uploading>
   <ATC_Cloud_LastUpdate>最終更新</ATC_Cloud_LastUpdate>
